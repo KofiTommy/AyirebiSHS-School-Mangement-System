@@ -1,0 +1,314 @@
+<?php
+session_start();
+include("dbstring.php");
+include("check-login.php");
+include("class-teacher-utils.php");
+include("duty-roster-utils.php");
+ensure_class_teacher_table($con);
+ensure_duty_roster_tables($con);
+if(!(isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==="user" && $_SESSION['SYSTEMTYPE']==="Teacher")){
+    header("location:".class_teacher_landing_page());
+    exit();
+}
+function td_esc($v){ return htmlspecialchars((string)$v, ENT_QUOTES, "UTF-8"); }
+function td_alert($type,$message){
+    $class="teacher-inline-alert teacher-inline-alert--info";
+    if($type==="success"){$class="teacher-inline-alert teacher-inline-alert--success";}
+    elseif($type==="error"){$class="teacher-inline-alert teacher-inline-alert--error";}
+    elseif($type==="warning"){$class="teacher-inline-alert teacher-inline-alert--warning";}
+    return "<div class=\"$class\">".td_esc($message)."</div>";
+}
+function td_term($term){ $term=trim((string)$term); return $term==="" ? "Semester" : "Semester ".$term; }
+function td_date($value){ $time=strtotime((string)$value); return $time ? date("d M Y, H:i",$time) : (string)$value; }
+$teacherId = isset($_SESSION['USERID']) ? (string)$_SESSION['USERID'] : "";
+$teacherIdEsc = mysqli_real_escape_string($con, $teacherId);
+
+if(isset($_POST['send_message'])){
+    $message = trim((string)(isset($_POST['message']) ? $_POST['message'] : ""));
+    if($message === ""){
+        $_SESSION['Message'] = td_alert("warning","Please type a message before sending.");
+    } else {
+        include("code.php");
+        $messageId = mysqli_real_escape_string($con, (string)$code);
+        $messageEsc = mysqli_real_escape_string($con, $message);
+        $_SQL = mysqli_query($con,"INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby)
+            VALUES('$messageId','$messageEsc',NOW(),'active','$teacherIdEsc')");
+        $_SESSION['Message'] = $_SQL ? td_alert("success","Message successfully submitted.") : td_alert("error","Message failed to submit.");
+    }
+    header("location:teacher-page.php#teacher-messages");
+    exit();
+}
+if(isset($_POST["delete_message"])){
+    $messageId = trim((string)(isset($_POST["messageid"]) ? $_POST["messageid"] : ""));
+    if($messageId !== ""){
+        $messageIdEsc = mysqli_real_escape_string($con, $messageId);
+        $_SQL_D = mysqli_query($con,"DELETE FROM tblmessages WHERE messageid='$messageIdEsc' AND sentby='$teacherIdEsc' LIMIT 1");
+        $_SESSION['Message'] = ($_SQL_D && mysqli_affected_rows($con)>0) ? td_alert("success","Message successfully deleted.") : td_alert("error","Message could not be deleted.");
+    }
+    header("location:teacher-page.php#teacher-messages");
+    exit();
+}
+
+$flashMessage = isset($_SESSION['Message']) ? $_SESSION['Message'] : "";
+$_SESSION['Message'] = "";
+$teacherName = isset($_SESSION['FULLNAME']) ? trim((string)$_SESSION['FULLNAME']) : "";
+$teacherShortName = $teacherName !== "" ? explode(" ", $teacherName)[0] : "Teacher";
+$teacherBranch = "";
+$teacherFilename = "";
+$teacherProfileRes = mysqli_query($con,"SELECT su.firstname,su.surname,su.othernames,su.filename,br.location
+    FROM tblsystemuser su LEFT JOIN tblbranch br ON su.branchid=br.branchid
+    WHERE su.userid='$teacherIdEsc' LIMIT 1");
+if($teacherProfileRes && $row=mysqli_fetch_array($teacherProfileRes,MYSQLI_ASSOC)){
+    $full = trim($row['firstname']." ".$row['othernames']." ".$row['surname']);
+    if($full !== ""){ $teacherName = $full; $teacherShortName = explode(" ", $full)[0]; }
+    $teacherBranch = trim((string)$row['location']);
+    $teacherFilename = trim((string)$row['filename']);
+}
+$teacherImage = "uploads/comm.gif";
+if($teacherFilename !== "" && file_exists(__DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR.$teacherFilename)){
+    $teacherImage = "uploads/".rawurlencode($teacherFilename);
+}
+$dutyDashboard = duty_roster_get_teacher_dashboard_context($con, $teacherId);
+
+$classTeacherRoles = array();
+$classTeacherLookup = array();
+$classTeacherRes = mysqli_query($con,"SELECT ct.classid,ct.batchid,ct.termname,ce.class_name,bh.batch
+    FROM tblclassteacher ct
+    INNER JOIN tblclassentry ce ON ce.class_entryid=ct.classid
+    INNER JOIN tblbatch bh ON bh.batchid=ct.batchid
+    WHERE ct.userid='$teacherIdEsc' AND ct.status='active'
+    ORDER BY ct.datetimeentry DESC,ct.termname DESC,ce.class_name ASC");
+if($classTeacherRes){
+    while($row=mysqli_fetch_array($classTeacherRes,MYSQLI_ASSOC)){
+        $key = $row["batchid"]."|".$row["classid"]."|".$row["termname"];
+        $classTeacherLookup[$key] = true;
+        $classTeacherRoles[] = $row;
+    }
+}
+
+$assignmentGroups = array();
+$assignedSubjectCount = 0;
+$activeBatchIds = array();
+$assignmentRes = mysqli_query($con,"SELECT sa.classid,sa.batchid,sa.termname,ce.class_name,bh.batch,sub.subject
+    FROM tblsubjectassignment sa
+    INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
+    INNER JOIN tblsubject sub ON sub.subjectid=sc.subjectid
+    INNER JOIN tblclassentry ce ON ce.class_entryid=sa.classid
+    INNER JOIN tblbatch bh ON bh.batchid=sa.batchid
+    WHERE sa.userid='$teacherIdEsc' AND sa.status='active' AND bh.status='active'
+    ORDER BY bh.datetimeentry DESC,sa.termname DESC,ce.class_name ASC,sub.subject ASC");
+if($assignmentRes){
+    while($row=mysqli_fetch_array($assignmentRes,MYSQLI_ASSOC)){
+        $assignedSubjectCount++;
+        $activeBatchIds[$row["batchid"]] = true;
+        $key = $row["batchid"]."|".$row["classid"]."|".$row["termname"];
+        if(!isset($assignmentGroups[$key])){
+            $assignmentGroups[$key] = array(
+                "class_name"=>$row["class_name"],
+                "batch"=>$row["batch"],
+                "termname"=>$row["termname"],
+                "subjects"=>array(),
+                "is_class_teacher"=>isset($classTeacherLookup[$key])
+            );
+        }
+        $assignmentGroups[$key]["subjects"][] = $row["subject"];
+    }
+}
+$teachingGroups = array_values($assignmentGroups);
+$teachingGroupCount = count($teachingGroups);
+$classTeacherRoleCount = count($classTeacherRoles);
+$activeBatchCount = count($activeBatchIds);
+$myMessageCount = 0;
+$countRes = mysqli_query($con,"SELECT COUNT(*) AS total_messages FROM tblmessages WHERE sentby='$teacherIdEsc' AND status='active'");
+if($countRes && $countRow=mysqli_fetch_array($countRes,MYSQLI_ASSOC)){ $myMessageCount = (int)$countRow["total_messages"]; }
+$myMessages = array();
+$myMessagesRes = mysqli_query($con,"SELECT messageid,messages,datetimeentry FROM tblmessages
+    WHERE sentby='$teacherIdEsc' AND status='active' ORDER BY datetimeentry DESC LIMIT 6");
+if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){ $myMessages[] = $row; } }
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<?php include("links.php"); ?>
+<link rel="stylesheet" type="text/css" href="css/teacher-dashboard.css">
+</head>
+<body class="teacher-dashboard-page">
+<div class="header"><?php include("menu.php"); ?></div>
+<main class="teacher-shell">
+<?php if($flashMessage !== ""){ ?><div class="teacher-flash"><?php echo $flashMessage; ?></div><?php } ?>
+
+<section class="teacher-hero">
+    <div class="teacher-hero__copy">
+        <span class="teacher-kicker">Teacher Workspace</span>
+        <h1>Welcome back, <?php echo td_esc($teacherShortName); ?>.</h1>
+        <p>Use one cleaner workspace for teaching load, score entry, class-teacher duties, report tools, and communication.</p>
+        <div class="teacher-stat-grid">
+            <article class="teacher-stat-card"><span>Assigned Subjects</span><strong><?php echo (int)$assignedSubjectCount; ?></strong></article>
+            <article class="teacher-stat-card"><span>Teaching Groups</span><strong><?php echo (int)$teachingGroupCount; ?></strong></article>
+            <article class="teacher-stat-card"><span>Class Teacher Roles</span><strong><?php echo (int)$classTeacherRoleCount; ?></strong></article>
+            <article class="teacher-stat-card"><span>My Messages</span><strong><?php echo (int)$myMessageCount; ?></strong></article>
+        </div>
+    </div>
+    <aside class="teacher-profile-card">
+        <div class="teacher-profile-card__top">
+            <img src="<?php echo td_esc($teacherImage); ?>" alt="<?php echo td_esc($teacherName !== "" ? $teacherName : $_SESSION['USERNAME']); ?>">
+            <div>
+                <span class="teacher-profile-card__eyebrow">Profile</span>
+                <h2><?php echo td_esc($teacherName !== "" ? $teacherName : $_SESSION['USERNAME']); ?></h2>
+                <p>Teacher<?php echo ($teacherBranch !== "" ? " | ".td_esc($teacherBranch) : ""); ?></p>
+            </div>
+        </div>
+        <div class="teacher-profile-meta">
+            <div class="teacher-profile-meta__item"><span>Branch</span><strong><?php echo td_esc($teacherBranch !== "" ? $teacherBranch : "Not Set"); ?></strong></div>
+            <div class="teacher-profile-meta__item"><span>Active Batches</span><strong><?php echo (int)$activeBatchCount; ?></strong></div>
+            <div class="teacher-profile-meta__item"><span>Image Status</span><strong><?php echo td_esc($teacherFilename !== "" ? "Uploaded" : "Not Uploaded"); ?></strong></div>
+        </div>
+        <div class="teacher-profile-actions">
+            <a class="teacher-secondary-link" href="uploaduser-image.php"><i class="fa fa-arrow-circle-up"></i> Upload Image</a>
+            <a class="teacher-secondary-link" href="edit-account.php"><i class="fa fa-user"></i> Edit Profile</a>
+            <a class="teacher-secondary-link" href="change-password.php"><i class="fa fa-key"></i> Change Password</a>
+        </div>
+    </aside>
+</section>
+
+<section class="teacher-section">
+    <div class="teacher-section__heading">
+        <div><span class="teacher-section__eyebrow">Quick Actions</span><h2>Move straight into today's work</h2></div>
+    </div>
+    <div class="teacher-quick-grid">
+        <a class="teacher-action-card" href="view-teacher-subject.php"><span class="teacher-action-card__icon"><i class="fa fa-search"></i></span><h3>Assigned Subjects</h3><p>Review the subjects, classes, batches, and semesters attached to your account.</p></a>
+        <a class="teacher-action-card" href="class-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-pencil"></i></span><h3>Class Score Entry</h3><p>Capture continuous assessment scores quickly for your assigned workload.</p></a>
+        <a class="teacher-action-card" href="exam-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-edit"></i></span><h3>Exam Score Entry</h3><p>Enter end-of-semester exam scores without jumping through menus.</p></a>
+        <a class="teacher-action-card" href="upload-classexam-score.php"><span class="teacher-action-card__icon"><i class="fa fa-upload"></i></span><h3>Upload Scores</h3><p>Upload combined class and exam scores from prepared templates.</p></a>
+        <a class="teacher-action-card" href="student-terminal-data.php"><span class="teacher-action-card__icon"><i class="fa fa-commenting"></i></span><h3>Student Remarks</h3><p>Enter or update terminal remarks and supporting report details.</p></a>
+        <a class="teacher-action-card" href="terminal-report.php"><span class="teacher-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Reports</h3><p>Open report tools for checking, reviewing, and printing reports.</p></a>
+        <a class="teacher-action-card" href="scores-report.php"><span class="teacher-action-card__icon"><i class="fa fa-line-chart"></i></span><h3>Scores Report</h3><p>Check reporting summaries and score outputs for your classes.</p></a>
+        <a class="teacher-action-card" href="messages.php"><span class="teacher-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board</h3><p>Open the wider message board when you need more than the dashboard preview.</p></a>
+    </div>
+</section>
+
+<div class="teacher-layout">
+    <section class="teacher-panel teacher-panel--wide">
+        <div class="teacher-panel__header">
+            <div><span class="teacher-panel__eyebrow">Teaching Load</span><h2>Assigned subjects and classes</h2></div>
+            <a class="teacher-panel__link" href="view-teacher-subject.php">View Full Subject List</a>
+        </div>
+        <?php if(count($teachingGroups) > 0){ ?>
+        <div class="teacher-load-grid">
+            <?php foreach($teachingGroups as $group){ ?>
+            <article class="teacher-load-card">
+                <div class="teacher-load-card__head">
+                    <div>
+                        <h3><?php echo td_esc($group["class_name"]); ?></h3>
+                        <p><?php echo td_esc($group["batch"]); ?> | <?php echo td_esc(td_term($group["termname"])); ?></p>
+                    </div>
+                    <div class="teacher-load-card__badges">
+                        <span class="teacher-pill"><?php echo count($group["subjects"]); ?> Subject<?php echo (count($group["subjects"])===1?"":"s"); ?></span>
+                        <?php if($group["is_class_teacher"]){ ?><span class="teacher-pill teacher-pill--accent">Class Teacher</span><?php } ?>
+                    </div>
+                </div>
+                <div class="teacher-chip-row"><?php foreach($group["subjects"] as $subject){ ?><span class="teacher-chip"><?php echo td_esc($subject); ?></span><?php } ?></div>
+            </article>
+            <?php } ?>
+        </div>
+        <?php } else { ?>
+        <div class="teacher-empty-state"><h3>No subject assignments yet</h3><p>Your assigned classes and subjects will appear here once they have been linked to your account.</p></div>
+        <?php } ?>
+    </section>
+
+    <div class="teacher-panel-stack">
+        <section class="teacher-panel">
+            <div class="teacher-panel__header">
+                <div><span class="teacher-panel__eyebrow">Duty Roster</span><h2>Duty reminders on your dashboard</h2></div>
+            </div>
+            <?php if(count($dutyDashboard["cards"]) > 0){ ?>
+            <div class="teacher-duty-grid">
+                <?php foreach($dutyDashboard["cards"] as $card){ ?>
+                <article class="teacher-duty-card teacher-duty-card--<?php echo td_esc($card["tone"]); ?>">
+                    <div class="teacher-duty-card__top">
+                        <span class="teacher-duty-label"><?php echo td_esc($card["label"]); ?></span>
+                        <span class="teacher-duty-period"><?php echo td_esc($card["period"]); ?></span>
+                    </div>
+                    <h3><?php echo td_esc($card["title"]); ?></h3>
+                    <p><?php echo td_esc($card["location"] !== "" ? $card["location"] : "Location will be confirmed by admin."); ?></p>
+                    <?php if($card["note"] !== ""){ ?><small><?php echo td_esc($card["note"]); ?></small><?php } ?>
+                </article>
+                <?php } ?>
+            </div>
+            <?php } else { ?>
+            <div class="teacher-empty-state teacher-empty-state--compact"><p>No duty roster has been assigned to you yet. When admin adds one, it will appear here automatically.</p></div>
+            <?php } ?>
+        </section>
+
+        <section class="teacher-panel">
+            <div class="teacher-panel__header">
+                <div><span class="teacher-panel__eyebrow">Class Teacher</span><h2>My class-teacher duties</h2></div>
+            </div>
+            <?php if($classTeacherRoleCount > 0){ ?>
+            <div class="teacher-role-list">
+                <?php foreach($classTeacherRoles as $role){ ?>
+                <article class="teacher-role-card">
+                    <h3><?php echo td_esc($role["class_name"]); ?></h3>
+                    <p><?php echo td_esc($role["batch"]); ?></p>
+                    <span><?php echo td_esc(td_term($role["termname"])); ?></span>
+                </article>
+                <?php } ?>
+            </div>
+            <?php } else { ?>
+            <div class="teacher-empty-state teacher-empty-state--compact"><p>You do not currently have any active class-teacher assignment.</p></div>
+            <?php } ?>
+        </section>
+
+        <section class="teacher-panel">
+            <div class="teacher-panel__header">
+                <div><span class="teacher-panel__eyebrow">Resources</span><h2>Downloads and links</h2></div>
+            </div>
+            <div class="teacher-resource-list">
+                <a class="teacher-resource-link" href="download-classscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Class Score Template</strong><small>Download the ready-made upload sheet for class scores.</small></span></a>
+                <a class="teacher-resource-link" href="download-examscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Exam Score Template</strong><small>Get the upload template for exam score entries.</small></span></a>
+                <a class="teacher-resource-link" href="download-classexamscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Class & Exam Template</strong><small>Use one combined spreadsheet for class and exam scores.</small></span></a>
+                <a class="teacher-resource-link" href="examinationtimetablereport.php"><span class="teacher-resource-link__icon"><i class="fa fa-calendar"></i></span><span class="teacher-resource-link__body"><strong>Exam Timetable Report</strong><small>Open the timetable report when you need the current exam schedule.</small></span></a>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="teacher-layout teacher-layout--messages">
+    <section class="teacher-panel" id="teacher-messages">
+        <div class="teacher-panel__header">
+            <div><span class="teacher-panel__eyebrow">Message Center</span><h2>Send and manage your messages</h2></div>
+            <a class="teacher-panel__link" href="messages.php">Open Full Message Board</a>
+        </div>
+        <form method="post" action="teacher-page.php#teacher-messages" class="teacher-message-form">
+            <label for="message">Write a message</label>
+            <textarea id="message" name="message" placeholder="Share an update, request support, or leave a note for the school team." required></textarea>
+            <div class="teacher-message-form__actions">
+                <span>Messages posted here will appear in the wider school feed.</span>
+                <button class="teacher-primary-btn" type="submit" name="send_message"><i class="fa fa-send"></i> Send Message</button>
+            </div>
+        </form>
+
+        <div class="teacher-message-list">
+            <?php if(count($myMessages) > 0){ ?>
+                <?php foreach($myMessages as $message){ ?>
+                <article class="teacher-message-card">
+                    <div class="teacher-message-card__meta">
+                        <span><?php echo td_esc(td_date($message["datetimeentry"])); ?></span>
+                        <form method="post" action="teacher-page.php#teacher-messages">
+                            <input type="hidden" name="messageid" value="<?php echo td_esc((string)$message["messageid"]); ?>">
+                            <button type="submit" name="delete_message" class="teacher-message-delete" onclick="return confirm('Delete this message?');"><i class="fa fa-trash"></i> Delete</button>
+                        </form>
+                    </div>
+                    <p><?php echo nl2br(td_esc($message["messages"])); ?></p>
+                </article>
+                <?php } ?>
+            <?php } else { ?>
+            <div class="teacher-empty-state teacher-empty-state--compact"><p>You have not posted any message yet.</p></div>
+            <?php } ?>
+        </div>
+    </section>
+
+</div>
+</main>
+</body>
+</html>

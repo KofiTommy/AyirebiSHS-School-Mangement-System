@@ -1,0 +1,360 @@
+<?php
+include("check-login.php");
+$_ShowHouseMasterLinks = false;
+$_ShowSeniorHouseLinks = false;
+$_HomeLink = "index.php";
+if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+   $_SESSION['ACCESSLEVEL'] === "user" &&
+   $_SESSION['SYSTEMTYPE'] === "Teacher"){
+    include_once("house-master-utils.php");
+    ensure_house_tables($con);
+    $_ShowHouseMasterLinks = house_master_has_assignment($con, $_SESSION['USERID']);
+    $_ShowSeniorHouseLinks = house_master_has_senior_assignment($con, $_SESSION['USERID']);
+    $_HouseMasterDashboardLabel = house_master_dashboard_label($con, $_SESSION['USERID']);
+}
+if(!isset($_HouseMasterDashboardLabel)){
+    $_HouseMasterDashboardLabel = "House Master Dashboard";
+}
+$_ShowExeatManagerLinks = $_ShowHouseMasterLinks || $_ShowSeniorHouseLinks;
+if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE'])){
+    if($_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "User"){
+        $_HomeLink = "user.php";
+    }
+    elseif($_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "Teacher"){
+        $_HomeLink = "teacher-page.php";
+    }
+    elseif($_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "Student"){
+        $_HomeLink = "student-page.php";
+    }
+    elseif($_SESSION['ACCESSLEVEL'] === "administrator" && $_SESSION['SYSTEMTYPE'] === "normal_user"){
+        $_HomeLink = "admin.php";
+    }
+    elseif($_SESSION['ACCESSLEVEL'] === "administrator" && $_SESSION['SYSTEMTYPE'] === "super_user"){
+        $_HomeLink = "super.php";
+    }
+}
+?>
+<html>
+
+<style>
+
+button{
+	background-color: transparent;
+	border:0px solid gray;
+	padding: 10px;
+	cursor: pointer;
+    font-size: 10px;
+    font-family: sans-serif;
+
+}
+.top-action-link,
+.dropbtnNew {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid #d6dde6;
+    border-radius: 8px;
+    background-color: #ffffff;
+    color: #222;
+    font-size: 14px;
+    line-height: 1.2;
+    text-decoration: none;
+    cursor: pointer;
+    touch-action: manipulation;
+    box-sizing: border-box;
+    white-space: nowrap;
+}
+
+.top-action-link:hover,
+.dropbtnNew:hover,
+.dropbtnNew:focus,
+.dropdownNew.is-open .dropbtnNew {
+    background-color: #f5f7fa;
+}
+
+.top-action-link i,
+.dropbtnNew i {
+    font-size: 16px;
+}
+
+.logout-link i {
+    color: red;
+}
+
+.dropdownNew {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    flex: 0 0 auto;
+    z-index: 2000;
+}
+
+.dropdownNew .dropbtnNew {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    min-height: 44px;
+}
+
+.dropdownNew-content {
+    display: none;
+    position: absolute;
+    top: 100%;
+    background-color: #f9f9f9;
+    min-width: 220px;
+    max-width: min(90vw, 320px);
+    border: 1px solid #d6dde6;
+    border-radius: 10px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.3);
+    right: 0;
+    z-index: 3000;
+    padding-top: 6px;
+
+}
+
+.dropdownNew-content a {
+    color: black;
+    padding: 0;
+    text-decoration: none;
+    display: block;
+
+}
+
+.dropdownNew-content a:hover {
+    background-color: #f1f5f9;
+}
+
+.dropdownNew-content button {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 13px;
+    text-align: left;
+    pointer-events: none;
+}
+
+.dropdownNew.is-open .dropdownNew-content {
+    display: block;
+}
+
+@media (hover:hover) {
+    .dropdownNew:hover .dropdownNew-content {
+        display: block;
+    }
+
+    .dropdownNew:hover .dropbtnNew {
+        background-color: #f5f7fa;
+    }
+}
+</style>
+<style type="text/css">
+.top-actions {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width:640px) {
+  .top-actions {
+    justify-content: flex-start;
+  }
+
+  .top-action-link,
+  .dropbtnNew,
+  .dropdownNew {
+    flex: 1 1 auto;
+  }
+
+  .dropdownNew-content {
+    left: 0;
+    right: 0;
+    min-width: 100%;
+    max-width: none;
+  }
+}
+</style>
+</head>
+<body>
+	<div style="padding:2px;" align="right" class="top-actions">
+
+    <a class="top-action-link" href="<?php echo $_HomeLink; ?>" title="Click To Home Page">
+      <i class="fa fa-home"></i> Home
+    </a>
+    <a class="top-action-link logout-link" href="logout.php" title="Click To Log Out">
+      <i class="fa fa-power-off"></i> Logout
+    </a>
+	<div class="dropdownNew" data-menu-dropdown>
+  <button type="button" class="dropbtnNew" aria-expanded="false" aria-haspopup="true" aria-controls="account-actions-menu">
+    <i class="fa fa-bars"></i> Menu
+  </button>
+  <div class="dropdownNew-content" id="account-actions-menu">
+  
+    <?php
+//include("check-login.php");
+//session_start();
+if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User")
+{
+  ?>
+<div id="admin" align="left" style="margin-top:5px;">
+<a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
+<a href="viewusers.php"><button><i class="fa fa-user" style="color:royalblue"></i> View Teachers</button></a>
+<a href="viewstudents.php"><button><i class="fa fa-user" style="color:royalblue"></i> View Students</button></a>
+<a href="register-student.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Student</button></a>
+<a href="register-teacher.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Teacher</button></a>
+
+<a href="upload-register.php"><button><i class="fa fa-upload" style="color:blue"></i> Upload Registers</button></a>
+<a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
+</div>
+<?php
+}
+elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher"){
+ ?>
+<div id="admin" align="left" style="margin-top:5px;">
+<a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
+<?php
+if($_ShowHouseMasterLinks){
+?>
+<a href="house-master-dashboard.php"><button><i class="fa fa-home" style="color:teal"></i> <?php echo htmlspecialchars($_HouseMasterDashboardLabel, ENT_QUOTES, "UTF-8"); ?></button></a>
+<?php
+}
+if($_ShowExeatManagerLinks){
+?>
+<a href="house-master-exeat.php"><button><i class="fa fa-check" style="color:teal"></i> House Exeat Management</button></a>
+<?php
+}
+if($_ShowSeniorHouseLinks){
+?>
+<a href="senior-house-dashboard.php"><button><i class="fa fa-dashboard" style="color:teal"></i> Senior House Dashboard</button></a>
+<?php
+}
+?>
+<a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
+</div>
+<?php
+}
+
+elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
+ ?>
+<div id="admin" align="left" style="margin-top:5px;">
+<a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
+<a href="student-exeat-request.php"><button><i class="fa fa-file" style="color:teal"></i> Request Exeat</button></a>
+<a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
+</div>
+<?php
+}
+
+elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="normal_user"){
+ ?>
+<div id="admin" align="left" style="margin-top:5px;">
+<a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
+<a href="blocked-users.php"><button><i class="fa fa-lock" style="color:royalblue"></i> Blocked Users</button></a>
+<a href="register.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register User</button></a>
+<a href="register-student.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Student</button></a>
+<a href="register-teacher.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Teacher</button></a>
+<a href="class-teacher-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> Class Teacher Assignment</button></a>
+<a href="duty-roster.php"><button><i class="fa fa-calendar-check-o" style="color:#0f766e"></i> Duty Roster</button></a>
+<a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
+<a href="house-entry.php"><button><i class="fa fa-home" style="color:teal"></i> House Entry</button></a>
+<a href="house-master-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> House Master Assignment</button></a>
+<a href="student-house-assignment.php"><button><i class="fa fa-users" style="color:teal"></i> Student House Assignment</button></a>
+<a href="senior-house-assignment.php"><button><i class="fa fa-star" style="color:teal"></i> Senior House Assignment</button></a>
+<a href="senior-house-dashboard.php"><button><i class="fa fa-dashboard" style="color:teal"></i> Senior House Dashboard</button></a>
+
+
+<a href="upload-register.php"><button><i class="fa fa-upload" style="color:blue"></i> Upload Registers</button></a>
+<a href="waec-analysis.php"><button><i class="fa fa-line-chart" style="color:teal"></i> WAEC Analysis</button></a>
+
+<a href="listusers.php"><button><i class="fa fa-user" style="color:royalblue"></i> View Users</button></a>
+<a href="viewusers.php"><button><i class="fa fa-user" style="color:royalblue"></i> View Teachers</button></a>
+<a href="viewstudents.php"><button><i class="fa fa-user" style="color:royalblue"></i> View Students</button></a>
+<a href="admin-password-reset.php"><button><i class="fa fa-key" style="color:#b45309"></i> Reset Password</button></a>
+<?php
+echo "<a  onclick=\"javascript:return confirm('Do you want to clear database?');\" href='global_deletes.php'><button><i class='fa fa-book' style='color:green'></i> Empty Data </button></a>";
+?>
+
+<!--<a href="backup_db.php"><button class="btn-menu"><i class="fa fa-book" style="color:royalblue"></i> Backup </button></a>-->
+<a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
+</div>
+<?php
+}
+elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="super_user"){
+ ?>
+<div id="admin" align="left" style="margin-top:5px;">
+<a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
+<a href="blocked-users.php"><button><i class="fa fa-lock" style="color:royalblue"></i> Blocked Users</button></a>
+<a href="register-super.php"><button ><i class="fa fa-user" style="color:maroon"></i> Register</button></a>
+<a href="register-student.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Student</button></a>
+<a href="register-teacher.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Teacher</button></a>
+<a href="class-teacher-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> Class Teacher Assignment</button></a>
+<a href="duty-roster.php"><button><i class="fa fa-calendar-check-o" style="color:#0f766e"></i> Duty Roster</button></a>
+<a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
+<a href="house-entry.php"><button><i class="fa fa-home" style="color:teal"></i> House Entry</button></a>
+<a href="house-master-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> House Master Assignment</button></a>
+<a href="student-house-assignment.php"><button><i class="fa fa-users" style="color:teal"></i> Student House Assignment</button></a>
+<a href="senior-house-assignment.php"><button><i class="fa fa-star" style="color:teal"></i> Senior House Assignment</button></a>
+<a href="senior-house-dashboard.php"><button><i class="fa fa-dashboard" style="color:teal"></i> Senior House Dashboard</button></a>
+
+<a href="upload-register.php"><button><i class="fa fa-upload" style="color:blue"></i> Upload Registers</button></a>
+<a href="waec-analysis.php"><button><i class="fa fa-line-chart" style="color:teal"></i> WAEC Analysis</button></a>
+
+<a href="listusers.php"><button><i class="fa fa-user" style="color:maroon"></i> View Users</button></a>
+<a href="viewusers.php"><button><i class="fa fa-user" style="color:brown"></i> View Teachers</button></a>
+<a href="viewstudents.php"><button><i class="fa fa-user" style="color:maroon"></i> View Students</button></a>
+<a href="admin-password-reset.php"><button><i class="fa fa-key" style="color:#b45309"></i> Reset Password</button></a>
+<a href="backup_db.php"><button><i class="fa fa-book" style="color:green"></i> Backup </button></a>
+<a href="generateapikey.php"><button><i class="fa fa-book" style="color:green"></i> API KEY </button></a>
+
+<?php
+echo "<a  onclick=\"javascript:return confirm('Do you want to clear database?');\" href='global_deletes.php'><button><i class='fa fa-book' style='color:green'></i> Empty Data </button></a>";
+?>
+<a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
+</div>
+<?php
+}
+?>
+</div>
+</div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var dropdown = document.querySelector('[data-menu-dropdown]');
+    if (!dropdown) {
+        return;
+    }
+
+    var toggleButton = dropdown.querySelector('.dropbtnNew');
+
+    function closeDropdown() {
+        dropdown.classList.remove('is-open');
+        toggleButton.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleButton.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        var isOpen = dropdown.classList.toggle('is-open');
+        toggleButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+
+    document.addEventListener('click', function (event) {
+        if (!dropdown.contains(event.target)) {
+            closeDropdown();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            closeDropdown();
+        }
+    });
+});
+</script>
+</body>
+</html>

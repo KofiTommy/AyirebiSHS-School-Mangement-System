@@ -1,0 +1,451 @@
+<?php
+if(!function_exists('house_master_is_admin')){
+function house_master_is_admin(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === "administrator" &&
+        ($_SESSION['SYSTEMTYPE'] === "normal_user" || $_SESSION['SYSTEMTYPE'] === "super_user");
+}
+}
+
+if(!function_exists('house_master_is_teacher')){
+function house_master_is_teacher(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === "user" &&
+        $_SESSION['SYSTEMTYPE'] === "Teacher";
+}
+}
+
+if(!function_exists('house_master_is_student')){
+function house_master_is_student(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === "user" &&
+        $_SESSION['SYSTEMTYPE'] === "Student";
+}
+}
+
+if(!function_exists('house_master_landing_page')){
+function house_master_landing_page(){
+    if(house_master_is_admin()){
+        return ($_SESSION['SYSTEMTYPE'] === "super_user") ? "super.php" : "admin.php";
+    }
+    if(house_master_is_teacher()){
+        return "teacher-page.php";
+    }
+    if(house_master_is_student()){
+        return "student-page.php";
+    }
+    if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "User"){
+        return "user.php";
+    }
+    return "index.php";
+}
+}
+
+if(!function_exists('house_master_can_view_senior_dashboard')){
+function house_master_can_view_senior_dashboard($con = null){
+    if(house_master_is_admin()){
+        return true;
+    }
+    if($con && house_master_is_teacher() && isset($_SESSION['USERID'])){
+        return house_master_has_senior_assignment($con, $_SESSION['USERID']);
+    }
+    return false;
+}
+}
+
+if(!function_exists('ensure_house_tables')){
+function ensure_house_tables($con){
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblhouse (
+        houseid VARCHAR(40) NOT NULL PRIMARY KEY,
+        housename VARCHAR(80) NOT NULL,
+        description VARCHAR(255) NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        datetimeentry DATETIME NOT NULL,
+        recordedby VARCHAR(30) NOT NULL,
+        UNIQUE KEY uq_housename (housename),
+        INDEX idx_house_status (status)
+    )");
+
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblhousemaster (
+        assignmentid VARCHAR(40) NOT NULL PRIMARY KEY,
+        houseid VARCHAR(40) NOT NULL,
+        userid VARCHAR(30) NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        datetimeentry DATETIME NOT NULL,
+        recordedby VARCHAR(30) NOT NULL,
+        INDEX idx_housemaster_teacher (userid),
+        INDEX idx_housemaster_house (houseid),
+        INDEX idx_housemaster_status (status)
+    )");
+
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblseniorhouseauthority (
+        assignmentid VARCHAR(40) NOT NULL PRIMARY KEY,
+        userid VARCHAR(30) NOT NULL,
+        designation VARCHAR(40) NOT NULL DEFAULT 'Senior House Master',
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        datetimeentry DATETIME NOT NULL,
+        recordedby VARCHAR(30) NOT NULL,
+        INDEX idx_seniorhouse_user (userid),
+        INDEX idx_seniorhouse_designation (designation),
+        INDEX idx_seniorhouse_status (status)
+    )");
+
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblstudenthouse (
+        assignmentid VARCHAR(40) NOT NULL PRIMARY KEY,
+        userid VARCHAR(30) NOT NULL,
+        houseid VARCHAR(40) NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        datetimeentry DATETIME NOT NULL,
+        recordedby VARCHAR(30) NOT NULL,
+        INDEX idx_studenthouse_user (userid),
+        INDEX idx_studenthouse_house (houseid),
+        INDEX idx_studenthouse_status (status)
+    )");
+
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblexeatrequest (
+        exeatid VARCHAR(40) NOT NULL PRIMARY KEY,
+        userid VARCHAR(30) NOT NULL,
+        houseid VARCHAR(40) NOT NULL,
+        exeattype VARCHAR(20) NOT NULL DEFAULT 'external',
+        reason VARCHAR(255) NOT NULL,
+        dateout DATE NOT NULL,
+        timeout TIME NULL,
+        datereturn DATE NULL,
+        timereturn TIME NULL,
+        actualreturndatetime DATETIME NULL,
+        returnedby VARCHAR(30) NULL,
+        returnnote VARCHAR(255) NULL,
+        requestedatetime DATETIME NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        decisionnote VARCHAR(255) NULL,
+        decisionby VARCHAR(30) NULL,
+        decisiondatetime DATETIME NULL,
+        recordedby VARCHAR(30) NOT NULL,
+        INDEX idx_exeat_student (userid),
+        INDEX idx_exeat_house (houseid),
+        INDEX idx_exeat_type (exeattype),
+        INDEX idx_exeat_status (status),
+        INDEX idx_exeat_requested (requestedatetime)
+    )");
+
+    $timeoutCol = mysqli_query($con, "SHOW COLUMNS FROM tblexeatrequest LIKE 'timeout'");
+    if(!$timeoutCol || mysqli_num_rows($timeoutCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN timeout TIME NULL AFTER dateout");
+    }
+    $dateReturnCol = mysqli_query($con, "SHOW COLUMNS FROM tblexeatrequest LIKE 'datereturn'");
+    if(!$dateReturnCol || mysqli_num_rows($dateReturnCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN datereturn DATE NULL AFTER timeout");
+    }
+    $exeatTypeCol = mysqli_query($con, "SHOW COLUMNS FROM tblexeatrequest LIKE 'exeattype'");
+    if(!$exeatTypeCol || mysqli_num_rows($exeatTypeCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN exeattype VARCHAR(20) NOT NULL DEFAULT 'external' AFTER houseid");
+        mysqli_query($con, "CREATE INDEX idx_exeat_type ON tblexeatrequest(exeattype)");
+    }
+    $actualReturnCol = mysqli_query($con, "SHOW COLUMNS FROM tblexeatrequest LIKE 'actualreturndatetime'");
+    if(!$actualReturnCol || mysqli_num_rows($actualReturnCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN actualreturndatetime DATETIME NULL AFTER timereturn");
+    }
+    $returnedByCol = mysqli_query($con, "SHOW COLUMNS FROM tblexeatrequest LIKE 'returnedby'");
+    if(!$returnedByCol || mysqli_num_rows($returnedByCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN returnedby VARCHAR(30) NULL AFTER actualreturndatetime");
+    }
+    $returnNoteCol = mysqli_query($con, "SHOW COLUMNS FROM tblexeatrequest LIKE 'returnnote'");
+    if(!$returnNoteCol || mysqli_num_rows($returnNoteCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN returnnote VARCHAR(255) NULL AFTER returnedby");
+    }
+}
+}
+
+if(!function_exists('house_master_normalize_senior_designation')){
+function house_master_normalize_senior_designation($designation){
+    $designation = trim((string)$designation);
+    if($designation === "Senior House Mistress"){
+        return "Senior House Mistress";
+    }
+    return "Senior House Master";
+}
+}
+
+if(!function_exists('house_master_normalize_gender_label')){
+function house_master_normalize_gender_label($gender){
+    $gender = strtoupper(trim((string)$gender));
+    if(in_array($gender, array("F", "FEMALE", "GIRL", "WOMAN"), true)){
+        return "Female";
+    }
+    if(in_array($gender, array("M", "MALE", "BOY", "MAN"), true)){
+        return "Male";
+    }
+    return "";
+}
+}
+
+if(!function_exists('house_master_dashboard_label')){
+function house_master_dashboard_label($con, $teacherId){
+    $teacherId = trim((string)$teacherId);
+    if($teacherId === ""){
+        return "House Master Dashboard";
+    }
+
+    $teacherIdEsc = mysqli_real_escape_string($con, $teacherId);
+    $res = mysqli_query($con, "SELECT gender FROM tblsystemuser WHERE userid='$teacherIdEsc' LIMIT 1");
+    if($res && $row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        if(house_master_normalize_gender_label($row["gender"]) === "Female"){
+            return "House Mistress Dashboard";
+        }
+    }
+
+    return "House Master Dashboard";
+}
+}
+
+if(!function_exists('assign_student_to_house')){
+function assign_student_to_house($con, $studentId, $houseId, $recordedBy){
+    $studentId = mysqli_real_escape_string($con, (string)$studentId);
+    $houseId = mysqli_real_escape_string($con, (string)$houseId);
+    $recordedBy = mysqli_real_escape_string($con, (string)$recordedBy);
+    if($studentId === "" || $houseId === ""){
+        return false;
+    }
+
+    mysqli_query($con, "UPDATE tblstudenthouse SET status='inactive' WHERE userid='$studentId' AND status='active'");
+    include("code.php");
+    $assignmentId = $code;
+    return mysqli_query($con, "INSERT INTO tblstudenthouse(assignmentid,userid,houseid,status,datetimeentry,recordedby)
+        VALUES('$assignmentId','$studentId','$houseId','active',NOW(),'$recordedBy')");
+}
+}
+
+if(!function_exists('get_student_active_house')){
+function get_student_active_house($con, $studentId){
+    $studentId = mysqli_real_escape_string($con, (string)$studentId);
+    $sql = "SELECT sh.houseid,h.housename
+            FROM tblstudenthouse sh
+            INNER JOIN tblhouse h ON h.houseid=sh.houseid
+            WHERE sh.userid='$studentId' AND sh.status='active' AND h.status='active'
+            ORDER BY sh.datetimeentry DESC LIMIT 1";
+    $res = mysqli_query($con, $sql);
+    if($res && $row=mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        return $row;
+    }
+    return null;
+}
+}
+
+if(!function_exists('house_master_can_manage_student')){
+function house_master_can_manage_student($con, $teacherId, $studentId){
+    $teacherId = mysqli_real_escape_string($con, (string)$teacherId);
+    $studentId = mysqli_real_escape_string($con, (string)$studentId);
+    $sql = "SELECT hm.assignmentid
+            FROM tblstudenthouse sh
+            INNER JOIN tblhousemaster hm ON hm.houseid=sh.houseid
+            WHERE sh.userid='$studentId'
+              AND sh.status='active'
+              AND hm.userid='$teacherId'
+              AND hm.status='active'
+            LIMIT 1";
+    $res = mysqli_query($con, $sql);
+    return ($res && mysqli_num_rows($res) > 0);
+}
+}
+
+if(!function_exists('get_teacher_house_filter_sql')){
+function get_teacher_house_filter_sql($con, $teacherId){
+    $teacherId = mysqli_real_escape_string($con, (string)$teacherId);
+    return "SELECT houseid FROM tblhousemaster WHERE userid='$teacherId' AND status='active'";
+}
+}
+
+if(!function_exists('house_master_has_assignment')){
+function house_master_has_assignment($con, $teacherId){
+    $teacherId = mysqli_real_escape_string($con, (string)$teacherId);
+    $res = mysqli_query($con, "SELECT assignmentid FROM tblhousemaster WHERE userid='$teacherId' AND status='active' LIMIT 1");
+    return ($res && mysqli_num_rows($res) > 0);
+}
+}
+
+if(!function_exists('house_master_has_senior_assignment')){
+function house_master_has_senior_assignment($con, $teacherId){
+    $teacherId = mysqli_real_escape_string($con, (string)$teacherId);
+    $res = mysqli_query($con, "SELECT assignmentid FROM tblseniorhouseauthority WHERE userid='$teacherId' AND status='active' LIMIT 1");
+    return ($res && mysqli_num_rows($res) > 0);
+}
+}
+
+if(!function_exists('house_master_can_manage_exeat')){
+function house_master_can_manage_exeat($con, $teacherId){
+    return house_master_has_assignment($con, $teacherId) || house_master_has_senior_assignment($con, $teacherId);
+}
+}
+
+if(!function_exists('house_master_is_senior_for_exeat')){
+function house_master_is_senior_for_exeat($con, $teacherId){
+    return house_master_has_senior_assignment($con, $teacherId);
+}
+}
+
+if(!function_exists('house_master_exeat_scope_sql')){
+function house_master_exeat_scope_sql($con, $teacherId, $houseColumn = 'houseid'){
+    $teacherId = mysqli_real_escape_string($con, (string)$teacherId);
+    $houseColumn = trim((string)$houseColumn);
+    if($houseColumn === ''){
+        $houseColumn = 'houseid';
+    }
+    if(house_master_has_senior_assignment($con, $teacherId)){
+        return "1=1";
+    }
+    return $houseColumn." IN (SELECT houseid FROM tblhousemaster WHERE userid='".$teacherId."' AND status='active')";
+}
+}
+
+if(!function_exists('house_master_exeat_scope_label')){
+function house_master_exeat_scope_label($con, $teacherId){
+    return house_master_has_senior_assignment($con, $teacherId) ? "all houses" : "your assigned house(s)";
+}
+}
+
+if(!function_exists('house_master_exeat_expected_return_sql')){
+function house_master_exeat_expected_return_sql($alias = 'er'){
+    $alias = trim((string)$alias);
+    if($alias === ''){
+        $alias = 'er';
+    }
+    return "STR_TO_DATE(CONCAT(".$alias.".datereturn, ' ', COALESCE(".$alias.".timereturn,'00:00:00')), '%Y-%m-%d %H:%i:%s')";
+}
+}
+
+if(!function_exists('house_master_exeat_overdue_sql')){
+function house_master_exeat_overdue_sql($alias = 'er'){
+    $alias = trim((string)$alias);
+    if($alias === ''){
+        $alias = 'er';
+    }
+    return $alias.".status='approved' AND ".$alias.".actualreturndatetime IS NULL AND ".$alias.".datereturn IS NOT NULL AND ".house_master_exeat_expected_return_sql($alias)." < NOW()";
+}
+}
+
+if(!function_exists('get_senior_house_assignment')){
+function get_senior_house_assignment($con, $teacherId){
+    $teacherId = mysqli_real_escape_string($con, (string)$teacherId);
+    $res = mysqli_query($con, "SELECT assignmentid,designation,datetimeentry
+        FROM tblseniorhouseauthority
+        WHERE userid='$teacherId' AND status='active'
+        ORDER BY datetimeentry DESC
+        LIMIT 1");
+    if($res && $row=mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        return $row;
+    }
+    return null;
+}
+}
+
+if(!function_exists('notify_house_master_assignment')){
+function notify_house_master_assignment($con, $teacherId, $houseName, $assignedBy, $action = "assigned"){
+    $teacherId = mysqli_real_escape_string($con, (string)$teacherId);
+    $houseName = mysqli_real_escape_string($con, (string)$houseName);
+    $assignedBy = mysqli_real_escape_string($con, (string)$assignedBy);
+    $action = strtolower(trim((string)$action)) === "updated" ? "updated" : "assigned";
+
+    $msgId = strtoupper(substr(md5(uniqid((string)mt_rand(), true)), 0, 30));
+    $message = ($action === "updated")
+        ? "You are now updated as House Master for ".$houseName.". Please check house students and exeat requests."
+        : "You have been assigned as House Master for ".$houseName.". Please check house students and exeat requests.";
+    $message = mysqli_real_escape_string($con, $message);
+
+    mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby)
+        VALUES('$msgId','$message',NOW(),'active','$assignedBy')");
+}
+}
+
+if(!function_exists('notify_senior_house_assignment')){
+function notify_senior_house_assignment($con, $teacherId, $designation, $assignedBy, $action = "assigned"){
+    $teacherId = mysqli_real_escape_string($con, (string)$teacherId);
+    $designation = mysqli_real_escape_string($con, house_master_normalize_senior_designation($designation));
+    $assignedBy = mysqli_real_escape_string($con, (string)$assignedBy);
+    $action = strtolower(trim((string)$action)) === "updated" ? "updated" : "assigned";
+
+    $msgId = strtoupper(substr(md5(uniqid((string)mt_rand(), true)), 0, 30));
+    $message = ($action === "updated")
+        ? "Your senior house role has been updated. You are now ".$designation.". Please monitor the senior house dashboard."
+        : "You have been assigned as ".$designation.". Please monitor the senior house dashboard.";
+    $message = mysqli_real_escape_string($con, $message);
+
+    mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby)
+        VALUES('$msgId','$message',NOW(),'active','$assignedBy')");
+}
+}
+
+if(!function_exists('send_bulk_sms_message')){
+function send_bulk_sms_message($phone, $message, &$resultCode = null){
+    $phone = preg_replace('/[^0-9\+]/', '', (string)$phone);
+    $message = trim((string)$message);
+    if($phone === "" || $message === ""){
+        $resultCode = "INVALID_INPUT";
+        return false;
+    }
+
+    $key = "e7c782f1f1c83d0f373c";
+    $senderId = "AYISEC";
+    $msg = urlencode($message);
+    $url = "http://clientlogin.bulksmsgh.com/smsapi?key={$key}&to={$phone}&msg={$msg}&sender_id={$senderId}";
+
+    $response = @file_get_contents($url);
+    $raw = trim((string)$response);
+    $resultCode = $raw;
+
+    if($raw === "1000"){
+        return true;
+    }
+
+    $json = json_decode($raw, true);
+    if(is_array($json)){
+        $apiCode = isset($json['code']) ? (string)$json['code'] : '';
+        $apiSuccess = !empty($json['success']);
+        $resultCode = ($apiCode !== '' ? $apiCode : $raw);
+        if($apiSuccess && $apiCode === "1000"){
+            return true;
+        }
+    }
+
+    return false;
+}
+}
+
+if(!function_exists('notify_house_masters_new_exeat')){
+function notify_house_masters_new_exeat($con, $houseId, $studentName, $exeatType, $departureText, $returnText, &$summary = null){
+    $houseIdEsc = mysqli_real_escape_string($con, (string)$houseId);
+    $studentName = trim((string)$studentName);
+    $exeatType = strtolower(trim((string)$exeatType));
+    if($exeatType !== "internal"){ $exeatType = "external"; }
+    $departureText = trim((string)$departureText);
+    $returnText = trim((string)$returnText);
+
+    $summary = array("sent" => 0, "failed" => 0, "no_phone" => 0, "total" => 0);
+    $sql = "SELECT su.mobile, su.firstname, su.surname, su.othernames
+            FROM tblhousemaster hm
+            INNER JOIN tblsystemuser su ON su.userid=hm.userid
+            WHERE hm.houseid='$houseIdEsc' AND hm.status='active' AND su.status='active'";
+    $res = mysqli_query($con, $sql);
+    if(!$res){
+        return false;
+    }
+
+    while($row=mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        $summary["total"]++;
+        $teacherPhone = trim((string)$row['mobile']);
+        if($teacherPhone === ""){
+            $summary["no_phone"]++;
+            continue;
+        }
+        $msg = "New ".ucfirst($exeatType)." exeat request: ".$studentName.". Out: ".$departureText.". Return: ".$returnText.". Please review for approval.";
+        $code = "";
+        $ok = send_bulk_sms_message($teacherPhone, $msg, $code);
+        if($ok){
+            $summary["sent"]++;
+        }else{
+            $summary["failed"]++;
+        }
+    }
+    return true;
+}
+}
+?>
