@@ -28,7 +28,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
     }
 }
 ?>
-<script type="text/javascript" src="scripts/xschool_script.js"></script>
+<script type="text/javascript" src="scripts/xschool_script.js" defer></script>
 <style>
 :root{
     --xschool-watermark-image: url('<?php echo htmlspecialchars($__faviconHref, ENT_QUOTES, "UTF-8"); ?>');
@@ -68,11 +68,11 @@ body:not(.landing-page)::after{
         width:min(46vw, 220px);
         height:min(46vw, 220px);
         opacity:0.048;
+        filter:none;
     }
 
     body:not(.landing-page)::after{
-        width:min(56vw, 280px);
-        height:min(56vw, 280px);
+        display:none;
     }
 }
 </style>

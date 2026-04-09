@@ -27,6 +27,7 @@ include("links.php");
     background: radial-gradient(circle at 0% 0%, #fef3c7 0%, transparent 24%),
                 radial-gradient(circle at 100% 0%, #dbeafe 0%, transparent 28%),
                 linear-gradient(180deg, var(--bg-2), var(--bg-1));
+    overflow-x: hidden;
 }
 
 .header {
@@ -41,6 +42,8 @@ include("links.php");
     max-width: 1500px;
     margin: 0 auto;
     padding: 6px 18px 8px;
+    box-sizing: border-box;
+    overflow-x: clip;
 }
 
 .main-platform > h2 {
@@ -57,12 +60,13 @@ include("links.php");
 .admin-layout {
     width: 100%;
     border-collapse: separate;
-    border-spacing: 16px 0;
+    border-spacing: 12px 0;
     table-layout: fixed;
 }
 
 .admin-layout td {
     vertical-align: top;
+    min-width: 0;
 }
 
 .admin-sidebar-col {
@@ -100,6 +104,7 @@ include("links.php");
     border: 1px solid var(--line);
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+    min-width: 0;
 }
 
 .form-entry {
@@ -108,6 +113,7 @@ include("links.php");
     background: var(--panel);
     box-shadow: 0 8px 28px rgba(15, 23, 42, 0.05);
     padding: 14px;
+    min-width: 0;
 }
 
 .dashboard-flex {
@@ -115,6 +121,7 @@ include("links.php");
     grid-template-columns: 340px minmax(0, 1fr);
     gap: 14px;
     margin: 0 0 16px;
+    min-width: 0;
 }
 
 .chart-container {
@@ -123,6 +130,7 @@ include("links.php");
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     padding: 14px;
     min-height: 320px;
+    min-width: 0;
 }
 
 .cards-side {
@@ -280,6 +288,7 @@ include("links.php");
     grid-template-columns: 210px minmax(0, 1fr);
     gap: 12px;
     margin-bottom: 14px;
+    min-width: 0;
 }
 
 .dashboard-side-menu {
@@ -288,6 +297,7 @@ include("links.php");
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     padding: 10px;
     height: fit-content;
+    min-width: 0;
 }
 
 .dash-side-btn {
@@ -320,6 +330,9 @@ include("links.php");
     margin-bottom: 10px;
     display: flex;
     justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-width: 0;
 }
 
 .dash-top-btn {
@@ -351,6 +364,7 @@ include("links.php");
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     padding: 12px;
     margin-bottom: 14px;
+    min-width: 0;
 }
 
 .perf-toolbar {
@@ -381,6 +395,7 @@ include("links.php");
     display: grid;
     grid-template-columns: minmax(320px, 1fr) minmax(0, 1.25fr);
     gap: 12px;
+    min-width: 0;
 }
 
 .perf-chart-wrap {
@@ -389,6 +404,7 @@ include("links.php");
     background: #fff;
     padding: 10px;
     min-height: 290px;
+    min-width: 0;
 }
 
 .perf-table-wrap {
@@ -396,7 +412,8 @@ include("links.php");
     border-radius: 10px;
     background: #fff;
     padding: 10px;
-    overflow-x: auto;
+    min-width: 0;
+    overflow-x: visible;
 }
 
 .pending-list-wrap {
@@ -421,7 +438,8 @@ include("links.php");
 }
 
 .table-wrap {
-    overflow-x: auto;
+    min-width: 0;
+    overflow-x: visible;
     border: 1px solid var(--line);
     border-radius: 12px;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
@@ -432,6 +450,7 @@ include("links.php");
     width: 100%;
     border-collapse: collapse;
     font-size: 0.88rem;
+    table-layout: fixed;
 }
 
 .table caption {
@@ -453,6 +472,10 @@ include("links.php");
 .table td {
     border-bottom: 1px solid #f1f5f9;
     padding: 10px;
+    vertical-align: top;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .table tbody tr:hover {
@@ -462,9 +485,11 @@ include("links.php");
 .notification-scroll {
     max-height: 340px;
     overflow-y: auto;
+    overflow-x: visible;
     border: 1px solid #e5e7eb;
     border-radius: 10px;
     background: #fff;
+    min-width: 0;
 }
 
 .notification-scroll thead th {
@@ -489,6 +514,11 @@ include("links.php");
 }
 
 @media (max-width: 1200px) {
+    .main-platform {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
     .quick-actions {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -506,6 +536,11 @@ include("links.php");
     }
     .dashboard-top-menu {
         justify-content: flex-start;
+    }
+
+    .table thead th,
+    .table td {
+        padding: 9px 8px;
     }
 }
 
@@ -537,6 +572,11 @@ include("links.php");
 }
 
 @media (max-width: 620px) {
+    .main-platform {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
     .quick-actions,
     .cards-side {
         grid-template-columns: 1fr;
@@ -950,7 +990,7 @@ include("links.php");
                         </div>
 
                         <!-- Chart.js CDN -->
-                        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                        <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 
                         <!-- Dashboard Section -->
                         <div class="dashboard-section active" id="section-overview">
@@ -1150,147 +1190,156 @@ include("links.php");
                         </div>
 
                         <script>
-                        const ctx = document.getElementById('studentChart').getContext('2d');
-                        const studentChart = new Chart(ctx, {
-                            type: 'doughnut',
-                            data: {
-                                labels: ['Boys Day', 'Boys Boarding', 'Girls Day', 'Girls Boarding'],
-                                datasets: [{
-                                    label: 'Student Count',
-                                    data: [<?php echo $boys_day; ?>, <?php echo $boys_boarding; ?>, <?php echo $girls_day; ?>, <?php echo $girls_boarding; ?>],
-                                    backgroundColor: ['#2563eb', '#38bdf8', '#db2777', '#f472b6'],
-                                    borderColor: '#fff',
-                                    borderWidth: 2,
-                                    hoverOffset: 16
-                                }]
-                            },
-                            options: {
-                                responsive: true, maintainAspectRatio: false,
-                                plugins: {
-                                    legend: {
-                                        position: 'bottom',
-                                        labels: {
-                                            font: { size: 14 },
-                                            color: '#374151',
-                                            padding: 20,
-                                            boxWidth: 20
-                                        }
-                                    },
-                                    title: {
-                                        display: true,
-                                        text: 'Student Distribution by Gender & Residence',
-                                        font: { size: 16, weight: '600' },
-                                        color: '#111827',
-                                        padding: { top: 10, bottom: 20 }
-                                    },
-                                    tooltip: {
-                                        callbacks: {
-                                            label: function(context) {
-                                                let label = context.label || '';
-                                                let value = context.parsed || 0;
-                                                let total = <?php echo $grand_total; ?>;
-                                                let percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                                return `${label}: ${value.toLocaleString()} (${percentage}%)`;
-                                            }
-                                        }
-                                    }
+                        document.addEventListener('DOMContentLoaded', function () {
+                            function showDashboardSection(sectionId) {
+                                const sections = document.querySelectorAll('.dashboard-section');
+                                const sideBtns = document.querySelectorAll('.dash-side-btn');
+                                const topBtns = document.querySelectorAll('.dash-top-btn');
+
+                                sections.forEach(sec => sec.classList.remove('active'));
+                                sideBtns.forEach(btn => btn.classList.remove('active'));
+                                topBtns.forEach(btn => btn.classList.remove('active'));
+
+                                const selectedSection = document.getElementById(sectionId);
+                                if (selectedSection) {
+                                    selectedSection.classList.add('active');
                                 }
+
+                                const selectedSide = document.querySelector('.dash-side-btn[data-target="' + sectionId + '"]');
+                                const selectedTop = document.querySelector('.dash-top-btn[data-target="' + sectionId + '"]');
+                                if (selectedSide) selectedSide.classList.add('active');
+                                if (selectedTop) selectedTop.classList.add('active');
                             }
-                        });
 
-                        const perfCanvas = document.getElementById('subjectPerformanceChart');
-                        if (perfCanvas) {
-                            const perfLabels = <?php echo json_encode($_PerfLabels); ?>;
-                            const perfAvg = <?php echo json_encode($_PerfAvg); ?>;
-                            const perfPass = <?php echo json_encode($_PerfPass); ?>;
-                            const perfCtx = perfCanvas.getContext('2d');
+                            document.querySelectorAll('.dash-side-btn, .dash-top-btn').forEach(btn => {
+                                btn.addEventListener('click', function() {
+                                    const target = this.getAttribute('data-target');
+                                    showDashboardSection(target);
+                                });
+                            });
 
-                            if (perfLabels.length > 0) {
-                                new Chart(perfCtx, {
-                                    type: 'bar',
+                            const urlParams = new URLSearchParams(window.location.search);
+                            if (window.location.hash === '#system-change-notifications') {
+                                showDashboardSection('section-notifications');
+                            } else if (
+                                urlParams.get('perf_class') ||
+                                urlParams.get('perf_batch') ||
+                                urlParams.get('perf_term')
+                            ) {
+                                showDashboardSection('section-performance');
+                            } else {
+                                showDashboardSection('section-overview');
+                            }
+
+                            if (typeof Chart !== 'function') {
+                                return;
+                            }
+
+                            const studentCanvas = document.getElementById('studentChart');
+                            if (studentCanvas) {
+                                const ctx = studentCanvas.getContext('2d');
+                                new Chart(ctx, {
+                                    type: 'doughnut',
                                     data: {
-                                        labels: perfLabels,
-                                        datasets: [
-                                            {
-                                                label: 'Average %',
-                                                data: perfAvg,
-                                                backgroundColor: 'rgba(14, 116, 144, 0.75)',
-                                                borderColor: '#0e7490',
-                                                borderWidth: 1
-                                            },
-                                            {
-                                                label: 'Pass %',
-                                                data: perfPass,
-                                                backgroundColor: 'rgba(180, 83, 9, 0.65)',
-                                                borderColor: '#b45309',
-                                                borderWidth: 1
-                                            }
-                                        ]
+                                        labels: ['Boys Day', 'Boys Boarding', 'Girls Day', 'Girls Boarding'],
+                                        datasets: [{
+                                            label: 'Student Count',
+                                            data: [<?php echo $boys_day; ?>, <?php echo $boys_boarding; ?>, <?php echo $girls_day; ?>, <?php echo $girls_boarding; ?>],
+                                            backgroundColor: ['#2563eb', '#38bdf8', '#db2777', '#f472b6'],
+                                            borderColor: '#fff',
+                                            borderWidth: 2,
+                                            hoverOffset: 16
+                                        }]
                                     },
                                     options: {
-                                        responsive: true,
-                                        maintainAspectRatio: false,
+                                        responsive: true, maintainAspectRatio: false,
                                         plugins: {
-                                            legend: { position: 'top' },
+                                            legend: {
+                                                position: 'bottom',
+                                                labels: {
+                                                    font: { size: 14 },
+                                                    color: '#374151',
+                                                    padding: 20,
+                                                    boxWidth: 20
+                                                }
+                                            },
                                             title: {
                                                 display: true,
-                                                text: 'Average vs Pass Rate by Subject'
-                                            }
-                                        },
-                                        scales: {
-                                            y: {
-                                                beginAtZero: true,
-                                                suggestedMax: 100
+                                                text: 'Student Distribution by Gender & Residence',
+                                                font: { size: 16, weight: '600' },
+                                                color: '#111827',
+                                                padding: { top: 10, bottom: 20 }
+                                            },
+                                            tooltip: {
+                                                callbacks: {
+                                                    label: function(context) {
+                                                        let label = context.label || '';
+                                                        let value = context.parsed || 0;
+                                                        let total = <?php echo $grand_total; ?>;
+                                                        let percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                                        return `${label}: ${value.toLocaleString()} (${percentage}%)`;
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 });
-                            } else {
-                                perfCtx.font = '14px Segoe UI';
-                                perfCtx.fillStyle = '#64748b';
-                                perfCtx.fillText('No performance data for selected filter.', 16, 40);
-                            }
-                        }
-
-                        function showDashboardSection(sectionId) {
-                            const sections = document.querySelectorAll('.dashboard-section');
-                            const sideBtns = document.querySelectorAll('.dash-side-btn');
-                            const topBtns = document.querySelectorAll('.dash-top-btn');
-
-                            sections.forEach(sec => sec.classList.remove('active'));
-                            sideBtns.forEach(btn => btn.classList.remove('active'));
-                            topBtns.forEach(btn => btn.classList.remove('active'));
-
-                            const selectedSection = document.getElementById(sectionId);
-                            if (selectedSection) {
-                                selectedSection.classList.add('active');
                             }
 
-                            const selectedSide = document.querySelector('.dash-side-btn[data-target="' + sectionId + '"]');
-                            const selectedTop = document.querySelector('.dash-top-btn[data-target="' + sectionId + '"]');
-                            if (selectedSide) selectedSide.classList.add('active');
-                            if (selectedTop) selectedTop.classList.add('active');
-                        }
+                            const perfCanvas = document.getElementById('subjectPerformanceChart');
+                            if (perfCanvas) {
+                                const perfLabels = <?php echo json_encode($_PerfLabels); ?>;
+                                const perfAvg = <?php echo json_encode($_PerfAvg); ?>;
+                                const perfPass = <?php echo json_encode($_PerfPass); ?>;
+                                const perfCtx = perfCanvas.getContext('2d');
 
-                        document.querySelectorAll('.dash-side-btn, .dash-top-btn').forEach(btn => {
-                            btn.addEventListener('click', function() {
-                                const target = this.getAttribute('data-target');
-                                showDashboardSection(target);
-                            });
+                                if (perfLabels.length > 0) {
+                                    new Chart(perfCtx, {
+                                        type: 'bar',
+                                        data: {
+                                            labels: perfLabels,
+                                            datasets: [
+                                                {
+                                                    label: 'Average %',
+                                                    data: perfAvg,
+                                                    backgroundColor: 'rgba(14, 116, 144, 0.75)',
+                                                    borderColor: '#0e7490',
+                                                    borderWidth: 1
+                                                },
+                                                {
+                                                    label: 'Pass %',
+                                                    data: perfPass,
+                                                    backgroundColor: 'rgba(180, 83, 9, 0.65)',
+                                                    borderColor: '#b45309',
+                                                    borderWidth: 1
+                                                }
+                                            ]
+                                        },
+                                        options: {
+                                            responsive: true,
+                                            maintainAspectRatio: false,
+                                            plugins: {
+                                                legend: { position: 'top' },
+                                                title: {
+                                                    display: true,
+                                                    text: 'Average vs Pass Rate by Subject'
+                                                }
+                                            },
+                                            scales: {
+                                                y: {
+                                                    beginAtZero: true,
+                                                    suggestedMax: 100
+                                                }
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    perfCtx.font = '14px Segoe UI';
+                                    perfCtx.fillStyle = '#64748b';
+                                    perfCtx.fillText('No performance data for selected filter.', 16, 40);
+                                }
+                            }
                         });
-
-                        const urlParams = new URLSearchParams(window.location.search);
-                        if (window.location.hash === '#system-change-notifications') {
-                            showDashboardSection('section-notifications');
-                        } else if (
-                            urlParams.get('perf_class') ||
-                            urlParams.get('perf_batch') ||
-                            urlParams.get('perf_term')
-                        ) {
-                            showDashboardSection('section-performance');
-                        } else {
-                            showDashboardSection('section-overview');
-                        }
                         </script>
 
                     </div>

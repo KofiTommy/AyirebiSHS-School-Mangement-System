@@ -261,7 +261,7 @@ if($selectedAssignment){
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" type="text/css" href="css/teacher-score-entry.css">
-<script type="text/javascript" src="scripts/teacher-score-entry.js"></script>
+<script type="text/javascript" src="scripts/teacher-score-entry.js" defer></script>
 </head>
 <body class="score-entry-page score-entry-page--class">
 <div class="header"><?php include("menu.php"); ?></div>

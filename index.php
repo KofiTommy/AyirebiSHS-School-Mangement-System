@@ -84,15 +84,14 @@ $_SQL_EXECUTE=mysqli_stmt_get_result($stmt_login);
 //Get the Audit Date
 $_SESSION["AUDITDATE"]="";
 
-$_SQLAD=mysqli_query($con,"SELECT * FROM tblauditdate ad WHERE date_format(ad.auditdate,'%d-%m-%Y')=date_format(NOW(),'%d-%m-%Y') AND ad.status='active'");
-if(mysqli_num_rows($_SQLAD)>0)
-{
-
-		  $_SQLAD=mysqli_query($con,"SELECT * FROM tblauditdate ad WHERE date_format(ad.auditdate,'%d-%m-%Y')=date_format(NOW(),'%d-%m-%Y') AND ad.status='active'");
-		  if($rowad=mysqli_fetch_array($_SQLAD,MYSQLI_ASSOC)){
+$_SQLAD=mysqli_query($con,"SELECT ad.auditdate
+FROM tblauditdate ad
+WHERE ad.auditdate >= CURDATE()
+AND ad.auditdate < (CURDATE() + INTERVAL 1 DAY)
+AND ad.status='active'
+LIMIT 1");
+if($_SQLAD && ($rowad=mysqli_fetch_array($_SQLAD,MYSQLI_ASSOC))){
 		  $_SESSION["AUDITDATE"]=$rowad["auditdate"];
-		  }
-
 }
 else{
 		   //CREATE AUDIT DATE
@@ -111,7 +110,12 @@ else{
 				    }
 		  }
 
-		  $_SQLAD=mysqli_query($con,"SELECT * FROM tblauditdate ad WHERE date_format(ad.auditdate,'%d-%m-%Y')=date_format(NOW(),'%d-%m-%Y') AND ad.status='active'");
+		  $_SQLAD=mysqli_query($con,"SELECT ad.auditdate
+		  FROM tblauditdate ad
+		  WHERE ad.auditdate >= CURDATE()
+		  AND ad.auditdate < (CURDATE() + INTERVAL 1 DAY)
+		  AND ad.status='active'
+		  LIMIT 1");
 		  if($rowad=mysqli_fetch_array($_SQLAD,MYSQLI_ASSOC)){
 		  $_SESSION["AUDITDATE"]=$rowad["auditdate"];
 		  }

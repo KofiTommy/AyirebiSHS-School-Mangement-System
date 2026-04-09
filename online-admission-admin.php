@@ -4,7 +4,9 @@ include("dbstring.php");
 include("check-login.php");
 include_once("company.php");
 include_once("online-admission-utils.php");
+include_once("house-master-utils.php");
 ensure_online_admission_tables($con);
+ensure_house_tables($con);
 
 if(!online_admission_is_admin()){
     header("location:".online_admission_landing_page());
@@ -39,6 +41,12 @@ function aa_help_status_class($status){
     if($status === "resolved"){ return "aa-status aa-status--success"; }
     if($status === "contacted"){ return "aa-status aa-status--info"; }
     return "aa-status aa-status--warning";
+}
+function aa_house_status_class($status){
+    $status = strtolower(trim((string)$status));
+    if($status === "active"){ return "aa-status aa-status--success"; }
+    if($status === "inactive"){ return "aa-status aa-status--warning"; }
+    return "aa-status aa-status--neutral";
 }
 function aa_money($amount, $currency){
     $currency = strtoupper(trim((string)$currency));
@@ -121,6 +129,152 @@ function aa_output_print_table($title, $headers, $rows, $companyName, $branchNam
 function aa_positive_page($value){
     $page = (int)$value;
     return $page > 0 ? $page : 1;
+}
+function aa_cycle_status($summary){
+    if((int)$summary["posted_active"] > 0){
+        return array("label" => "Active", "class" => "aa-status aa-status--success");
+    }
+    if((int)$summary["posted_total"] > 0){
+        return array("label" => "Ready To Clear", "class" => "aa-status aa-status--warning");
+    }
+    return array("label" => "No Posted List", "class" => "aa-status aa-status--warning");
+}
+function aa_year_posted_students($con, $branchId, $admissionYear){
+    $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
+    $yearEsc = mysqli_real_escape_string($con, trim((string)$admissionYear));
+    $rows = array();
+    $res = mysqli_query($con, "SELECT *
+        FROM tbladmissionpostedstudent
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'
+        ORDER BY datetimeentry DESC");
+    if($res){ while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){ $rows[] = $row; } }
+    return $rows;
+}
+function aa_year_applications($con, $branchId, $admissionYear){
+    $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
+    $yearEsc = mysqli_real_escape_string($con, trim((string)$admissionYear));
+    $rows = array();
+    $res = mysqli_query($con, "SELECT *
+        FROM tblonlineadmissionapplication
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'
+        ORDER BY updatedat DESC");
+    if($res){ while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){ $rows[] = $row; } }
+    return $rows;
+}
+function aa_year_payments($con, $branchId, $admissionYear){
+    $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
+    $yearEsc = mysqli_real_escape_string($con, trim((string)$admissionYear));
+    $rows = array();
+    $res = mysqli_query($con, "SELECT pay.*, app.firstname, app.surname, app.othernames
+        FROM tblonlineadmissionpayment pay
+        LEFT JOIN tblonlineadmissionapplication app ON app.applicationid=pay.applicationid
+        WHERE pay.branchid='$branchIdEsc'
+          AND pay.admissionyear='$yearEsc'
+        ORDER BY pay.createdat DESC");
+    if($res){ while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){ $rows[] = $row; } }
+    return $rows;
+}
+function aa_year_help_requests($con, $branchId, $admissionYear){
+    $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
+    $yearEsc = mysqli_real_escape_string($con, trim((string)$admissionYear));
+    $rows = array();
+    $res = mysqli_query($con, "SELECT *
+        FROM tblonlineadmissionhelprequest
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'
+        ORDER BY requestedat DESC");
+    if($res){ while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){ $rows[] = $row; } }
+    return $rows;
+}
+function aa_csv_string($headers, $rows){
+    $stream = fopen("php://temp", "r+");
+    if(!$stream){
+        return "";
+    }
+    fputcsv($stream, $headers);
+    foreach($rows as $row){
+        fputcsv($stream, $row);
+    }
+    rewind($stream);
+    $content = stream_get_contents($stream);
+    fclose($stream);
+    return (string)$content;
+}
+function aa_output_year_images_zip($con, $branchId, $admissionYear, $branchName){
+    if(!class_exists('ZipArchive')){
+        header("Content-Type: text/plain; charset=UTF-8");
+        echo "ZIP downloads are not available because the ZipArchive extension is not enabled on this server.";
+        exit();
+    }
+    $yearImages = array();
+    foreach(aa_year_applications($con, $branchId, $admissionYear) as $application){
+        if(trim((string)(isset($application["filename"]) ? $application["filename"] : "")) !== ""){
+            $yearImages[] = $application;
+        }
+    }
+
+    $zipPath = tempnam(sys_get_temp_dir(), "admimg");
+    if($zipPath === false){
+        header("Content-Type: text/plain; charset=UTF-8");
+        echo "A temporary ZIP file could not be created on this server.";
+        exit();
+    }
+
+    $zip = new ZipArchive();
+    if($zip->open($zipPath, ZipArchive::OVERWRITE) !== true){
+        @unlink($zipPath);
+        header("Content-Type: text/plain; charset=UTF-8");
+        echo "The admission image ZIP file could not be prepared.";
+        exit();
+    }
+
+    $manifestRows = array();
+    $savedCount = 0;
+    foreach($yearImages as $application){
+        $filename = trim((string)$application["filename"]);
+        $source = __DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR.$filename;
+        if(!is_file($source)){
+            continue;
+        }
+        $studentName = online_admission_backup_image_student_name($application);
+        $savedFile = online_admission_backup_image_copy_name($application);
+        if($zip->addFile($source, "images/".$savedFile)){
+            $savedCount++;
+            $manifestRows[] = array(
+                (string)$application["applicationid"],
+                (string)$application["beceindexnumber"],
+                $studentName,
+                $filename,
+                $savedFile
+            );
+        }
+    }
+
+    $zip->addFromString("image-manifest.csv", aa_csv_string(
+        array("applicationid", "beceindexnumber", "studentname", "originalfile", "savedfile"),
+        $manifestRows
+    ));
+    $zip->addFromString("backup-summary.txt", "Admission Year: ".$admissionYear.PHP_EOL
+        ."Downloaded At: ".date("Y-m-d H:i:s").PHP_EOL
+        ."Saved Images: ".$savedCount.PHP_EOL);
+    $zip->close();
+
+    $downloadName = aa_file_slug($branchName)."-".$admissionYear."-admission-images.zip";
+    if(function_exists("ob_get_level")){
+        while(ob_get_level() > 0){
+            ob_end_clean();
+        }
+    }
+    header("Content-Type: application/zip");
+    header("Content-Disposition: attachment; filename=\"".$downloadName."\"");
+    header("Content-Length: ".filesize($zipPath));
+    header("Pragma: no-cache");
+    header("Expires: 0");
+    readfile($zipPath);
+    @unlink($zipPath);
+    exit();
 }
 function aa_admin_url($overrides = array(), $anchor = ""){
     $params = $_GET;
@@ -359,9 +513,12 @@ $selectedApplicationId = trim((string)(isset($_POST["edit_application"]) ? $_POS
 $editableApplication = null;
 $editableApplicationForm = null;
 $editablePayment = null;
+$editableAssignedHouse = null;
 if($selectedApplicationId !== ""){
     $editableApplication = aa_fetch_application_bundle($con, $branchId, $selectedApplicationId);
     if($editableApplication){
+        $editableAssignedHouse = online_admission_assign_house_for_application($con, $editableApplication);
+        $editableApplication = aa_fetch_application_bundle($con, $branchId, $selectedApplicationId);
         $editableApplicationForm = aa_application_form_defaults($editableApplication);
         $editablePayment = online_admission_get_latest_payment_by_application($con, $editableApplication["applicationid"]);
     }
@@ -380,6 +537,106 @@ $postedForm = array(
     "residentialstatus" => "",
     "mobile" => ""
 );
+$houseForm = array(
+    "housename" => "",
+    "description" => "",
+    "housegender" => "Male",
+    "houseresidencetype" => "Boarding",
+    "autoassignenabled" => "1"
+);
+
+if(isset($_POST["save_admission_house"])){
+    foreach($houseForm as $key => $value){
+        if($key === "autoassignenabled"){
+            $houseForm[$key] = isset($_POST[$key]) ? "1" : "0";
+        }else{
+            $houseForm[$key] = trim((string)(isset($_POST[$key]) ? $_POST[$key] : ""));
+        }
+    }
+    $houseForm["housename"] = preg_replace('/\s+/', ' ', $houseForm["housename"]);
+    $houseForm["description"] = preg_replace('/\s+/', ' ', $houseForm["description"]);
+    $houseForm["housegender"] = house_master_normalize_gender_label($houseForm["housegender"]);
+    $houseForm["houseresidencetype"] = house_master_normalize_residence_label($houseForm["houseresidencetype"]);
+
+    $errors = array();
+    if($houseForm["housename"] === ""){
+        $errors[] = "House name is required.";
+    }
+    if($houseForm["housegender"] === ""){
+        $errors[] = "Select the house gender.";
+    }
+    if($houseForm["houseresidencetype"] === ""){
+        $errors[] = "Select the house residence type.";
+    }
+
+    if(empty($errors)){
+        $duplicateStmt = mysqli_prepare($con, "SELECT houseid FROM tblhouse WHERE LOWER(TRIM(housename)) = LOWER(TRIM(?)) LIMIT 1");
+        if($duplicateStmt){
+            mysqli_stmt_bind_param($duplicateStmt, "s", $houseForm["housename"]);
+            mysqli_stmt_execute($duplicateStmt);
+            mysqli_stmt_store_result($duplicateStmt);
+            if(mysqli_stmt_num_rows($duplicateStmt) > 0){
+                $errors[] = "That house name already exists.";
+            }
+            mysqli_stmt_close($duplicateStmt);
+        }
+    }
+
+    if(empty($errors)){
+        $houseId = online_admission_generate_id("HOUSE_");
+        $recordedBy = isset($_SESSION["USERID"]) ? (string)$_SESSION["USERID"] : "";
+        $stmt = mysqli_prepare($con, "INSERT INTO tblhouse(
+            houseid, housename, description, housegender, houseresidencetype, autoassignenabled, status, datetimeentry, recordedby
+        ) VALUES(
+            ?, ?, ?, ?, ?, ?, 'active', NOW(), ?
+        )");
+        if($stmt){
+            $autoAssign = (int)$houseForm["autoassignenabled"];
+            mysqli_stmt_bind_param($stmt, "sssssis", $houseId, $houseForm["housename"], $houseForm["description"], $houseForm["housegender"], $houseForm["houseresidencetype"], $autoAssign, $recordedBy);
+            if(mysqli_stmt_execute($stmt)){
+                mysqli_stmt_close($stmt);
+                $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("success", "\"".$houseForm["housename"]."\" created successfully.");
+                header("location:online-admission-admin.php#admission-houses");
+                exit();
+            }
+            $flashMessage = mysqli_stmt_errno($stmt) === 1062
+                ? aa_alert("warning", "That house name already exists.")
+                : aa_alert("error", "The house could not be created right now.");
+            mysqli_stmt_close($stmt);
+        }else{
+            $flashMessage = aa_alert("error", "The house form could not be prepared right now.");
+        }
+    }else{
+        $flashMessage = aa_alert("warning", implode(" ", $errors));
+    }
+}
+
+if(isset($_POST["save_house_profile"])){
+    $houseId = trim((string)(isset($_POST["houseid"]) ? $_POST["houseid"] : ""));
+    $houseGender = house_master_normalize_gender_label(isset($_POST["housegender"]) ? $_POST["housegender"] : "");
+    $houseResidence = house_master_normalize_residence_label(isset($_POST["houseresidencetype"]) ? $_POST["houseresidencetype"] : "");
+    $autoAssign = isset($_POST["autoassignenabled"]) ? 1 : 0;
+    if($houseId === ""){
+        $flashMessage = aa_alert("warning", "Select a valid house first.");
+    }elseif($houseGender === "" || $houseResidence === ""){
+        $flashMessage = aa_alert("warning", "Choose the gender and residence type for this house.");
+    }else{
+        $houseIdEsc = mysqli_real_escape_string($con, $houseId);
+        $genderEsc = mysqli_real_escape_string($con, $houseGender);
+        $residenceEsc = mysqli_real_escape_string($con, $houseResidence);
+        $updated = mysqli_query($con, "UPDATE tblhouse SET
+            housegender='$genderEsc',
+            houseresidencetype='$residenceEsc',
+            autoassignenabled=".(int)$autoAssign."
+            WHERE houseid='$houseIdEsc'
+            LIMIT 1");
+        $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = $updated
+            ? aa_alert("success", "House auto-assignment profile updated successfully.")
+            : aa_alert("error", "The house profile could not be updated right now.");
+        header("location:online-admission-admin.php#admission-houses");
+        exit();
+    }
+}
 
 if(isset($_POST["add_posted_student"])){
     foreach($postedForm as $key => $value){
@@ -594,6 +851,38 @@ if(isset($_POST["save_payment_settings"])){
     exit();
 }
 
+if(isset($_POST["save_admission_documents"])){
+    $documentYear = trim((string)(isset($_POST["document_year"]) ? $_POST["document_year"] : ""));
+    $documentTitle = trim((string)(isset($_POST["document_title"]) ? $_POST["document_title"] : ""));
+    $uploadedBy = isset($_SESSION["USERID"]) ? (string)$_SESSION["USERID"] : "";
+    $errors = array();
+
+    if($documentYear === ""){
+        $errors[] = "Enter the admission year for these downloadable documents.";
+    }
+    if($documentTitle === ""){
+        $errors[] = "Enter the document title students should see.";
+    }
+    if(!isset($_FILES["document_file"]) || !isset($_FILES["document_file"]["error"]) || (int)$_FILES["document_file"]["error"] === UPLOAD_ERR_NO_FILE){
+        $errors[] = "Choose the document file to upload.";
+    }
+
+    $savedDocument = false;
+    if(empty($errors)){
+        $errorMessage = "";
+        $savedDocument = online_admission_save_document($con, $branchId, $documentYear, $documentTitle, $_FILES["document_file"], $uploadedBy, $errorMessage);
+        if(!$savedDocument){
+            $errors[] = ($errorMessage !== "" ? $errorMessage : "The admission document could not be uploaded right now.");
+        }
+    }
+
+    $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = empty($errors)
+        ? aa_alert("success", "\"".$documentTitle."\" uploaded successfully.")
+        : aa_alert("error", implode(" ", $errors));
+    header("location:".aa_admin_url(array("document_year" => $documentYear !== "" ? $documentYear : null), "#admission-documents"));
+    exit();
+}
+
 if(isset($_POST["save_application_changes"])){
     if(!$editableApplication){
         $flashMessage = aa_alert("error", "The selected application could not be found.");
@@ -664,6 +953,10 @@ if(isset($_POST["save_application_changes"])){
                 );
                 if(mysqli_stmt_execute($stmt)){
                     mysqli_stmt_close($stmt);
+                    $refreshedApplication = aa_fetch_application_bundle($con, $branchId, $editableApplication["applicationid"]);
+                    if($refreshedApplication){
+                        online_admission_assign_house_for_application($con, $refreshedApplication);
+                    }
                     $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("success", "Admission form updated successfully.");
                     header("location:online-admission-admin.php?edit_application=".rawurlencode($editableApplication["applicationid"])."#edit-application");
                     exit();
@@ -683,6 +976,8 @@ if(isset($_POST["update_application_status"])){
     $applicationId = trim((string)(isset($_POST["applicationid"]) ? $_POST["applicationid"] : ""));
     $status = trim((string)(isset($_POST["status"]) ? $_POST["status"] : ""));
     $reviewNote = trim((string)(isset($_POST["reviewnote"]) ? $_POST["reviewnote"] : ""));
+    $returnAppPage = aa_positive_page(isset($_POST["app_page"]) ? $_POST["app_page"] : 1);
+    $returnAppSearch = trim((string)(isset($_POST["app_search"]) ? $_POST["app_search"] : ""));
     if($applicationId !== "" && in_array($status, array("submitted", "needs_attention", "reviewed"), true)){
         $appEsc = mysqli_real_escape_string($con, $applicationId);
         $statusEsc = mysqli_real_escape_string($con, $status);
@@ -696,10 +991,19 @@ if(isset($_POST["update_application_status"])){
             updatedat=NOW()
             WHERE applicationid='$appEsc' AND branchid='$branchIdEsc'
             LIMIT 1");
+        if($updated){
+            $refreshedApplication = aa_fetch_application_bundle($con, $branchId, $applicationId);
+            if($refreshedApplication){
+                online_admission_assign_house_for_application($con, $refreshedApplication);
+            }
+        }
         $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = $updated
             ? aa_alert("success", "Application status updated successfully.")
             : aa_alert("error", "The application status could not be updated.");
-        header("location:online-admission-admin.php#applications");
+        header("location:".aa_admin_url(array(
+            "app_page" => $returnAppPage > 1 ? $returnAppPage : null,
+            "app_search" => $returnAppSearch !== "" ? $returnAppSearch : null
+        ), "#applications"));
         exit();
     }
 }
@@ -720,6 +1024,21 @@ if(isset($_POST["save_help_request_status"])){
     }
 }
 
+if(isset($_POST["clear_admission_year"])){
+    $clearYear = trim((string)(isset($_POST["clear_year"]) ? $_POST["clear_year"] : ""));
+    $backupReference = trim((string)(isset($_POST["backup_reference"]) ? $_POST["backup_reference"] : ""));
+    $confirmClear = !empty($_POST["confirm_clear"]);
+
+    if($clearYear === ""){
+        $flashMessage = aa_alert("warning", "Select an admission year to clear.");
+    }elseif(!$confirmClear){
+        $flashMessage = aa_alert("warning", "Confirm that you have taken a backup before clearing the admission year.");
+    }else{
+        $clearResult = online_admission_clear_year($con, $branchId, $clearYear, $backupReference, isset($_SESSION["USERID"]) ? $_SESSION["USERID"] : "");
+        $flashMessage = aa_alert($clearResult["success"] ? "success" : "error", $clearResult["message"]);
+    }
+}
+
 $stats = array("posted" => 0, "draft" => 0, "submitted" => 0, "reviewed" => 0);
 $statsRes = mysqli_query($con, "SELECT
     (SELECT COUNT(*) FROM tbladmissionpostedstudent WHERE branchid='$branchIdEsc' AND status='active') AS posted_total,
@@ -736,9 +1055,12 @@ if($statsRes && ($row = mysqli_fetch_array($statsRes, MYSQLI_ASSOC))){
 }
 
 $postedSearch = trim((string)(isset($_GET["posted_search"]) ? $_GET["posted_search"] : ""));
+$appSearch = trim((string)(isset($_GET["app_search"]) ? $_GET["app_search"] : ""));
 $postedPage = aa_positive_page(isset($_GET["posted_page"]) ? $_GET["posted_page"] : 1);
+$appPage = aa_positive_page(isset($_GET["app_page"]) ? $_GET["app_page"] : 1);
 $paymentPage = aa_positive_page(isset($_GET["payment_page"]) ? $_GET["payment_page"] : 1);
 $postedPerPage = 25;
+$applicationsPerPage = 5;
 $paymentPerPage = 25;
 $postedSearchSql = "";
 if($postedSearch !== ""){
@@ -788,16 +1110,60 @@ $postedExportRes = mysqli_query($con, "SELECT *
     ORDER BY datetimeentry DESC");
 if($postedExportRes){ while($row = mysqli_fetch_array($postedExportRes, MYSQLI_ASSOC)){ $postedExportStudents[] = $row; } }
 
+$appSearchSql = "";
+if($appSearch !== ""){
+    $appSearchEsc = mysqli_real_escape_string($con, $appSearch);
+    $appLikeEsc = "%".$appSearchEsc."%";
+    $appSearchSql = " AND (
+        beceindexnumber LIKE '$appLikeEsc'
+        OR firstname LIKE '$appLikeEsc'
+        OR surname LIKE '$appLikeEsc'
+        OR othernames LIKE '$appLikeEsc'
+        OR CONCAT_WS(' ', firstname, othernames, surname) LIKE '$appLikeEsc'
+        OR CONCAT_WS(' ', surname, firstname, othernames) LIKE '$appLikeEsc'
+        OR mobile LIKE '$appLikeEsc'
+        OR guardianname LIKE '$appLikeEsc'
+        OR guardiancontact LIKE '$appLikeEsc'
+        OR residencetype LIKE '$appLikeEsc'
+        OR admissionyear LIKE '$appLikeEsc'
+        OR status LIKE '$appLikeEsc'
+        OR verificationtoken LIKE '$appLikeEsc'
+    )";
+}
+
+$applicationTotal = 0;
+$applicationCountRes = mysqli_query($con, "SELECT COUNT(*) AS total
+    FROM tblonlineadmissionapplication
+    WHERE branchid='$branchIdEsc'$appSearchSql");
+if($applicationCountRes && ($row = mysqli_fetch_array($applicationCountRes, MYSQLI_ASSOC))){
+    $applicationTotal = (int)$row["total"];
+}
+$applicationTotalPages = max(1, (int)ceil($applicationTotal / $applicationsPerPage));
+if($appPage > $applicationTotalPages){
+    $appPage = $applicationTotalPages;
+}
+$applicationOffset = ($appPage - 1) * $applicationsPerPage;
+
 $applications = array();
 $appRes = mysqli_query($con, "SELECT *
     FROM tblonlineadmissionapplication
-    WHERE branchid='$branchIdEsc'
+    WHERE branchid='$branchIdEsc'$appSearchSql
     ORDER BY updatedat DESC
-    LIMIT 40");
+    LIMIT $applicationOffset, $applicationsPerPage");
 if($appRes){ while($row = mysqli_fetch_array($appRes, MYSQLI_ASSOC)){ $applications[] = $row; } }
+$applicationAssignedHouseMap = array();
+foreach($applications as $index => $app){
+    $assignedHouse = online_admission_assign_house_for_application($con, $app);
+    $refreshedApplication = online_admission_get_application_by_id($con, $app["applicationid"]);
+    $applications[$index] = $refreshedApplication ? $refreshedApplication : $app;
+    $applicationAssignedHouseMap[$app["applicationid"]] = $assignedHouse;
+}
 $applicationPaymentMap = array();
 foreach($applications as $app){
     $applicationPaymentMap[$app["applicationid"]] = online_admission_get_latest_payment_by_application($con, $app["applicationid"]);
+    if(!isset($applicationAssignedHouseMap[$app["applicationid"]])){
+        $applicationAssignedHouseMap[$app["applicationid"]] = online_admission_application_assigned_house($con, $app);
+    }
 }
 $paymentTotal = 0;
 $paymentCountRes = mysqli_query($con, "SELECT COUNT(*) AS total
@@ -830,6 +1196,38 @@ $paymentExportRes = mysqli_query($con, "SELECT pay.*, app.firstname, app.surname
 if($paymentExportRes){ while($row = mysqli_fetch_array($paymentExportRes, MYSQLI_ASSOC)){ $paymentExportSource[] = $row; } }
 
 $helpRequests = online_admission_get_recent_help_requests($con, $branchId, 20);
+$cycleSummaries = online_admission_list_year_summaries($con, $branchId);
+$activeCycle = null;
+foreach($cycleSummaries as $cycleSummary){
+    if((int)$cycleSummary["posted_active"] > 0){
+        $activeCycle = $cycleSummary;
+        break;
+    }
+}
+if($activeCycle === null && count($cycleSummaries) > 0){
+    $activeCycle = $cycleSummaries[0];
+}
+$documentYear = trim((string)(isset($_GET["document_year"]) ? $_GET["document_year"] : ($activeCycle ? $activeCycle["admissionyear"] : date("Y"))));
+if($documentYear === ""){
+    $documentYear = date("Y");
+}
+$documentLibrary = online_admission_list_documents($con, $branchId, $documentYear);
+$studentHouses = array();
+$houseActiveCount = 0;
+$houseRes = mysqli_query($con, "SELECT h.houseid, h.housename, h.description, h.housegender, h.houseresidencetype, h.autoassignenabled, h.status, h.datetimeentry,
+        COUNT(sh.assignmentid) AS studenttotal
+    FROM tblhouse h
+    LEFT JOIN tblstudenthouse sh ON sh.houseid=h.houseid AND sh.status='active'
+    GROUP BY h.houseid, h.housename, h.description, h.housegender, h.houseresidencetype, h.autoassignenabled, h.status, h.datetimeentry
+    ORDER BY CASE WHEN h.status='active' THEN 0 ELSE 1 END, h.housename ASC");
+if($houseRes){
+    while($houseRow = mysqli_fetch_array($houseRes, MYSQLI_ASSOC)){
+        if(strtolower(trim((string)$houseRow["status"])) === "active"){
+            $houseActiveCount++;
+        }
+        $studentHouses[] = $houseRow;
+    }
+}
 
 $postedExportHeaders = array("BECE Index", "Student", "Gender", "Birth Date", "Programme", "Class", "Residence", "Year", "Mobile", "Added On");
 $postedExportRows = array();
@@ -866,6 +1264,77 @@ foreach($paymentExportSource as $payment){
 
 $exportAction = trim((string)(isset($_GET["export"]) ? $_GET["export"] : ""));
 $printAction = trim((string)(isset($_GET["print"]) ? $_GET["print"] : ""));
+$cycleYear = trim((string)(isset($_GET["cycle_year"]) ? $_GET["cycle_year"] : ""));
+if($cycleYear !== "" && $exportAction === "year_posted_students"){
+    $yearRows = array();
+    foreach(aa_year_posted_students($con, $branchId, $cycleYear) as $student){
+        $yearRows[] = array(
+            (string)$student["beceindexnumber"],
+            trim((string)$student["firstname"]." ".(string)$student["othernames"]." ".(string)$student["surname"]),
+            (string)$student["gender"],
+            aa_date($student["birthdate"], "d M Y"),
+            (string)$student["offeredprogram"],
+            (string)$student["offeredclass"],
+            (string)$student["residentialstatus"],
+            (string)$student["status"],
+            (string)$student["mobile"],
+            aa_date($student["datetimeentry"], "d M Y, g:i a")
+        );
+    }
+    aa_output_excel_table(aa_file_slug($branchName)."-".$cycleYear."-posted-students.xls", "Posted Students - ".$cycleYear, array("BECE Index", "Student", "Gender", "Birth Date", "Programme", "Class", "Residence", "Record Status", "Mobile", "Added On"), $yearRows);
+}
+if($cycleYear !== "" && $exportAction === "year_applications"){
+    $yearRows = array();
+    foreach(aa_year_applications($con, $branchId, $cycleYear) as $application){
+        $yearRows[] = array(
+            trim((string)$application["firstname"]." ".(string)$application["othernames"]." ".(string)$application["surname"]),
+            (string)$application["beceindexnumber"],
+            (string)$application["mobile"],
+            (string)$application["guardiancontact"],
+            (string)$application["residencetype"],
+            online_admission_status_label($application["status"]),
+            trim((string)$application["verificationtoken"]) !== "" ? (string)$application["verificationtoken"] : "Not issued",
+            aa_date($application["submittedat"], "d M Y, g:i a"),
+            aa_date($application["updatedat"], "d M Y, g:i a")
+        );
+    }
+    aa_output_excel_table(aa_file_slug($branchName)."-".$cycleYear."-admission-applications.xls", "Admission Applications - ".$cycleYear, array("Student", "BECE Index", "Student Mobile", "Guardian Contact", "Residence", "Status", "Token", "Submitted", "Last Updated"), $yearRows);
+}
+if($cycleYear !== "" && $exportAction === "year_payments"){
+    $yearRows = array();
+    foreach(aa_year_payments($con, $branchId, $cycleYear) as $payment){
+        $yearRows[] = array(
+            trim((string)$payment["firstname"]." ".(string)$payment["othernames"]." ".(string)$payment["surname"]),
+            (string)$payment["reference"],
+            trim((string)$payment["admissioncode"]) !== "" ? (string)$payment["admissioncode"] : "Not issued",
+            aa_money($payment["amount"], $payment["currency"]),
+            online_admission_payment_status_label($payment["status"]),
+            (string)$payment["mobile"],
+            aa_date($payment["createdat"], "d M Y, g:i a"),
+            trim((string)$payment["paidat"]) !== "" ? aa_date($payment["paidat"], "d M Y, g:i a") : "Not paid"
+        );
+    }
+    aa_output_excel_table(aa_file_slug($branchName)."-".$cycleYear."-admission-payments.xls", "Admission Payments - ".$cycleYear, array("Student", "Reference", "Internal Payment Code", "Amount", "Status", "Student Mobile", "Created", "Paid"), $yearRows);
+}
+if($cycleYear !== "" && $exportAction === "year_help_requests"){
+    $yearRows = array();
+    foreach(aa_year_help_requests($con, $branchId, $cycleYear) as $request){
+        $yearRows[] = array(
+            (string)$request["studentname"],
+            (string)$request["beceindexnumber"],
+            (string)$request["contactphone"],
+            trim((string)$request["verificationtoken"]) !== "" ? (string)$request["verificationtoken"] : "",
+            online_admission_help_status_label($request["status"]),
+            trim((string)$request["adminnote"]),
+            trim(preg_replace('/\s+/', ' ', (string)$request["helpmessage"])),
+            aa_date($request["requestedat"], "d M Y, g:i a")
+        );
+    }
+    aa_output_excel_table(aa_file_slug($branchName)."-".$cycleYear."-admission-help-requests.xls", "Admission Help Requests - ".$cycleYear, array("Student", "BECE Index", "Phone", "Token", "Status", "Admin Note", "Message", "Requested"), $yearRows);
+}
+if($cycleYear !== "" && $exportAction === "year_images"){
+    aa_output_year_images_zip($con, $branchId, $cycleYear, $branchName);
+}
 if($exportAction === "posted_students"){
     $title = "Recent Posted Students";
     if($postedSearch !== ""){
@@ -924,6 +1393,7 @@ if($printAction === "recent_payments"){
     </section>
 
     <div class="rs-layout">
+        <div class="aa-main-stack">
         <section class="rs-panel rs-panel--form">
             <div class="rs-panel-head">
                 <div>
@@ -956,6 +1426,169 @@ if($printAction === "recent_payments"){
                 </div>
             </form>
         </section>
+
+        <section class="rs-panel aa-section" id="admission-houses">
+            <div class="rs-panel-head">
+                <div>
+                    <span class="rs-kicker rs-kicker--dark">House Setup</span>
+                    <h2>Student Houses</h2>
+                    <p>Create the houses students will later be assigned to across registration, house management, and exeat workflows.</p>
+                </div>
+            </div>
+
+            <form method="post" action="online-admission-admin.php#admission-houses" class="rs-form aa-house-form">
+                <section class="rs-section">
+                    <div class="rs-grid rs-grid--2">
+                        <div class="rs-field">
+                            <label for="admission_house_name">House Name</label>
+                            <input type="text" id="admission_house_name" name="housename" value="<?php echo aa_esc($houseForm["housename"]); ?>" placeholder="Example: Red House" required>
+                        </div>
+                        <div class="rs-field">
+                            <label for="admission_house_description">Short Description</label>
+                            <textarea id="admission_house_description" name="description" placeholder="Optional note about the house, block, or intake group."><?php echo aa_esc($houseForm["description"]); ?></textarea>
+                        </div>
+                        <div class="rs-field">
+                            <label for="admission_house_gender">Student Gender</label>
+                            <select id="admission_house_gender" name="housegender" required>
+                                <option value="Male"<?php echo $houseForm["housegender"] === "Male" ? " selected" : ""; ?>>Male</option>
+                                <option value="Female"<?php echo $houseForm["housegender"] === "Female" ? " selected" : ""; ?>>Female</option>
+                            </select>
+                        </div>
+                        <div class="rs-field">
+                            <label for="admission_house_residence">Residence Type</label>
+                            <select id="admission_house_residence" name="houseresidencetype" required>
+                                <option value="Boarding"<?php echo $houseForm["houseresidencetype"] === "Boarding" ? " selected" : ""; ?>>Boarding</option>
+                                <option value="Day"<?php echo $houseForm["houseresidencetype"] === "Day" ? " selected" : ""; ?>>Day</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label class="aa-payment-toggle aa-payment-toggle--compact">
+                        <input type="checkbox" name="autoassignenabled" value="1"<?php echo $houseForm["autoassignenabled"] === "1" ? " checked" : ""; ?>>
+                        <span>Use this house in automatic online-admission house assignment.</span>
+                    </label>
+                </section>
+
+                <div class="rs-form-foot">
+                    <p><i class="fa fa-home"></i> Houses created here immediately become available in the rest of the student house tools, and can be used for fair auto-assignment during online admission.</p>
+                    <button type="submit" name="save_admission_house" class="rs-submit"><i class="fa fa-plus"></i> Create House</button>
+                </div>
+            </form>
+
+            <div class="aa-house-bar">
+                <div class="aa-payment-config-meta">
+                    <span class="aa-status aa-status--success"><?php echo number_format($houseActiveCount); ?> Active</span>
+                    <span class="aa-status aa-status--neutral"><?php echo number_format(count($studentHouses)); ?> Total Houses</span>
+                </div>
+                <a href="house-entry.php" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-external-link"></i> Open Full House Management</a>
+            </div>
+
+            <div class="aa-house-grid">
+                <?php if(!empty($studentHouses)){ foreach($studentHouses as $houseRow){ ?>
+                <article class="aa-house-card">
+                    <div class="aa-house-card__head">
+                        <div>
+                            <h3><?php echo aa_esc($houseRow["housename"]); ?></h3>
+                            <p><?php echo aa_esc(trim((string)$houseRow["description"]) !== "" ? $houseRow["description"] : "No description added yet."); ?></p>
+                        </div>
+                        <span class="<?php echo aa_house_status_class($houseRow["status"]); ?>"><?php echo aa_esc(ucfirst((string)$houseRow["status"])); ?></span>
+                    </div>
+                    <div class="aa-house-meta">
+                        <span><strong>Students:</strong> <?php echo number_format((int)$houseRow["studenttotal"]); ?> assigned</span>
+                        <span><strong>Gender:</strong> <?php echo aa_esc(house_master_normalize_gender_label($houseRow["housegender"]) !== "" ? house_master_normalize_gender_label($houseRow["housegender"]) : "Not set"); ?></span>
+                        <span><strong>Residence:</strong> <?php echo aa_esc(house_master_normalize_residence_label($houseRow["houseresidencetype"]) !== "" ? house_master_normalize_residence_label($houseRow["houseresidencetype"]) : "Not set"); ?></span>
+                        <span><strong>Auto Assign:</strong> <?php echo (int)$houseRow["autoassignenabled"] === 1 ? "Yes" : "No"; ?></span>
+                        <span><strong>Created:</strong> <?php echo aa_esc(aa_date($houseRow["datetimeentry"], "d M Y")); ?></span>
+                    </div>
+                    <form method="post" action="online-admission-admin.php#admission-houses" class="aa-house-config">
+                        <input type="hidden" name="houseid" value="<?php echo aa_esc($houseRow["houseid"]); ?>">
+                        <div class="rs-grid rs-grid--3">
+                            <div class="rs-field">
+                                <label>Gender</label>
+                                <select name="housegender">
+                                    <option value="Male"<?php echo house_master_normalize_gender_label($houseRow["housegender"]) === "Male" ? " selected" : ""; ?>>Male</option>
+                                    <option value="Female"<?php echo house_master_normalize_gender_label($houseRow["housegender"]) === "Female" ? " selected" : ""; ?>>Female</option>
+                                </select>
+                            </div>
+                            <div class="rs-field">
+                                <label>Residence</label>
+                                <select name="houseresidencetype">
+                                    <option value="Boarding"<?php echo house_master_normalize_residence_label($houseRow["houseresidencetype"]) === "Boarding" ? " selected" : ""; ?>>Boarding</option>
+                                    <option value="Day"<?php echo house_master_normalize_residence_label($houseRow["houseresidencetype"]) === "Day" ? " selected" : ""; ?>>Day</option>
+                                </select>
+                            </div>
+                            <label class="aa-payment-toggle aa-payment-toggle--compact aa-house-toggle">
+                                <input type="checkbox" name="autoassignenabled" value="1"<?php echo (int)$houseRow["autoassignenabled"] === 1 ? " checked" : ""; ?>>
+                                <span>Auto assign</span>
+                            </label>
+                        </div>
+                        <button type="submit" name="save_house_profile" class="aa-button aa-button--wide"><i class="fa fa-save"></i> Save House Rules</button>
+                    </form>
+                </article>
+                <?php } } else { ?>
+                <div class="rs-empty"><h3>No houses created yet</h3><p>Add the first student house here and it will be available throughout the system.</p></div>
+                <?php } ?>
+            </div>
+        </section>
+
+        <section class="rs-panel aa-section aa-section--compact" id="cycle-rollover">
+            <div class="rs-side-head">
+                <span class="rs-kicker rs-kicker--dark">Admission Reset</span>
+                <h2>Clear Admission Year</h2>
+            </div>
+            <p class="aa-copy">Use this only when one admission cycle is fully finished and you want to prepare for a new year. Download the year records first, then clear that entire admission year from posted students, forms, payments, and help requests.</p>
+            <div class="aa-rollover-note">
+                <strong>What happens when you clear a year</strong>
+                <span>The system saves that year's student admission photos into a backup folder, then removes that year's posted students, applications, payments, and help requests so the portal is ready for a fresh intake.</span>
+            </div>
+
+            <?php if($activeCycle){ $cycle = $activeCycle; $cycleState = aa_cycle_status($cycle); ?>
+            <div class="aa-cycle-grid">
+                <article class="aa-cycle-card">
+                    <div class="aa-cycle-card__top">
+                        <div>
+                            <h3><?php echo aa_esc($cycle["admissionyear"]); ?> Active Admission Year</h3>
+                            <p>Download the year backup files before using the clear button.</p>
+                        </div>
+                        <span class="<?php echo $cycleState["class"]; ?>"><?php echo aa_esc($cycleState["label"]); ?></span>
+                    </div>
+
+                    <div class="aa-cycle-metrics">
+                        <article><span>Posted</span><strong><?php echo number_format((int)$cycle["posted_total"]); ?></strong></article>
+                        <article><span>Applications</span><strong><?php echo number_format((int)$cycle["application_total"]); ?></strong></article>
+                        <article><span>Drafts</span><strong><?php echo number_format((int)$cycle["draft_total"]); ?></strong></article>
+                        <article><span>Submitted</span><strong><?php echo number_format((int)$cycle["submitted_total"]); ?></strong></article>
+                        <article><span>Reviewed</span><strong><?php echo number_format((int)$cycle["reviewed_total"]); ?></strong></article>
+                        <article><span>Paid</span><strong><?php echo number_format((int)$cycle["payment_success_total"]); ?></strong></article>
+                    </div>
+
+                    <div class="aa-cycle-actions">
+                        <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_posted_students", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Posted List</a>
+                        <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_applications", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Applications</a>
+                        <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_payments", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Payments</a>
+                        <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_help_requests", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Help Requests</a>
+                        <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_images", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-download"></i> Images (ZIP)</a>
+                    </div>
+
+                    <form method="post" action="online-admission-admin.php#cycle-rollover" class="aa-cycle-form">
+                        <input type="hidden" name="clear_year" value="<?php echo aa_esc($cycle["admissionyear"]); ?>">
+                        <div class="rs-field">
+                            <label for="backup_reference_<?php echo aa_esc($cycle["admissionyear"]); ?>">Backup Reference</label>
+                            <input type="text" id="backup_reference_<?php echo aa_esc($cycle["admissionyear"]); ?>" name="backup_reference" placeholder="Example: 2026 SQL backup + year Excel exports">
+                        </div>
+                        <label class="aa-payment-toggle aa-payment-toggle--compact">
+                            <input type="checkbox" name="confirm_clear" value="1">
+                            <span>I have backed up <?php echo aa_esc($cycle["admissionyear"]); ?> and I want to clear it.</span>
+                        </label>
+                        <button type="submit" name="clear_admission_year" class="aa-button aa-button--danger" <?php echo (int)$cycle["posted_total"] < 1 && (int)$cycle["application_total"] < 1 && (int)$cycle["payment_total"] < 1 && (int)$cycle["help_total"] < 1 ? "disabled" : ""; ?>><i class="fa fa-trash"></i> Clear Admission Year</button>
+                        <?php if((int)$cycle["posted_total"] < 1 && (int)$cycle["application_total"] < 1 && (int)$cycle["payment_total"] < 1 && (int)$cycle["help_total"] < 1){ ?><p class="aa-cycle-footnote">There is nothing left to clear for this admission year.</p><?php } ?>
+                    </form>
+                </article>
+            </div>
+            <?php }else{ ?>
+            <div class="rs-empty"><h3>No admission years found</h3><p>Add posted students first before using the reset tools.</p></div>
+            <?php } ?>
+        </section>
+        </div>
 
         <aside class="rs-side">
             <section class="rs-panel">
@@ -1013,6 +1646,57 @@ if($printAction === "recent_payments"){
                 <a href="online-admission-paystack-test.php" class="aa-link aa-link--ghost"><i class="fa fa-flask"></i> Open Paystack Sandbox Tester</a>
             </section>
 
+            <section class="rs-panel" id="admission-documents">
+                <div class="rs-side-head">
+                    <span class="rs-kicker rs-kicker--dark">Student Downloads</span>
+                    <h2>Admission Documents</h2>
+                </div>
+                <p class="aa-copy">Upload as many admission documents as you need for each year. Students will see the exact document title you enter here when downloads unlock. If you upload one titled <strong>Admission Letter</strong>, that signed file becomes their main admission letter download.</p>
+                <form method="get" action="online-admission-admin.php#admission-documents" class="aa-document-year-form">
+                    <div class="rs-field">
+                        <label for="document_year">Admission Year</label>
+                        <input type="text" id="document_year" name="document_year" value="<?php echo aa_esc($documentYear); ?>">
+                    </div>
+                    <button type="submit" class="aa-button aa-search-button"><i class="fa fa-refresh"></i> Load Year</button>
+                </form>
+                <form method="post" action="<?php echo aa_esc(aa_admin_url(array("document_year" => $documentYear), "#admission-documents")); ?>" enctype="multipart/form-data" class="aa-document-form">
+                    <input type="hidden" name="document_year" value="<?php echo aa_esc($documentYear); ?>">
+                    <div class="aa-document-create">
+                        <div class="rs-field">
+                            <label for="document_title">Document Title</label>
+                            <input type="text" id="document_title" name="document_title" placeholder="Example: Reporting Instructions" required>
+                        </div>
+                        <div class="rs-field">
+                            <label for="document_file">Document File</label>
+                            <input type="file" id="document_file" name="document_file" accept=".pdf,.doc,.docx,application/pdf,.doc,.docx" required>
+                        </div>
+                    </div>
+                    <button type="submit" name="save_admission_documents" class="aa-button aa-button--wide"><i class="fa fa-upload"></i> Add Admission Document</button>
+                </form>
+                <div class="aa-document-grid">
+                    <?php if(!empty($documentLibrary)){ foreach($documentLibrary as $documentRow){ ?>
+                    <article class="aa-document-card">
+                        <div class="aa-document-card__head">
+                            <div>
+                                <h3><?php echo aa_esc(online_admission_document_display_title($documentRow)); ?></h3>
+                                <p><?php echo aa_esc(trim((string)$documentRow["originalfilename"]) !== "" ? $documentRow["originalfilename"] : $documentRow["filename"]); ?></p>
+                            </div>
+                            <span class="aa-status aa-status--success">Uploaded</span>
+                        </div>
+                        <div class="aa-document-meta">
+                            <span><strong>Admission Year:</strong> <?php echo aa_esc($documentYear); ?></span>
+                            <span><strong>Uploaded:</strong> <?php echo aa_esc(aa_date($documentRow["uploadedat"], "d M Y, g:i a")); ?></span>
+                        </div>
+                        <div class="aa-document-actions">
+                            <a href="online-admission-document.php?documentid=<?php echo aa_esc($documentRow["documentid"]); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-download"></i> Download</a>
+                        </div>
+                    </article>
+                    <?php } } else { ?>
+                    <div class="rs-empty"><h3>No admission documents yet</h3><p>Add the first downloadable document for <?php echo aa_esc($documentYear); ?> here.</p></div>
+                    <?php } ?>
+                </div>
+            </section>
+
             <section class="rs-panel">
                 <div class="rs-side-head">
                     <span class="rs-kicker rs-kicker--dark">Bulk Upload</span>
@@ -1034,6 +1718,66 @@ if($printAction === "recent_payments"){
             </section>
         </aside>
     </div>
+<?php if(false){ ?>
+
+    <section class="rs-panel aa-section" id="cycle-rollover">
+        <div class="rs-side-head">
+            <span class="rs-kicker rs-kicker--dark">Admission Reset</span>
+            <h2>Clear Admission Year</h2>
+        </div>
+        <p class="aa-copy">Use this only when one admission cycle is fully finished and you want to prepare for a new year. Download the year records first, then clear that entire admission year from posted students, forms, payments, and help requests.</p>
+        <div class="aa-rollover-note">
+            <strong>What happens when you clear a year</strong>
+            <span>The system saves that year’s student admission photos into a backup folder, then removes the year’s posted students, applications, payments, and help requests so the portal is ready for a fresh intake.</span>
+        </div>
+
+        <?php if($activeCycle){ $cycle = $activeCycle; $cycleState = aa_cycle_status($cycle); ?>
+        <div class="aa-cycle-grid">
+            <article class="aa-cycle-card">
+                <div class="aa-cycle-card__top">
+                    <div>
+                        <h3><?php echo aa_esc($cycle["admissionyear"]); ?> Active Admission Year</h3>
+                        <p>Download the year backup files before using the clear button.</p>
+                    </div>
+                    <span class="<?php echo $cycleState["class"]; ?>"><?php echo aa_esc($cycleState["label"]); ?></span>
+                </div>
+
+                <div class="aa-cycle-metrics">
+                    <article><span>Posted</span><strong><?php echo number_format((int)$cycle["posted_total"]); ?></strong></article>
+                    <article><span>Applications</span><strong><?php echo number_format((int)$cycle["application_total"]); ?></strong></article>
+                    <article><span>Drafts</span><strong><?php echo number_format((int)$cycle["draft_total"]); ?></strong></article>
+                    <article><span>Submitted</span><strong><?php echo number_format((int)$cycle["submitted_total"]); ?></strong></article>
+                    <article><span>Reviewed</span><strong><?php echo number_format((int)$cycle["reviewed_total"]); ?></strong></article>
+                    <article><span>Paid</span><strong><?php echo number_format((int)$cycle["payment_success_total"]); ?></strong></article>
+                </div>
+
+                <div class="aa-cycle-actions">
+                    <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_posted_students", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Posted List</a>
+                    <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_applications", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Applications</a>
+                    <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_payments", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Payments</a>
+                    <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_help_requests", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Help Requests</a>
+                </div>
+
+                <form method="post" action="online-admission-admin.php#cycle-rollover" class="aa-cycle-form">
+                    <input type="hidden" name="clear_year" value="<?php echo aa_esc($cycle["admissionyear"]); ?>">
+                    <div class="rs-field">
+                        <label for="backup_reference_<?php echo aa_esc($cycle["admissionyear"]); ?>">Backup Reference</label>
+                        <input type="text" id="backup_reference_<?php echo aa_esc($cycle["admissionyear"]); ?>" name="backup_reference" placeholder="Example: 2026 SQL backup + year Excel exports">
+                    </div>
+                    <label class="aa-payment-toggle aa-payment-toggle--compact">
+                        <input type="checkbox" name="confirm_clear" value="1">
+                        <span>I have backed up <?php echo aa_esc($cycle["admissionyear"]); ?> and I want to clear it.</span>
+                    </label>
+                    <button type="submit" name="clear_admission_year" class="aa-button aa-button--danger" <?php echo (int)$cycle["posted_total"] < 1 && (int)$cycle["application_total"] < 1 && (int)$cycle["payment_total"] < 1 && (int)$cycle["help_total"] < 1 ? "disabled" : ""; ?>><i class="fa fa-trash"></i> Clear Admission Year</button>
+                    <?php if((int)$cycle["posted_total"] < 1 && (int)$cycle["application_total"] < 1 && (int)$cycle["payment_total"] < 1 && (int)$cycle["help_total"] < 1){ ?><p class="aa-cycle-footnote">There is nothing left to clear for this admission year.</p><?php } ?>
+                </form>
+            </article>
+        </div>
+        <?php }else{ ?>
+        <div class="rs-empty"><h3>No admission years found</h3><p>Add posted students first before using the reset tools.</p></div>
+        <?php } ?>
+    </section>
+<?php } ?>
 
     <section class="rs-panel aa-section">
         <div class="rs-side-head">
@@ -1122,6 +1866,7 @@ if($printAction === "recent_payments"){
                     <article><span>Programme</span><strong><?php echo aa_esc($editableApplication["offeredprogram"] !== "" ? $editableApplication["offeredprogram"] : "Not set"); ?></strong></article>
                     <article><span>Class</span><strong><?php echo aa_esc($editableApplication["offeredclass"] !== "" ? $editableApplication["offeredclass"] : "Not set"); ?></strong></article>
                     <article><span>Placed Residence</span><strong><?php echo aa_esc($editableApplication["posted_residentialstatus"] !== "" ? $editableApplication["posted_residentialstatus"] : "Not set"); ?></strong></article>
+                    <article><span>Assigned House</span><strong><?php echo aa_esc($editableAssignedHouse && trim((string)$editableAssignedHouse["housename"]) !== "" ? $editableAssignedHouse["housename"] : "Pending"); ?></strong></article>
                     <article><span>Payment</span><strong><?php echo aa_esc($editablePayment ? online_admission_payment_status_label($editablePayment["status"]) : "Not started"); ?></strong></article>
                     <article><span>Verification Token</span><strong><?php echo aa_esc(trim((string)$editableApplication["verificationtoken"]) !== "" ? $editableApplication["verificationtoken"] : "Not issued"); ?></strong></article>
                     <article><span>Internal Payment Code</span><strong><?php echo aa_esc(($editablePayment && trim((string)$editablePayment["admissioncode"]) !== "") ? $editablePayment["admissioncode"] : "Not issued"); ?></strong></article>
@@ -1223,6 +1968,19 @@ if($printAction === "recent_payments"){
             <span class="rs-kicker rs-kicker--dark">Applications</span>
             <h2>Admission Submissions</h2>
         </div>
+        <div class="aa-search-bar">
+            <form method="get" action="online-admission-admin.php#applications" class="aa-search-form">
+                <?php if($postedPage > 1){ ?><input type="hidden" name="posted_page" value="<?php echo aa_esc($postedPage); ?>"><?php } ?>
+                <?php if($paymentPage > 1){ ?><input type="hidden" name="payment_page" value="<?php echo aa_esc($paymentPage); ?>"><?php } ?>
+                <div class="aa-search-input">
+                    <label for="app_search">Search Applications</label>
+                    <input type="text" id="app_search" name="app_search" value="<?php echo aa_esc($appSearch); ?>" placeholder="Search by student name, BECE index, token, mobile, guardian, year, or status">
+                </div>
+                <button type="submit" class="aa-button aa-search-button"><i class="fa fa-search"></i> Search</button>
+                <?php if($appSearch !== ""){ ?><a href="<?php echo aa_esc(aa_admin_url(array("app_search" => null, "app_page" => null), "#applications")); ?>" class="aa-link aa-link--ghost aa-search-clear"><i class="fa fa-times"></i> Clear</a><?php } ?>
+            </form>
+            <p class="aa-search-meta"><?php echo $appSearch !== "" ? "Showing page ".number_format($appPage)." of ".number_format($applicationTotalPages)." for ".number_format($applicationTotal)." match(es) for \"".aa_esc($appSearch)."\"." : "Showing page ".number_format($appPage)." of ".number_format($applicationTotalPages)." from ".number_format($applicationTotal)." application record(s)."; ?></p>
+        </div>
         <div class="aa-app-list">
             <?php if(count($applications) > 0){ foreach($applications as $app){ $appPayment = isset($applicationPaymentMap[$app["applicationid"]]) ? $applicationPaymentMap[$app["applicationid"]] : null; ?>
             <article class="aa-app-card">
@@ -1235,6 +1993,7 @@ if($printAction === "recent_payments"){
                 </div>
                 <div class="aa-app-card__meta">
                     <span><?php echo aa_esc($app["residencetype"] !== "" ? $app["residencetype"] : "Residence pending"); ?></span>
+                    <?php if(isset($applicationAssignedHouseMap[$app["applicationid"]]) && $applicationAssignedHouseMap[$app["applicationid"]] && trim((string)$applicationAssignedHouseMap[$app["applicationid"]]["housename"]) !== ""){ ?><span>House: <?php echo aa_esc($applicationAssignedHouseMap[$app["applicationid"]]["housename"]); ?></span><?php } ?>
                     <span><?php echo aa_esc($app["guardianname"] !== "" ? $app["guardianname"] : "Guardian pending"); ?></span>
                     <span><?php echo aa_esc($app["mobile"] !== "" ? $app["mobile"] : "Mobile pending"); ?></span>
                     <?php if(trim((string)$app["verificationtoken"]) !== ""){ ?><span>Token: <?php echo aa_esc($app["verificationtoken"]); ?></span><?php } ?>
@@ -1244,6 +2003,8 @@ if($printAction === "recent_payments"){
                 </div>
                 <form method="post" action="online-admission-admin.php#applications" class="aa-review-form">
                     <input type="hidden" name="applicationid" value="<?php echo aa_esc($app["applicationid"]); ?>">
+                    <input type="hidden" name="app_page" value="<?php echo aa_esc($appPage); ?>">
+                    <input type="hidden" name="app_search" value="<?php echo aa_esc($appSearch); ?>">
                     <select name="status">
                         <option value="submitted"<?php echo $app["status"]==="submitted" ? " selected" : ""; ?>>Submitted</option>
                         <option value="needs_attention"<?php echo $app["status"]==="needs_attention" ? " selected" : ""; ?>>Needs Attention</option>
@@ -1257,9 +2018,26 @@ if($printAction === "recent_payments"){
                 </div>
             </article>
             <?php } } else { ?>
-            <div class="rs-empty"><h3>No admission applications yet</h3><p>Applications submitted through the public portal will appear here.</p></div>
+            <div class="rs-empty"><h3><?php echo $appSearch !== "" ? "No matching applications" : "No admission applications yet"; ?></h3><p><?php echo $appSearch !== "" ? "Try another student name, token, BECE index, or status." : "Applications submitted through the public portal will appear here."; ?></p></div>
             <?php } ?>
         </div>
+        <?php if($applicationTotalPages > 1){ ?>
+        <div class="aa-pagination">
+            <span class="aa-pagination__meta">Page <?php echo number_format($appPage); ?> of <?php echo number_format($applicationTotalPages); ?></span>
+            <div class="aa-pagination__links">
+                <?php if($appPage > 1){ ?><a href="<?php echo aa_esc(aa_admin_url(array("app_page" => $appPage - 1), "#applications")); ?>" class="aa-link aa-link--ghost aa-link--inline">Previous</a><?php } ?>
+                <?php
+                $appStart = max(1, $appPage - 2);
+                $appEnd = min($applicationTotalPages, $appPage + 2);
+                for($page = $appStart; $page <= $appEnd; $page++){
+                    $pageClass = $page === $appPage ? "aa-link aa-link--inline" : "aa-link aa-link--ghost aa-link--inline";
+                ?>
+                <a href="<?php echo aa_esc(aa_admin_url(array("app_page" => $page), "#applications")); ?>" class="<?php echo $pageClass; ?>"><?php echo aa_esc($page); ?></a>
+                <?php } ?>
+                <?php if($appPage < $applicationTotalPages){ ?><a href="<?php echo aa_esc(aa_admin_url(array("app_page" => $appPage + 1), "#applications")); ?>" class="aa-link aa-link--ghost aa-link--inline">Next</a><?php } ?>
+            </div>
+        </div>
+        <?php } ?>
     </section>
 
     <section class="rs-panel aa-section" id="help-requests">

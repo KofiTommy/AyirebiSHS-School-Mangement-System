@@ -434,6 +434,29 @@ body.online-admission-page {
     line-height: 1.6;
 }
 
+.oa-document-list {
+    display: grid;
+    gap: 12px;
+}
+
+.oa-document-card {
+    padding: 16px;
+    border-radius: 18px;
+    background: #f7fafc;
+    border: 1px solid #dde7f1;
+    display: grid;
+    gap: 10px;
+}
+
+.oa-document-card strong {
+    color: #103645;
+}
+
+.oa-document-card span {
+    color: #5f768f;
+    line-height: 1.6;
+}
+
 .oa-payment-summary {
     display: grid;
     gap: 12px;

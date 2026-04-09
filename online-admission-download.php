@@ -27,6 +27,7 @@ if(!$postedStudent){
 }
 
 $payment = online_admission_get_successful_payment_by_application($con, (string)$application["applicationid"]);
+$assignedHouse = online_admission_application_assigned_house($con, $application);
 
 $school = array(
     "name" => "School Management System",
@@ -171,6 +172,7 @@ $pdf->detailRow("Date of Birth", oa_pdf_date($postedStudent["birthdate"]));
 $pdf->detailRow("Gender", oa_pdf_value($postedStudent["gender"]));
 $pdf->detailRow("Programme", oa_pdf_value($postedStudent["offeredprogram"], "To be confirmed"));
 $pdf->detailRow("Class", oa_pdf_value($postedStudent["offeredclass"], "To be assigned"));
+$pdf->detailRow("Assigned House", oa_pdf_value($assignedHouse && trim((string)$assignedHouse["housename"]) !== "" ? $assignedHouse["housename"] : ""));
 $pdf->detailRow("Residence Type", oa_pdf_value($application["residencetype"] !== "" ? $application["residencetype"] : $postedStudent["residentialstatus"]));
 $pdf->detailRow("Student Mobile", oa_pdf_value($application["mobile"]));
 $pdf->detailRow("Email Address", oa_pdf_value($application["email"]));

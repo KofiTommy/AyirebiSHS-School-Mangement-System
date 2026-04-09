@@ -8,9 +8,10 @@ if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
    $_SESSION['SYSTEMTYPE'] === "Teacher"){
     include_once("house-master-utils.php");
     ensure_house_tables($con);
-    $_ShowHouseMasterLinks = house_master_has_assignment($con, $_SESSION['USERID']);
-    $_ShowSeniorHouseLinks = house_master_has_senior_assignment($con, $_SESSION['USERID']);
-    $_HouseMasterDashboardLabel = house_master_dashboard_label($con, $_SESSION['USERID']);
+    $_HouseMasterSummary = house_master_get_teacher_role_summary($con, $_SESSION['USERID']);
+    $_ShowHouseMasterLinks = !empty($_HouseMasterSummary['has_house_assignment']);
+    $_ShowSeniorHouseLinks = !empty($_HouseMasterSummary['has_senior_assignment']);
+    $_HouseMasterDashboardLabel = isset($_HouseMasterSummary['dashboard_label']) ? $_HouseMasterSummary['dashboard_label'] : "House Master Dashboard";
 }
 if(!isset($_HouseMasterDashboardLabel)){
     $_HouseMasterDashboardLabel = "House Master Dashboard";

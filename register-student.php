@@ -3,8 +3,10 @@ session_start();
 include("dbstring.php");
 include("check-login.php");
 include("house-master-utils.php");
+include_once("online-admission-utils.php");
 include_once("company.php");
 ensure_house_tables($con);
+ensure_online_admission_tables($con);
 
 if(!house_master_is_admin()){
     header("location:".house_master_landing_page());
@@ -209,6 +211,35 @@ if(isset($_POST["register_user"])){
                     }else{
                         $type = "warning";
                         $message = "Student information saved, but the house assignment could not be completed.";
+                    }
+                    $onlineApplication = online_admission_find_unlinked_registration_application($con, $branchId, $form["beceindexnumber"], $form["birthday"]);
+                    if($onlineApplication){
+                        if(online_admission_link_registered_student($con, $onlineApplication["applicationid"], $form["userid"], $form["houseid"])){
+                            if($type === "success"){
+                                $message = "Student information saved, house assigned, and online admission linked successfully.";
+                            }else{
+                                $message .= " The online admission record was linked.";
+                            }
+                        }elseif($type !== "warning"){
+                            $type = "warning";
+                            $message .= " The online admission record could not be linked.";
+                        }
+                    }
+                }else{
+                    $admissionHouseResult = online_admission_finalize_registration_house(
+                        $con,
+                        $form["userid"],
+                        $branchId,
+                        $form["beceindexnumber"],
+                        $form["birthday"],
+                        isset($_SESSION["USERID"]) ? $_SESSION["USERID"] : "",
+                        ""
+                    );
+                    if($admissionHouseResult["linked"] && trim((string)$admissionHouseResult["message"]) !== ""){
+                        $message = $admissionHouseResult["message"];
+                    }elseif($admissionHouseResult["found"] && trim((string)$admissionHouseResult["message"]) !== ""){
+                        $type = "warning";
+                        $message .= " ".$admissionHouseResult["message"];
                     }
                 }
                 $imageError = "";

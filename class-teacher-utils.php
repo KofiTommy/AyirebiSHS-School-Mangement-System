@@ -1,4 +1,45 @@
 <?php
+if(!function_exists('xschool_schema_cache_is_fresh')){
+function xschool_schema_cache_is_fresh($key, $ttlSeconds = 900){
+    static $memoryCache = array();
+    $key = trim((string)$key);
+    if($key === ""){
+        return false;
+    }
+    if(isset($memoryCache[$key])){
+        return $memoryCache[$key];
+    }
+    if(PHP_SAPI === 'cli' || !function_exists('session_status') || session_status() !== PHP_SESSION_ACTIVE){
+        $memoryCache[$key] = false;
+        return false;
+    }
+    $cacheBag = isset($_SESSION['_xschool_schema_cache']) && is_array($_SESSION['_xschool_schema_cache'])
+        ? $_SESSION['_xschool_schema_cache']
+        : array();
+    $isFresh = isset($cacheBag[$key]) && ((int)$cacheBag[$key] + (int)$ttlSeconds) > time();
+    $memoryCache[$key] = $isFresh;
+    return $isFresh;
+}
+}
+
+if(!function_exists('xschool_schema_cache_mark')){
+function xschool_schema_cache_mark($key){
+    static $memoryCache = array();
+    $key = trim((string)$key);
+    if($key === ""){
+        return;
+    }
+    $memoryCache[$key] = true;
+    if(PHP_SAPI === 'cli' || !function_exists('session_status') || session_status() !== PHP_SESSION_ACTIVE){
+        return;
+    }
+    if(!isset($_SESSION['_xschool_schema_cache']) || !is_array($_SESSION['_xschool_schema_cache'])){
+        $_SESSION['_xschool_schema_cache'] = array();
+    }
+    $_SESSION['_xschool_schema_cache'][$key] = time();
+}
+}
+
 if(!function_exists('class_teacher_is_admin')){
 function class_teacher_is_admin(){
     return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
@@ -35,6 +76,9 @@ function class_teacher_landing_page(){
 
 if(!function_exists('ensure_class_teacher_table')){
 function ensure_class_teacher_table($con){
+    if(xschool_schema_cache_is_fresh('schema_tblclassteacher_v1')){
+        return;
+    }
     $sql = "CREATE TABLE IF NOT EXISTS tblclassteacher (
         assignmentid VARCHAR(40) NOT NULL PRIMARY KEY,
         userid VARCHAR(30) NOT NULL,
@@ -49,16 +93,21 @@ function ensure_class_teacher_table($con){
         INDEX idx_status (status)
     )";
     mysqli_query($con, $sql);
+    xschool_schema_cache_mark('schema_tblclassteacher_v1');
 }
 }
 
 if(!function_exists('ensure_student_terminal_term_column')){
 function ensure_student_terminal_term_column($con){
+    if(xschool_schema_cache_is_fresh('schema_tblstudentterminalreport_termname_v1')){
+        return;
+    }
     $colRes = mysqli_query($con, "SHOW COLUMNS FROM tblstudentterminalreport LIKE 'termname'");
     if(!$colRes || mysqli_num_rows($colRes) === 0){
         mysqli_query($con, "ALTER TABLE tblstudentterminalreport ADD COLUMN termname INT NOT NULL DEFAULT 0 AFTER batchid");
         mysqli_query($con, "CREATE INDEX idx_terminal_user_batch_term ON tblstudentterminalreport(userid,batchid,termname)");
     }
+    xschool_schema_cache_mark('schema_tblstudentterminalreport_termname_v1');
 }
 }
 

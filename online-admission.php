@@ -418,6 +418,11 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
                     $application = $savedApplication;
                 }
             }
+            $assignedHouse = null;
+            if($isSubmit && $savedApplication){
+                $assignedHouse = online_admission_assign_house_for_application($con, $savedApplication, $postedStudent);
+                $savedApplication = online_admission_get_application_by_id($con, $applicationId);
+            }
             if(!$paymentEnabled && !$isSubmit){
                 $resumeToken = $savedApplication ? trim((string)$savedApplication["verificationtoken"]) : "";
                 $_SESSION["ONLINE_ADMISSION_MESSAGE"] = $resumeToken !== ""
@@ -426,14 +431,15 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
             }elseif($isSubmit){
                 $guardianSmsResult = $savedApplication ? online_admission_send_guardian_submission_sms($con, $savedApplication, $companyName) : array("sent" => false, "status" => "INVALID_CONTEXT");
                 $accessToken = $savedApplication ? trim((string)$savedApplication["verificationtoken"]) : "";
+                $houseMessage = ($assignedHouse && trim((string)$assignedHouse["housename"]) !== "") ? " Auto house: ".$assignedHouse["housename"]."." : "";
                 if($paymentEnabled){
                     $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", !empty($guardianSmsResult["sent"])
-                        ? "Admission submitted successfully. A confirmation SMS has been sent."
-                        : "Admission submitted successfully.");
+                        ? "Admission submitted successfully. A confirmation SMS has been sent.".$houseMessage
+                        : "Admission submitted successfully.".$houseMessage);
                 }else{
                     $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", !empty($guardianSmsResult["sent"])
-                        ? "Admission submitted successfully. A confirmation SMS has been sent. Resume token: ".($accessToken !== "" ? $accessToken : "available on your portal")."."
-                        : "Admission submitted successfully. Resume token: ".($accessToken !== "" ? $accessToken : "available on your portal").".");
+                        ? "Admission submitted successfully. A confirmation SMS has been sent. Resume token: ".($accessToken !== "" ? $accessToken : "available on your portal").".".$houseMessage
+                        : "Admission submitted successfully. Resume token: ".($accessToken !== "" ? $accessToken : "available on your portal").".".$houseMessage);
                 }
             }else{
                 $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Draft saved successfully.");
@@ -448,6 +454,8 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
 }
 
 $application = ($accessAuthorized && $application) ? online_admission_get_application_by_id($con, $application["applicationid"]) : null;
+$assignedHouse = ($application) ? online_admission_assign_house_for_application($con, $application, $postedStudent) : null;
+$application = ($application) ? online_admission_get_application_by_id($con, $application["applicationid"]) : null;
 $isLocked = ($application && strtolower((string)$application["status"]) === "reviewed");
 $paystackConfig = online_admission_paystack_config();
 $latestPayment = ($application) ? online_admission_get_latest_payment_by_application($con, $application["applicationid"]) : null;
@@ -466,6 +474,37 @@ $paymentContinueUrl = ($latestPayment && !$paymentPaid && strtolower(trim((strin
     ? trim((string)$latestPayment["authorizationurl"])
     : "online-admission-paystack-init.php";
 $showAdmissionForm = $accessAuthorized && (!$paymentEnabled || $paymentPaid);
+$documentsUnlocked = ($application && $postedStudent) ? online_admission_documents_unlocked($application, $successfulPayment, $paymentEnabled ? 1 : 0) : false;
+$studentDocuments = ($documentsUnlocked && $postedStudent) ? online_admission_list_documents($con, $branchId, (string)$postedStudent["admissionyear"]) : array();
+$uploadedAdmissionLetter = null;
+$visibleStudentDocuments = $studentDocuments;
+foreach($studentDocuments as $index => $documentRow){
+    $searchText = strtolower(trim(
+        online_admission_document_display_title($documentRow)." ".
+        (string)(isset($documentRow["originalfilename"]) ? $documentRow["originalfilename"] : "").
+        " ".
+        (string)(isset($documentRow["filename"]) ? $documentRow["filename"] : "")
+    ));
+    if($uploadedAdmissionLetter === null && strpos($searchText, "admission") !== false && strpos($searchText, "letter") !== false){
+        $uploadedAdmissionLetter = $documentRow;
+        unset($visibleStudentDocuments[$index]);
+        break;
+    }
+}
+$visibleStudentDocuments = array_values($visibleStudentDocuments);
+$generatedAdmissionLetterUrl = ($documentsUnlocked && $application && $accessAuthorized && online_admission_application_is_submitted($application))
+    ? "online-admission-letter.php"
+    : "";
+$admissionLetterUrl = $uploadedAdmissionLetter
+    ? "online-admission-document.php?documentid=".rawurlencode((string)$uploadedAdmissionLetter["documentid"])
+    : $generatedAdmissionLetterUrl;
+$admissionLetterLabel = $uploadedAdmissionLetter
+    ? online_admission_document_display_title($uploadedAdmissionLetter)
+    : "Admission Letter";
+$admissionLetterNote = $uploadedAdmissionLetter
+    ? trim((string)$uploadedAdmissionLetter["originalfilename"])
+    : "Personalized letter generated for your application.";
+$hasStudentDownloads = ($admissionLetterUrl !== "" || !empty($visibleStudentDocuments));
 ?>
 <!DOCTYPE html>
 <html>
@@ -602,7 +641,7 @@ $showAdmissionForm = $accessAuthorized && (!$paymentEnabled || $paymentPaid);
         <div>
             <span class="oa-kicker oa-kicker--dark">Verified Student</span>
             <h2><?php echo oa_esc(trim($postedStudent["firstname"]." ".$postedStudent["othernames"]." ".$postedStudent["surname"])); ?></h2>
-            <p><?php echo oa_esc($postedStudent["beceindexnumber"]); ?> - <?php echo oa_esc($postedStudent["admissionyear"]); ?></p>
+            <p><?php echo oa_esc($postedStudent["beceindexnumber"]); ?> - <?php echo oa_esc($postedStudent["admissionyear"]); ?><?php if($assignedHouse && trim((string)$assignedHouse["housename"]) !== ""){ ?> - <?php echo oa_esc($assignedHouse["housename"]); ?><?php } ?></p>
         </div>
         <span class="oa-verified-bar__meta"><?php echo oa_esc($paymentEnabled ? "Token: ".($verificationToken !== "" ? $verificationToken : "Pending") : ($verificationToken !== "" ? "Resume Token: ".$verificationToken : "Direct form access")); ?></span>
         <?php if($application){ ?><span class="<?php echo oa_status_class($application["status"]); ?>"><?php echo oa_esc(online_admission_status_label($application["status"])); ?></span><?php } ?>
@@ -802,11 +841,50 @@ $showAdmissionForm = $accessAuthorized && (!$paymentEnabled || $paymentPaid);
                         <span>Reviewed On</span>
                         <strong><?php echo oa_esc($application ? oa_format_datetime($application["revieweddatetime"]) : "Not available"); ?></strong>
                     </article>
+                    <article>
+                        <span>Assigned House</span>
+                        <strong><?php echo oa_esc($assignedHouse && trim((string)$assignedHouse["housename"]) !== "" ? $assignedHouse["housename"] : "Pending"); ?></strong>
+                    </article>
                 </div>
                 <div class="oa-payment-state oa-payment-state--info"><?php echo oa_esc($applicationStatusSummary); ?></div>
-                <?php if($downloadUrl !== ""){ ?>
+                <?php if($downloadUrl !== "" || $admissionLetterUrl !== ""){ ?>
                 <div class="oa-form-actions oa-form-actions--stacked">
+                    <?php if($admissionLetterUrl !== ""){ ?>
+                    <a href="<?php echo oa_esc($admissionLetterUrl); ?>" class="oa-submit"><i class="fa fa-file-text-o"></i> Download <?php echo oa_esc($admissionLetterLabel); ?></a>
+                    <?php } ?>
+                    <?php if($downloadUrl !== ""){ ?>
                     <a href="<?php echo oa_esc($downloadUrl); ?>" class="oa-submit"><i class="fa fa-download"></i> Download Admission PDF</a>
+                    <?php } ?>
+                </div>
+                <?php } ?>
+            </section>
+
+            <section class="oa-card">
+                <div class="oa-section-head">
+                    <h2>Admission Documents</h2>
+                </div>
+                <?php if(!$application || !online_admission_application_is_submitted($application)){ ?>
+                <div class="oa-payment-state oa-payment-state--neutral">Submit your online form first to unlock your admission documents.</div>
+                <?php }elseif($paymentEnabled && !$paymentPaid){ ?>
+                <div class="oa-payment-state oa-payment-state--neutral">Confirm your online payment first to unlock your admission documents.</div>
+                <?php }elseif(!$hasStudentDownloads){ ?>
+                <div class="oa-payment-state oa-payment-state--warning">Your admission letter is not ready yet.</div>
+                <?php }else{ ?>
+                <div class="oa-document-list">
+                    <?php if($admissionLetterUrl !== ""){ ?>
+                    <article class="oa-document-card">
+                        <strong><?php echo oa_esc($admissionLetterLabel); ?></strong>
+                        <span><?php echo oa_esc($admissionLetterNote !== "" ? $admissionLetterNote : "Admission document ready for download."); ?></span>
+                        <a href="<?php echo oa_esc($admissionLetterUrl); ?>" class="oa-secondary"><i class="fa fa-download"></i> Download</a>
+                    </article>
+                    <?php } ?>
+                    <?php foreach($visibleStudentDocuments as $documentRow){ ?>
+                    <article class="oa-document-card">
+                        <strong><?php echo oa_esc(online_admission_document_display_title($documentRow)); ?></strong>
+                        <span><?php echo oa_esc(trim((string)$documentRow["originalfilename"]) !== "" ? $documentRow["originalfilename"] : $documentRow["filename"]); ?></span>
+                        <a href="online-admission-document.php?documentid=<?php echo oa_esc($documentRow["documentid"]); ?>" class="oa-secondary"><i class="fa fa-download"></i> Download</a>
+                    </article>
+                    <?php } ?>
                 </div>
                 <?php } ?>
             </section>

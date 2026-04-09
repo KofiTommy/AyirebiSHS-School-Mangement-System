@@ -1,3 +1,9 @@
+<?php
+if(defined('XSCHOOL_VALIDATION_HEADER_LOADED')){
+    return;
+}
+define('XSCHOOL_VALIDATION_HEADER_LOADED', true);
+?>
 	<link rel="stylesheet" href="validation/css/validationEngine.jquery.css" type="text/css"/>
 	<link rel="stylesheet" href="validation/css/template.css" type="text/css"/>
 	<script src="validation/js/jquery-1.6.min.js" type="text/javascript">

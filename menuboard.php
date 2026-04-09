@@ -1,4 +1,113 @@
+<?php
+if(!function_exists('menuboard_section_start')){
+function menuboard_section_start($title, $icon = 'fa-folder-open', $open = false){
+    echo "<details class='menuboard-section'".($open ? " open" : "").">";
+    echo "<summary><span class='menuboard-section__title'><i class='fa ".$icon."'></i> ".$title."</span></summary>";
+    echo "<div class='menuboard-section__body'>";
+}
+}
 
+if(!function_exists('menuboard_section_end')){
+function menuboard_section_end(){
+    echo "</div></details>";
+}
+}
+?>
+<style>
+.menu-inner .menuboard-section{
+    margin:12px 0;
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:14px;
+    background:rgba(255,255,255,0.04);
+    overflow:hidden;
+}
+
+.menu-inner .menuboard-section summary{
+    list-style:none;
+    cursor:pointer;
+    padding:12px 14px;
+    color:#fff;
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+}
+
+.menu-inner .menuboard-section__title{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+}
+
+.menu-inner .menuboard-section summary::-webkit-details-marker{
+    display:none;
+}
+
+.menu-inner .menuboard-section summary::after{
+    content:"\f107";
+    font-family:FontAwesome;
+    color:#d8e6f3;
+    transition:transform 0.18s ease;
+}
+
+.menu-inner .menuboard-section[open] summary::after{
+    transform:rotate(180deg);
+}
+
+.menu-inner .menuboard-section__body{
+    padding:4px 14px 12px;
+    border-top:1px solid rgba(255,255,255,0.08);
+}
+
+.menu-inner .menuboard-section__body a{
+    display:block;
+    margin:0;
+    padding:9px 0;
+    line-height:1.45;
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+
+.menu-inner .menuboard-section__body a i{
+    width:18px;
+    text-align:center;
+    font-family: FontAwesome !important;
+}
+
+.menu-inner .menuboard-home-link{
+    display:block;
+    margin:6px 0 10px;
+}
+
+.menu-inner .menuboard-quick-links{
+    display:grid;
+    gap:10px;
+    margin:8px 0 14px;
+}
+
+.menu-inner .menuboard-quick-links a{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:12px;
+    background:rgba(255,255,255,0.05);
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+
+.menu-inner .menuboard-quick-links a i{
+    width:18px;
+    text-align:center;
+    font-family: FontAwesome !important;
+}
+
+.menu-inner .menuboard-quick-divider{
+    margin:14px 0;
+    border:0;
+    border-top:1px solid rgba(255,255,255,0.12);
+}
+</style>
 <div class="menu-inner">
 <div style="text-align:center">
     <?php
@@ -77,252 +186,285 @@ if(($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="norma
 //session_start();
 if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher"){
 ?>
+<div class="menuboard-quick-links">
+<a class="active menuboard-home-link" href="teacher-page.php"><i class="fa fa-home"></i> Home</a>
+</div>
+<?php menuboard_section_start('Subject', 'fa-book', true); ?>
+<a href="view-teacher-subject.php"><i class="fa fa-search"></i> View Subject(s) Assigned</a>
+<?php menuboard_section_end(); ?>
 
-<a class="active" href="teacher-page.php"><i class="fa fa-home"> Home </i></a><br/>
-<br/>
-<strong><i class="fa fa-check" > SUBJECT </i></strong><br/>
-<a href="view-teacher-subject.php"><i class="fa fa-search" > View Subject(s) Assigned </i></a><br/>
-<hr/>
-<strong><i class="fa fa-check" > SCORES </i></strong><br/>
-<a href="class-score-entry.php"><i class="fa fa-pencil" > Class Score Entry </i></a><br/>
-<a href="exam-score-entry.php"><i class="fa fa-pencil" > Exam Score Entry </i></a><br/>
-<a href="upload-class-score-entry.php"><i class="fa fa-arrow-circle-up" > Upload Class Score </i> </a><br/>
-<a href="upload-exam-score-entry.php"><i class="fa fa-arrow-circle-up" > Upload Exam Score </i> </a><br/>
+<?php menuboard_section_start('Scores', 'fa-pencil'); ?>
+<a href="class-score-entry.php"><i class="fa fa-pencil"></i> Class Score Entry</a>
+<a href="exam-score-entry.php"><i class="fa fa-pencil"></i> Exam Score Entry</a>
+<a href="upload-class-score-entry.php"><i class="fa fa-arrow-circle-up"></i> Upload Class Score</a>
+<a href="upload-exam-score-entry.php"><i class="fa fa-arrow-circle-up"></i> Upload Exam Score</a>
+<a href="upload-classexam-score.php"><i class="fa fa-arrow-circle-up"></i> Upload Class & Exam Score</a>
+<?php menuboard_section_end(); ?>
 
-<a href="upload-classexam-score.php"><i class="fa fa-arrow-circle-up" > Upload Class & Exam Score </i> </a><br/>
-<hr>
-<strong><i class="fa fa-check" >DOWNLOADS </i></strong><br/>
-<a href="download-classscore-template.php"><i class="fa fa-download" > Class Score Template </i> </a><br/>
-<a href="download-examscore-template.php"><i class="fa fa-download" > Exam Score Template </i> </a><br/>
-<a href="download-classexamscore-template.php"><i class="fa fa-download" > Class/Exam Score Template </i> </a><br/>
-<hr>
-<strong><i class="fa fa-check" > REPORT </i></strong><br/>
-<a href="scores-report.php"><i class="fa fa-book" > Scores Report </i></a><br/>
-<a href="student-terminal-data.php"><i class="fa fa-plus" > Student Remark Data </i></a><br/>
-<a href="upload-student-remark-data.php"><i class="fa fa-arrow-circle-up" > Upload Students Remark Data </i></a><br/>
-<a href="terminal-report.php"> <i class="fa fa-book" > Examination Report </i></a><br/>
-<a href="examinationtimetablereport.php"><i class="fa fa-book" > Exam Time Table Report </i></a><br/>
+<?php menuboard_section_start('Downloads', 'fa-download'); ?>
+<a href="download-classscore-template.php"><i class="fa fa-download"></i> Class Score Template</a>
+<a href="download-examscore-template.php"><i class="fa fa-download"></i> Exam Score Template</a>
+<a href="download-classexamscore-template.php"><i class="fa fa-download"></i> Class/Exam Score Template</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Report', 'fa-file-text-o'); ?>
+<a href="scores-report.php"><i class="fa fa-book"></i> Scores Report</a>
+<a href="student-terminal-data.php"><i class="fa fa-plus"></i> Student Remark Data</a>
+<a href="upload-student-remark-data.php"><i class="fa fa-arrow-circle-up"></i> Upload Students Remark Data</a>
+<a href="terminal-report.php"><i class="fa fa-book"></i> Examination Report</a>
+<a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
+<?php menuboard_section_end(); ?>
 
 <?php
 }
 else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 ?>
-<a href="student-page.php"><i class="fa fa-home" > Home </i></a><br/>
-<br/>
-<strong> <i class="fa fa-check" > Accounts </i></strong><br/>
-<a href="bills.php"><i class="fa fa-money" > Bills </i></a><br/>
-<a href="account-statements.php"> <i class="fa fa-money" > Account Statements</i></a>
+<div class="menuboard-quick-links">
+<a class="menuboard-home-link" href="student-page.php"><i class="fa fa-home"></i> Home</a>
+</div>
+<?php menuboard_section_start('Accounts', 'fa-money', true); ?>
+<a href="bills.php"><i class="fa fa-money"></i> Bills</a>
+<a href="account-statements.php"><i class="fa fa-money"></i> Account Statements</a>
+<?php menuboard_section_end(); ?>
 
- <br/><br/>
-<strong><i class="fa fa-check" > RECORDS </i></strong><br/>
-<a href="registeredclass.php"> <i class="fa fa-folder-o" > Registered Class</i></a><br/>
-<a href="registeredsubject.php"> <i class="fa fa-folder-o" > Registered Subject </i></a>
+<?php menuboard_section_start('Records', 'fa-folder-o'); ?>
+<a href="registeredclass.php"><i class="fa fa-folder-o"></i> Registered Class</a>
+<a href="registeredsubject.php"><i class="fa fa-folder-o"></i> Registered Subject</a>
+<?php menuboard_section_end(); ?>
 
- <br/><br/>
-<strong><i class="fa fa-check" > EXAMINATION </i></strong><br/>
-<a href="examinationtimetablereport.php"><i class="fa fa-folder-o" > Exam Time Table Report</i></a><br/>
-<a href="individual-terminal-report.php"><i class="fa fa-folder-o" > Examination Report</i></a><br/>
+<?php menuboard_section_start('Examination', 'fa-graduation-cap'); ?>
+<a href="examinationtimetablereport.php"><i class="fa fa-folder-o"></i> Exam Time Table Report</a>
+<a href="individual-terminal-report.php"><i class="fa fa-folder-o"></i> Examination Report</a>
+<?php menuboard_section_end(); ?>
 <?php
 }
 else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="super_user"){
  ?>
-<a href="search.php" ><i  class="fa fa-search"> Search Student </i></a><br/>
-<a  href="super.php"><i class="fa fa-home" > Home </i></a><br/>
-<a href="company-entry.php"><i class="fa fa-plus" > School Entry </i></a><br/>
-<a href="branch-entry.php"><i class="fa fa-plus" > Branch Entry </i></a><br/>
- <a href="batch-entry.php"><i class="fa fa-plus" > Batch Entry </i></a><br/>
-<a href="subject-entry.php"><i class="fa fa-plus" > Subject Entry </i></a><br/>
-<a href="class-entry.php"><i class="fa fa-plus" > Class Entry </i></a><br/>
-<a href="school-data-entry.php"><i class="fa fa-plus" > School Data Entry </i></a><br/>
-<br/>
-<strong> <i class="fa fa-check" > ACCOUNTS </i></strong><br/>
-<a href="item-entry.php"><i class="fa fa-plus"> Item Entry </i></a><br/>
-<a href="item-pricing.php"><i class="fa fa-plus" > Item Pricing </i></a><br/>
-<a href="class-billing.php"><i class="fa fa-plus" > Class Billing </i></a><br/>
-<!--<a href="payments.php"><i class="fa fa-plus" ></i> Payments</a><br/>-->
-<a href="daily-report.php"><i class="fa fa-book" > Daily Report </i></a><br/>
-<a href="payment-analysis.php"><i class="fa fa-book" > Payment Report </i></a><br/>
-<a href="bills-report.php"><i class="fa fa-book" > Bills Report </i></a><br/><br/>
- 
-<strong> <i class="fa fa-check"> BILLING </i></strong><br/>
- <a href="student-billing.php"><i class="fa fa-plus" > Bill Student </i></a><br/>
-<!--<a href="rebill-student.php"><i class="fa fa-plus" ></i> Re-Bill Student</a><br/>-->
-<a href="group-student-billing.php"><i class="fa fa-plus" > Bill Group Students </i></a><br/>
-<a href="rebill-group-student.php"><i class="fa fa-plus" > Rebill Group Students </i></a><br/>
-<a href="print-student-bills.php"><i class="fa fa-plus" > Print Student Bills </i></a><br/>
-<br/>
-<strong><i class="fa fa-check" > RECORDS </i></strong><br/>
-<a href="class-registry.php"><i class="fa fa-plus" > Class Registry </i></a><br/>
-<a href="upload-class-registry.php"><i class="fa fa-arrow-circle-up" >Upload Class Registry </i></a><br/>
-<a href="view-class-registry.php"><i class="fa fa-arrow-circle-up" > View Class Registry </i></a><br/>
+<div class="menuboard-quick-links">
+<a href="search.php"><i class="fa fa-search"></i> Search Student</a>
+<a class="menuboard-home-link" href="super.php"><i class="fa fa-home"></i> Home</a>
+</div>
 
-<hr>
-<a href="term-registry.php"><i class="fa fa-plus" > Semester Registry </i></a><br/>
-<a href="group-term-registry.php"><i class="fa fa-plus" > Group Semester Registry </i></a><br/>
-<a href="upload-semester-registry.php"><i class="fa fa-arrow-circle-up" >Upload Semester Registry </i></a><br/>          
-<a href="promotion-center.php"><i class="fa fa-level-up" > Promotion Center </i></a><br/>
-<a href="student-history.php"><i class="fa fa-history" > Student History </i></a><br/>
-<a href="continuing-students.php"><i class="fa fa-users" > Continuing Students </i></a><br/>
-<br/>
-<strong><i class="fa fa-check" > SUBJECT </i></strong><br/>
-<div class="menu-inner">
-<a href="subject-classification.php"><i class="fa fa-plus" > Subject Classification </i></a><br/>
-<a href="view-subject-classified.php"><i class="fa fa-plus" > View Subject Classified </i></a><br/>
-<a href="subject-assignment.php"><i class="fa fa-plus" > Subject Assignment </i></a><br/>
-<a href="class-teacher-assignment.php"><i class="fa fa-plus" > Class Teacher Assignment </i></a><br/>
-<a href="duty-roster.php"><i class="fa fa-calendar-check-o" > Duty Roster </i></a><br/>
-<a href="online-admission-admin.php"><i class="fa fa-globe" > Online Admission </i></a><br/>
-<a href="view-all-subject-assigned.php"><i class="fa fa-plus" > View Subject(s) Assigned </i></a><br/>
-<br/>
-<strong><i class="fa fa-check" > EXAMINATION </i></strong><br/>
-<!--
-<a href="all-class-score.php"><i class="fa fa-plus" ></i> Class Score</a><br/>
-<a href="exam-score.php"><i class="fa fa-plus" ></i> Exam Score</a><br/>
-<a href="student-terminal-data.php"><i class="fa fa-plus" ></i> Student Remark Data</a><br/>
-<a href="upload-student-remark-data.php"><i class="fa fa-arrow-circle-up" ></i>Upload Students Remark Data</a><br/>
--->
-<hr>
-<a href="class-score-entry.php"><i class="fa fa-pencil" > Class Score Entry </i></a><br/>
-<a href="exam-score-entry.php"><i class="fa fa-pencil" > Exam Score Entry </i></a><br/>
-<a href="upload-class-score-entry.php"><i class="fa fa-arrow-circle-up" > Upload Class Score </i> </a><br/>
-<a href="upload-exam-score-entry.php"><i class="fa fa-arrow-circle-up" > Upload Exam Score </i> </a><br/>
-<a href="upload-classexam-score.php"><i class="fa fa-arrow-circle-up" > Upload Class & Exam Scores </i> </a><br/>
+<?php menuboard_section_start('School Setup', 'fa-cogs', true); ?>
+<a href="company-entry.php"><i class="fa fa-plus"></i> School Entry</a>
+<a href="branch-entry.php"><i class="fa fa-plus"></i> Branch Entry</a>
+<a href="batch-entry.php"><i class="fa fa-plus"></i> Batch Entry</a>
+<a href="subject-entry.php"><i class="fa fa-plus"></i> Subject Entry</a>
+<a href="class-entry.php"><i class="fa fa-plus"></i> Class Entry</a>
+<a href="school-data-entry.php"><i class="fa fa-plus"></i> School Data Entry</a>
+<?php menuboard_section_end(); ?>
 
-<hr>
-<a href="scores-report.php"><i class="fa fa-book" > Scores Report </i></a><br/>
-<a href="waec-analysis.php"><i class="fa fa-line-chart" > WAEC Analysis </i></a><br/>
-<a href="terminal-report.php"><i class="fa fa-book" > Examination Report </i></a><br/>
-<a href="internal-exam-analysis.php"><i class="fa fa-folder-o" > Internal Exams Analysis </i></a><br/>
-<a href="examanalysis-subject.php"><i class="fa fa-folder-o" > Exam Analysis : Subject </i></a><br/>
-<a href="examanalysis-rank.php"><i class="fa fa-folder-o" > Exam Analysis : Rank </i></a><br/>
-<a href="enablesmsalert.php"><i class="fa fa-phone" > Enable SMS Alert </i></a><br/>
-<a href="smsreport.php"><i class="fa fa-phone" > SMS Reporting </i></a><br/>
-<a href="smsreportdata.php"><i class="fa fa-database" > SMS Data </i></a><br/>
+<?php menuboard_section_start('Accounts', 'fa-money'); ?>
+<a href="item-entry.php"><i class="fa fa-plus"></i> Item Entry</a>
+<a href="item-pricing.php"><i class="fa fa-plus"></i> Item Pricing</a>
+<a href="class-billing.php"><i class="fa fa-plus"></i> Class Billing</a>
+<a href="daily-report.php"><i class="fa fa-book"></i> Daily Report</a>
+<a href="payment-analysis.php"><i class="fa fa-book"></i> Payment Report</a>
+<a href="bills-report.php"><i class="fa fa-book"></i> Bills Report</a>
+<?php menuboard_section_end(); ?>
 
-<hr>
-<a href="examinationtimetable.php"><i class="fa fa-plus" > Exam Time Table Entry </i></a><br/>
-<a href="examinationtimetablereport.php"><i class="fa fa-book" > Exam Time Table Report </i></a><br/>
-<br/>
+<?php menuboard_section_start('Billing', 'fa-money'); ?>
+<a href="student-billing.php"><i class="fa fa-plus"></i> Bill Student</a>
+<a href="group-student-billing.php"><i class="fa fa-plus"></i> Bill Group Students</a>
+<a href="rebill-group-student.php"><i class="fa fa-plus"></i> Rebill Group Students</a>
+<a href="print-student-bills.php"><i class="fa fa-plus"></i> Print Student Bills</a>
+<?php menuboard_section_end(); ?>
 
-<strong><i class="fa fa-check" > Notice </i></strong><br/>
-<a href="notification.php"><i class="fa fa-plus" > Send Notification </i></a><br/>
+<?php menuboard_section_start('Records', 'fa-folder-o'); ?>
+<a href="class-registry.php"><i class="fa fa-plus"></i> Class Registry</a>
+<a href="upload-class-registry.php"><i class="fa fa-arrow-circle-up"></i> Upload Class Registry</a>
+<a href="view-class-registry.php"><i class="fa fa-arrow-circle-up"></i> View Class Registry</a>
+<a href="term-registry.php"><i class="fa fa-plus"></i> Semester Registry</a>
+<a href="group-term-registry.php"><i class="fa fa-plus"></i> Group Semester Registry</a>
+<a href="upload-semester-registry.php"><i class="fa fa-arrow-circle-up"></i> Upload Semester Registry</a>
+<a href="promotion-center.php"><i class="fa fa-level-up"></i> Promotion Center</a>
+<a href="student-history.php"><i class="fa fa-history"></i> Student History</a>
+<a href="continuing-students.php"><i class="fa fa-users"></i> Continuing Students</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Subject', 'fa-book'); ?>
+<a href="subject-classification.php"><i class="fa fa-plus"></i> Subject Classification</a>
+<a href="view-subject-classified.php"><i class="fa fa-plus"></i> View Subject Classified</a>
+<a href="subject-assignment.php"><i class="fa fa-plus"></i> Subject Assignment</a>
+<a href="class-teacher-assignment.php"><i class="fa fa-plus"></i> Class Teacher Assignment</a>
+<a href="duty-roster.php"><i class="fa fa-calendar-check-o"></i> Duty Roster</a>
+<a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
+<a href="view-all-subject-assigned.php"><i class="fa fa-plus"></i> View Subject(s) Assigned</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Examination', 'fa-graduation-cap'); ?>
+<a href="class-score-entry.php"><i class="fa fa-pencil"></i> Class Score Entry</a>
+<a href="exam-score-entry.php"><i class="fa fa-pencil"></i> Exam Score Entry</a>
+<a href="upload-class-score-entry.php"><i class="fa fa-arrow-circle-up"></i> Upload Class Score</a>
+<a href="upload-exam-score-entry.php"><i class="fa fa-arrow-circle-up"></i> Upload Exam Score</a>
+<a href="upload-classexam-score.php"><i class="fa fa-arrow-circle-up"></i> Upload Class & Exam Scores</a>
+<a href="scores-report.php"><i class="fa fa-book"></i> Scores Report</a>
+<a href="waec-analysis.php"><i class="fa fa-line-chart"></i> WAEC Analysis</a>
+<a href="terminal-report.php"><i class="fa fa-book"></i> Examination Report</a>
+<a href="internal-exam-analysis.php"><i class="fa fa-folder-o"></i> Internal Exams Analysis</a>
+<a href="examanalysis-subject.php"><i class="fa fa-folder-o"></i> Exam Analysis : Subject</a>
+<a href="examanalysis-rank.php"><i class="fa fa-folder-o"></i> Exam Analysis : Rank</a>
+<a href="examinationtimetable.php"><i class="fa fa-plus"></i> Exam Time Table Entry</a>
+<a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Notice', 'fa-comments-o'); ?>
+<a href="notification.php"><i class="fa fa-plus"></i> Send Notification</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('SMS', 'fa-phone'); ?>
+<a href="enablesmsalert.php"><i class="fa fa-phone"></i> Enable SMS Alert</a>
+<a href="smsreport.php"><i class="fa fa-phone"></i> SMS Reporting</a>
+<a href="smsreportdata.php"><i class="fa fa-database"></i> SMS Data</a>
+<?php menuboard_section_end(); ?>
 
 <?php
 }
 else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="normal_user"){
  ?>
-<a href="search.php" ><i  class="fa fa-search"> Search Student </i></a><br/>
-<a href="admin.php"><i class="fa fa-home" > Home </i></a><br/>
-<a href="company-entry.php"><i class="fa fa-plus" > School Entry </i></a><br/>
-<a href="branch-entry.php"><i class="fa fa-plus" > Branch Entry </i></a><br/>
-<a href="batch-entry.php"><i class="fa fa-plus" > Batch Entry </i></a><br/>
-<a href="subject-entry.php"><i class="fa fa-plus" > Subject Entry </i></a><br/>
-<a href="class-entry.php"><i class="fa fa-plus" > Class Entry</i></a><br/>
-<a href="school-data-entry.php"><i class="fa fa-plus" > School Data Entry</i></a><br/>
-<br/>
-<strong> <i class="fa fa-check"> BILLING </i></strong><br/>
- <a href="student-billing.php"><i class="fa fa-plus" > Bill Student </i></a><br/>
-<!--<a href="rebill-student.php"><i class="fa fa-plus" ></i> Re-Bill Student</a><br/>-->
-<a href="group-student-billing.php"><i class="fa fa-plus" > Bill Group Students </i></a><br/>
-<a href="rebill-group-student.php"><i class="fa fa-plus" > Rebill Group Students </i></a><br/>
-<a href="print-student-bills.php"><i class="fa fa-plus" > Print Student Bills </i></a><br/>
-<br/>
-<strong> <i class="fa fa-check" > ACCOUNTS </i></strong><br/>
-<a href="item-entry.php"><i class="fa fa-plus"> Item Entry </i></a><br/>
-<a href="item-pricing.php"><i class="fa fa-plus" > Class Item Billing </i></a><br/>
-<a href="class-billing.php"><i class="fa fa-plus" > Class Billing </i></a><br/>
-<a href="class-Bills-report.php"><i class="fa fa-plus" > Class Bills Report </i></a><br/>
-<!--<a href="payments.php"><i class="fa fa-plus" ></i> Payments</a><br/>-->
-<a href="daily-report.php"><i class="fa fa-book" > Daily Report </i></a><br/>
-<a href="payment-analysis.php"><i class="fa fa-book" > Payment Report </i></a><br/>
-<a href="bills-report.php"><i class="fa fa-book" > Bills Report </i></a><br/>
-<a href="item-bill-report.php"><i class="fa fa-book" > Item Bill Report </i></a><br/><br/>
- 
-<strong><i class="fa fa-check" > RECORDS </i></strong><br/>
-<a href="class-registry.php"><i class="fa fa-plus" > Class Registry </i></a><br/>
-<a href="upload-class-registry.php"><i class="fa fa-arrow-circle-up" > Upload Class Registry </i></a><br/>
-<a href="view-class-registry.php"><i class="fa fa-arrow-circle-up" > View Class Registry </i></a><br/>
+<div class="menuboard-quick-links">
+<a href="search.php"><i class="fa fa-search"></i> Search Student</a>
+<a class="menuboard-home-link" href="admin.php"><i class="fa fa-home"></i> Home</a>
+</div>
 
-<hr>
-<a href="term-registry.php"><i class="fa fa-plus" > Semester Registry </i></a><br/>
-<a href="group-term-registry.php"><i class="fa fa-plus" > Group Semester Registry </i></a><br/>
-<a href="upload-semester-registry.php"><i class="fa fa-arrow-circle-up" > Upload Semester Registry </i></a><br/>
-<a href="promotion-center.php"><i class="fa fa-level-up" > Promotion Center </i></a><br/>
-<a href="student-history.php"><i class="fa fa-history" > Student History </i></a><br/>
-<a href="continuing-students.php"><i class="fa fa-users" > Continuing Students </i></a><br/>
-<br/>
-<strong><i class="fa fa-check" > SUBJECT </i></strong><br/>
+<?php menuboard_section_start('School Setup', 'fa-cogs', true); ?>
+<a href="company-entry.php"><i class="fa fa-plus"></i> School Entry</a>
+<a href="branch-entry.php"><i class="fa fa-plus"></i> Branch Entry</a>
+<a href="batch-entry.php"><i class="fa fa-plus"></i> Batch Entry</a>
+<a href="subject-entry.php"><i class="fa fa-plus"></i> Subject Entry</a>
+<a href="class-entry.php"><i class="fa fa-plus"></i> Class Entry</a>
+<a href="school-data-entry.php"><i class="fa fa-plus"></i> School Data Entry</a>
+<?php menuboard_section_end(); ?>
 
-<a href="subject-classification.php"><i class="fa fa-plus" > Subject Classification </i></a><br/>
-<a href="view-subject-classified.php"><i class="fa fa-book" > View Subject Classified </i></a><br/>
-<a href="subject-assignment.php"><i class="fa fa-plus" > Subject Assignment </i></a><br/>
-<a href="class-teacher-assignment.php"><i class="fa fa-plus" > Class Teacher Assignment </i></a><br/>
-<a href="duty-roster.php"><i class="fa fa-calendar-check-o" > Duty Roster </i></a><br/>
-<a href="online-admission-admin.php"><i class="fa fa-globe" > Online Admission </i></a><br/>
-<a href="view-all-subject-assigned.php"><i class="fa fa-book" > View Subject(s) Assigned </i></a><br/>
-<br/>
-<strong><i class="fa fa-check" > EXAMINATION </i></strong><br/>
-<a href="student-terminal-data.php"><i class="fa fa-plus" > Student Remark Data </i></a><br/>
-<a href="upload-student-remark-data.php"><i class="fa fa-arrow-circle-up" >Upload Students Remark Data </i></a><br/>
-<a href="continuous-assessment.php"><i class="fa fa-folder-o" > Continuous Assessment </i></a><br/>
-<a href="scores-report-all.php"><i class="fa fa-folder-o" > Scores Report </i></a><br/>
-<a href="waec-analysis.php"><i class="fa fa-line-chart" > WAEC Analysis </i></a><br/>
+<?php menuboard_section_start('Billing', 'fa-money'); ?>
+<a href="student-billing.php"><i class="fa fa-plus"></i> Bill Student</a>
+<a href="group-student-billing.php"><i class="fa fa-plus"></i> Bill Group Students</a>
+<a href="rebill-group-student.php"><i class="fa fa-plus"></i> Rebill Group Students</a>
+<a href="print-student-bills.php"><i class="fa fa-plus"></i> Print Student Bills</a>
+<?php menuboard_section_end(); ?>
 
-<a href="terminal-report.php"><i class="fa fa-folder-o" > Examination Report </i></a><br/>
-<a href="internal-exam-analysis.php"><i class="fa fa-folder-o" > Internal Exams Analysis </i></a><br/>
-<a href="examanalysis-subject.php"><i class="fa fa-folder-o" > Exam Analysis : Subject </i></a><br/>
-<a href="examanalysis-rank.php"><i class="fa fa-folder-o" > Exam Analysis : Rank </i></a><br/>
+<?php menuboard_section_start('Accounts', 'fa-money'); ?>
+<a href="item-entry.php"><i class="fa fa-plus"></i> Item Entry</a>
+<a href="item-pricing.php"><i class="fa fa-plus"></i> Class Item Billing</a>
+<a href="class-billing.php"><i class="fa fa-plus"></i> Class Billing</a>
+<a href="class-Bills-report.php"><i class="fa fa-plus"></i> Class Bills Report</a>
+<a href="daily-report.php"><i class="fa fa-book"></i> Daily Report</a>
+<a href="payment-analysis.php"><i class="fa fa-book"></i> Payment Report</a>
+<a href="bills-report.php"><i class="fa fa-book"></i> Bills Report</a>
+<a href="item-bill-report.php"><i class="fa fa-book"></i> Item Bill Report</a>
+<?php menuboard_section_end(); ?>
 
-<hr>
-<a href="enablesmsalert.php"><i class="fa fa-phone" > Enable SMS Alert </i></a><br/>
+<?php menuboard_section_start('Records', 'fa-folder-o'); ?>
+<a href="class-registry.php"><i class="fa fa-plus"></i> Class Registry</a>
+<a href="upload-class-registry.php"><i class="fa fa-arrow-circle-up"></i> Upload Class Registry</a>
+<a href="view-class-registry.php"><i class="fa fa-arrow-circle-up"></i> View Class Registry</a>
+<a href="term-registry.php"><i class="fa fa-plus"></i> Semester Registry</a>
+<a href="group-term-registry.php"><i class="fa fa-plus"></i> Group Semester Registry</a>
+<a href="upload-semester-registry.php"><i class="fa fa-arrow-circle-up"></i> Upload Semester Registry</a>
+<a href="promotion-center.php"><i class="fa fa-level-up"></i> Promotion Center</a>
+<a href="student-history.php"><i class="fa fa-history"></i> Student History</a>
+<a href="continuing-students.php"><i class="fa fa-users"></i> Continuing Students</a>
+<?php menuboard_section_end(); ?>
 
-<a href="smsreport.php"><i class="fa fa-phone" > SMS Reporting </i></a><br/>
-<a href="smsreportdata.php"><i class="fa fa-database" > SMS Data </i></a><br/>
+<?php menuboard_section_start('Subject', 'fa-book'); ?>
+<a href="subject-classification.php"><i class="fa fa-plus"></i> Subject Classification</a>
+<a href="view-subject-classified.php"><i class="fa fa-book"></i> View Subject Classified</a>
+<a href="subject-assignment.php"><i class="fa fa-plus"></i> Subject Assignment</a>
+<a href="class-teacher-assignment.php"><i class="fa fa-plus"></i> Class Teacher Assignment</a>
+<a href="duty-roster.php"><i class="fa fa-calendar-check-o"></i> Duty Roster</a>
+<a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
+<a href="view-all-subject-assigned.php"><i class="fa fa-book"></i> View Subject(s) Assigned</a>
+<?php menuboard_section_end(); ?>
 
-<a href="examinationtimetable.php"><i class="fa fa-plus" > Exam Time Table Entry </i></a><br/>
-<a href="examinationtimetablereport.php"><i class="fa fa-book" > Exam Time Table Report </i></a><br/>
-<br/>
-<strong><i class="fa fa-check" > Notice </i></strong><br/>
-<a href="notification.php"><i class="fa fa-plus" > Send Notification </i></a><br/>
+<?php menuboard_section_start('Examination', 'fa-graduation-cap'); ?>
+<a href="student-terminal-data.php"><i class="fa fa-plus"></i> Student Remark Data</a>
+<a href="upload-student-remark-data.php"><i class="fa fa-arrow-circle-up"></i> Upload Students Remark Data</a>
+<a href="continuous-assessment.php"><i class="fa fa-folder-o"></i> Continuous Assessment</a>
+<a href="scores-report-all.php"><i class="fa fa-folder-o"></i> Scores Report</a>
+<a href="waec-analysis.php"><i class="fa fa-line-chart"></i> WAEC Analysis</a>
+<a href="terminal-report.php"><i class="fa fa-folder-o"></i> Examination Report</a>
+<a href="internal-exam-analysis.php"><i class="fa fa-folder-o"></i> Internal Exams Analysis</a>
+<a href="examanalysis-subject.php"><i class="fa fa-folder-o"></i> Exam Analysis : Subject</a>
+<a href="examanalysis-rank.php"><i class="fa fa-folder-o"></i> Exam Analysis : Rank</a>
+<a href="examinationtimetable.php"><i class="fa fa-plus"></i> Exam Time Table Entry</a>
+<a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Notice', 'fa-comments-o'); ?>
+<a href="notification.php"><i class="fa fa-plus"></i> Send Notification</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('SMS', 'fa-phone'); ?>
+<a href="enablesmsalert.php"><i class="fa fa-phone"></i> Enable SMS Alert</a>
+<a href="smsreport.php"><i class="fa fa-phone"></i> SMS Reporting</a>
+<a href="smsreportdata.php"><i class="fa fa-database"></i> SMS Data</a>
+<?php menuboard_section_end(); ?>
 <?php
 
 }
 else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
  ?>
-<a class="active" href="user.php"><i class="fa fa-home" > Home </i></a><br/>
-<a href="batch-entry.php"><i class="fa fa-plus" > Batch Entry </i></a><br/>
-<a href="subject-entry.php"><i class="fa fa-plus" > Subject Entry </i></a><br/>
-<a href="class-entry.php"><i class="fa fa-plus" > Class Entry </i></a><br/>
-<a href="school-data-entry.php"><i class="fa fa-plus" > School Data Entry </i></a><br/>
-<br/>
-<strong><i class="fa fa-check" > RECORDS </i></strong><br/>
-<a href="class-registry.php"><i class="fa fa-plus" > Class Registry </i></a><br/>
-<a href="upload-class-registry.php"><i class="fa fa-arrow-circle-up" > Upload Class Registry </i></a><br/>
-<a href="view-class-registry.php"><i class="fa fa-arrow-circle-up" > View Class Registry </i></a><br/>
+<div class="menuboard-quick-links">
+<a class="active menuboard-home-link" href="user.php"><i class="fa fa-home"></i> Home</a>
+</div>
 
-<hr>
+<?php menuboard_section_start('School Setup', 'fa-cogs', true); ?>
+<a href="batch-entry.php"><i class="fa fa-plus"></i> Batch Entry</a>
+<a href="subject-entry.php"><i class="fa fa-plus"></i> Subject Entry</a>
+<a href="class-entry.php"><i class="fa fa-plus"></i> Class Entry</a>
+<a href="school-data-entry.php"><i class="fa fa-plus"></i> School Data Entry</a>
+<?php menuboard_section_end(); ?>
 
-<a href="term-registry.php"><i class="fa fa-plus" > Semester Registry </i></a><br/>
-<a href="group-term-registry.php"><i class="fa fa-plus" > Group Semester Registry </i></a><br/>
-<a href="upload-semester-registry.php"><i class="fa fa-arrow-circle-up" > Upload Semester Registry </i></a><br/>
+<?php menuboard_section_start('Records', 'fa-folder-o'); ?>
+<a href="class-registry.php"><i class="fa fa-plus"></i> Class Registry</a>
+<a href="upload-class-registry.php"><i class="fa fa-arrow-circle-up"></i> Upload Class Registry</a>
+<a href="view-class-registry.php"><i class="fa fa-arrow-circle-up"></i> View Class Registry</a>
+<a href="term-registry.php"><i class="fa fa-plus"></i> Semester Registry</a>
+<a href="group-term-registry.php"><i class="fa fa-plus"></i> Group Semester Registry</a>
+<a href="upload-semester-registry.php"><i class="fa fa-arrow-circle-up"></i> Upload Semester Registry</a>
+<?php menuboard_section_end(); ?>
 
-<br/><strong><i class="fa fa-check" > TOOLS </i></strong><br/>
-<a href="smsreport.php"><i class="fa fa-plus" > SMS Reporting </i></a><br/>
-<a href="subject-classification.php"><i class="fa fa-plus" > Subject Classification </i></a><br/>
-<a href="view-subject-classified.php"><i class="fa fa-plus" > View Subject Classified </i></a><br/>
-<a href="subject-assignment.php"><i class="fa fa-plus" > Subject Assignment </i></a><br/>
-<a href="view-all-subject-assigned.php"><i class="fa fa-plus" > View Subject(s) Assigned </i></a><br/>
-<br/>
-<strong><i class="fa fa-check" > EXAMINATION </i></strong><br/>
-<a href="examinationtimetable.php"><i class="fa fa-plus" > Exam Time Table Entry </i></a><br/>
-<a href="examinationtimetablereport.php"><i class="fa fa-book" > Exam Time Table Report </i></a><br/>
-<a href="student-terminal-data.php"><i class="fa fa-plus" > Student Terminal Data </i></a><br/>
-<a href="terminal-report.php"><i class="fa fa-book" > Examination Report </i></a><br/>
-<a href="scores-report.php"><i class="fa fa-book" > Scores Report </i></a><br/>
-<br/>
-<strong><i class="fa fa-check" > Notice</strong><br/>
-<a href="notification.php"><i class="fa fa-plus" > Send Notification </i></a><br/>
+<?php menuboard_section_start('Tools', 'fa-wrench'); ?>
+<a href="subject-classification.php"><i class="fa fa-plus"></i> Subject Classification</a>
+<a href="view-subject-classified.php"><i class="fa fa-plus"></i> View Subject Classified</a>
+<a href="subject-assignment.php"><i class="fa fa-plus"></i> Subject Assignment</a>
+<a href="view-all-subject-assigned.php"><i class="fa fa-plus"></i> View Subject(s) Assigned</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Examination', 'fa-graduation-cap'); ?>
+<a href="examinationtimetable.php"><i class="fa fa-plus"></i> Exam Time Table Entry</a>
+<a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
+<a href="student-terminal-data.php"><i class="fa fa-plus"></i> Student Terminal Data</a>
+<a href="terminal-report.php"><i class="fa fa-book"></i> Examination Report</a>
+<a href="scores-report.php"><i class="fa fa-book"></i> Scores Report</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Notice', 'fa-comments-o'); ?>
+<a href="notification.php"><i class="fa fa-plus"></i> Send Notification</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('SMS', 'fa-phone'); ?>
+<a href="smsreport.php"><i class="fa fa-plus"></i> SMS Reporting</a>
+<?php menuboard_section_end(); ?>
 <?php
 }
 ?>
 </div>
+<script>
+(function () {
+    var sections = document.querySelectorAll('.menu-inner .menuboard-section');
+    sections.forEach(function (section) {
+        section.addEventListener('toggle', function () {
+            if (!section.open) {
+                return;
+            }
+
+            sections.forEach(function (otherSection) {
+                if (otherSection !== section) {
+                    otherSection.open = false;
+                }
+            });
+        });
+    });
+})();
+</script>

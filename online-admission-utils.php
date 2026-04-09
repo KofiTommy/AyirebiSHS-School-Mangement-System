@@ -1,4 +1,46 @@
 <?php
+include_once(__DIR__.DIRECTORY_SEPARATOR."house-master-utils.php");
+if(!function_exists('xschool_schema_cache_is_fresh')){
+function xschool_schema_cache_is_fresh($key, $ttlSeconds = 900){
+    static $memoryCache = array();
+    $key = trim((string)$key);
+    if($key === ""){
+        return false;
+    }
+    if(isset($memoryCache[$key])){
+        return $memoryCache[$key];
+    }
+    if(PHP_SAPI === 'cli' || !function_exists('session_status') || session_status() !== PHP_SESSION_ACTIVE){
+        $memoryCache[$key] = false;
+        return false;
+    }
+    $cacheBag = isset($_SESSION['_xschool_schema_cache']) && is_array($_SESSION['_xschool_schema_cache'])
+        ? $_SESSION['_xschool_schema_cache']
+        : array();
+    $isFresh = isset($cacheBag[$key]) && ((int)$cacheBag[$key] + (int)$ttlSeconds) > time();
+    $memoryCache[$key] = $isFresh;
+    return $isFresh;
+}
+}
+
+if(!function_exists('xschool_schema_cache_mark')){
+function xschool_schema_cache_mark($key){
+    static $memoryCache = array();
+    $key = trim((string)$key);
+    if($key === ""){
+        return;
+    }
+    $memoryCache[$key] = true;
+    if(PHP_SAPI === 'cli' || !function_exists('session_status') || session_status() !== PHP_SESSION_ACTIVE){
+        return;
+    }
+    if(!isset($_SESSION['_xschool_schema_cache']) || !is_array($_SESSION['_xschool_schema_cache'])){
+        $_SESSION['_xschool_schema_cache'] = array();
+    }
+    $_SESSION['_xschool_schema_cache'][$key] = time();
+}
+}
+
 if(!function_exists('online_admission_is_admin')){
 function online_admission_is_admin(){
     return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
@@ -18,6 +60,10 @@ function online_admission_landing_page(){
 
 if(!function_exists('ensure_online_admission_tables')){
 function ensure_online_admission_tables($con){
+    ensure_house_tables($con);
+    if(xschool_schema_cache_is_fresh('schema_online_admission_v3')){
+        return;
+    }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbladmissionpostedstudent (
         postingid VARCHAR(40) NOT NULL PRIMARY KEY,
         beceindexnumber VARCHAR(60) NOT NULL,
@@ -76,11 +122,17 @@ function ensure_online_admission_tables($con){
         reviewedby VARCHAR(30) NULL,
         reviewnote VARCHAR(255) NULL,
         revieweddatetime DATETIME NULL,
+        assignedhouseid VARCHAR(40) NULL,
+        assignedhouseat DATETIME NULL,
+        linkedstudentid VARCHAR(40) NULL,
+        linkedstudentat DATETIME NULL,
         branchid VARCHAR(30) NOT NULL,
         UNIQUE KEY uq_application_posting (postingid),
         INDEX idx_application_status (status),
         INDEX idx_application_bece (beceindexnumber),
-        INDEX idx_application_branch (branchid)
+        INDEX idx_application_branch (branchid),
+        INDEX idx_application_house (assignedhouseid),
+        INDEX idx_application_linked_student (linkedstudentid)
     )");
 
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblonlineadmissionpaymentsetting (
@@ -151,6 +203,25 @@ function ensure_online_admission_tables($con){
         INDEX idx_admissionhelp_requested (requestedat)
     )");
 
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblonlineadmissiondocument (
+        documentid VARCHAR(40) NOT NULL PRIMARY KEY,
+        branchid VARCHAR(30) NOT NULL,
+        admissionyear VARCHAR(20) NOT NULL,
+        doctype VARCHAR(40) NOT NULL,
+        title VARCHAR(255) NULL,
+        filename VARCHAR(255) NOT NULL,
+        originalfilename VARCHAR(255) NULL,
+        mimetype VARCHAR(120) NULL,
+        filesize BIGINT NOT NULL DEFAULT 0,
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        uploadedat DATETIME NOT NULL,
+        updatedat DATETIME NOT NULL,
+        uploadedby VARCHAR(40) NULL,
+        UNIQUE KEY uq_admissiondocument_branch_year_type (branchid, admissionyear, doctype),
+        INDEX idx_admissiondocument_branch_year (branchid, admissionyear),
+        INDEX idx_admissiondocument_status (status)
+    )");
+
     $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionpayment LIKE 'admissioncode'");
     if($columnRes && mysqli_num_rows($columnRes) === 0){
         mysqli_query($con, "ALTER TABLE tblonlineadmissionpayment ADD COLUMN admissioncode VARCHAR(40) NULL AFTER gatewayresponse");
@@ -191,6 +262,25 @@ function ensure_online_admission_tables($con){
     if($columnRes && mysqli_num_rows($columnRes) === 0){
         mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN guardiansmsstatus VARCHAR(60) NULL AFTER guardiansmssentat");
     }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'assignedhouseid'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN assignedhouseid VARCHAR(40) NULL AFTER revieweddatetime");
+        mysqli_query($con, "CREATE INDEX idx_application_house ON tblonlineadmissionapplication(assignedhouseid)");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'assignedhouseat'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN assignedhouseat DATETIME NULL AFTER assignedhouseid");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'linkedstudentid'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN linkedstudentid VARCHAR(40) NULL AFTER assignedhouseat");
+        mysqli_query($con, "CREATE INDEX idx_application_linked_student ON tblonlineadmissionapplication(linkedstudentid)");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'linkedstudentat'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN linkedstudentat DATETIME NULL AFTER linkedstudentid");
+    }
+    xschool_schema_cache_mark('schema_online_admission_v3');
 }
 }
 
@@ -337,6 +427,271 @@ function online_admission_get_application_by_id($con, $applicationId){
 }
 }
 
+if(!function_exists('online_admission_get_house_by_id')){
+function online_admission_get_house_by_id($con, $houseId){
+    $houseIdEsc = mysqli_real_escape_string($con, trim((string)$houseId));
+    if($houseIdEsc === ""){
+        return null;
+    }
+    $res = mysqli_query($con, "SELECT * FROM tblhouse WHERE houseid='$houseIdEsc' LIMIT 1");
+    if($res && $row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        return $row;
+    }
+    return null;
+}
+}
+
+if(!function_exists('online_admission_application_gender')){
+function online_admission_application_gender($application, $postedStudent = null){
+    $gender = house_master_normalize_gender_label(is_array($application) && isset($application["gender"]) ? $application["gender"] : "");
+    if($gender === "" && is_array($postedStudent)){
+        $gender = house_master_normalize_gender_label(isset($postedStudent["gender"]) ? $postedStudent["gender"] : "");
+    }
+    return $gender;
+}
+}
+
+if(!function_exists('online_admission_application_residence')){
+function online_admission_application_residence($application, $postedStudent = null){
+    $residence = house_master_normalize_residence_label(is_array($application) && isset($application["residencetype"]) ? $application["residencetype"] : "");
+    if($residence === "" && is_array($postedStudent)){
+        $residence = house_master_normalize_residence_label(isset($postedStudent["residentialstatus"]) ? $postedStudent["residentialstatus"] : "");
+    }
+    return $residence;
+}
+}
+
+if(!function_exists('online_admission_application_assigned_house')){
+function online_admission_application_assigned_house($con, $application){
+    if(!is_array($application) || empty($application)){
+        return null;
+    }
+    return online_admission_get_house_by_id($con, isset($application["assignedhouseid"]) ? $application["assignedhouseid"] : "");
+}
+}
+
+if(!function_exists('online_admission_house_load_total')){
+function online_admission_house_load_total($con, $houseId, $branchId, $excludeApplicationId = ""){
+    $houseIdEsc = mysqli_real_escape_string($con, trim((string)$houseId));
+    $branchIdEsc = mysqli_real_escape_string($con, trim((string)$branchId));
+    $excludeApplicationIdEsc = mysqli_real_escape_string($con, trim((string)$excludeApplicationId));
+    if($houseIdEsc === ""){
+        return PHP_INT_MAX;
+    }
+
+    $studentTotal = 0;
+    $studentSql = "SELECT COUNT(*) AS total
+        FROM tblstudenthouse sh
+        INNER JOIN tblsystemuser su ON su.userid=sh.userid
+        WHERE sh.houseid='$houseIdEsc'
+          AND sh.status='active'
+          AND su.status='active'";
+    if($branchIdEsc !== ""){
+        $studentSql .= " AND su.branchid='$branchIdEsc'";
+    }
+    $studentRes = mysqli_query($con, $studentSql);
+    if($studentRes && ($row = mysqli_fetch_array($studentRes, MYSQLI_ASSOC))){
+        $studentTotal = (int)$row["total"];
+    }
+
+    $applicationTotal = 0;
+    $appSql = "SELECT COUNT(*) AS total
+        FROM tblonlineadmissionapplication
+        WHERE assignedhouseid='$houseIdEsc'
+          AND (linkedstudentid IS NULL OR linkedstudentid='')";
+    if($branchIdEsc !== ""){
+        $appSql .= " AND branchid='$branchIdEsc'";
+    }
+    if($excludeApplicationIdEsc !== ""){
+        $appSql .= " AND applicationid<>'$excludeApplicationIdEsc'";
+    }
+    $appRes = mysqli_query($con, $appSql);
+    if($appRes && ($row = mysqli_fetch_array($appRes, MYSQLI_ASSOC))){
+        $applicationTotal = (int)$row["total"];
+    }
+
+    return $studentTotal + $applicationTotal;
+}
+}
+
+if(!function_exists('online_admission_find_best_house')){
+function online_admission_find_best_house($con, $branchId, $gender, $residence, $excludeApplicationId = ""){
+    $gender = house_master_normalize_gender_label($gender);
+    $residence = house_master_normalize_residence_label($residence);
+    if($gender === "" || $residence === ""){
+        return null;
+    }
+
+    $genderEsc = mysqli_real_escape_string($con, $gender);
+    $residenceEsc = mysqli_real_escape_string($con, $residence);
+    $houses = array();
+    $res = mysqli_query($con, "SELECT * FROM tblhouse
+        WHERE status='active'
+          AND autoassignenabled=1
+          AND housegender='$genderEsc'
+          AND houseresidencetype='$residenceEsc'
+        ORDER BY housename ASC");
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $row["_load"] = online_admission_house_load_total($con, $row["houseid"], $branchId, $excludeApplicationId);
+            $houses[] = $row;
+        }
+    }
+    if(empty($houses)){
+        return null;
+    }
+
+    usort($houses, function($left, $right){
+        $leftLoad = isset($left["_load"]) ? (int)$left["_load"] : 0;
+        $rightLoad = isset($right["_load"]) ? (int)$right["_load"] : 0;
+        if($leftLoad === $rightLoad){
+            return strcasecmp((string)$left["housename"], (string)$right["housename"]);
+        }
+        return $leftLoad < $rightLoad ? -1 : 1;
+    });
+    return $houses[0];
+}
+}
+
+if(!function_exists('online_admission_assign_house_for_application')){
+function online_admission_assign_house_for_application($con, $application, $postedStudent = null){
+    if(!is_array($application) || empty($application) || trim((string)(isset($application["applicationid"]) ? $application["applicationid"] : "")) === ""){
+        return null;
+    }
+    if(!online_admission_application_is_submitted($application)){
+        return online_admission_application_assigned_house($con, $application);
+    }
+
+    if(!$postedStudent && trim((string)(isset($application["postingid"]) ? $application["postingid"] : "")) !== "" && trim((string)(isset($application["branchid"]) ? $application["branchid"] : "")) !== ""){
+        $postedStudent = online_admission_get_posted_student_by_id($con, $application["branchid"], $application["postingid"]);
+    }
+
+    $paymentSetting = online_admission_get_payment_setting($con, (string)$application["branchid"]);
+    $paymentEnabled = (int)$paymentSetting["enabled"] === 1 && (float)$paymentSetting["feeamount"] > 0;
+    $successfulPayment = online_admission_get_successful_payment_by_application($con, (string)$application["applicationid"]);
+    if(!online_admission_documents_unlocked($application, $successfulPayment, $paymentEnabled ? 1 : 0)){
+        return online_admission_application_assigned_house($con, $application);
+    }
+
+    $gender = online_admission_application_gender($application, $postedStudent);
+    $residence = online_admission_application_residence($application, $postedStudent);
+    if($gender === "" || $residence === ""){
+        return online_admission_application_assigned_house($con, $application);
+    }
+
+    $currentHouse = online_admission_application_assigned_house($con, $application);
+    if($currentHouse && house_master_house_profile_matches($currentHouse, $gender, $residence)){
+        return $currentHouse;
+    }
+
+    $bestHouse = online_admission_find_best_house($con, (string)$application["branchid"], $gender, $residence, (string)$application["applicationid"]);
+    if(!$bestHouse){
+        return $currentHouse;
+    }
+
+    $applicationIdEsc = mysqli_real_escape_string($con, (string)$application["applicationid"]);
+    $houseIdEsc = mysqli_real_escape_string($con, (string)$bestHouse["houseid"]);
+    mysqli_query($con, "UPDATE tblonlineadmissionapplication
+        SET assignedhouseid='$houseIdEsc',
+            assignedhouseat=NOW(),
+            updatedat=NOW()
+        WHERE applicationid='$applicationIdEsc'
+        LIMIT 1");
+
+    return online_admission_get_house_by_id($con, $bestHouse["houseid"]);
+}
+}
+
+if(!function_exists('online_admission_find_unlinked_registration_application')){
+function online_admission_find_unlinked_registration_application($con, $branchId, $beceIndex, $birthdate){
+    $branchIdEsc = mysqli_real_escape_string($con, trim((string)$branchId));
+    $beceEsc = mysqli_real_escape_string($con, online_admission_normalize_bece($beceIndex));
+    $birthdateEsc = mysqli_real_escape_string($con, trim((string)$birthdate));
+    if($branchIdEsc === "" || $beceEsc === "" || $birthdateEsc === ""){
+        return null;
+    }
+    $res = mysqli_query($con, "SELECT app.*
+        FROM tblonlineadmissionapplication app
+        INNER JOIN tbladmissionpostedstudent post ON post.postingid=app.postingid
+        WHERE app.branchid='$branchIdEsc'
+          AND post.beceindexnumber='$beceEsc'
+          AND post.birthdate='$birthdateEsc'
+          AND (app.linkedstudentid IS NULL OR app.linkedstudentid='')
+        ORDER BY app.submittedat DESC, app.updatedat DESC
+        LIMIT 1");
+    if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))){
+        return $row;
+    }
+    return null;
+}
+}
+
+if(!function_exists('online_admission_link_registered_student')){
+function online_admission_link_registered_student($con, $applicationId, $studentId, $houseId = ""){
+    $applicationIdEsc = mysqli_real_escape_string($con, trim((string)$applicationId));
+    $studentIdEsc = mysqli_real_escape_string($con, trim((string)$studentId));
+    $houseIdEsc = mysqli_real_escape_string($con, trim((string)$houseId));
+    if($applicationIdEsc === "" || $studentIdEsc === ""){
+        return false;
+    }
+    $updates = array(
+        "linkedstudentid='$studentIdEsc'",
+        "linkedstudentat=NOW()",
+        "updatedat=NOW()"
+    );
+    if($houseIdEsc !== ""){
+        $updates[] = "assignedhouseid='$houseIdEsc'";
+        $updates[] = "assignedhouseat=COALESCE(assignedhouseat, NOW())";
+    }
+    return mysqli_query($con, "UPDATE tblonlineadmissionapplication SET ".implode(", ", $updates)." WHERE applicationid='$applicationIdEsc' LIMIT 1");
+}
+}
+
+if(!function_exists('online_admission_finalize_registration_house')){
+function online_admission_finalize_registration_house($con, $studentId, $branchId, $beceIndex, $birthdate, $recordedBy, $selectedHouseId = ""){
+    $result = array(
+        "found" => false,
+        "linked" => false,
+        "assigned" => false,
+        "house" => null,
+        "message" => ""
+    );
+    $application = online_admission_find_unlinked_registration_application($con, $branchId, $beceIndex, $birthdate);
+    if(!$application){
+        return $result;
+    }
+    $result["found"] = true;
+
+    $houseId = trim((string)$selectedHouseId);
+    if($houseId === ""){
+        $houseId = trim((string)(isset($application["assignedhouseid"]) ? $application["assignedhouseid"] : ""));
+    }
+
+    if($houseId !== ""){
+        $assigned = assign_student_to_house($con, $studentId, $houseId, $recordedBy);
+        if(!$assigned){
+            $result["message"] = "The online admission house could not be applied during registration.";
+            return $result;
+        }
+        $result["assigned"] = true;
+        $result["house"] = online_admission_get_house_by_id($con, $houseId);
+    }
+
+    $result["linked"] = online_admission_link_registered_student($con, $application["applicationid"], $studentId, $houseId);
+    if(!$result["linked"]){
+        $result["message"] = "The student was registered, but the online admission record could not be linked.";
+        return $result;
+    }
+
+    if($result["assigned"] && is_array($result["house"]) && trim((string)$result["house"]["housename"]) !== ""){
+        $result["message"] = "Student information saved and ".$result["house"]["housename"]." was assigned automatically from online admission.";
+    }elseif($result["linked"]){
+        $result["message"] = "Student information saved and linked to the online admission record.";
+    }
+    return $result;
+}
+}
+
 if(!function_exists('online_admission_generate_verification_token')){
 function online_admission_generate_verification_token($con){
     do{
@@ -460,6 +815,9 @@ function online_admission_mark_token_used($con, $applicationId){
 
 if(!function_exists('online_admission_get_payment_setting')){
 function online_admission_get_payment_setting($con, $branchId){
+    if(!isset($GLOBALS['_online_admission_payment_setting_cache']) || !is_array($GLOBALS['_online_admission_payment_setting_cache'])){
+        $GLOBALS['_online_admission_payment_setting_cache'] = array();
+    }
     $defaults = array(
         "settingid" => "",
         "branchid" => (string)$branchId,
@@ -471,12 +829,18 @@ function online_admission_get_payment_setting($con, $branchId){
         "payablestatus" => "verified",
         "note" => ""
     );
+    $cacheKey = (string)$branchId;
+    if(isset($GLOBALS['_online_admission_payment_setting_cache'][$cacheKey])){
+        return $GLOBALS['_online_admission_payment_setting_cache'][$cacheKey];
+    }
     $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
     $res = mysqli_query($con, "SELECT * FROM tblonlineadmissionpaymentsetting WHERE branchid='$branchIdEsc' LIMIT 1");
     if($res && $row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
-        return array_merge($defaults, $row);
+        $GLOBALS['_online_admission_payment_setting_cache'][$cacheKey] = array_merge($defaults, $row);
+        return $GLOBALS['_online_admission_payment_setting_cache'][$cacheKey];
     }
-    return $defaults;
+    $GLOBALS['_online_admission_payment_setting_cache'][$cacheKey] = $defaults;
+    return $GLOBALS['_online_admission_payment_setting_cache'][$cacheKey];
 }
 }
 
@@ -520,6 +884,24 @@ function online_admission_save_payment_setting($con, $branchId, $data, $updatedB
     mysqli_stmt_bind_param($stmt, "ssidsisss", $settingId, $branchId, $portalEnabled, $feeAmount, $currency, $enabled, $payableStatus, $note, $updatedBy);
     $saved = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
+    if($saved){
+        $cacheKey = (string)$branchId;
+        if(!isset($GLOBALS['_online_admission_payment_setting_cache']) || !is_array($GLOBALS['_online_admission_payment_setting_cache'])){
+            $GLOBALS['_online_admission_payment_setting_cache'] = array();
+        }
+        $GLOBALS['_online_admission_payment_setting_cache'][$cacheKey] = array(
+            "settingid" => $settingId,
+            "branchid" => (string)$branchId,
+            "portalenabled" => $portalEnabled,
+            "paymentgateway" => "paystack",
+            "feeamount" => number_format((float)$feeAmount, 2, ".", ""),
+            "currency" => $currency,
+            "enabled" => $enabled,
+            "payablestatus" => $payableStatus,
+            "note" => $note,
+            "updatedby" => (string)$updatedBy
+        );
+    }
     return $saved;
 }
 }
@@ -527,6 +909,441 @@ function online_admission_save_payment_setting($con, $branchId, $data, $updatedB
 if(!function_exists('online_admission_portal_is_open')){
 function online_admission_portal_is_open($setting){
     return (int)(isset($setting["portalenabled"]) ? $setting["portalenabled"] : 1) === 1;
+}
+}
+
+if(!function_exists('online_admission_document_label')){
+function online_admission_document_label($docType){
+    $docType = trim((string)$docType);
+    if($docType === ""){
+        return "Admission Document";
+    }
+    $docType = preg_replace('/^document-/', '', strtolower($docType));
+    return ucwords(str_replace(array("_", "-"), " ", $docType));
+}
+}
+
+if(!function_exists('online_admission_get_document')){
+function online_admission_get_document($con, $branchId, $admissionYear, $docType){
+    $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
+    $yearEsc = mysqli_real_escape_string($con, trim((string)$admissionYear));
+    $docTypeEsc = mysqli_real_escape_string($con, trim((string)$docType));
+    $res = mysqli_query($con, "SELECT *
+        FROM tblonlineadmissiondocument
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'
+          AND doctype='$docTypeEsc'
+          AND status='active'
+        LIMIT 1");
+    if($res && $row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        return $row;
+    }
+    return null;
+}
+}
+
+if(!function_exists('online_admission_get_document_by_id')){
+function online_admission_get_document_by_id($con, $documentId){
+    $documentIdEsc = mysqli_real_escape_string($con, trim((string)$documentId));
+    if($documentIdEsc === ""){
+        return null;
+    }
+    $res = mysqli_query($con, "SELECT *
+        FROM tblonlineadmissiondocument
+        WHERE documentid='$documentIdEsc'
+          AND status='active'
+        LIMIT 1");
+    if($res && $row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        return $row;
+    }
+    return null;
+}
+}
+
+if(!function_exists('online_admission_list_documents')){
+function online_admission_list_documents($con, $branchId, $admissionYear){
+    $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
+    $yearEsc = mysqli_real_escape_string($con, trim((string)$admissionYear));
+    $documents = array();
+    $res = mysqli_query($con, "SELECT *
+        FROM tblonlineadmissiondocument
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'
+          AND status='active'
+        ORDER BY uploadedat DESC, title ASC");
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $documents[] = $row;
+        }
+    }
+    return $documents;
+}
+}
+
+if(!function_exists('online_admission_document_display_title')){
+function online_admission_document_display_title($document){
+    if(!is_array($document) || empty($document)){
+        return "Admission Document";
+    }
+    $title = trim((string)(isset($document["title"]) ? $document["title"] : ""));
+    if($title !== ""){
+        return $title;
+    }
+    $originalFilename = trim((string)(isset($document["originalfilename"]) ? $document["originalfilename"] : ""));
+    if($originalFilename !== ""){
+        return pathinfo($originalFilename, PATHINFO_FILENAME);
+    }
+    return online_admission_document_label(isset($document["doctype"]) ? $document["doctype"] : "");
+}
+}
+
+if(!function_exists('online_admission_document_file_path')){
+function online_admission_document_file_path($filename){
+    $filename = basename(trim((string)$filename));
+    if($filename === ""){
+        return "";
+    }
+    $path = __DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."admission-documents".DIRECTORY_SEPARATOR.$filename;
+    return is_file($path) ? $path : "";
+}
+}
+
+if(!function_exists('online_admission_remove_document_file_if_unused')){
+function online_admission_remove_document_file_if_unused($con, $filename){
+    $filename = basename(trim((string)$filename));
+    if($filename === ""){
+        return;
+    }
+    $filenameEsc = mysqli_real_escape_string($con, $filename);
+    $res = mysqli_query($con, "SELECT COUNT(*) AS total
+        FROM tblonlineadmissiondocument
+        WHERE filename='$filenameEsc'");
+    if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC)) && (int)$row["total"] > 0){
+        return;
+    }
+    $path = online_admission_document_file_path($filename);
+    if($path !== ""){
+        @unlink($path);
+    }
+}
+}
+
+if(!function_exists('online_admission_document_slug')){
+function online_admission_document_slug($value){
+    $value = strtolower(trim((string)$value));
+    $value = preg_replace('/[^a-z0-9]+/', '-', $value);
+    $value = trim((string)$value, '-');
+    return $value !== "" ? $value : "document";
+}
+}
+
+if(!function_exists('online_admission_store_document_file')){
+function online_admission_store_document_file($file, &$errorMessage){
+    $errorMessage = "";
+    if(!isset($file["error"]) || $file["error"] === UPLOAD_ERR_NO_FILE || !isset($file["name"]) || trim((string)$file["name"]) === ""){
+        $errorMessage = "Choose a document file to upload.";
+        return false;
+    }
+    if((int)$file["error"] !== UPLOAD_ERR_OK){
+        $errorMessage = "The document upload could not be completed right now.";
+        return false;
+    }
+    if(!isset($file["tmp_name"]) || !is_uploaded_file($file["tmp_name"])){
+        $errorMessage = "The uploaded document could not be verified.";
+        return false;
+    }
+
+    $originalName = trim((string)$file["name"]);
+    $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    if(!in_array($extension, array("pdf", "doc", "docx"), true)){
+        $errorMessage = "Only PDF, DOC, and DOCX files are allowed for admission documents.";
+        return false;
+    }
+
+    $fileSize = isset($file["size"]) ? (int)$file["size"] : 0;
+    if($fileSize > (12 * 1024 * 1024)){
+        $errorMessage = "Each admission document must be 12MB or less.";
+        return false;
+    }
+
+    $uploadDir = __DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."admission-documents";
+    if(!is_dir($uploadDir) && !mkdir($uploadDir, 0777, true)){
+        $errorMessage = "The admission document folder could not be prepared on the server.";
+        return false;
+    }
+
+    $storedName = "admission-document-".date("YmdHis")."-".substr(md5(uniqid('', true)), 0, 16).".".$extension;
+    $destination = $uploadDir.DIRECTORY_SEPARATOR.$storedName;
+    if(!move_uploaded_file($file["tmp_name"], $destination)){
+        $errorMessage = "The admission document could not be saved on the server.";
+        return false;
+    }
+
+    $mimeType = "";
+    if(function_exists("finfo_open")){
+        $finfo = @finfo_open(FILEINFO_MIME_TYPE);
+        if($finfo){
+            $mimeType = (string)@finfo_file($finfo, $destination);
+            @finfo_close($finfo);
+        }
+    }
+    if($mimeType === "" && isset($file["type"])){
+        $mimeType = trim((string)$file["type"]);
+    }
+    if($mimeType === ""){
+        $mimeType = $extension === "pdf" ? "application/pdf" : "application/octet-stream";
+    }
+
+    return array(
+        "filename" => $storedName,
+        "originalfilename" => $originalName,
+        "mimetype" => $mimeType,
+        "filesize" => is_file($destination) ? (int)filesize($destination) : $fileSize
+    );
+}
+}
+
+if(!function_exists('online_admission_save_document')){
+function online_admission_save_document($con, $branchId, $admissionYear, $title, $file, $uploadedBy, &$errorMessage){
+    $errorMessage = "";
+    $admissionYear = trim((string)$admissionYear);
+    $title = trim((string)$title);
+    if($branchId === "" || $admissionYear === "" || $title === ""){
+        $errorMessage = "The admission document details are incomplete.";
+        return false;
+    }
+
+    $storedFile = online_admission_store_document_file($file, $errorMessage);
+    if($storedFile === false){
+        return false;
+    }
+
+    $documentId = online_admission_generate_id("ADMDOC_");
+    $docType = "document-".online_admission_document_slug($title)."-".substr(md5(uniqid('', true)), 0, 8);
+    $stmt = mysqli_prepare($con, "INSERT INTO tblonlineadmissiondocument(
+        documentid, branchid, admissionyear, doctype, title, filename, originalfilename, mimetype, filesize, status, uploadedat, updatedat, uploadedby
+    ) VALUES(
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?
+    )");
+    if(!$stmt){
+        $errorMessage = "The admission document could not be prepared for saving right now.";
+        return false;
+    }
+    mysqli_stmt_bind_param(
+        $stmt,
+        "ssssssssis",
+        $documentId,
+        $branchId,
+        $admissionYear,
+        $docType,
+        $title,
+        $storedFile["filename"],
+        $storedFile["originalfilename"],
+        $storedFile["mimetype"],
+        $storedFile["filesize"],
+        $uploadedBy
+    );
+    $saved = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    if(!$saved){
+        $errorMessage = "The admission document could not be saved right now.";
+        online_admission_remove_document_file_if_unused($con, $storedFile["filename"]);
+        return false;
+    }
+
+    return online_admission_get_document_by_id($con, $documentId);
+}
+}
+
+if(!function_exists('online_admission_application_is_submitted')){
+function online_admission_application_is_submitted($application){
+    if(!is_array($application) || empty($application)){
+        return false;
+    }
+    $status = strtolower(trim((string)(isset($application["status"]) ? $application["status"] : "")));
+    if(in_array($status, array("submitted", "reviewed", "needs_attention"), true)){
+        return true;
+    }
+    return trim((string)(isset($application["submittedat"]) ? $application["submittedat"] : "")) !== "";
+}
+}
+
+if(!function_exists('online_admission_documents_unlocked')){
+function online_admission_documents_unlocked($application, $successfulPayment, $paymentEnabled){
+    if(!online_admission_application_is_submitted($application)){
+        return false;
+    }
+    if((int)$paymentEnabled === 1){
+        return online_admission_payment_is_paid($successfulPayment);
+    }
+    return true;
+}
+}
+
+if(!function_exists('online_admission_year_totals')){
+function online_admission_year_totals($con, $branchId, $admissionYear){
+    $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
+    $yearEsc = mysqli_real_escape_string($con, trim((string)$admissionYear));
+    $totals = array(
+        "admissionyear" => trim((string)$admissionYear),
+        "posted_total" => 0,
+        "posted_active" => 0,
+        "posted_archived" => 0,
+        "application_total" => 0,
+        "draft_total" => 0,
+        "submitted_total" => 0,
+        "reviewed_total" => 0,
+        "payment_total" => 0,
+        "payment_success_total" => 0,
+        "help_total" => 0
+    );
+
+    $postedRes = mysqli_query($con, "SELECT
+        COUNT(*) AS posted_total,
+        SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) AS posted_active,
+        SUM(CASE WHEN status='archived' THEN 1 ELSE 0 END) AS posted_archived
+        FROM tbladmissionpostedstudent
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'");
+    if($postedRes && ($row = mysqli_fetch_array($postedRes, MYSQLI_ASSOC))){
+        $totals["posted_total"] = (int)$row["posted_total"];
+        $totals["posted_active"] = (int)$row["posted_active"];
+        $totals["posted_archived"] = (int)$row["posted_archived"];
+    }
+
+    $appRes = mysqli_query($con, "SELECT
+        COUNT(*) AS application_total,
+        SUM(CASE WHEN status='draft' THEN 1 ELSE 0 END) AS draft_total,
+        SUM(CASE WHEN status='submitted' THEN 1 ELSE 0 END) AS submitted_total,
+        SUM(CASE WHEN status='reviewed' THEN 1 ELSE 0 END) AS reviewed_total
+        FROM tblonlineadmissionapplication
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'");
+    if($appRes && ($row = mysqli_fetch_array($appRes, MYSQLI_ASSOC))){
+        $totals["application_total"] = (int)$row["application_total"];
+        $totals["draft_total"] = (int)$row["draft_total"];
+        $totals["submitted_total"] = (int)$row["submitted_total"];
+        $totals["reviewed_total"] = (int)$row["reviewed_total"];
+    }
+
+    $paymentRes = mysqli_query($con, "SELECT
+        COUNT(*) AS payment_total,
+        SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) AS payment_success_total
+        FROM tblonlineadmissionpayment
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'");
+    if($paymentRes && ($row = mysqli_fetch_array($paymentRes, MYSQLI_ASSOC))){
+        $totals["payment_total"] = (int)$row["payment_total"];
+        $totals["payment_success_total"] = (int)$row["payment_success_total"];
+    }
+
+    $helpRes = mysqli_query($con, "SELECT COUNT(*) AS help_total
+        FROM tblonlineadmissionhelprequest
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'");
+    if($helpRes && ($row = mysqli_fetch_array($helpRes, MYSQLI_ASSOC))){
+        $totals["help_total"] = (int)$row["help_total"];
+    }
+
+    return $totals;
+}
+}
+
+if(!function_exists('online_admission_list_year_summaries')){
+function online_admission_list_year_summaries($con, $branchId){
+    $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
+    $years = array();
+    $sql = "SELECT admissionyear FROM tbladmissionpostedstudent WHERE branchid='$branchIdEsc'
+            UNION
+            SELECT admissionyear FROM tblonlineadmissionapplication WHERE branchid='$branchIdEsc'
+            UNION
+            SELECT admissionyear FROM tblonlineadmissionpayment WHERE branchid='$branchIdEsc'
+            UNION
+            SELECT admissionyear FROM tblonlineadmissionhelprequest WHERE branchid='$branchIdEsc' AND admissionyear IS NOT NULL AND admissionyear<>''
+            ORDER BY admissionyear DESC";
+    $res = mysqli_query($con, $sql);
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $year = trim((string)$row["admissionyear"]);
+            if($year !== ""){
+                $years[] = $year;
+            }
+        }
+    }
+
+    $summaries = array();
+    foreach($years as $year){
+        $summaries[] = online_admission_year_totals($con, $branchId, $year);
+    }
+
+    return $summaries;
+}
+}
+
+if(!function_exists('online_admission_clear_year')){
+function online_admission_clear_year($con, $branchId, $admissionYear, $backupReference, $clearedBy){
+    $branchId = trim((string)$branchId);
+    $admissionYear = trim((string)$admissionYear);
+    $backupReference = trim((string)$backupReference);
+    $clearedBy = trim((string)$clearedBy);
+
+    if($branchId === "" || $admissionYear === ""){
+        return array("success" => false, "message" => "Select a valid admission year to clear.");
+    }
+    if($backupReference === ""){
+        return array("success" => false, "message" => "Enter a backup reference before clearing this admission year.");
+    }
+
+    $setting = online_admission_get_payment_setting($con, $branchId);
+    if(online_admission_portal_is_open($setting) || (int)$setting["enabled"] === 1){
+        return array("success" => false, "message" => "Close the public portal and disable online payment before clearing an admission year.");
+    }
+
+    $totals = online_admission_year_totals($con, $branchId, $admissionYear);
+    if($totals["posted_total"] === 0 && $totals["application_total"] === 0 && $totals["payment_total"] === 0 && $totals["help_total"] === 0){
+        return array("success" => false, "message" => "No online admission records were found for ".$admissionYear.".");
+    }
+
+    $imageBackup = online_admission_backup_year_images($con, $branchId, $admissionYear, $backupReference);
+    if(!$imageBackup["success"]){
+        return array("success" => false, "message" => $imageBackup["message"]);
+    }
+
+    mysqli_autocommit($con, false);
+    $ok = true;
+    $branchIdEsc = mysqli_real_escape_string($con, $branchId);
+    $yearEsc = mysqli_real_escape_string($con, $admissionYear);
+
+    $ok = $ok && mysqli_query($con, "DELETE FROM tblonlineadmissionhelprequest
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'");
+    $ok = $ok && mysqli_query($con, "DELETE FROM tblonlineadmissionpayment
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'");
+    $ok = $ok && mysqli_query($con, "DELETE FROM tblonlineadmissionapplication
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'");
+    $ok = $ok && mysqli_query($con, "DELETE FROM tbladmissionpostedstudent
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'");
+
+    if($ok){
+        mysqli_commit($con);
+        mysqli_autocommit($con, true);
+        online_admission_remove_year_images_from_uploads($con, $imageBackup["files"]);
+        return array(
+            "success" => true,
+            "message" => "Admission year ".$admissionYear." cleared successfully. Student images were saved to ".$imageBackup["relative_dir"].".",
+            "totals" => $totals,
+            "image_backup_dir" => $imageBackup["relative_dir"],
+            "image_total" => $imageBackup["saved_count"],
+            "cleared_by" => $clearedBy
+        );
+    }
+
+    mysqli_rollback($con);
+    mysqli_autocommit($con, true);
+    return array("success" => false, "message" => "The admission year could not be cleared right now.");
 }
 }
 
@@ -1433,11 +2250,11 @@ function online_admission_hubtel_callback_status($callbackData){
 
 if(!function_exists('online_admission_photo_src')){
 function online_admission_photo_src($filename){
-    $filename = trim((string)$filename);
+    $filename = basename(trim((string)$filename));
     if($filename !== "" && file_exists(__DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR.$filename)){
-        return "uploads/".rawurlencode($filename);
+        return "online-admission-photo.php?file=".rawurlencode($filename);
     }
-    return "uploads/comm.gif";
+    return "online-admission-photo.php";
 }
 }
 
@@ -1494,5 +2311,155 @@ function online_admission_store_image($file, &$errorMessage){
         return false;
     }
     return $storedName;
+}
+}
+
+if(!function_exists('online_admission_backup_slug')){
+function online_admission_backup_slug($value){
+    $value = strtolower(trim((string)$value));
+    $value = preg_replace('/[^a-z0-9]+/', '-', $value);
+    $value = trim((string)$value, '-');
+    return $value !== "" ? $value : "backup";
+}
+}
+
+if(!function_exists('online_admission_backup_image_student_name')){
+function online_admission_backup_image_student_name($row){
+    return trim((string)(isset($row["firstname"]) ? $row["firstname"] : "")." ".(string)(isset($row["othernames"]) ? $row["othernames"] : "")." ".(string)(isset($row["surname"]) ? $row["surname"] : ""));
+}
+}
+
+if(!function_exists('online_admission_backup_image_copy_name')){
+function online_admission_backup_image_copy_name($row){
+    $studentLabel = online_admission_backup_image_student_name($row);
+    $safeStudentLabel = preg_replace('/[^A-Za-z0-9._-]+/', '-', $studentLabel);
+    $safeStudentLabel = trim((string)$safeStudentLabel, "-");
+    if($safeStudentLabel === ""){
+        $safeStudentLabel = "student";
+    }
+    $originalFilename = trim((string)(isset($row["filename"]) ? $row["filename"] : ""));
+    $safeFile = preg_replace('/[^A-Za-z0-9._-]+/', '-', $originalFilename);
+    $beceIndex = trim((string)(isset($row["beceindexnumber"]) ? $row["beceindexnumber"] : ""));
+    if($beceIndex === ""){
+        return $safeStudentLabel."-".$safeFile;
+    }
+    return $beceIndex."-".$safeStudentLabel."-".$safeFile;
+}
+}
+
+if(!function_exists('online_admission_backup_year_images')){
+function online_admission_backup_year_images($con, $branchId, $admissionYear, $backupReference){
+    $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
+    $yearEsc = mysqli_real_escape_string($con, trim((string)$admissionYear));
+    $result = array(
+        "success" => false,
+        "message" => "",
+        "directory" => "",
+        "relative_dir" => "",
+        "saved_count" => 0,
+        "files" => array()
+    );
+
+    $files = array();
+    $res = mysqli_query($con, "SELECT applicationid, beceindexnumber, firstname, surname, othernames, filename
+        FROM tblonlineadmissionapplication
+        WHERE branchid='$branchIdEsc'
+          AND admissionyear='$yearEsc'
+          AND filename IS NOT NULL
+          AND filename<>''");
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $files[] = $row;
+        }
+    }
+
+    $baseDir = __DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."admission-year-backups";
+    $folderName = online_admission_backup_slug((string)$admissionYear)."-".date("YmdHis")."-".online_admission_backup_slug($backupReference);
+    $backupDir = $baseDir.DIRECTORY_SEPARATOR.$folderName;
+    $imageDir = $backupDir.DIRECTORY_SEPARATOR."images";
+
+    if(!is_dir(__DIR__.DIRECTORY_SEPARATOR."uploads")){
+        $result["message"] = "The uploads folder is missing on the server.";
+        return $result;
+    }
+
+    if(!is_dir($imageDir) && !mkdir($imageDir, 0777, true)){
+        $result["message"] = "The backup folder for admission images could not be created.";
+        return $result;
+    }
+
+    $manifestRows = array();
+    foreach($files as $row){
+        $filename = trim((string)$row["filename"]);
+        if($filename === ""){
+            continue;
+        }
+        $source = __DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR.$filename;
+        if(!file_exists($source)){
+            continue;
+        }
+
+        $studentLabel = online_admission_backup_image_student_name($row);
+        $copyName = online_admission_backup_image_copy_name($row);
+        $destination = $imageDir.DIRECTORY_SEPARATOR.$copyName;
+        if(!@copy($source, $destination)){
+            $result["message"] = "One or more student images could not be saved before clearing the admission year.";
+            return $result;
+        }
+
+        $result["saved_count"]++;
+        $result["files"][] = $filename;
+        $manifestRows[] = array(
+            "applicationid" => (string)$row["applicationid"],
+            "beceindexnumber" => (string)$row["beceindexnumber"],
+            "studentname" => $studentLabel,
+            "originalfile" => $filename,
+            "savedfile" => $copyName
+        );
+    }
+
+    $manifestPath = $backupDir.DIRECTORY_SEPARATOR."image-manifest.csv";
+    $manifestHandle = fopen($manifestPath, "w");
+    if($manifestHandle){
+        fputcsv($manifestHandle, array("applicationid", "beceindexnumber", "studentname", "originalfile", "savedfile"));
+        foreach($manifestRows as $manifestRow){
+            fputcsv($manifestHandle, $manifestRow);
+        }
+        fclose($manifestHandle);
+    }
+
+    $summaryPath = $backupDir.DIRECTORY_SEPARATOR."backup-summary.txt";
+    $summaryText = "Admission Year: ".$admissionYear.PHP_EOL
+        ."Backup Reference: ".$backupReference.PHP_EOL
+        ."Created At: ".date("Y-m-d H:i:s").PHP_EOL
+        ."Saved Images: ".$result["saved_count"].PHP_EOL;
+    @file_put_contents($summaryPath, $summaryText);
+
+    $result["success"] = true;
+    $result["directory"] = $backupDir;
+    $result["relative_dir"] = "uploads/admission-year-backups/".$folderName;
+    return $result;
+}
+}
+
+if(!function_exists('online_admission_remove_year_images_from_uploads')){
+function online_admission_remove_year_images_from_uploads($con, $filenames){
+    $uniqueFiles = array_values(array_unique(array_filter(array_map('trim', (array)$filenames))));
+    foreach($uniqueFiles as $filename){
+        $filenameEsc = mysqli_real_escape_string($con, (string)$filename);
+        $res = mysqli_query($con, "SELECT COUNT(*) AS total
+            FROM tblonlineadmissionapplication
+            WHERE filename='$filenameEsc'");
+        $stillUsed = false;
+        if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))){
+            $stillUsed = (int)$row["total"] > 0;
+        }
+        if(!$stillUsed){
+            $path = __DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR.$filename;
+            if(is_file($path)){
+                @unlink($path);
+            }
+        }
+    }
 }
 }

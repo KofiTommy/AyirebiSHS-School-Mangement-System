@@ -1,4 +1,45 @@
 <?php
+if(!function_exists('xschool_schema_cache_is_fresh')){
+function xschool_schema_cache_is_fresh($key, $ttlSeconds = 900){
+    static $memoryCache = array();
+    $key = trim((string)$key);
+    if($key === ""){
+        return false;
+    }
+    if(isset($memoryCache[$key])){
+        return $memoryCache[$key];
+    }
+    if(PHP_SAPI === 'cli' || !function_exists('session_status') || session_status() !== PHP_SESSION_ACTIVE){
+        $memoryCache[$key] = false;
+        return false;
+    }
+    $cacheBag = isset($_SESSION['_xschool_schema_cache']) && is_array($_SESSION['_xschool_schema_cache'])
+        ? $_SESSION['_xschool_schema_cache']
+        : array();
+    $isFresh = isset($cacheBag[$key]) && ((int)$cacheBag[$key] + (int)$ttlSeconds) > time();
+    $memoryCache[$key] = $isFresh;
+    return $isFresh;
+}
+}
+
+if(!function_exists('xschool_schema_cache_mark')){
+function xschool_schema_cache_mark($key){
+    static $memoryCache = array();
+    $key = trim((string)$key);
+    if($key === ""){
+        return;
+    }
+    $memoryCache[$key] = true;
+    if(PHP_SAPI === 'cli' || !function_exists('session_status') || session_status() !== PHP_SESSION_ACTIVE){
+        return;
+    }
+    if(!isset($_SESSION['_xschool_schema_cache']) || !is_array($_SESSION['_xschool_schema_cache'])){
+        $_SESSION['_xschool_schema_cache'] = array();
+    }
+    $_SESSION['_xschool_schema_cache'][$key] = time();
+}
+}
+
 if(!function_exists('house_master_is_admin')){
 function house_master_is_admin(){
     return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
@@ -55,10 +96,16 @@ function house_master_can_view_senior_dashboard($con = null){
 
 if(!function_exists('ensure_house_tables')){
 function ensure_house_tables($con){
+    if(xschool_schema_cache_is_fresh('schema_house_master_v2')){
+        return;
+    }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblhouse (
         houseid VARCHAR(40) NOT NULL PRIMARY KEY,
         housename VARCHAR(80) NOT NULL,
         description VARCHAR(255) NULL,
+        housegender VARCHAR(20) NULL,
+        houseresidencetype VARCHAR(20) NULL,
+        autoassignenabled TINYINT(1) NOT NULL DEFAULT 1,
         status VARCHAR(20) NOT NULL DEFAULT 'active',
         datetimeentry DATETIME NOT NULL,
         recordedby VARCHAR(30) NOT NULL,
@@ -153,6 +200,20 @@ function ensure_house_tables($con){
     if(!$returnNoteCol || mysqli_num_rows($returnNoteCol) === 0){
         mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN returnnote VARCHAR(255) NULL AFTER returnedby");
     }
+    $houseGenderCol = mysqli_query($con, "SHOW COLUMNS FROM tblhouse LIKE 'housegender'");
+    if(!$houseGenderCol || mysqli_num_rows($houseGenderCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblhouse ADD COLUMN housegender VARCHAR(20) NULL AFTER description");
+    }
+    $houseResidenceCol = mysqli_query($con, "SHOW COLUMNS FROM tblhouse LIKE 'houseresidencetype'");
+    if(!$houseResidenceCol || mysqli_num_rows($houseResidenceCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblhouse ADD COLUMN houseresidencetype VARCHAR(20) NULL AFTER housegender");
+    }
+    $houseAutoAssignCol = mysqli_query($con, "SHOW COLUMNS FROM tblhouse LIKE 'autoassignenabled'");
+    if(!$houseAutoAssignCol || mysqli_num_rows($houseAutoAssignCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblhouse ADD COLUMN autoassignenabled TINYINT(1) NOT NULL DEFAULT 1 AFTER houseresidencetype");
+    }
+    house_master_sync_house_profiles($con);
+    xschool_schema_cache_mark('schema_house_master_v2');
 }
 }
 
@@ -179,22 +240,142 @@ function house_master_normalize_gender_label($gender){
 }
 }
 
+if(!function_exists('house_master_normalize_residence_label')){
+function house_master_normalize_residence_label($residence){
+    $residence = strtoupper(trim((string)$residence));
+    if(in_array($residence, array("BOARDING", "BOARDER", "HOSTEL"), true)){
+        return "Boarding";
+    }
+    if(in_array($residence, array("DAY", "DAY STUDENT", "DAY STUDENTS"), true)){
+        return "Day";
+    }
+    return "";
+}
+}
+
+if(!function_exists('house_master_guess_house_profile')){
+function house_master_guess_house_profile($houseName, $description = ""){
+    $source = strtoupper(trim((string)$houseName." ".(string)$description));
+    $gender = (strpos($source, "GIRLS") !== false || strpos($source, "FEMALE") !== false)
+        ? "Female"
+        : "Male";
+    $residence = (strpos($source, "DAY") !== false || strpos($source, "HOUSE 5") !== false || strpos($source, "HOUSE FIVE") !== false)
+        ? "Day"
+        : "Boarding";
+    return array(
+        "housegender" => $gender,
+        "houseresidencetype" => $residence,
+        "autoassignenabled" => 1
+    );
+}
+}
+
+if(!function_exists('house_master_sync_house_profiles')){
+function house_master_sync_house_profiles($con){
+    $res = mysqli_query($con, "SELECT houseid, housename, description, housegender, houseresidencetype, autoassignenabled FROM tblhouse");
+    if(!$res){
+        return;
+    }
+    while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        $updates = array();
+        $guessed = house_master_guess_house_profile($row["housename"], $row["description"]);
+        $houseIdEsc = mysqli_real_escape_string($con, (string)$row["houseid"]);
+
+        $currentGender = house_master_normalize_gender_label(isset($row["housegender"]) ? $row["housegender"] : "");
+        if($currentGender === "" && $guessed["housegender"] !== ""){
+            $genderEsc = mysqli_real_escape_string($con, $guessed["housegender"]);
+            $updates[] = "housegender='$genderEsc'";
+        }
+
+        $currentResidence = house_master_normalize_residence_label(isset($row["houseresidencetype"]) ? $row["houseresidencetype"] : "");
+        if($currentResidence === "" && $guessed["houseresidencetype"] !== ""){
+            $residenceEsc = mysqli_real_escape_string($con, $guessed["houseresidencetype"]);
+            $updates[] = "houseresidencetype='$residenceEsc'";
+        }
+
+        if(!isset($row["autoassignenabled"]) || $row["autoassignenabled"] === null || $row["autoassignenabled"] === ""){
+            $updates[] = "autoassignenabled=1";
+        }
+
+        if(!empty($updates)){
+            mysqli_query($con, "UPDATE tblhouse SET ".implode(", ", $updates)." WHERE houseid='$houseIdEsc' LIMIT 1");
+        }
+    }
+}
+}
+
+if(!function_exists('house_master_house_profile_matches')){
+function house_master_house_profile_matches($house, $gender, $residence){
+    if(!is_array($house) || empty($house)){
+        return false;
+    }
+    $houseGender = house_master_normalize_gender_label(isset($house["housegender"]) ? $house["housegender"] : "");
+    $houseResidence = house_master_normalize_residence_label(isset($house["houseresidencetype"]) ? $house["houseresidencetype"] : "");
+    $gender = house_master_normalize_gender_label($gender);
+    $residence = house_master_normalize_residence_label($residence);
+    return $houseGender !== "" &&
+        $houseResidence !== "" &&
+        $houseGender === $gender &&
+        $houseResidence === $residence &&
+        strtolower(trim((string)(isset($house["status"]) ? $house["status"] : ""))) === "active" &&
+        (!isset($house["autoassignenabled"]) || (int)$house["autoassignenabled"] === 1);
+}
+}
+
 if(!function_exists('house_master_dashboard_label')){
 function house_master_dashboard_label($con, $teacherId){
+    $summary = house_master_get_teacher_role_summary($con, $teacherId);
+    return $summary["dashboard_label"];
+}
+}
+
+if(!function_exists('house_master_get_teacher_role_summary')){
+function house_master_get_teacher_role_summary($con, $teacherId){
+    static $summaryCache = array();
     $teacherId = trim((string)$teacherId);
     if($teacherId === ""){
-        return "House Master Dashboard";
+        return array(
+            "dashboard_label" => "House Master Dashboard",
+            "has_house_assignment" => false,
+            "has_senior_assignment" => false
+        );
+    }
+    if(isset($summaryCache[$teacherId])){
+        return $summaryCache[$teacherId];
     }
 
     $teacherIdEsc = mysqli_real_escape_string($con, $teacherId);
-    $res = mysqli_query($con, "SELECT gender FROM tblsystemuser WHERE userid='$teacherIdEsc' LIMIT 1");
-    if($res && $row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+    $summary = array(
+        "dashboard_label" => "House Master Dashboard",
+        "has_house_assignment" => false,
+        "has_senior_assignment" => false
+    );
+
+    $res = mysqli_query($con, "SELECT
+            su.gender,
+            EXISTS(
+                SELECT 1 FROM tblhousemaster hm
+                WHERE hm.userid='$teacherIdEsc' AND hm.status='active'
+                LIMIT 1
+            ) AS has_house_assignment,
+            EXISTS(
+                SELECT 1 FROM tblseniorhouseauthority sha
+                WHERE sha.userid='$teacherIdEsc' AND sha.status='active'
+                LIMIT 1
+            ) AS has_senior_assignment
+        FROM tblsystemuser su
+        WHERE su.userid='$teacherIdEsc'
+        LIMIT 1");
+    if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))){
+        $summary["has_house_assignment"] = (int)$row["has_house_assignment"] === 1;
+        $summary["has_senior_assignment"] = (int)$row["has_senior_assignment"] === 1;
         if(house_master_normalize_gender_label($row["gender"]) === "Female"){
-            return "House Mistress Dashboard";
+            $summary["dashboard_label"] = "House Mistress Dashboard";
         }
     }
 
-    return "House Master Dashboard";
+    $summaryCache[$teacherId] = $summary;
+    return $summary;
 }
 }
 
@@ -257,17 +438,15 @@ function get_teacher_house_filter_sql($con, $teacherId){
 
 if(!function_exists('house_master_has_assignment')){
 function house_master_has_assignment($con, $teacherId){
-    $teacherId = mysqli_real_escape_string($con, (string)$teacherId);
-    $res = mysqli_query($con, "SELECT assignmentid FROM tblhousemaster WHERE userid='$teacherId' AND status='active' LIMIT 1");
-    return ($res && mysqli_num_rows($res) > 0);
+    $summary = house_master_get_teacher_role_summary($con, $teacherId);
+    return !empty($summary["has_house_assignment"]);
 }
 }
 
 if(!function_exists('house_master_has_senior_assignment')){
 function house_master_has_senior_assignment($con, $teacherId){
-    $teacherId = mysqli_real_escape_string($con, (string)$teacherId);
-    $res = mysqli_query($con, "SELECT assignmentid FROM tblseniorhouseauthority WHERE userid='$teacherId' AND status='active' LIMIT 1");
-    return ($res && mysqli_num_rows($res) > 0);
+    $summary = house_master_get_teacher_role_summary($con, $teacherId);
+    return !empty($summary["has_senior_assignment"]);
 }
 }
 
