@@ -14,11 +14,132 @@
     line-height: 1.7;
 }
 
+.aa-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 22px 0 16px;
+}
+
+.aa-overview-card {
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid #d9e4ee;
+    background: linear-gradient(145deg, #ffffff, #f8fbfd);
+    box-shadow: 0 8px 18px rgba(19, 44, 67, 0.05);
+    display: grid;
+    gap: 6px;
+}
+
+.aa-overview-card__label {
+    color: #667d92;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+}
+
+.aa-overview-card strong {
+    color: #163049;
+    font-size: 1.25rem;
+    line-height: 1.1;
+}
+
+.aa-overview-card small {
+    color: #698095;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.aa-quick-links {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin: 0 0 20px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+}
+
+.aa-quick-link {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: #eef4f9;
+    border: 1px solid #d8e3ed;
+    color: #17314b;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.aa-quick-link:hover {
+    background: #e4eef6;
+}
+
+.admission-admin-page .rs-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.aa-block-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    width: fit-content;
+    max-width: 100%;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: #0f2840;
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.aa-block-label--records {
+    margin: 20px 0 16px;
+}
+
 .aa-main-stack {
     display: grid;
-    gap: 24px;
+    gap: 18px;
     align-items: start;
     min-width: 0;
+}
+
+.admission-admin-page .rs-side {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: 1fr;
+    align-items: start;
+    order: -1;
+}
+
+.admission-admin-page .rs-side .rs-panel {
+    height: auto;
+}
+
+#portal-entry {
+    order: 1;
+}
+
+#payment-settings {
+    order: 2;
+}
+
+#import-posted-students {
+    order: 3;
+}
+
+#admission-documents {
+    order: 4;
 }
 
 .aa-section--compact {
@@ -31,9 +152,7 @@
     }
 
     .aa-main-stack {
-        grid-template-rows: auto 1fr;
         align-items: stretch;
-        min-height: 100%;
     }
 
     .aa-section--compact {
@@ -47,6 +166,77 @@
     }
 }
 
+@media (max-width: 1100px) {
+    .aa-overview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.aa-accordion-section {
+    overflow: hidden;
+    border: 1px solid #dce6ef;
+    border-radius: 24px;
+    background: linear-gradient(145deg, #ffffff, #f9fbfd);
+    box-shadow: 0 14px 30px rgba(15, 40, 64, 0.06);
+    scroll-margin-top: 84px;
+}
+
+.admission-admin-page .aa-accordion-section > .rs-panel-head,
+.admission-admin-page .aa-accordion-section > .rs-side-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.admission-admin-page .aa-accordion-section > .rs-panel-head > div,
+.admission-admin-page .aa-accordion-section > .rs-side-head > div {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.aa-accordion-toggle {
+    cursor: pointer;
+    position: relative;
+    padding-right: 58px;
+    user-select: none;
+}
+
+.aa-accordion-toggle::after {
+    content: "\f078";
+    font-family: FontAwesome;
+    font-size: 0.95rem;
+    color: #17314b;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%) rotate(-90deg);
+    transition: transform 0.2s ease;
+}
+
+.aa-accordion-section.is-open > .aa-accordion-toggle::after {
+    transform: translateY(-50%) rotate(0deg);
+}
+
+.aa-accordion-toggle .aa-section-chip,
+.aa-accordion-toggle .aa-status {
+    margin-right: 34px;
+}
+
+.aa-accordion-body {
+    display: grid;
+    gap: 18px;
+    padding-top: 6px;
+}
+
+.aa-accordion-section.is-collapsed > .aa-accordion-body {
+    display: none;
+}
+
+.aa-accordion-section.is-collapsed .aa-copy {
+    margin-bottom: 0;
+}
+
 .aa-link {
     display: inline-flex;
     align-items: center;
@@ -58,6 +248,40 @@
     color: #fff;
     text-decoration: none;
     font-weight: 700;
+}
+
+.aa-section-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: #edf4fa;
+    color: #17314b;
+    font-size: 0.82rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.aa-section-chip--success {
+    background: #e7f6ee;
+    color: #17663c;
+}
+
+.aa-section-chip--warning {
+    background: #fff2df;
+    color: #8a5600;
+}
+
+.aa-section-chip--info {
+    background: #e7f0ff;
+    color: #184f92;
+}
+
+.aa-section-chip--neutral {
+    background: #eef3f7;
+    color: #546b81;
 }
 
 .aa-link--ghost {
@@ -241,6 +465,7 @@
 .aa-document-create {
     display: grid;
     gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .aa-document-grid {
@@ -346,6 +571,18 @@
 }
 
 @media (max-width: 640px) {
+    .aa-overview-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .aa-quick-links {
+        gap: 10px;
+    }
+
+    .aa-quick-link {
+        min-height: 42px;
+    }
+
     .aa-house-bar .aa-link {
         width: 100%;
         justify-content: center;
@@ -357,6 +594,17 @@
 
     .aa-house-config .rs-grid {
         grid-template-columns: 1fr;
+    }
+
+    .admission-admin-page .aa-accordion-section > .rs-panel-head,
+    .admission-admin-page .aa-accordion-section > .rs-side-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .aa-accordion-toggle .aa-section-chip,
+    .aa-accordion-toggle .aa-status {
+        margin-right: 0;
     }
 }
 
@@ -382,6 +630,17 @@
     display: grid;
     gap: 8px;
     color: #60788f;
+}
+
+.aa-document-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.aa-document-actions form {
+    margin: 0;
 }
 
 .aa-document-actions {
@@ -804,6 +1063,10 @@
 }
 
 @media (max-width: 900px) {
+    .admission-admin-page .rs-side {
+        grid-template-columns: 1fr;
+    }
+
     .aa-editor-shell {
         grid-template-columns: 1fr;
     }
@@ -823,6 +1086,10 @@
     }
 
     .aa-document-year-form {
+        grid-template-columns: 1fr;
+    }
+
+    .aa-document-create {
         grid-template-columns: 1fr;
     }
 

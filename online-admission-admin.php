@@ -854,6 +854,9 @@ if(isset($_POST["save_payment_settings"])){
 if(isset($_POST["save_admission_documents"])){
     $documentYear = trim((string)(isset($_POST["document_year"]) ? $_POST["document_year"] : ""));
     $documentTitle = trim((string)(isset($_POST["document_title"]) ? $_POST["document_title"] : ""));
+    $documentGroup = strtolower(trim((string)(isset($_POST["document_group"]) ? $_POST["document_group"] : "general")));
+    $documentTargetGender = trim((string)(isset($_POST["document_target_gender"]) ? $_POST["document_target_gender"] : ""));
+    $documentTargetResidence = trim((string)(isset($_POST["document_target_residencetype"]) ? $_POST["document_target_residencetype"] : ""));
     $uploadedBy = isset($_SESSION["USERID"]) ? (string)$_SESSION["USERID"] : "";
     $errors = array();
 
@@ -870,15 +873,48 @@ if(isset($_POST["save_admission_documents"])){
     $savedDocument = false;
     if(empty($errors)){
         $errorMessage = "";
-        $savedDocument = online_admission_save_document($con, $branchId, $documentYear, $documentTitle, $_FILES["document_file"], $uploadedBy, $errorMessage);
+        $savedDocument = online_admission_save_document(
+            $con,
+            $branchId,
+            $documentYear,
+            $documentTitle,
+            $_FILES["document_file"],
+            $uploadedBy,
+            $errorMessage,
+            array(
+                "documentgroup" => $documentGroup,
+                "targetgender" => $documentTargetGender,
+                "targetresidencetype" => $documentTargetResidence
+            )
+        );
         if(!$savedDocument){
             $errors[] = ($errorMessage !== "" ? $errorMessage : "The admission document could not be uploaded right now.");
         }
     }
 
     $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = empty($errors)
-        ? aa_alert("success", "\"".$documentTitle."\" uploaded successfully.")
+        ? aa_alert(
+            "success",
+            "\"".$documentTitle."\" uploaded successfully.".(
+                $savedDocument && online_admission_document_group($savedDocument) === "prospectus"
+                    ? " Assigned to ".strtolower(online_admission_document_target_summary($savedDocument))."."
+                    : ""
+            )
+        )
         : aa_alert("error", implode(" ", $errors));
+    header("location:".aa_admin_url(array("document_year" => $documentYear !== "" ? $documentYear : null), "#admission-documents"));
+    exit();
+}
+
+if(isset($_POST["delete_admission_document"])){
+    $documentYear = trim((string)(isset($_POST["document_year"]) ? $_POST["document_year"] : ""));
+    $documentId = trim((string)(isset($_POST["document_id"]) ? $_POST["document_id"] : ""));
+    $errorMessage = "";
+    $deletedDocument = online_admission_delete_document($con, $branchId, $documentId, $errorMessage);
+
+    $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = $deletedDocument
+        ? aa_alert("success", "\"".online_admission_document_display_title($deletedDocument)."\" deleted successfully.")
+        : aa_alert("error", $errorMessage !== "" ? $errorMessage : "The admission document could not be deleted right now.");
     header("location:".aa_admin_url(array("document_year" => $documentYear !== "" ? $documentYear : null), "#admission-documents"));
     exit();
 }
@@ -1371,12 +1407,13 @@ if($printAction === "recent_payments"){
     <section class="rs-hero">
         <div>
             <span class="rs-kicker"><i class="fa fa-globe"></i> Online Admission Control</span>
-            <h1>Manage posted students and review admission submissions.</h1>
-            <p>This is the admin side of the public online admission portal. Add the posted student list here, then monitor drafts, submissions, and reviewed applications from one place.</p>
+            <h1>Online admission dashboard</h1>
+            <p>Handle setup, downloads, intake, and application review from one clean, mobile-friendly control panel.</p>
             <div class="rs-pills">
-                <span>Public portal linked</span>
-                <span>Mobile responsive</span>
-                <span>Simple review flow</span>
+                <span>Setup</span>
+                <span>Intake</span>
+                <span>Review</span>
+                <span>Support</span>
             </div>
         </div>
         <aside class="rs-hero-card">
@@ -1392,15 +1429,52 @@ if($printAction === "recent_payments"){
         </aside>
     </section>
 
+    <section class="aa-overview-grid">
+        <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Active Year</span>
+            <strong><?php echo aa_esc($activeCycle ? $activeCycle["admissionyear"] : $documentYear); ?></strong>
+            <small><?php echo $activeCycle ? number_format((int)$activeCycle["posted_total"])." posted record(s)" : "Current document year loaded"; ?></small>
+        </article>
+        <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Portal Status</span>
+            <strong><?php echo online_admission_portal_is_open($paymentSetting) ? "Open" : "Closed"; ?></strong>
+            <small><?php echo (int)$paymentSetting["enabled"] === 1 ? "Payment switch enabled" : "Payment switch off"; ?></small>
+        </article>
+        <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Submissions</span>
+            <strong><?php echo number_format((int)$stats["submitted"] + (int)$stats["reviewed"]); ?></strong>
+            <small><?php echo number_format((int)$stats["draft"]); ?> draft record(s)</small>
+        </article>
+        <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Downloads</span>
+            <strong><?php echo number_format(count($documentLibrary)); ?></strong>
+            <small><?php echo number_format(count($helpRequests)); ?> help request(s)</small>
+        </article>
+    </section>
+
+    <nav class="aa-quick-links" aria-label="Admission admin quick links">
+        <a href="#portal-entry" class="aa-quick-link"><i class="fa fa-globe"></i> Portal</a>
+        <a href="#payment-settings" class="aa-quick-link"><i class="fa fa-credit-card"></i> Payment</a>
+        <a href="#import-posted-students" class="aa-quick-link"><i class="fa fa-upload"></i> Import</a>
+        <a href="#posted-student-setup" class="aa-quick-link"><i class="fa fa-user-plus"></i> Add Student</a>
+        <a href="#admission-houses" class="aa-quick-link"><i class="fa fa-home"></i> Houses</a>
+        <a href="#admission-documents" class="aa-quick-link"><i class="fa fa-folder-open"></i> Documents</a>
+        <a href="#applications" class="aa-quick-link"><i class="fa fa-files-o"></i> Applications</a>
+        <a href="#admission-payments" class="aa-quick-link"><i class="fa fa-money"></i> Payments</a>
+        <a href="#help-requests" class="aa-quick-link"><i class="fa fa-life-ring"></i> Help</a>
+    </nav>
+
     <div class="rs-layout">
         <div class="aa-main-stack">
-        <section class="rs-panel rs-panel--form">
+        <div class="aa-block-label">Manual Operations</div>
+        <section class="rs-panel rs-panel--form aa-accordion-section" id="posted-student-setup" data-accordion-group="operations">
             <div class="rs-panel-head">
                 <div>
                     <span class="rs-kicker rs-kicker--dark">Posted Student Setup</span>
                     <h2>Add Posted Student</h2>
                     <p>Students can only verify on the public portal after they are on this list.</p>
                 </div>
+                <span class="aa-section-chip aa-section-chip--info"><?php echo aa_esc($activeCycle ? $activeCycle["admissionyear"] : date("Y")); ?></span>
             </div>
 
             <form method="post" action="online-admission-admin.php" class="rs-form">
@@ -1427,13 +1501,14 @@ if($printAction === "recent_payments"){
             </form>
         </section>
 
-        <section class="rs-panel aa-section" id="admission-houses">
+        <section class="rs-panel aa-section aa-accordion-section" id="admission-houses" data-accordion-group="operations">
             <div class="rs-panel-head">
                 <div>
                     <span class="rs-kicker rs-kicker--dark">House Setup</span>
                     <h2>Student Houses</h2>
                     <p>Create the houses students will later be assigned to across registration, house management, and exeat workflows.</p>
                 </div>
+                <span class="aa-section-chip aa-section-chip--neutral"><?php echo number_format($houseActiveCount); ?> Active</span>
             </div>
 
             <form method="post" action="online-admission-admin.php#admission-houses" class="rs-form aa-house-form">
@@ -1530,10 +1605,11 @@ if($printAction === "recent_payments"){
             </div>
         </section>
 
-        <section class="rs-panel aa-section aa-section--compact" id="cycle-rollover">
+        <section class="rs-panel aa-section aa-section--compact aa-accordion-section" id="cycle-rollover" data-accordion-group="operations">
             <div class="rs-side-head">
                 <span class="rs-kicker rs-kicker--dark">Admission Reset</span>
                 <h2>Clear Admission Year</h2>
+                <span class="aa-section-chip aa-section-chip--warning"><?php echo aa_esc($activeCycle ? $activeCycle["admissionyear"] : "No Active Year"); ?></span>
             </div>
             <p class="aa-copy">Use this only when one admission cycle is fully finished and you want to prepare for a new year. Download the year records first, then clear that entire admission year from posted students, forms, payments, and help requests.</p>
             <div class="aa-rollover-note">
@@ -1591,12 +1667,14 @@ if($printAction === "recent_payments"){
         </div>
 
         <aside class="rs-side">
-            <section class="rs-panel">
+            <div class="aa-block-label">Portal Setup</div>
+            <section class="rs-panel aa-accordion-section is-open" id="portal-entry" data-accordion-group="setup">
                 <div class="rs-side-head">
                     <span class="rs-kicker rs-kicker--dark">Public Entry</span>
                     <h2>Admission Portal</h2>
+                    <span class="aa-section-chip <?php echo online_admission_portal_is_open($paymentSetting) ? "aa-section-chip--success" : "aa-section-chip--warning"; ?>"><?php echo online_admission_portal_is_open($paymentSetting) ? "Open" : "Closed"; ?></span>
                 </div>
-                <p class="aa-copy">Students use the public page below to verify their posting and complete admission online.</p>
+                <p class="aa-copy">Open or preview the public online admission page from here.</p>
                 <div class="aa-payment-config-meta">
                     <span class="<?php echo online_admission_portal_is_open($paymentSetting) ? "aa-status aa-status--success" : "aa-status aa-status--warning"; ?>"><?php echo online_admission_portal_is_open($paymentSetting) ? "Portal Open" : "Portal Closed"; ?></span>
                     <span class="aa-status aa-status--neutral"><?php echo (int)$paymentSetting["enabled"] === 1 ? "Payment Configured" : "Payment Disabled"; ?></span>
@@ -1604,12 +1682,13 @@ if($printAction === "recent_payments"){
                 <a href="online-admission.php" class="aa-link" target="_blank"><i class="fa fa-external-link"></i> Open Public Admission Portal</a>
             </section>
 
-            <section class="rs-panel" id="payment-settings">
+            <section class="rs-panel aa-accordion-section" id="payment-settings" data-accordion-group="setup">
                 <div class="rs-side-head">
                     <span class="rs-kicker rs-kicker--dark">Online Payment</span>
                     <h2>Paystack Settings</h2>
+                    <span class="aa-section-chip <?php echo (int)$paymentSetting["enabled"] === 1 ? "aa-section-chip--info" : "aa-section-chip--neutral"; ?>"><?php echo (int)$paymentSetting["enabled"] === 1 ? aa_esc(aa_money($paymentSetting["feeamount"], $paymentSetting["currency"])) : "Disabled"; ?></span>
                 </div>
-                <p class="aa-copy">Switch online admission payment on here and choose the fee amount. Students will verify posting, receive a token, pay through Paystack, and then reopen the form with that token.</p>
+                <p class="aa-copy">Control whether students pay online and set the fee for the active cycle.</p>
                 <div class="aa-payment-config-meta">
                     <span class="<?php echo $paystackReady ? "aa-status aa-status--success" : "aa-status aa-status--warning"; ?>"><?php echo $paystackReady ? "Paystack Ready" : "Keys Missing"; ?></span>
                     <span class="aa-status aa-status--neutral">Verified posting unlock</span>
@@ -1646,12 +1725,13 @@ if($printAction === "recent_payments"){
                 <a href="online-admission-paystack-test.php" class="aa-link aa-link--ghost"><i class="fa fa-flask"></i> Open Paystack Sandbox Tester</a>
             </section>
 
-            <section class="rs-panel" id="admission-documents">
+            <section class="rs-panel aa-accordion-section" id="admission-documents" data-accordion-group="setup">
                 <div class="rs-side-head">
                     <span class="rs-kicker rs-kicker--dark">Student Downloads</span>
                     <h2>Admission Documents</h2>
+                    <span class="aa-section-chip aa-section-chip--neutral"><?php echo number_format(count($documentLibrary)); ?> Files</span>
                 </div>
-                <p class="aa-copy">Upload as many admission documents as you need for each year. Students will see the exact document title you enter here when downloads unlock. If you upload one titled <strong>Admission Letter</strong>, that signed file becomes their main admission letter download.</p>
+                <p class="aa-copy">Upload general documents for all applicants, or upload a prospectus targeted to <strong>Male Boarding</strong>, <strong>Female Boarding</strong>, <strong>Male Day</strong>, or <strong>Female Day</strong>. Students only see the downloads that match their record. If you upload one titled <strong>Admission Letter</strong>, that signed file becomes their main admission letter download.</p>
                 <form method="get" action="online-admission-admin.php#admission-documents" class="aa-document-year-form">
                     <div class="rs-field">
                         <label for="document_year">Admission Year</label>
@@ -1667,10 +1747,34 @@ if($printAction === "recent_payments"){
                             <input type="text" id="document_title" name="document_title" placeholder="Example: Reporting Instructions" required>
                         </div>
                         <div class="rs-field">
+                            <label for="document_group">Document Type</label>
+                            <select id="document_group" name="document_group">
+                                <option value="general">General Document</option>
+                                <option value="prospectus">Prospectus</option>
+                            </select>
+                        </div>
+                        <div class="rs-field">
+                            <label for="document_target_gender">Student Gender</label>
+                            <select id="document_target_gender" name="document_target_gender">
+                                <option value="">All Students</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                        <div class="rs-field">
+                            <label for="document_target_residencetype">Residence Type</label>
+                            <select id="document_target_residencetype" name="document_target_residencetype">
+                                <option value="">All Students</option>
+                                <option value="Boarding">Boarding</option>
+                                <option value="Day">Day</option>
+                            </select>
+                        </div>
+                        <div class="rs-field">
                             <label for="document_file">Document File</label>
                             <input type="file" id="document_file" name="document_file" accept=".pdf,.doc,.docx,application/pdf,.doc,.docx" required>
                         </div>
                     </div>
+                    <p class="aa-copy">For a prospectus, choose both the gender and residence target. Uploading another prospectus for the same target replaces the current one for that year.</p>
                     <button type="submit" name="save_admission_documents" class="aa-button aa-button--wide"><i class="fa fa-upload"></i> Add Admission Document</button>
                 </form>
                 <div class="aa-document-grid">
@@ -1684,11 +1788,18 @@ if($printAction === "recent_payments"){
                             <span class="aa-status aa-status--success">Uploaded</span>
                         </div>
                         <div class="aa-document-meta">
+                            <span><strong>Type:</strong> <?php echo aa_esc(online_admission_document_group_label($documentRow)); ?></span>
+                            <span><strong>Audience:</strong> <?php echo aa_esc(online_admission_document_target_summary($documentRow)); ?></span>
                             <span><strong>Admission Year:</strong> <?php echo aa_esc($documentYear); ?></span>
                             <span><strong>Uploaded:</strong> <?php echo aa_esc(aa_date($documentRow["uploadedat"], "d M Y, g:i a")); ?></span>
                         </div>
                         <div class="aa-document-actions">
                             <a href="online-admission-document.php?documentid=<?php echo aa_esc($documentRow["documentid"]); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-download"></i> Download</a>
+                            <form method="post" action="<?php echo aa_esc(aa_admin_url(array("document_year" => $documentYear), "#admission-documents")); ?>" onsubmit="return confirm('Delete this admission document?');">
+                                <input type="hidden" name="document_year" value="<?php echo aa_esc($documentYear); ?>">
+                                <input type="hidden" name="document_id" value="<?php echo aa_esc($documentRow["documentid"]); ?>">
+                                <button type="submit" name="delete_admission_document" class="aa-button aa-button--danger"><i class="fa fa-trash"></i> Delete</button>
+                            </form>
                         </div>
                     </article>
                     <?php } } else { ?>
@@ -1697,12 +1808,13 @@ if($printAction === "recent_payments"){
                 </div>
             </section>
 
-            <section class="rs-panel">
+            <section class="rs-panel aa-accordion-section" id="import-posted-students" data-accordion-group="setup">
                 <div class="rs-side-head">
                     <span class="rs-kicker rs-kicker--dark">Bulk Upload</span>
                     <h2>Import Posted Students</h2>
+                    <span class="aa-section-chip aa-section-chip--info">CSSPS / CSV</span>
                 </div>
-                <p class="aa-copy">Upload an Excel or CSV file to add many posted students at once. Native CSSPS portal exports are supported directly, and existing BECE index and year matches will be updated instead of duplicated.</p>
+                <p class="aa-copy">Upload the CSSPS or CSV list here to load many posted students at once.</p>
                 <form method="post" action="online-admission-admin.php" enctype="multipart/form-data" class="aa-upload-form">
                     <div class="rs-field">
                         <label for="upload_admissionyear">Default Admission Year</label>
@@ -1718,6 +1830,7 @@ if($printAction === "recent_payments"){
             </section>
         </aside>
     </div>
+    <div class="aa-block-label aa-block-label--records">Records And Review</div>
 <?php if(false){ ?>
 
     <section class="rs-panel aa-section" id="cycle-rollover">
@@ -1779,10 +1892,11 @@ if($printAction === "recent_payments"){
     </section>
 <?php } ?>
 
-    <section class="rs-panel aa-section">
+    <section class="rs-panel aa-section aa-accordion-section" id="posted-students-panel" data-accordion-group="records">
         <div class="rs-side-head">
             <span class="rs-kicker rs-kicker--dark">Posted List</span>
             <h2>Recent Posted Students</h2>
+            <span class="aa-section-chip aa-section-chip--neutral"><?php echo number_format($postedTotal); ?></span>
         </div>
         <div class="aa-search-bar">
             <form method="get" action="online-admission-admin.php#posted-students" class="aa-search-form">
@@ -1850,10 +1964,11 @@ if($printAction === "recent_payments"){
     </section>
 
     <?php if($editableApplication){ ?>
-    <section class="rs-panel aa-section" id="edit-application">
+    <section class="rs-panel aa-section aa-accordion-section is-open" id="edit-application" data-accordion-group="editor">
         <div class="rs-side-head">
             <span class="rs-kicker rs-kicker--dark">Form Editor</span>
             <h2>View / Edit Submitted Form</h2>
+            <span class="<?php echo aa_status_class($editableApplicationForm["status"]); ?>"><?php echo aa_esc(online_admission_status_label($editableApplicationForm["status"])); ?></span>
         </div>
         <div class="aa-editor-shell">
             <aside class="aa-editor-side">
@@ -1963,10 +2078,11 @@ if($printAction === "recent_payments"){
     </section>
     <?php } ?>
 
-    <section class="rs-panel aa-section" id="applications">
+    <section class="rs-panel aa-section aa-accordion-section is-open" id="applications" data-accordion-group="records">
         <div class="rs-side-head">
             <span class="rs-kicker rs-kicker--dark">Applications</span>
             <h2>Admission Submissions</h2>
+            <span class="aa-section-chip aa-section-chip--success"><?php echo number_format($applicationTotal); ?></span>
         </div>
         <div class="aa-search-bar">
             <form method="get" action="online-admission-admin.php#applications" class="aa-search-form">
@@ -2040,10 +2156,11 @@ if($printAction === "recent_payments"){
         <?php } ?>
     </section>
 
-    <section class="rs-panel aa-section" id="help-requests">
+    <section class="rs-panel aa-section aa-accordion-section" id="help-requests" data-accordion-group="records">
         <div class="rs-side-head">
             <span class="rs-kicker rs-kicker--dark">Support</span>
             <h2>Admission Help Requests</h2>
+            <span class="aa-section-chip aa-section-chip--warning"><?php echo number_format(count($helpRequests)); ?></span>
         </div>
         <div class="aa-app-list">
             <?php if(count($helpRequests) > 0){ foreach($helpRequests as $request){ ?>
@@ -2083,10 +2200,11 @@ if($printAction === "recent_payments"){
         </div>
     </section>
 
-    <section class="rs-panel aa-section" id="admission-payments">
+    <section class="rs-panel aa-section aa-accordion-section" id="admission-payments" data-accordion-group="records">
         <div class="rs-side-head">
             <span class="rs-kicker rs-kicker--dark">Payments</span>
             <h2>Recent Admission Payments</h2>
+            <span class="aa-section-chip aa-section-chip--info"><?php echo number_format($paymentTotal); ?></span>
         </div>
         <p class="aa-search-meta">Showing page <?php echo number_format($paymentPage); ?> of <?php echo number_format($paymentTotalPages); ?> from <?php echo number_format($paymentTotal); ?> payment record(s).</p>
         <div class="aa-table-actions aa-table-actions--section">
@@ -2144,5 +2262,109 @@ if($printAction === "recent_payments"){
         <?php } ?>
     </section>
 </main>
+<script>
+(function () {
+    function getHeader(section) {
+        for (var index = 0; index < section.children.length; index += 1) {
+            var child = section.children[index];
+            if (child.classList.contains('rs-panel-head') || child.classList.contains('rs-side-head')) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    function ensureBody(section, header) {
+        for (var index = 0; index < section.children.length; index += 1) {
+            if (section.children[index].classList.contains('aa-accordion-body')) {
+                return section.children[index];
+            }
+        }
+        var body = document.createElement('div');
+        body.className = 'aa-accordion-body';
+        while (header.nextSibling) {
+            body.appendChild(header.nextSibling);
+        }
+        section.appendChild(body);
+        return body;
+    }
+
+    function setOpen(section, open) {
+        section.classList.toggle('is-open', !!open);
+        section.classList.toggle('is-collapsed', !open);
+        var header = getHeader(section);
+        if (header) {
+            header.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+    }
+
+    var sections = Array.prototype.slice.call(document.querySelectorAll('.aa-accordion-section'));
+    sections.forEach(function (section) {
+        var header = getHeader(section);
+        if (!header) {
+            return;
+        }
+
+        ensureBody(section, header);
+        header.classList.add('aa-accordion-toggle');
+        header.setAttribute('role', 'button');
+        header.setAttribute('tabindex', '0');
+
+        if (!section.classList.contains('is-open')) {
+            section.classList.add('is-collapsed');
+        }
+        setOpen(section, section.classList.contains('is-open'));
+
+        var toggleSection = function () {
+            var shouldOpen = !section.classList.contains('is-open');
+            if (shouldOpen) {
+                var groupName = section.getAttribute('data-accordion-group');
+                if (groupName) {
+                    sections.forEach(function (otherSection) {
+                        if (otherSection !== section && otherSection.getAttribute('data-accordion-group') === groupName) {
+                            setOpen(otherSection, false);
+                        }
+                    });
+                }
+            }
+            setOpen(section, shouldOpen);
+        };
+
+        header.addEventListener('click', toggleSection);
+        header.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleSection();
+            }
+        });
+    });
+
+    function openFromHash() {
+        var hash = window.location.hash;
+        if (!hash) {
+            return;
+        }
+        var target = document.getElementById(hash.substring(1));
+        if (!target) {
+            return;
+        }
+        var section = target.classList.contains('aa-accordion-section') ? target : target.closest('.aa-accordion-section');
+        if (section) {
+            var groupName = section.getAttribute('data-accordion-group');
+            if (groupName) {
+                sections.forEach(function (otherSection) {
+                    if (otherSection !== section && otherSection.getAttribute('data-accordion-group') === groupName) {
+                        setOpen(otherSection, false);
+                    }
+                });
+            }
+            setOpen(section, true);
+        }
+    }
+
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+}());
+</script>
 </body>
 </html>

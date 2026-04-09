@@ -61,7 +61,7 @@ function online_admission_landing_page(){
 if(!function_exists('ensure_online_admission_tables')){
 function ensure_online_admission_tables($con){
     ensure_house_tables($con);
-    if(xschool_schema_cache_is_fresh('schema_online_admission_v3')){
+    if(xschool_schema_cache_is_fresh('schema_online_admission_v4')){
         return;
     }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbladmissionpostedstudent (
@@ -208,6 +208,9 @@ function ensure_online_admission_tables($con){
         branchid VARCHAR(30) NOT NULL,
         admissionyear VARCHAR(20) NOT NULL,
         doctype VARCHAR(40) NOT NULL,
+        documentgroup VARCHAR(30) NOT NULL DEFAULT 'general',
+        targetgender VARCHAR(20) NULL,
+        targetresidencetype VARCHAR(20) NULL,
         title VARCHAR(255) NULL,
         filename VARCHAR(255) NOT NULL,
         originalfilename VARCHAR(255) NULL,
@@ -280,7 +283,19 @@ function ensure_online_admission_tables($con){
     if($columnRes && mysqli_num_rows($columnRes) === 0){
         mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN linkedstudentat DATETIME NULL AFTER linkedstudentid");
     }
-    xschool_schema_cache_mark('schema_online_admission_v3');
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissiondocument LIKE 'documentgroup'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissiondocument ADD COLUMN documentgroup VARCHAR(30) NOT NULL DEFAULT 'general' AFTER doctype");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissiondocument LIKE 'targetgender'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissiondocument ADD COLUMN targetgender VARCHAR(20) NULL AFTER documentgroup");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissiondocument LIKE 'targetresidencetype'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissiondocument ADD COLUMN targetresidencetype VARCHAR(20) NULL AFTER targetgender");
+    }
+    xschool_schema_cache_mark('schema_online_admission_v4');
 }
 }
 
@@ -918,8 +933,110 @@ function online_admission_document_label($docType){
     if($docType === ""){
         return "Admission Document";
     }
-    $docType = preg_replace('/^document-/', '', strtolower($docType));
+    $docType = strtolower($docType);
+    if(strpos($docType, "prospectus-") === 0){
+        $docType = "prospectus ".substr($docType, strlen("prospectus-"));
+    }else{
+        $docType = preg_replace('/^document-/', '', $docType);
+    }
     return ucwords(str_replace(array("_", "-"), " ", $docType));
+}
+}
+
+if(!function_exists('online_admission_document_group')){
+function online_admission_document_group($document){
+    if(!is_array($document) || empty($document)){
+        return "general";
+    }
+    $group = strtolower(trim((string)(isset($document["documentgroup"]) ? $document["documentgroup"] : "")));
+    if(!in_array($group, array("general", "prospectus"), true)){
+        $group = "general";
+    }
+    return $group;
+}
+}
+
+if(!function_exists('online_admission_document_group_label')){
+function online_admission_document_group_label($document){
+    $group = is_array($document) ? online_admission_document_group($document) : strtolower(trim((string)$document));
+    if($group === "prospectus"){
+        return "Prospectus";
+    }
+    return "General Document";
+}
+}
+
+if(!function_exists('online_admission_document_target_summary')){
+function online_admission_document_target_summary($document){
+    if(!is_array($document) || empty($document)){
+        return "All Students";
+    }
+    $gender = house_master_normalize_gender_label(isset($document["targetgender"]) ? $document["targetgender"] : "");
+    $residence = house_master_normalize_residence_label(isset($document["targetresidencetype"]) ? $document["targetresidencetype"] : "");
+    if($gender === "" && $residence === ""){
+        return "All Students";
+    }
+    if($gender !== "" && $residence !== ""){
+        return $gender." ".$residence." Students";
+    }
+    if($gender !== ""){
+        return $gender." Students";
+    }
+    return $residence." Students";
+}
+}
+
+if(!function_exists('online_admission_document_matches_application')){
+function online_admission_document_matches_application($document, $application, $postedStudent = null){
+    if(!is_array($document) || empty($document)){
+        return false;
+    }
+    $targetGender = house_master_normalize_gender_label(isset($document["targetgender"]) ? $document["targetgender"] : "");
+    $targetResidence = house_master_normalize_residence_label(isset($document["targetresidencetype"]) ? $document["targetresidencetype"] : "");
+    if($targetGender === "" && $targetResidence === ""){
+        return true;
+    }
+    $applicationGender = online_admission_application_gender($application, $postedStudent);
+    $applicationResidence = online_admission_application_residence($application, $postedStudent);
+    if($targetGender !== "" && $applicationGender !== $targetGender){
+        return false;
+    }
+    if($targetResidence !== "" && $applicationResidence !== $targetResidence){
+        return false;
+    }
+    return true;
+}
+}
+
+if(!function_exists('online_admission_filter_documents_for_application')){
+function online_admission_filter_documents_for_application($documents, $application, $postedStudent = null){
+    if(!is_array($documents) || empty($documents)){
+        return array();
+    }
+    $filtered = array();
+    foreach($documents as $document){
+        if(online_admission_document_matches_application($document, $application, $postedStudent)){
+            $filtered[] = $document;
+        }
+    }
+    return $filtered;
+}
+}
+
+if(!function_exists('online_admission_find_matching_prospectus')){
+function online_admission_find_matching_prospectus($documents, $application, $postedStudent = null){
+    if(!is_array($documents) || empty($documents)){
+        return null;
+    }
+    foreach($documents as $document){
+        if(online_admission_document_group($document) !== "prospectus"){
+            continue;
+        }
+        if(online_admission_document_matches_application($document, $application, $postedStudent)){
+            return $document;
+        }
+    }
+    return null;
 }
 }
 
@@ -960,6 +1077,36 @@ function online_admission_get_document_by_id($con, $documentId){
 }
 }
 
+if(!function_exists('online_admission_delete_document')){
+function online_admission_delete_document($con, $branchId, $documentId, &$errorMessage){
+    $errorMessage = "";
+    $branchId = trim((string)$branchId);
+    $documentId = trim((string)$documentId);
+    if($branchId === "" || $documentId === ""){
+        $errorMessage = "Select a valid admission document to delete.";
+        return false;
+    }
+    $document = online_admission_get_document_by_id($con, $documentId);
+    if(!$document || (string)$document["branchid"] !== $branchId){
+        $errorMessage = "That admission document could not be found.";
+        return false;
+    }
+
+    $documentIdEsc = mysqli_real_escape_string($con, $documentId);
+    $deleted = mysqli_query($con, "DELETE FROM tblonlineadmissiondocument WHERE documentid='$documentIdEsc' LIMIT 1");
+    if(!$deleted){
+        $errorMessage = "The admission document could not be deleted right now.";
+        return false;
+    }
+
+    $filename = trim((string)(isset($document["filename"]) ? $document["filename"] : ""));
+    if($filename !== ""){
+        online_admission_remove_document_file_if_unused($con, $filename);
+    }
+    return $document;
+}
+}
+
 if(!function_exists('online_admission_list_documents')){
 function online_admission_list_documents($con, $branchId, $admissionYear){
     $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
@@ -992,6 +1139,9 @@ function online_admission_document_display_title($document){
     $originalFilename = trim((string)(isset($document["originalfilename"]) ? $document["originalfilename"] : ""));
     if($originalFilename !== ""){
         return pathinfo($originalFilename, PATHINFO_FILENAME);
+    }
+    if(online_admission_document_group($document) === "prospectus"){
+        return trim("Prospectus ".str_replace(" Students", "", online_admission_document_target_summary($document)));
     }
     return online_admission_document_label(isset($document["doctype"]) ? $document["doctype"] : "");
 }
@@ -1104,12 +1254,26 @@ function online_admission_store_document_file($file, &$errorMessage){
 }
 
 if(!function_exists('online_admission_save_document')){
-function online_admission_save_document($con, $branchId, $admissionYear, $title, $file, $uploadedBy, &$errorMessage){
+function online_admission_save_document($con, $branchId, $admissionYear, $title, $file, $uploadedBy, &$errorMessage, $options = array()){
     $errorMessage = "";
     $admissionYear = trim((string)$admissionYear);
     $title = trim((string)$title);
+    $documentGroup = strtolower(trim((string)(isset($options["documentgroup"]) ? $options["documentgroup"] : "general")));
+    if(!in_array($documentGroup, array("general", "prospectus"), true)){
+        $documentGroup = "general";
+    }
+    $targetGender = $documentGroup === "prospectus"
+        ? house_master_normalize_gender_label(isset($options["targetgender"]) ? $options["targetgender"] : "")
+        : "";
+    $targetResidence = $documentGroup === "prospectus"
+        ? house_master_normalize_residence_label(isset($options["targetresidencetype"]) ? $options["targetresidencetype"] : "")
+        : "";
     if($branchId === "" || $admissionYear === "" || $title === ""){
         $errorMessage = "The admission document details are incomplete.";
+        return false;
+    }
+    if($documentGroup === "prospectus" && ($targetGender === "" || $targetResidence === "")){
+        $errorMessage = "Choose the gender and residence this prospectus should be assigned to.";
         return false;
     }
 
@@ -1118,24 +1282,73 @@ function online_admission_save_document($con, $branchId, $admissionYear, $title,
         return false;
     }
 
+    $docType = $documentGroup === "prospectus"
+        ? "prospectus-".strtolower($targetGender)."-".strtolower($targetResidence)
+        : "document-".online_admission_document_slug($title)."-".substr(md5(uniqid('', true)), 0, 8);
+    $existingDocument = ($documentGroup === "prospectus")
+        ? online_admission_get_document($con, $branchId, $admissionYear, $docType)
+        : null;
+
+    if($existingDocument){
+        $documentId = (string)$existingDocument["documentid"];
+        $oldFilename = trim((string)$existingDocument["filename"]);
+        $stmt = mysqli_prepare($con, "UPDATE tblonlineadmissiondocument SET
+                title=?, filename=?, originalfilename=?, mimetype=?, filesize=?, documentgroup=?, targetgender=?, targetresidencetype=?, status='active', uploadedat=NOW(), updatedat=NOW(), uploadedby=?
+            WHERE documentid=?
+            LIMIT 1");
+        if(!$stmt){
+            $errorMessage = "The admission document could not be prepared for updating right now.";
+            online_admission_remove_document_file_if_unused($con, $storedFile["filename"]);
+            return false;
+        }
+        mysqli_stmt_bind_param(
+            $stmt,
+            "ssssisssss",
+            $title,
+            $storedFile["filename"],
+            $storedFile["originalfilename"],
+            $storedFile["mimetype"],
+            $storedFile["filesize"],
+            $documentGroup,
+            $targetGender,
+            $targetResidence,
+            $uploadedBy,
+            $documentId
+        );
+        $saved = mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+        if(!$saved){
+            $errorMessage = "The admission document could not be updated right now.";
+            online_admission_remove_document_file_if_unused($con, $storedFile["filename"]);
+            return false;
+        }
+        if($oldFilename !== "" && $oldFilename !== $storedFile["filename"]){
+            online_admission_remove_document_file_if_unused($con, $oldFilename);
+        }
+        return online_admission_get_document_by_id($con, $documentId);
+    }
+
     $documentId = online_admission_generate_id("ADMDOC_");
-    $docType = "document-".online_admission_document_slug($title)."-".substr(md5(uniqid('', true)), 0, 8);
     $stmt = mysqli_prepare($con, "INSERT INTO tblonlineadmissiondocument(
-        documentid, branchid, admissionyear, doctype, title, filename, originalfilename, mimetype, filesize, status, uploadedat, updatedat, uploadedby
+        documentid, branchid, admissionyear, doctype, documentgroup, targetgender, targetresidencetype, title, filename, originalfilename, mimetype, filesize, status, uploadedat, updatedat, uploadedby
     ) VALUES(
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?
     )");
     if(!$stmt){
         $errorMessage = "The admission document could not be prepared for saving right now.";
+        online_admission_remove_document_file_if_unused($con, $storedFile["filename"]);
         return false;
     }
     mysqli_stmt_bind_param(
         $stmt,
-        "ssssssssis",
+        "sssssssssssis",
         $documentId,
         $branchId,
         $admissionYear,
         $docType,
+        $documentGroup,
+        $targetGender,
+        $targetResidence,
         $title,
         $storedFile["filename"],
         $storedFile["originalfilename"],

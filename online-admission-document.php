@@ -29,6 +29,8 @@ if(!$document){
 }
 
 $allowed = false;
+$application = null;
+$postedStudent = null;
 if(online_admission_is_admin()){
     $allowed = true;
 }elseif(
@@ -44,11 +46,15 @@ if(online_admission_is_admin()){
         $paymentEnabled = (int)$paymentSetting["enabled"] === 1 && (float)$paymentSetting["feeamount"] > 0;
         $successfulPayment = online_admission_get_successful_payment_by_application($con, (string)$application["applicationid"]);
         $allowed = online_admission_documents_unlocked($application, $successfulPayment, $paymentEnabled ? 1 : 0);
+        if($allowed){
+            $postedStudent = online_admission_get_posted_student_by_id($con, (string)$application["branchid"], (string)$application["postingid"]);
+            $allowed = online_admission_document_matches_application($document, $application, $postedStudent);
+        }
     }
 }
 
 if(!$allowed){
-    oa_document_redirect("This document is only available after you complete the required admission steps.");
+    oa_document_redirect("This document is only available for the correct admission record after you complete the required steps.");
 }
 
 $filePath = online_admission_document_file_path((string)$document["filename"]);

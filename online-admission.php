@@ -23,15 +23,34 @@ function oa_status_class($status){
 function oa_status_summary($status){
     $status = strtolower(trim((string)$status));
     if($status === "reviewed"){
-        return "Reviewed by the school.";
+        return "Reviewed by the school. Editing is now closed.";
     }
     if($status === "needs_attention"){
         return "Update the form and submit again.";
     }
     if($status === "submitted"){
-        return "Submitted and waiting for review.";
+        return "Submitted successfully. Wait for the school to review it.";
     }
     return "Draft not submitted yet.";
+}
+function oa_application_status($application){
+    if(!is_array($application) || empty($application)){
+        return "";
+    }
+    return strtolower(trim((string)(isset($application["status"]) ? $application["status"] : "")));
+}
+function oa_application_is_locked($application){
+    return in_array(oa_application_status($application), array("submitted", "reviewed"), true);
+}
+function oa_application_lock_message($application){
+    $status = oa_application_status($application);
+    if($status === "reviewed"){
+        return "This form has already been reviewed by the school, so editing and resubmission are now closed.";
+    }
+    if($status === "submitted"){
+        return "This form has already been submitted. It is now waiting for school review, so you cannot submit it again unless the school marks it as Needs Attention.";
+    }
+    return "";
 }
 function oa_payment_status_class($status){
     $status = strtolower(trim((string)$status));
@@ -257,7 +276,7 @@ $helpForm = array(
     "helpmessage" => isset($_POST["helpmessage"]) ? trim((string)$_POST["helpmessage"]) : ""
 );
 
-$isLocked = ($application && strtolower((string)$application["status"]) === "reviewed");
+$isLocked = oa_application_is_locked($application);
 
 if(isset($_POST["submit_help_request"])){
     if($branchId === ""){
@@ -293,6 +312,8 @@ if(isset($_POST["submit_help_request"])){
 
 if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$portalOpen){
     $flashMessage = oa_alert("warning", "Online admission is currently closed by the school. Your form cannot be updated right now.");
+}elseif($postedStudent && $application && $accessAuthorized && $portalOpen && $isLocked && (isset($_POST["save_draft"]) || isset($_POST["submit_admission"]))){
+    $flashMessage = oa_alert("warning", oa_application_lock_message($application));
 }elseif($postedStudent && $application && $accessAuthorized && $portalOpen && !$isLocked && (isset($_POST["save_draft"]) || isset($_POST["submit_admission"]))){
     foreach($form as $key => $value){
         $form[$key] = trim((string)(isset($_POST[$key]) ? $_POST[$key] : ""));
@@ -456,7 +477,8 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
 $application = ($accessAuthorized && $application) ? online_admission_get_application_by_id($con, $application["applicationid"]) : null;
 $assignedHouse = ($application) ? online_admission_assign_house_for_application($con, $application, $postedStudent) : null;
 $application = ($application) ? online_admission_get_application_by_id($con, $application["applicationid"]) : null;
-$isLocked = ($application && strtolower((string)$application["status"]) === "reviewed");
+$isLocked = oa_application_is_locked($application);
+$applicationLockMessage = $isLocked ? oa_application_lock_message($application) : "";
 $paystackConfig = online_admission_paystack_config();
 $latestPayment = ($application) ? online_admission_get_latest_payment_by_application($con, $application["applicationid"]) : null;
 $successfulPayment = ($application) ? online_admission_get_successful_payment_by_application($con, $application["applicationid"]) : null;
@@ -475,8 +497,15 @@ $paymentContinueUrl = ($latestPayment && !$paymentPaid && strtolower(trim((strin
     : "online-admission-paystack-init.php";
 $showAdmissionForm = $accessAuthorized && (!$paymentEnabled || $paymentPaid);
 $documentsUnlocked = ($application && $postedStudent) ? online_admission_documents_unlocked($application, $successfulPayment, $paymentEnabled ? 1 : 0) : false;
-$studentDocuments = ($documentsUnlocked && $postedStudent) ? online_admission_list_documents($con, $branchId, (string)$postedStudent["admissionyear"]) : array();
+$studentDocuments = ($documentsUnlocked && $postedStudent)
+    ? online_admission_filter_documents_for_application(
+        online_admission_list_documents($con, $branchId, (string)$postedStudent["admissionyear"]),
+        $application,
+        $postedStudent
+    )
+    : array();
 $uploadedAdmissionLetter = null;
+$assignedProspectus = online_admission_find_matching_prospectus($studentDocuments, $application, $postedStudent);
 $visibleStudentDocuments = $studentDocuments;
 foreach($studentDocuments as $index => $documentRow){
     $searchText = strtolower(trim(
@@ -488,7 +517,11 @@ foreach($studentDocuments as $index => $documentRow){
     if($uploadedAdmissionLetter === null && strpos($searchText, "admission") !== false && strpos($searchText, "letter") !== false){
         $uploadedAdmissionLetter = $documentRow;
         unset($visibleStudentDocuments[$index]);
-        break;
+        continue;
+    }
+    if($assignedProspectus && (string)$assignedProspectus["documentid"] === (string)$documentRow["documentid"]){
+        $assignedProspectus = $documentRow;
+        unset($visibleStudentDocuments[$index]);
     }
 }
 $visibleStudentDocuments = array_values($visibleStudentDocuments);
@@ -504,7 +537,16 @@ $admissionLetterLabel = $uploadedAdmissionLetter
 $admissionLetterNote = $uploadedAdmissionLetter
     ? trim((string)$uploadedAdmissionLetter["originalfilename"])
     : "Personalized letter generated for your application.";
-$hasStudentDownloads = ($admissionLetterUrl !== "" || !empty($visibleStudentDocuments));
+$prospectusUrl = $assignedProspectus
+    ? "online-admission-document.php?documentid=".rawurlencode((string)$assignedProspectus["documentid"])
+    : "";
+$prospectusLabel = $assignedProspectus
+    ? online_admission_document_display_title($assignedProspectus)
+    : "Prospectus";
+$prospectusNote = $assignedProspectus
+    ? trim((string)$assignedProspectus["originalfilename"])
+    : "";
+$hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !empty($visibleStudentDocuments));
 ?>
 <!DOCTYPE html>
 <html>
@@ -737,6 +779,12 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || !empty($visibleStudentDocu
             <div class="oa-review-note"><?php echo oa_esc($application["reviewnote"]); ?></div>
             <?php } ?>
 
+            <?php if($applicationLockMessage !== ""){ ?>
+            <div class="oa-payment-state <?php echo oa_application_status($application) === "reviewed" ? "oa-payment-state--success" : "oa-payment-state--info"; ?>">
+                <?php echo oa_esc($applicationLockMessage); ?>
+            </div>
+            <?php } ?>
+
             <?php if($verificationToken !== ""){ ?>
             <div class="oa-payment-callout">
                 <strong><?php echo oa_esc($paymentEnabled ? "Verification Token" : "Resume Token"); ?></strong>
@@ -847,10 +895,13 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || !empty($visibleStudentDocu
                     </article>
                 </div>
                 <div class="oa-payment-state oa-payment-state--info"><?php echo oa_esc($applicationStatusSummary); ?></div>
-                <?php if($downloadUrl !== "" || $admissionLetterUrl !== ""){ ?>
+                <?php if($downloadUrl !== "" || $admissionLetterUrl !== "" || $prospectusUrl !== ""){ ?>
                 <div class="oa-form-actions oa-form-actions--stacked">
                     <?php if($admissionLetterUrl !== ""){ ?>
                     <a href="<?php echo oa_esc($admissionLetterUrl); ?>" class="oa-submit"><i class="fa fa-file-text-o"></i> Download <?php echo oa_esc($admissionLetterLabel); ?></a>
+                    <?php } ?>
+                    <?php if($prospectusUrl !== ""){ ?>
+                    <a href="<?php echo oa_esc($prospectusUrl); ?>" class="oa-submit"><i class="fa fa-book"></i> Download <?php echo oa_esc($prospectusLabel); ?></a>
                     <?php } ?>
                     <?php if($downloadUrl !== ""){ ?>
                     <a href="<?php echo oa_esc($downloadUrl); ?>" class="oa-submit"><i class="fa fa-download"></i> Download Admission PDF</a>
@@ -868,7 +919,7 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || !empty($visibleStudentDocu
                 <?php }elseif($paymentEnabled && !$paymentPaid){ ?>
                 <div class="oa-payment-state oa-payment-state--neutral">Confirm your online payment first to unlock your admission documents.</div>
                 <?php }elseif(!$hasStudentDownloads){ ?>
-                <div class="oa-payment-state oa-payment-state--warning">Your admission letter is not ready yet.</div>
+                <div class="oa-payment-state oa-payment-state--warning">Your admission downloads are not ready yet.</div>
                 <?php }else{ ?>
                 <div class="oa-document-list">
                     <?php if($admissionLetterUrl !== ""){ ?>
@@ -876,6 +927,13 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || !empty($visibleStudentDocu
                         <strong><?php echo oa_esc($admissionLetterLabel); ?></strong>
                         <span><?php echo oa_esc($admissionLetterNote !== "" ? $admissionLetterNote : "Admission document ready for download."); ?></span>
                         <a href="<?php echo oa_esc($admissionLetterUrl); ?>" class="oa-secondary"><i class="fa fa-download"></i> Download</a>
+                    </article>
+                    <?php } ?>
+                    <?php if($prospectusUrl !== ""){ ?>
+                    <article class="oa-document-card">
+                        <strong><?php echo oa_esc($prospectusLabel); ?></strong>
+                        <span><?php echo oa_esc($prospectusNote !== "" ? $prospectusNote : "Assigned automatically for your residence and gender."); ?></span>
+                        <a href="<?php echo oa_esc($prospectusUrl); ?>" class="oa-secondary"><i class="fa fa-download"></i> Download</a>
                     </article>
                     <?php } ?>
                     <?php foreach($visibleStudentDocuments as $documentRow){ ?>
