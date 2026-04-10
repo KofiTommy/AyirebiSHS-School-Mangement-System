@@ -359,6 +359,13 @@
     margin-top: 0;
 }
 
+.aa-editor-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .aa-editor-form {
     display: grid;
     gap: 18px;
@@ -384,6 +391,46 @@
 .aa-editor-grid input[type="date"],
 .aa-editor-grid input[type="file"] {
     width: 100%;
+}
+
+.aa-editor-photo-grid {
+    align-items: start;
+}
+
+.aa-editor-photo--inline {
+    padding: 14px;
+    margin: 0;
+}
+
+.aa-editor-photo--inline img {
+    max-height: 240px;
+}
+
+.aa-manual-photo-row {
+    width: min(240px, 100%);
+    display: grid;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.aa-manual-photo-card img {
+    max-height: 180px;
+}
+
+.aa-manual-photo-upload small,
+.aa-editor-photo-tools small {
+    display: block;
+    margin-top: 8px;
+    color: #647b90;
+    line-height: 1.5;
+}
+
+.aa-editor-photo-tools {
+    margin-top: -4px;
+}
+
+.aa-span-full {
+    grid-column: 1 / -1;
 }
 
 .rs-grid--2 {
@@ -516,10 +563,11 @@
 }
 
 .aa-house-card {
-    padding: 18px;
-    border-radius: 20px;
-    border: 1px solid #dce5ef;
-    background: linear-gradient(145deg, #ffffff, #f7fafc);
+    padding: 22px 20px 18px;
+    border-radius: 22px;
+    border: 1px solid #d9e7f2;
+    background: #ffffff;
+    box-shadow: 0 10px 26px rgba(18, 49, 79, 0.06);
     display: grid;
     gap: 14px;
 }
@@ -534,36 +582,45 @@
 .aa-house-card h3 {
     margin: 0 0 6px;
     color: #17314b;
+    font-size: 1.25rem;
+    line-height: 1.15;
 }
 
 .aa-house-card p {
     margin: 0;
     color: #60788f;
     line-height: 1.6;
+    font-size: 0.98rem;
 }
 
 .aa-house-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px 16px;
+    display: grid;
+    gap: 8px;
     color: #4f677e;
     font-size: 0.94rem;
+    padding-top: 8px;
 }
 
 .aa-house-meta strong {
     color: #17314b;
 }
 
+.aa-house-meta span {
+    display: block;
+    line-height: 1.5;
+}
+
 .aa-house-config {
     display: grid;
-    gap: 14px;
-    padding-top: 6px;
+    gap: 12px;
+    padding-top: 14px;
     border-top: 1px solid #e2eaf2;
 }
 
 .aa-house-toggle {
-    align-self: end;
+    align-self: start;
     min-height: 48px;
+    justify-content: flex-start;
 }
 
 .aa-house-toggle span {
@@ -1074,6 +1131,14 @@
     .aa-editor-head {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .aa-editor-top-actions {
+        width: 100%;
+    }
+
+    .aa-manual-photo-row {
+        width: 100%;
     }
 
     .aa-app-card__top {

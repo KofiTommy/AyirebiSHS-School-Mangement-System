@@ -715,6 +715,24 @@ body.online-admission-page {
     color: #688094;
 }
 
+.oa-inline-photo-card {
+    width: min(220px, 100%);
+    margin: 0 0 22px;
+    display: grid;
+    gap: 12px;
+}
+
+.oa-inline-photo-card .oa-photo-preview {
+    justify-content: flex-start;
+}
+
+.oa-inline-photo-card .oa-photo-preview img {
+    width: 132px;
+    height: 132px;
+    border-radius: 22px;
+    box-shadow: 0 12px 22px rgba(16, 37, 57, 0.12);
+}
+
 .oa-form-actions {
     display: flex;
     justify-content: space-between;
@@ -780,15 +798,9 @@ body.online-admission-page {
         width: 100%;
     }
 
-    .oa-photo-card {
-        grid-template-columns: 1fr;
-        justify-items: center;
-        text-align: center;
-    }
-
-    .oa-photo-copy {
+    .oa-inline-photo-card {
         width: 100%;
-        text-align: left;
+        max-width: 100%;
     }
 }
 
@@ -830,5 +842,10 @@ body.online-admission-page {
         width: 138px;
         height: 138px;
         border-radius: 22px;
+    }
+
+    .oa-inline-photo-card .oa-photo-preview img {
+        width: 118px;
+        height: 118px;
     }
 }

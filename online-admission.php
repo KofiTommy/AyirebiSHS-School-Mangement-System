@@ -266,6 +266,10 @@ $form = array(
     "medicalnotes" => $application ? (string)$application["medicalnotes"] : "",
     "studentnote" => $application ? (string)$application["studentnote"] : ""
 );
+$fixedResidenceType = online_admission_application_residence($application, $postedStudent);
+if($fixedResidenceType !== ""){
+    $form["residencetype"] = $fixedResidenceType;
+}
 
 $helpForm = array(
     "studentname" => isset($_POST["help_studentname"]) ? trim((string)$_POST["help_studentname"]) : ($postedStudent ? online_admission_candidate_name($postedStudent) : ($application ? online_admission_candidate_name($application) : "")),
@@ -318,6 +322,7 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
     foreach($form as $key => $value){
         $form[$key] = trim((string)(isset($_POST[$key]) ? $_POST[$key] : ""));
     }
+    $form["residencetype"] = online_admission_application_residence($application, $postedStudent);
 
     $errors = array();
     $isSubmit = isset($_POST["submit_admission"]);
@@ -798,21 +803,16 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
             <?php } ?>
 
             <form method="post" action="online-admission.php" enctype="multipart/form-data" class="oa-form">
-                <section class="oa-form-section oa-form-section--photo">
-                    <div class="oa-form-head">
-                        <h3>Student Photo</h3>
+                <div class="oa-inline-photo-card">
+                    <div class="oa-photo-preview">
+                        <img src="<?php echo oa_esc($application ? online_admission_photo_src($application["filename"]) : "uploads/comm.gif"); ?>" alt="Admission photo preview" id="oa-photo-preview">
                     </div>
-                    <div class="oa-photo-card">
-                        <div class="oa-photo-preview">
-                            <img src="<?php echo oa_esc($application ? online_admission_photo_src($application["filename"]) : "uploads/comm.gif"); ?>" alt="Admission photo preview" id="oa-photo-preview">
-                        </div>
-                        <div class="oa-photo-copy">
-                            <label for="admissionphoto">Upload Photo</label>
-                            <input type="file" id="admissionphoto" name="admissionphoto" accept=".jpg,.jpeg,.png,.gif,.webp,image/*"<?php echo $isLocked ? " disabled" : ""; ?>>
-                            <small>Accepted formats: JPG, PNG, GIF, WEBP. Maximum size: 5MB.</small>
-                        </div>
+                    <div class="oa-photo-copy">
+                        <label for="admissionphoto">Upload Photo</label>
+                        <input type="file" id="admissionphoto" name="admissionphoto" accept=".jpg,.jpeg,.png,.gif,.webp,image/*"<?php echo $isLocked ? " disabled" : ""; ?>>
+                        <small>Accepted formats: JPG, PNG, GIF, WEBP. Maximum size: 5MB.</small>
                     </div>
-                </section>
+                </div>
 
                 <section class="oa-form-section">
                     <div class="oa-form-head">
@@ -821,7 +821,12 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
                     <div class="oa-grid oa-grid--two">
                         <div class="oa-field"><label for="mobile">Student Mobile Number</label><input type="tel" id="mobile" name="mobile" value="<?php echo oa_esc($form["mobile"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
                         <div class="oa-field"><label for="email">Email Address</label><input type="email" id="email" name="email" value="<?php echo oa_esc($form["email"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
-                        <div class="oa-field"><label for="residencetype">Residence Type</label><select id="residencetype" name="residencetype"<?php echo $isLocked ? " disabled" : ""; ?>><option value="">Select residence type</option><option value="Day"<?php echo $form["residencetype"] === "Day" ? " selected" : ""; ?>>Day</option><option value="Boarding"<?php echo $form["residencetype"] === "Boarding" ? " selected" : ""; ?>>Boarding</option></select></div>
+                        <div class="oa-field">
+                            <label for="residencetype_display">Residence Type</label>
+                            <input type="text" id="residencetype_display" value="<?php echo oa_esc($form["residencetype"] !== "" ? $form["residencetype"] : "Not set by school yet"); ?>" readonly>
+                            <input type="hidden" name="residencetype" value="<?php echo oa_esc($form["residencetype"]); ?>">
+                            <small>Locked to your placement record.</small>
+                        </div>
                         <div class="oa-field"><label for="religion">Religion</label><select id="religion" name="religion"<?php echo $isLocked ? " disabled" : ""; ?>><option value="">Select religion</option><option value="Christian"<?php echo $form["religion"] === "Christian" ? " selected" : ""; ?>>Christian</option><option value="Muslim"<?php echo $form["religion"] === "Muslim" ? " selected" : ""; ?>>Muslim</option><option value="Tradition"<?php echo $form["religion"] === "Tradition" ? " selected" : ""; ?>>Tradition</option><option value="Others"<?php echo $form["religion"] === "Others" ? " selected" : ""; ?>>Others</option></select></div>
                     </div>
                 </section>

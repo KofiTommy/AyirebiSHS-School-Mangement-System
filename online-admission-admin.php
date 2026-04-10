@@ -48,6 +48,47 @@ function aa_house_status_class($status){
     if($status === "inactive"){ return "aa-status aa-status--warning"; }
     return "aa-status aa-status--neutral";
 }
+function aa_house_profile($house){
+    $gender = house_master_normalize_gender_label(isset($house["housegender"]) ? $house["housegender"] : "");
+    $residence = house_master_normalize_residence_label(isset($house["houseresidencetype"]) ? $house["houseresidencetype"] : "");
+    if($gender === "" || $residence === ""){
+        $guessed = house_master_guess_house_profile(
+            isset($house["housename"]) ? $house["housename"] : "",
+            isset($house["description"]) ? $house["description"] : ""
+        );
+        if($gender === ""){
+            $gender = house_master_normalize_gender_label($guessed["housegender"]);
+        }
+        if($residence === ""){
+            $residence = house_master_normalize_residence_label($guessed["houseresidencetype"]);
+        }
+    }
+    return array(
+        "gender" => $gender,
+        "residence" => $residence
+    );
+}
+function aa_house_route_key($house){
+    $profile = aa_house_profile($house);
+    if($profile["gender"] === "" || $profile["residence"] === ""){
+        return "";
+    }
+    return strtolower($profile["gender"])."_".strtolower($profile["residence"]);
+}
+function aa_house_route_label($house){
+    $profile = aa_house_profile($house);
+    if($profile["gender"] === "" || $profile["residence"] === ""){
+        return "Needs clearer name";
+    }
+    return $profile["gender"]." ".$profile["residence"];
+}
+function aa_house_route_summary($house){
+    $profile = aa_house_profile($house);
+    if($profile["gender"] === "" || $profile["residence"] === ""){
+        return "This house name is not clear enough for automatic routing yet.";
+    }
+    return $profile["gender"]." ".strtolower($profile["residence"])." applicants can be routed here when this house has the lightest live load.";
+}
 function aa_money($amount, $currency){
     $currency = strtoupper(trim((string)$currency));
     if($currency === ""){
@@ -129,6 +170,18 @@ function aa_output_print_table($title, $headers, $rows, $companyName, $branchNam
 function aa_positive_page($value){
     $page = (int)$value;
     return $page > 0 ? $page : 1;
+}
+function aa_column_exists($con, $table, $column){
+    static $cache = array();
+    $key = strtolower(trim((string)$table)).".".strtolower(trim((string)$column));
+    if(isset($cache[$key])){
+        return $cache[$key];
+    }
+    $tableEsc = mysqli_real_escape_string($con, trim((string)$table));
+    $columnEsc = mysqli_real_escape_string($con, trim((string)$column));
+    $res = mysqli_query($con, "SHOW COLUMNS FROM `$tableEsc` LIKE '$columnEsc'");
+    $cache[$key] = ($res && mysqli_num_rows($res) > 0);
+    return $cache[$key];
 }
 function aa_cycle_status($summary){
     if((int)$summary["posted_active"] > 0){
@@ -494,6 +547,32 @@ function aa_application_form_defaults($application){
     );
 }
 
+function aa_manual_admission_defaults(){
+    return array(
+        "beceindexnumber" => "",
+        "birthdate" => "",
+        "admissionyear" => date("Y"),
+        "firstname" => "",
+        "surname" => "",
+        "othernames" => "",
+        "gender" => "",
+        "offeredprogram" => "",
+        "offeredclass" => "",
+        "residentialstatus" => "",
+        "mobile" => "",
+        "email" => "",
+        "religion" => "",
+        "hometown" => "",
+        "postaladdress" => "",
+        "homeaddress" => "",
+        "guardianname" => "",
+        "guardianrelationship" => "",
+        "guardiancontact" => "",
+        "medicalnotes" => "",
+        "studentnote" => ""
+    );
+}
+
 $branchId = isset($_SESSION["BRANCHID"]) ? (string)$_SESSION["BRANCHID"] : "";
 $branchIdEsc = mysqli_real_escape_string($con, $branchId);
 $branchName = "Current Branch";
@@ -524,24 +603,10 @@ if($selectedApplicationId !== ""){
     }
 }
 
-$postedForm = array(
-    "beceindexnumber" => "",
-    "birthdate" => "",
-    "firstname" => "",
-    "surname" => "",
-    "othernames" => "",
-    "gender" => "",
-    "admissionyear" => date("Y"),
-    "offeredprogram" => "",
-    "offeredclass" => "",
-    "residentialstatus" => "",
-    "mobile" => ""
-);
+$manualAdmissionForm = aa_manual_admission_defaults();
 $houseForm = array(
     "housename" => "",
     "description" => "",
-    "housegender" => "Male",
-    "houseresidencetype" => "Boarding",
     "autoassignenabled" => "1"
 );
 
@@ -555,18 +620,13 @@ if(isset($_POST["save_admission_house"])){
     }
     $houseForm["housename"] = preg_replace('/\s+/', ' ', $houseForm["housename"]);
     $houseForm["description"] = preg_replace('/\s+/', ' ', $houseForm["description"]);
-    $houseForm["housegender"] = house_master_normalize_gender_label($houseForm["housegender"]);
-    $houseForm["houseresidencetype"] = house_master_normalize_residence_label($houseForm["houseresidencetype"]);
+    $guessedProfile = house_master_guess_house_profile($houseForm["housename"], $houseForm["description"]);
+    $houseGender = house_master_normalize_gender_label($guessedProfile["housegender"]);
+    $houseResidence = house_master_normalize_residence_label($guessedProfile["houseresidencetype"]);
 
     $errors = array();
     if($houseForm["housename"] === ""){
         $errors[] = "House name is required.";
-    }
-    if($houseForm["housegender"] === ""){
-        $errors[] = "Select the house gender.";
-    }
-    if($houseForm["houseresidencetype"] === ""){
-        $errors[] = "Select the house residence type.";
     }
 
     if(empty($errors)){
@@ -592,7 +652,7 @@ if(isset($_POST["save_admission_house"])){
         )");
         if($stmt){
             $autoAssign = (int)$houseForm["autoassignenabled"];
-            mysqli_stmt_bind_param($stmt, "sssssis", $houseId, $houseForm["housename"], $houseForm["description"], $houseForm["housegender"], $houseForm["houseresidencetype"], $autoAssign, $recordedBy);
+            mysqli_stmt_bind_param($stmt, "sssssis", $houseId, $houseForm["housename"], $houseForm["description"], $houseGender, $houseResidence, $autoAssign, $recordedBy);
             if(mysqli_stmt_execute($stmt)){
                 mysqli_stmt_close($stmt);
                 $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("success", "\"".$houseForm["housename"]."\" created successfully.");
@@ -613,77 +673,221 @@ if(isset($_POST["save_admission_house"])){
 
 if(isset($_POST["save_house_profile"])){
     $houseId = trim((string)(isset($_POST["houseid"]) ? $_POST["houseid"] : ""));
-    $houseGender = house_master_normalize_gender_label(isset($_POST["housegender"]) ? $_POST["housegender"] : "");
-    $houseResidence = house_master_normalize_residence_label(isset($_POST["houseresidencetype"]) ? $_POST["houseresidencetype"] : "");
     $autoAssign = isset($_POST["autoassignenabled"]) ? 1 : 0;
     if($houseId === ""){
         $flashMessage = aa_alert("warning", "Select a valid house first.");
-    }elseif($houseGender === "" || $houseResidence === ""){
-        $flashMessage = aa_alert("warning", "Choose the gender and residence type for this house.");
     }else{
         $houseIdEsc = mysqli_real_escape_string($con, $houseId);
-        $genderEsc = mysqli_real_escape_string($con, $houseGender);
-        $residenceEsc = mysqli_real_escape_string($con, $houseResidence);
-        $updated = mysqli_query($con, "UPDATE tblhouse SET
-            housegender='$genderEsc',
-            houseresidencetype='$residenceEsc',
-            autoassignenabled=".(int)$autoAssign."
-            WHERE houseid='$houseIdEsc'
-            LIMIT 1");
+        $houseRes = mysqli_query($con, "SELECT housename, description FROM tblhouse WHERE houseid='$houseIdEsc' LIMIT 1");
+        if($houseRes && ($houseRow = mysqli_fetch_array($houseRes, MYSQLI_ASSOC))){
+            $guessedProfile = house_master_guess_house_profile($houseRow["housename"], $houseRow["description"]);
+            $genderEsc = mysqli_real_escape_string($con, house_master_normalize_gender_label($guessedProfile["housegender"]));
+            $residenceEsc = mysqli_real_escape_string($con, house_master_normalize_residence_label($guessedProfile["houseresidencetype"]));
+            $updated = mysqli_query($con, "UPDATE tblhouse SET
+                housegender='$genderEsc',
+                houseresidencetype='$residenceEsc',
+                autoassignenabled=".(int)$autoAssign."
+                WHERE houseid='$houseIdEsc'
+                LIMIT 1");
+        }else{
+            $updated = false;
+        }
         $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = $updated
-            ? aa_alert("success", "House auto-assignment profile updated successfully.")
+            ? aa_alert("success", "House auto-assignment settings updated successfully.")
             : aa_alert("error", "The house profile could not be updated right now.");
         header("location:online-admission-admin.php#admission-houses");
         exit();
     }
 }
 
-if(isset($_POST["add_posted_student"])){
-    foreach($postedForm as $key => $value){
-        $postedForm[$key] = trim((string)(isset($_POST[$key]) ? $_POST[$key] : ""));
+if(isset($_POST["save_manual_admission"])){
+    foreach($manualAdmissionForm as $key => $value){
+        $manualAdmissionForm[$key] = trim((string)(isset($_POST[$key]) ? $_POST[$key] : ""));
     }
-    $postedForm["beceindexnumber"] = online_admission_normalize_bece($postedForm["beceindexnumber"]);
-    $birthdate = online_admission_normalize_date($postedForm["birthdate"]);
+    $manualAdmissionForm["beceindexnumber"] = online_admission_normalize_bece($manualAdmissionForm["beceindexnumber"]);
+    $birthdate = online_admission_normalize_date($manualAdmissionForm["birthdate"]);
     $errors = array();
-    if($postedForm["beceindexnumber"] === ""){ $errors[] = "BECE index number is required."; }
+    if($manualAdmissionForm["beceindexnumber"] === ""){ $errors[] = "BECE index number is required."; }
     if($birthdate === false || $birthdate === ""){ $errors[] = "A valid date of birth is required."; }
-    else{ $postedForm["birthdate"] = $birthdate; }
-    if($postedForm["firstname"] === ""){ $errors[] = "First name is required."; }
-    if($postedForm["surname"] === ""){ $errors[] = "Surname is required."; }
-    if($postedForm["admissionyear"] === ""){ $errors[] = "Admission year is required."; }
+    else{ $manualAdmissionForm["birthdate"] = $birthdate; }
+    if($manualAdmissionForm["firstname"] === ""){ $errors[] = "First name is required."; }
+    if($manualAdmissionForm["surname"] === ""){ $errors[] = "Surname is required."; }
+    if($manualAdmissionForm["gender"] === ""){ $errors[] = "Gender is required."; }
+    if($manualAdmissionForm["admissionyear"] === ""){ $errors[] = "Admission year is required."; }
+    if($manualAdmissionForm["offeredprogram"] === ""){ $errors[] = "Offered programme is required."; }
+    if($manualAdmissionForm["residentialstatus"] === ""){ $errors[] = "Residence type is required."; }
+    foreach(array(
+        "mobile" => "Student mobile number",
+        "hometown" => "Hometown",
+        "homeaddress" => "Home address",
+        "religion" => "Religion",
+        "guardianname" => "Parent / guardian name",
+        "guardianrelationship" => "Guardian relationship",
+        "guardiancontact" => "Guardian contact"
+    ) as $field => $label){
+        if($manualAdmissionForm[$field] === ""){
+            $errors[] = $label." is required.";
+        }
+    }
+    if($manualAdmissionForm["email"] !== "" && !filter_var($manualAdmissionForm["email"], FILTER_VALIDATE_EMAIL)){
+        $errors[] = "Please enter a valid email address.";
+    }
+
+    $uploadedImageName = "";
+    if(isset($_FILES["admissionphoto"]) && isset($_FILES["admissionphoto"]["error"]) && (int)$_FILES["admissionphoto"]["error"] !== UPLOAD_ERR_NO_FILE){
+        $imageError = "";
+        $storedImage = online_admission_store_image($_FILES["admissionphoto"], $imageError);
+        if($storedImage === false){
+            $errors[] = $imageError;
+        }elseif($storedImage !== ""){
+            $uploadedImageName = $storedImage;
+        }
+    }
 
     if(empty($errors)){
-        $postingId = online_admission_generate_id("POST_");
-        $stmt = mysqli_prepare($con, "INSERT INTO tbladmissionpostedstudent(
-            postingid, beceindexnumber, birthdate, firstname, surname, othernames, gender,
-            admissionyear, offeredprogram, offeredclass, residentialstatus, mobile,
-            status, datetimeentry, recordedby, branchid
-        ) VALUES(
-            ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?,
-            'active', NOW(), ?, ?
-        )");
-        if($stmt){
-            $recordedBy = isset($_SESSION["USERID"]) ? (string)$_SESSION["USERID"] : "";
-            mysqli_stmt_bind_param(
-                $stmt,
-                str_repeat("s", 14),
-                $postingId, $postedForm["beceindexnumber"], $postedForm["birthdate"], $postedForm["firstname"], $postedForm["surname"], $postedForm["othernames"], $postedForm["gender"],
-                $postedForm["admissionyear"], $postedForm["offeredprogram"], $postedForm["offeredclass"], $postedForm["residentialstatus"], $postedForm["mobile"],
-                $recordedBy, $branchId
-            );
-            if(mysqli_stmt_execute($stmt)){
-                $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("success", "Posted student added successfully. The student can now verify on the public online admission page.");
-                mysqli_stmt_close($stmt);
-                header("location:online-admission-admin.php");
+        $recordedBy = isset($_SESSION["USERID"]) ? (string)$_SESSION["USERID"] : "";
+        $existingPostedStudent = online_admission_find_posted_student(
+            $con,
+            $branchId,
+            $manualAdmissionForm["beceindexnumber"],
+            $manualAdmissionForm["birthdate"],
+            $manualAdmissionForm["admissionyear"]
+        );
+        $existingApplication = null;
+        if($existingPostedStudent){
+            $existingApplication = online_admission_get_application_by_posting($con, $existingPostedStudent["postingid"]);
+            if($existingApplication && strtolower(trim((string)$existingApplication["status"])) !== "draft"){
+                $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("warning", "An admission form already exists for this student. Open the saved form below to update it instead.");
+                header("location:online-admission-admin.php?edit_application=".rawurlencode((string)$existingApplication["applicationid"])."#edit-application");
                 exit();
             }
-            $flashMessage = mysqli_stmt_errno($stmt) == 1062
-                ? aa_alert("warning", "That BECE index number is already on the posted student list for this admission year.")
-                : aa_alert("error", "The posted student could not be saved right now.");
-            mysqli_stmt_close($stmt);
+        }
+
+        $postingSaved = false;
+        $postingId = $existingPostedStudent ? (string)$existingPostedStudent["postingid"] : online_admission_generate_id("POST_");
+        if($existingPostedStudent){
+            $stmt = mysqli_prepare($con, "UPDATE tbladmissionpostedstudent SET
+                firstname=?, surname=?, othernames=?, gender=?, admissionyear=?, offeredprogram=?, offeredclass=?, residentialstatus=?, mobile=?,
+                status='active', recordedby=?, branchid=?
+                WHERE postingid=?
+                LIMIT 1");
+            if($stmt){
+                mysqli_stmt_bind_param(
+                    $stmt,
+                    str_repeat("s", 12),
+                    $manualAdmissionForm["firstname"], $manualAdmissionForm["surname"], $manualAdmissionForm["othernames"], $manualAdmissionForm["gender"],
+                    $manualAdmissionForm["admissionyear"], $manualAdmissionForm["offeredprogram"], $manualAdmissionForm["offeredclass"], $manualAdmissionForm["residentialstatus"], $manualAdmissionForm["mobile"],
+                    $recordedBy, $branchId, $postingId
+                );
+                $postingSaved = mysqli_stmt_execute($stmt);
+                mysqli_stmt_close($stmt);
+            }
         }else{
-            $flashMessage = aa_alert("error", "The posted student form could not be prepared right now.");
+            $stmt = mysqli_prepare($con, "INSERT INTO tbladmissionpostedstudent(
+                postingid, beceindexnumber, birthdate, firstname, surname, othernames, gender,
+                admissionyear, offeredprogram, offeredclass, residentialstatus, mobile,
+                status, datetimeentry, recordedby, branchid
+            ) VALUES(
+                ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                'active', NOW(), ?, ?
+            )");
+            if($stmt){
+                mysqli_stmt_bind_param(
+                    $stmt,
+                    str_repeat("s", 14),
+                    $postingId, $manualAdmissionForm["beceindexnumber"], $manualAdmissionForm["birthdate"], $manualAdmissionForm["firstname"], $manualAdmissionForm["surname"], $manualAdmissionForm["othernames"], $manualAdmissionForm["gender"],
+                    $manualAdmissionForm["admissionyear"], $manualAdmissionForm["offeredprogram"], $manualAdmissionForm["offeredclass"], $manualAdmissionForm["residentialstatus"], $manualAdmissionForm["mobile"],
+                    $recordedBy, $branchId
+                );
+                $postingSaved = mysqli_stmt_execute($stmt);
+                if(!$postingSaved && mysqli_stmt_errno($stmt) == 1062){
+                    $flashMessage = aa_alert("warning", "That BECE index number is already on the posted student list for this admission year.");
+                }
+                mysqli_stmt_close($stmt);
+            }
+        }
+
+        if($postingSaved){
+            $postedStudent = online_admission_get_posted_student_by_id($con, $branchId, $postingId);
+            if($postedStudent){
+                $application = $existingApplication ? $existingApplication : online_admission_ensure_application_for_posting($con, $postedStudent);
+                if($application){
+                    $imageName = $uploadedImageName !== "" ? $uploadedImageName : trim((string)(isset($application["filename"]) ? $application["filename"] : ""));
+                    $applicationId = (string)$application["applicationid"];
+                    $applicationIdEsc = mysqli_real_escape_string($con, $applicationId);
+                    $beceEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["beceindexnumber"]);
+                    $yearEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["admissionyear"]);
+                    $firstEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["firstname"]);
+                    $surnameEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["surname"]);
+                    $otherEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["othernames"]);
+                    $genderEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["gender"]);
+                    $birthEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["birthdate"]);
+                    $emailEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["email"]);
+                    $mobileEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["mobile"]);
+                    $residenceEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["residentialstatus"]);
+                    $hometownEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["hometown"]);
+                    $postalEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["postaladdress"]);
+                    $homeEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["homeaddress"]);
+                    $religionEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["religion"]);
+                    $guardianNameEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["guardianname"]);
+                    $guardianRelEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["guardianrelationship"]);
+                    $guardianContactEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["guardiancontact"]);
+                    $medicalEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["medicalnotes"]);
+                    $studentNoteEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["studentnote"]);
+                    $filenameEsc = mysqli_real_escape_string($con, $imageName);
+
+                    $savedApplicationQuery = mysqli_query($con, "UPDATE tblonlineadmissionapplication SET
+                        beceindexnumber='$beceEsc',
+                        admissionyear='$yearEsc',
+                        firstname='$firstEsc',
+                        surname='$surnameEsc',
+                        othernames='$otherEsc',
+                        gender='$genderEsc',
+                        birthdate='$birthEsc',
+                        email='$emailEsc',
+                        mobile='$mobileEsc',
+                        residencetype='$residenceEsc',
+                        hometown='$hometownEsc',
+                        postaladdress='$postalEsc',
+                        homeaddress='$homeEsc',
+                        religion='$religionEsc',
+                        guardianname='$guardianNameEsc',
+                        guardianrelationship='$guardianRelEsc',
+                        guardiancontact='$guardianContactEsc',
+                        medicalnotes='$medicalEsc',
+                        studentnote='$studentNoteEsc',
+                        filename='$filenameEsc',
+                        uploadeddatetime=".($imageName !== "" ? "NOW()" : "uploadeddatetime").",
+                        status='submitted',
+                        submittedat=COALESCE(submittedat, NOW()),
+                        updatedat=NOW()
+                        WHERE applicationid='$applicationIdEsc'
+                        LIMIT 1");
+
+                    if($savedApplicationQuery){
+                        $savedApplication = online_admission_get_application_by_id($con, $applicationId);
+                        $savedApplication = online_admission_ensure_application_token($con, $savedApplication);
+                        $assignedHouse = $savedApplication ? online_admission_assign_house_for_application($con, $savedApplication, $postedStudent) : null;
+                        $token = $savedApplication ? trim((string)$savedApplication["verificationtoken"]) : "";
+                        $houseMessage = ($assignedHouse && trim((string)$assignedHouse["housename"]) !== "") ? " Auto house: ".$assignedHouse["housename"]."." : "";
+                        $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert(
+                            "success",
+                            "Manual admission saved successfully.".($token !== "" ? " Resume token: ".$token."." : "").$houseMessage
+                        );
+                        header("location:online-admission-admin.php?edit_application=".rawurlencode($applicationId)."#edit-application");
+                        exit();
+                    }
+
+                    $flashMessage = aa_alert("error", "The manual admission form could not be saved right now.");
+                }else{
+                    $flashMessage = aa_alert("error", "The admission workspace could not be prepared for this student right now.");
+                }
+            }else{
+                $flashMessage = aa_alert("error", "The posted student record was saved, but it could not be reopened right now.");
+            }
+        }elseif($flashMessage === ""){
+            $flashMessage = aa_alert("error", "The manual admission form could not be prepared right now.");
         }
     }else{
         $flashMessage = aa_alert("warning", implode(" ", $errors));
@@ -1250,17 +1454,50 @@ if($documentYear === ""){
 $documentLibrary = online_admission_list_documents($con, $branchId, $documentYear);
 $studentHouses = array();
 $houseActiveCount = 0;
-$houseRes = mysqli_query($con, "SELECT h.houseid, h.housename, h.description, h.housegender, h.houseresidencetype, h.autoassignenabled, h.status, h.datetimeentry,
-        COUNT(sh.assignmentid) AS studenttotal
-    FROM tblhouse h
-    LEFT JOIN tblstudenthouse sh ON sh.houseid=h.houseid AND sh.status='active'
-    GROUP BY h.houseid, h.housename, h.description, h.housegender, h.houseresidencetype, h.autoassignenabled, h.status, h.datetimeentry
-    ORDER BY CASE WHEN h.status='active' THEN 0 ELSE 1 END, h.housename ASC");
+$houseHasDescription = aa_column_exists($con, "tblhouse", "description");
+$houseHasGender = aa_column_exists($con, "tblhouse", "housegender");
+$houseHasResidence = aa_column_exists($con, "tblhouse", "houseresidencetype");
+$houseHasAutoAssign = aa_column_exists($con, "tblhouse", "autoassignenabled");
+$houseHasStatus = aa_column_exists($con, "tblhouse", "status");
+$houseHasDatetime = aa_column_exists($con, "tblhouse", "datetimeentry");
+$appHasAssignedHouse = aa_column_exists($con, "tblonlineadmissionapplication", "assignedhouseid");
+$houseSelectParts = array(
+    "h.houseid",
+    "h.housename",
+    $houseHasDescription ? "h.description" : "'' AS description",
+    $houseHasGender ? "h.housegender" : "'' AS housegender",
+    $houseHasResidence ? "h.houseresidencetype" : "'' AS houseresidencetype",
+    $houseHasAutoAssign ? "h.autoassignenabled" : "1 AS autoassignenabled",
+    $houseHasStatus ? "h.status" : "'active' AS status",
+    $houseHasDatetime ? "h.datetimeentry" : "NOW() AS datetimeentry"
+);
+$houseGroupParts = array("h.houseid", "h.housename");
+if($houseHasDescription){ $houseGroupParts[] = "h.description"; }
+if($houseHasGender){ $houseGroupParts[] = "h.housegender"; }
+if($houseHasResidence){ $houseGroupParts[] = "h.houseresidencetype"; }
+if($houseHasAutoAssign){ $houseGroupParts[] = "h.autoassignenabled"; }
+if($houseHasStatus){ $houseGroupParts[] = "h.status"; }
+if($houseHasDatetime){ $houseGroupParts[] = "h.datetimeentry"; }
+$houseJoin = "";
+$houseCountSelect = "0 AS studenttotal";
+if($appHasAssignedHouse){
+    $houseJoin = " LEFT JOIN tblonlineadmissionapplication app ON BINARY app.assignedhouseid = BINARY h.houseid";
+    $houseCountSelect = "COUNT(DISTINCT app.applicationid) AS studenttotal";
+}
+$houseOrder = ($houseHasStatus ? "CASE WHEN h.status='active' THEN 0 ELSE 1 END, " : "")."h.housename ASC";
+$houseRes = mysqli_query($con, "SELECT ".implode(", ", $houseSelectParts).", $houseCountSelect
+    FROM tblhouse h".$houseJoin."
+    GROUP BY ".implode(", ", $houseGroupParts)."
+    ORDER BY ".$houseOrder);
 if($houseRes){
     while($houseRow = mysqli_fetch_array($houseRes, MYSQLI_ASSOC)){
         if(strtolower(trim((string)$houseRow["status"])) === "active"){
             $houseActiveCount++;
         }
+        $profile = aa_house_profile($houseRow);
+        $houseRow["studenttotal"] = (int)$houseRow["studenttotal"];
+        $houseRow["displaygender"] = $profile["gender"] !== "" ? $profile["gender"] : "Not set";
+        $houseRow["displayresidence"] = $profile["residence"] !== "" ? $profile["residence"] : "Not set";
         $studentHouses[] = $houseRow;
     }
 }
@@ -1470,38 +1707,132 @@ if($printAction === "recent_payments"){
         <section class="rs-panel rs-panel--form aa-accordion-section" id="posted-student-setup" data-accordion-group="operations">
             <div class="rs-panel-head">
                 <div>
-                    <span class="rs-kicker rs-kicker--dark">Posted Student Setup</span>
-                    <h2>Add Posted Student</h2>
-                    <p>Students can only verify on the public portal after they are on this list.</p>
+                    <span class="rs-kicker rs-kicker--dark">Manual Admission</span>
+                    <h2>Manual Admission Entry</h2>
+                    <p>Use the same form students fill online when you are capturing an application in the office.</p>
                 </div>
                 <span class="aa-section-chip aa-section-chip--info"><?php echo aa_esc($activeCycle ? $activeCycle["admissionyear"] : date("Y")); ?></span>
             </div>
 
-            <form method="post" action="online-admission-admin.php" class="rs-form">
+            <form method="post" action="online-admission-admin.php#posted-student-setup" enctype="multipart/form-data" class="rs-form">
+                <div class="aa-manual-photo-row">
+                    <div class="aa-editor-photo aa-editor-photo--inline aa-manual-photo-card">
+                        <img src="online-admission-photo.php" alt="Admission photo preview" id="manual-admission-photo-preview">
+                    </div>
+                    <div class="rs-field aa-manual-photo-upload">
+                        <label for="manual-admission-photo">Upload Photo</label>
+                        <input type="file" id="manual-admission-photo" name="admissionphoto" accept=".jpg,.jpeg,.png,.gif,.webp,image/*">
+                        <small>Accepted formats: JPG, PNG, GIF, WEBP. Maximum size: 5MB.</small>
+                    </div>
+                </div>
+
                 <section class="rs-section">
-                    <div class="rs-grid rs-grid--3">
-                        <div class="rs-field"><label for="beceindexnumber">BECE Index Number</label><input type="text" id="beceindexnumber" name="beceindexnumber" value="<?php echo aa_esc($postedForm["beceindexnumber"]); ?>" required></div>
-                        <div class="rs-field"><label for="birthdate">Date of Birth</label><input type="date" id="birthdate" name="birthdate" value="<?php echo aa_esc($postedForm["birthdate"]); ?>" required></div>
-                        <div class="rs-field"><label for="admissionyear">Admission Year</label><input type="text" id="admissionyear" name="admissionyear" value="<?php echo aa_esc($postedForm["admissionyear"]); ?>" required></div>
-                        <div class="rs-field"><label for="firstname">First Name</label><input type="text" id="firstname" name="firstname" value="<?php echo aa_esc($postedForm["firstname"]); ?>" required></div>
-                        <div class="rs-field"><label for="surname">Surname</label><input type="text" id="surname" name="surname" value="<?php echo aa_esc($postedForm["surname"]); ?>" required></div>
-                        <div class="rs-field"><label for="othernames">Other Names</label><input type="text" id="othernames" name="othernames" value="<?php echo aa_esc($postedForm["othernames"]); ?>"></div>
-                        <div class="rs-field"><label for="gender">Gender</label><select id="gender" name="gender"><option value="">Select gender</option><option value="Male"<?php echo $postedForm["gender"]==="Male" ? " selected" : ""; ?>>Male</option><option value="Female"<?php echo $postedForm["gender"]==="Female" ? " selected" : ""; ?>>Female</option></select></div>
-                        <div class="rs-field"><label for="offeredprogram">Offered Programme</label><input type="text" id="offeredprogram" name="offeredprogram" value="<?php echo aa_esc($postedForm["offeredprogram"]); ?>"></div>
-                        <div class="rs-field"><label for="offeredclass">Offered Class</label><input type="text" id="offeredclass" name="offeredclass" value="<?php echo aa_esc($postedForm["offeredclass"]); ?>"></div>
-                        <div class="rs-field"><label for="residentialstatus">Residence Status</label><select id="residentialstatus" name="residentialstatus"><option value="">Select status</option><option value="Day"<?php echo $postedForm["residentialstatus"]==="Day" ? " selected" : ""; ?>>Day</option><option value="Boarding"<?php echo $postedForm["residentialstatus"]==="Boarding" ? " selected" : ""; ?>>Boarding</option></select></div>
-                        <div class="rs-field"><label for="mobile">Contact Number</label><input type="text" id="mobile" name="mobile" value="<?php echo aa_esc($postedForm["mobile"]); ?>"></div>
+                    <div class="aa-editor-head">
+                        <div>
+                            <span class="rs-kicker rs-kicker--dark">Student Identity</span>
+                            <h3>Placement And Student Details</h3>
+                        </div>
+                    </div>
+                    <div class="rs-grid rs-grid--3 aa-editor-grid">
+                        <div class="rs-field"><label for="beceindexnumber">BECE Index Number</label><input type="text" id="beceindexnumber" name="beceindexnumber" value="<?php echo aa_esc($manualAdmissionForm["beceindexnumber"]); ?>" required></div>
+                        <div class="rs-field"><label for="birthdate">Date of Birth</label><input type="date" id="birthdate" name="birthdate" value="<?php echo aa_esc($manualAdmissionForm["birthdate"]); ?>" required></div>
+                        <div class="rs-field"><label for="admissionyear">Admission Year</label><input type="text" id="admissionyear" name="admissionyear" value="<?php echo aa_esc($manualAdmissionForm["admissionyear"]); ?>" required></div>
+                        <div class="rs-field"><label for="firstname">First Name</label><input type="text" id="firstname" name="firstname" value="<?php echo aa_esc($manualAdmissionForm["firstname"]); ?>" required></div>
+                        <div class="rs-field"><label for="surname">Surname</label><input type="text" id="surname" name="surname" value="<?php echo aa_esc($manualAdmissionForm["surname"]); ?>" required></div>
+                        <div class="rs-field"><label for="othernames">Other Names</label><input type="text" id="othernames" name="othernames" value="<?php echo aa_esc($manualAdmissionForm["othernames"]); ?>"></div>
+                        <div class="rs-field">
+                            <label for="gender">Gender</label>
+                            <select id="gender" name="gender" required>
+                                <option value="">Select gender</option>
+                                <option value="Male"<?php echo $manualAdmissionForm["gender"]==="Male" ? " selected" : ""; ?>>Male</option>
+                                <option value="Female"<?php echo $manualAdmissionForm["gender"]==="Female" ? " selected" : ""; ?>>Female</option>
+                            </select>
+                        </div>
+                        <div class="rs-field"><label for="offeredprogram">Offered Programme</label><input type="text" id="offeredprogram" name="offeredprogram" value="<?php echo aa_esc($manualAdmissionForm["offeredprogram"]); ?>" required></div>
+                        <div class="rs-field"><label for="offeredclass">Offered Class</label><input type="text" id="offeredclass" name="offeredclass" value="<?php echo aa_esc($manualAdmissionForm["offeredclass"]); ?>"></div>
+                    </div>
+                </section>
+
+                <section class="rs-section">
+                    <div class="aa-editor-head">
+                        <div>
+                            <span class="rs-kicker rs-kicker--dark">Contact Details</span>
+                            <h3>Contact Details</h3>
+                        </div>
+                    </div>
+                    <div class="rs-grid rs-grid--2 aa-editor-grid">
+                        <div class="rs-field"><label for="mobile">Student Mobile Number</label><input type="text" id="mobile" name="mobile" value="<?php echo aa_esc($manualAdmissionForm["mobile"]); ?>" required></div>
+                        <div class="rs-field"><label for="email">Email Address</label><input type="email" id="email" name="email" value="<?php echo aa_esc($manualAdmissionForm["email"]); ?>"></div>
+                        <div class="rs-field">
+                            <label for="residentialstatus">Residence Type</label>
+                            <select id="residentialstatus" name="residentialstatus" required>
+                                <option value="">Select status</option>
+                                <option value="Day"<?php echo $manualAdmissionForm["residentialstatus"]==="Day" ? " selected" : ""; ?>>Day</option>
+                                <option value="Boarding"<?php echo $manualAdmissionForm["residentialstatus"]==="Boarding" ? " selected" : ""; ?>>Boarding</option>
+                            </select>
+                        </div>
+                        <div class="rs-field">
+                            <label for="religion">Religion</label>
+                            <select id="religion" name="religion" required>
+                                <option value="">Select religion</option>
+                                <option value="Christian"<?php echo $manualAdmissionForm["religion"] === "Christian" ? " selected" : ""; ?>>Christian</option>
+                                <option value="Muslim"<?php echo $manualAdmissionForm["religion"] === "Muslim" ? " selected" : ""; ?>>Muslim</option>
+                                <option value="Tradition"<?php echo $manualAdmissionForm["religion"] === "Tradition" ? " selected" : ""; ?>>Tradition</option>
+                                <option value="Others"<?php echo $manualAdmissionForm["religion"] === "Others" ? " selected" : ""; ?>>Others</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="rs-section">
+                    <div class="aa-editor-head">
+                        <div>
+                            <span class="rs-kicker rs-kicker--dark">Address</span>
+                            <h3>Address</h3>
+                        </div>
+                    </div>
+                    <div class="rs-grid rs-grid--2 aa-editor-grid">
+                        <div class="rs-field"><label for="hometown">Hometown</label><input type="text" id="hometown" name="hometown" value="<?php echo aa_esc($manualAdmissionForm["hometown"]); ?>" required></div>
+                        <div class="rs-field"><label for="postaladdress">Postal Address</label><textarea id="postaladdress" name="postaladdress" rows="3"><?php echo aa_esc($manualAdmissionForm["postaladdress"]); ?></textarea></div>
+                        <div class="rs-field aa-span-full"><label for="homeaddress">Home Address</label><textarea id="homeaddress" name="homeaddress" rows="3" required><?php echo aa_esc($manualAdmissionForm["homeaddress"]); ?></textarea></div>
+                    </div>
+                </section>
+
+                <section class="rs-section">
+                    <div class="aa-editor-head">
+                        <div>
+                            <span class="rs-kicker rs-kicker--dark">Parent / Guardian</span>
+                            <h3>Parent / Guardian</h3>
+                        </div>
+                    </div>
+                    <div class="rs-grid rs-grid--2 aa-editor-grid">
+                        <div class="rs-field"><label for="guardianname">Parent / Guardian Name</label><input type="text" id="guardianname" name="guardianname" value="<?php echo aa_esc($manualAdmissionForm["guardianname"]); ?>" required></div>
+                        <div class="rs-field"><label for="guardianrelationship">Relationship</label><input type="text" id="guardianrelationship" name="guardianrelationship" value="<?php echo aa_esc($manualAdmissionForm["guardianrelationship"]); ?>" required></div>
+                        <div class="rs-field"><label for="guardiancontact">Contact Number</label><input type="text" id="guardiancontact" name="guardiancontact" value="<?php echo aa_esc($manualAdmissionForm["guardiancontact"]); ?>" required></div>
+                    </div>
+                </section>
+
+                <section class="rs-section">
+                    <div class="aa-editor-head">
+                        <div>
+                            <span class="rs-kicker rs-kicker--dark">Extra Information</span>
+                            <h3>Extra Information</h3>
+                        </div>
+                    </div>
+                    <div class="rs-grid rs-grid--2 aa-editor-grid">
+                        <div class="rs-field"><label for="medicalnotes">Medical Notes</label><textarea id="medicalnotes" name="medicalnotes" rows="3"><?php echo aa_esc($manualAdmissionForm["medicalnotes"]); ?></textarea></div>
+                        <div class="rs-field"><label for="studentnote">Student Note</label><textarea id="studentnote" name="studentnote" rows="3"><?php echo aa_esc($manualAdmissionForm["studentnote"]); ?></textarea></div>
                     </div>
                 </section>
 
                 <div class="rs-form-foot">
-                    <p><i class="fa fa-info-circle"></i> After saving, the student can verify on the landing-page admission link using BECE index number and date of birth.</p>
-                    <button type="submit" name="add_posted_student" class="rs-submit"><i class="fa fa-plus"></i> Add Posted Student</button>
+                    <p><i class="fa fa-info-circle"></i> This saves the posted student and the linked online admission form in one step, using the same core details students enter online.</p>
+                    <button type="submit" name="save_manual_admission" class="rs-submit"><i class="fa fa-save"></i> Save Manual Admission</button>
                 </div>
             </form>
         </section>
 
-        <section class="rs-panel aa-section aa-accordion-section" id="admission-houses" data-accordion-group="operations">
+        <section class="rs-panel aa-section aa-accordion-section is-open" id="admission-houses" data-accordion-group="operations">
             <div class="rs-panel-head">
                 <div>
                     <span class="rs-kicker rs-kicker--dark">House Setup</span>
@@ -1522,20 +1853,6 @@ if($printAction === "recent_payments"){
                             <label for="admission_house_description">Short Description</label>
                             <textarea id="admission_house_description" name="description" placeholder="Optional note about the house, block, or intake group."><?php echo aa_esc($houseForm["description"]); ?></textarea>
                         </div>
-                        <div class="rs-field">
-                            <label for="admission_house_gender">Student Gender</label>
-                            <select id="admission_house_gender" name="housegender" required>
-                                <option value="Male"<?php echo $houseForm["housegender"] === "Male" ? " selected" : ""; ?>>Male</option>
-                                <option value="Female"<?php echo $houseForm["housegender"] === "Female" ? " selected" : ""; ?>>Female</option>
-                            </select>
-                        </div>
-                        <div class="rs-field">
-                            <label for="admission_house_residence">Residence Type</label>
-                            <select id="admission_house_residence" name="houseresidencetype" required>
-                                <option value="Boarding"<?php echo $houseForm["houseresidencetype"] === "Boarding" ? " selected" : ""; ?>>Boarding</option>
-                                <option value="Day"<?php echo $houseForm["houseresidencetype"] === "Day" ? " selected" : ""; ?>>Day</option>
-                            </select>
-                        </div>
                     </div>
                     <label class="aa-payment-toggle aa-payment-toggle--compact">
                         <input type="checkbox" name="autoassignenabled" value="1"<?php echo $houseForm["autoassignenabled"] === "1" ? " checked" : ""; ?>>
@@ -1544,7 +1861,7 @@ if($printAction === "recent_payments"){
                 </section>
 
                 <div class="rs-form-foot">
-                    <p><i class="fa fa-home"></i> Houses created here immediately become available in the rest of the student house tools, and can be used for fair auto-assignment during online admission.</p>
+                    <p><i class="fa fa-home"></i> The system reads the house name and description to work out whether it is male/female and day/boarding, then routes students to the least-loaded matching house automatically.</p>
                     <button type="submit" name="save_admission_house" class="rs-submit"><i class="fa fa-plus"></i> Create House</button>
                 </div>
             </form>
@@ -1569,33 +1886,15 @@ if($printAction === "recent_payments"){
                     </div>
                     <div class="aa-house-meta">
                         <span><strong>Students:</strong> <?php echo number_format((int)$houseRow["studenttotal"]); ?> assigned</span>
-                        <span><strong>Gender:</strong> <?php echo aa_esc(house_master_normalize_gender_label($houseRow["housegender"]) !== "" ? house_master_normalize_gender_label($houseRow["housegender"]) : "Not set"); ?></span>
-                        <span><strong>Residence:</strong> <?php echo aa_esc(house_master_normalize_residence_label($houseRow["houseresidencetype"]) !== "" ? house_master_normalize_residence_label($houseRow["houseresidencetype"]) : "Not set"); ?></span>
                         <span><strong>Auto Assign:</strong> <?php echo (int)$houseRow["autoassignenabled"] === 1 ? "Yes" : "No"; ?></span>
                         <span><strong>Created:</strong> <?php echo aa_esc(aa_date($houseRow["datetimeentry"], "d M Y")); ?></span>
                     </div>
                     <form method="post" action="online-admission-admin.php#admission-houses" class="aa-house-config">
                         <input type="hidden" name="houseid" value="<?php echo aa_esc($houseRow["houseid"]); ?>">
-                        <div class="rs-grid rs-grid--3">
-                            <div class="rs-field">
-                                <label>Gender</label>
-                                <select name="housegender">
-                                    <option value="Male"<?php echo house_master_normalize_gender_label($houseRow["housegender"]) === "Male" ? " selected" : ""; ?>>Male</option>
-                                    <option value="Female"<?php echo house_master_normalize_gender_label($houseRow["housegender"]) === "Female" ? " selected" : ""; ?>>Female</option>
-                                </select>
-                            </div>
-                            <div class="rs-field">
-                                <label>Residence</label>
-                                <select name="houseresidencetype">
-                                    <option value="Boarding"<?php echo house_master_normalize_residence_label($houseRow["houseresidencetype"]) === "Boarding" ? " selected" : ""; ?>>Boarding</option>
-                                    <option value="Day"<?php echo house_master_normalize_residence_label($houseRow["houseresidencetype"]) === "Day" ? " selected" : ""; ?>>Day</option>
-                                </select>
-                            </div>
-                            <label class="aa-payment-toggle aa-payment-toggle--compact aa-house-toggle">
-                                <input type="checkbox" name="autoassignenabled" value="1"<?php echo (int)$houseRow["autoassignenabled"] === 1 ? " checked" : ""; ?>>
-                                <span>Auto assign</span>
-                            </label>
-                        </div>
+                        <label class="aa-payment-toggle aa-payment-toggle--compact aa-house-toggle">
+                            <input type="checkbox" name="autoassignenabled" value="1"<?php echo (int)$houseRow["autoassignenabled"] === 1 ? " checked" : ""; ?>>
+                            <span>Allow automatic assignment to this house</span>
+                        </label>
                         <button type="submit" name="save_house_profile" class="aa-button aa-button--wide"><i class="fa fa-save"></i> Save House Rules</button>
                     </form>
                 </article>
@@ -1966,14 +2265,24 @@ if($printAction === "recent_payments"){
     <?php if($editableApplication){ ?>
     <section class="rs-panel aa-section aa-accordion-section is-open" id="edit-application" data-accordion-group="editor">
         <div class="rs-side-head">
-            <span class="rs-kicker rs-kicker--dark">Form Editor</span>
-            <h2>View / Edit Submitted Form</h2>
-            <span class="<?php echo aa_status_class($editableApplicationForm["status"]); ?>"><?php echo aa_esc(online_admission_status_label($editableApplicationForm["status"])); ?></span>
+            <div>
+                <span class="rs-kicker rs-kicker--dark">Form Editor</span>
+                <h2>View / Edit Submitted Form</h2>
+            </div>
+            <div class="aa-editor-top-actions">
+                <span class="<?php echo aa_status_class($editableApplicationForm["status"]); ?>"><?php echo aa_esc(online_admission_status_label($editableApplicationForm["status"])); ?></span>
+                <a href="online-admission-admin.php#applications" class="aa-link aa-link--ghost aa-editor-close aa-editor-close--header"><i class="fa fa-times"></i> Close Editor</a>
+            </div>
         </div>
         <div class="aa-editor-shell">
             <aside class="aa-editor-side">
                 <div class="aa-editor-photo">
                     <img src="<?php echo aa_esc(online_admission_photo_src($editableApplication["filename"])); ?>" alt="Admission photo">
+                </div>
+                <div class="rs-field aa-editor-photo-tools">
+                    <label for="admissionphoto">Replace Photo</label>
+                    <input type="file" id="admissionphoto" name="admissionphoto" form="aa-edit-application-form" accept=".jpg,.jpeg,.png,.gif,.webp,image/*">
+                    <small>Accepted formats: JPG, PNG, GIF, WEBP. Upload a new image only if you want to replace the current one.</small>
                 </div>
                 <div class="aa-editor-summary">
                     <article><span>BECE Index</span><strong><?php echo aa_esc($editableApplication["beceindexnumber"]); ?></strong></article>
@@ -1987,16 +2296,15 @@ if($printAction === "recent_payments"){
                     <article><span>Internal Payment Code</span><strong><?php echo aa_esc(($editablePayment && trim((string)$editablePayment["admissioncode"]) !== "") ? $editablePayment["admissioncode"] : "Not issued"); ?></strong></article>
                     <article><span>Last Updated</span><strong><?php echo aa_esc(aa_date($editableApplication["updatedat"], "d M Y, g:i a")); ?></strong></article>
                 </div>
-                <a href="online-admission-admin.php#applications" class="aa-link aa-link--ghost aa-editor-close"><i class="fa fa-times"></i> Close Editor</a>
             </aside>
 
-            <form method="post" action="online-admission-admin.php?edit_application=<?php echo aa_esc($editableApplication["applicationid"]); ?>#edit-application" enctype="multipart/form-data" class="rs-form aa-editor-form">
+            <form method="post" action="online-admission-admin.php?edit_application=<?php echo aa_esc($editableApplication["applicationid"]); ?>#edit-application" enctype="multipart/form-data" class="rs-form aa-editor-form" id="aa-edit-application-form">
                 <input type="hidden" name="edit_application" value="<?php echo aa_esc($editableApplication["applicationid"]); ?>">
 
                 <section class="rs-section">
                     <div class="rs-panel-head aa-editor-head">
                         <div>
-                            <span class="rs-kicker rs-kicker--dark">Student Details</span>
+                            <span class="rs-kicker rs-kicker--dark">Identity</span>
                             <h3><?php echo aa_esc(trim($editableApplication["firstname"]." ".$editableApplication["othernames"]." ".$editableApplication["surname"])); ?></h3>
                         </div>
                         <span class="<?php echo aa_status_class($editableApplicationForm["status"]); ?>"><?php echo aa_esc(online_admission_status_label($editableApplicationForm["status"])); ?></span>
@@ -2005,9 +2313,8 @@ if($printAction === "recent_payments"){
                         <div class="rs-field"><label for="edit_firstname">First Name</label><input type="text" id="edit_firstname" name="firstname" value="<?php echo aa_esc($editableApplicationForm["firstname"]); ?>" required></div>
                         <div class="rs-field"><label for="edit_surname">Surname</label><input type="text" id="edit_surname" name="surname" value="<?php echo aa_esc($editableApplicationForm["surname"]); ?>" required></div>
                         <div class="rs-field"><label for="edit_othernames">Other Names</label><input type="text" id="edit_othernames" name="othernames" value="<?php echo aa_esc($editableApplicationForm["othernames"]); ?>"></div>
-                        <div class="rs-field"><label for="edit_gender">Gender</label><select id="edit_gender" name="gender"><option value="">Select gender</option><option value="Male"<?php echo $editableApplicationForm["gender"]==="Male" ? " selected" : ""; ?>>Male</option><option value="Female"<?php echo $editableApplicationForm["gender"]==="Female" ? " selected" : ""; ?>>Female</option><option value="male"<?php echo $editableApplicationForm["gender"]==="male" ? " selected" : ""; ?>>male</option><option value="female"<?php echo $editableApplicationForm["gender"]==="female" ? " selected" : ""; ?>>female</option></select></div>
+                        <div class="rs-field"><label for="edit_gender">Gender</label><select id="edit_gender" name="gender"><option value="">Select gender</option><option value="Male"<?php echo strtolower((string)$editableApplicationForm["gender"])==="male" ? " selected" : ""; ?>>Male</option><option value="Female"<?php echo strtolower((string)$editableApplicationForm["gender"])==="female" ? " selected" : ""; ?>>Female</option></select></div>
                         <div class="rs-field"><label for="edit_birthdate">Date of Birth</label><input type="date" id="edit_birthdate" name="birthdate" value="<?php echo aa_esc($editableApplicationForm["birthdate"]); ?>" required></div>
-                        <div class="rs-field"><label for="admissionphoto">Replace Photo</label><input type="file" id="admissionphoto" name="admissionphoto" accept=".jpg,.jpeg,.png,.gif,.webp,image/*"></div>
                     </div>
                 </section>
 
@@ -2018,12 +2325,11 @@ if($printAction === "recent_payments"){
                             <h3>Student Contact</h3>
                         </div>
                     </div>
-                    <div class="rs-grid rs-grid--3 aa-editor-grid">
+                    <div class="rs-grid rs-grid--2 aa-editor-grid">
                         <div class="rs-field"><label for="edit_mobile">Student Mobile Number</label><input type="text" id="edit_mobile" name="mobile" value="<?php echo aa_esc($editableApplicationForm["mobile"]); ?>"></div>
                         <div class="rs-field"><label for="edit_email">Email Address</label><input type="email" id="edit_email" name="email" value="<?php echo aa_esc($editableApplicationForm["email"]); ?>"></div>
                         <div class="rs-field"><label for="edit_residencetype">Residence Type</label><select id="edit_residencetype" name="residencetype"><option value="">Select residence type</option><option value="Day"<?php echo $editableApplicationForm["residencetype"]==="Day" ? " selected" : ""; ?>>Day</option><option value="Boarding"<?php echo $editableApplicationForm["residencetype"]==="Boarding" ? " selected" : ""; ?>>Boarding</option></select></div>
                         <div class="rs-field"><label for="edit_religion">Religion</label><select id="edit_religion" name="religion"><option value="">Select religion</option><option value="Christian"<?php echo $editableApplicationForm["religion"]==="Christian" ? " selected" : ""; ?>>Christian</option><option value="Muslim"<?php echo $editableApplicationForm["religion"]==="Muslim" ? " selected" : ""; ?>>Muslim</option><option value="Tradition"<?php echo $editableApplicationForm["religion"]==="Tradition" ? " selected" : ""; ?>>Tradition</option><option value="Others"<?php echo $editableApplicationForm["religion"]==="Others" ? " selected" : ""; ?>>Others</option></select></div>
-                        <div class="rs-field"><label for="edit_hometown">Hometown</label><input type="text" id="edit_hometown" name="hometown" value="<?php echo aa_esc($editableApplicationForm["hometown"]); ?>"></div>
                     </div>
                 </section>
 
@@ -2031,12 +2337,13 @@ if($printAction === "recent_payments"){
                     <div class="rs-panel-head aa-editor-head">
                         <div>
                             <span class="rs-kicker rs-kicker--dark">Address</span>
-                            <h3>Residential Details</h3>
+                            <h3>Address Details</h3>
                         </div>
                     </div>
                     <div class="rs-grid rs-grid--2 aa-editor-grid">
+                        <div class="rs-field"><label for="edit_hometown">Hometown</label><input type="text" id="edit_hometown" name="hometown" value="<?php echo aa_esc($editableApplicationForm["hometown"]); ?>"></div>
                         <div class="rs-field"><label for="edit_postaladdress">Postal Address</label><textarea id="edit_postaladdress" name="postaladdress" rows="3"><?php echo aa_esc($editableApplicationForm["postaladdress"]); ?></textarea></div>
-                        <div class="rs-field"><label for="edit_homeaddress">Home Address</label><textarea id="edit_homeaddress" name="homeaddress" rows="3"><?php echo aa_esc($editableApplicationForm["homeaddress"]); ?></textarea></div>
+                        <div class="rs-field rs-span-2"><label for="edit_homeaddress">Home Address</label><textarea id="edit_homeaddress" name="homeaddress" rows="3"><?php echo aa_esc($editableApplicationForm["homeaddress"]); ?></textarea></div>
                     </div>
                 </section>
 
@@ -2044,10 +2351,10 @@ if($printAction === "recent_payments"){
                     <div class="rs-panel-head aa-editor-head">
                         <div>
                             <span class="rs-kicker rs-kicker--dark">Parent / Guardian</span>
-                            <h3>Support Contact</h3>
+                            <h3>Parent / Guardian</h3>
                         </div>
                     </div>
-                    <div class="rs-grid rs-grid--3 aa-editor-grid">
+                    <div class="rs-grid rs-grid--2 aa-editor-grid">
                         <div class="rs-field"><label for="edit_guardianname">Parent / Guardian Name</label><input type="text" id="edit_guardianname" name="guardianname" value="<?php echo aa_esc($editableApplicationForm["guardianname"]); ?>"></div>
                         <div class="rs-field"><label for="edit_guardianrelationship">Relationship</label><input type="text" id="edit_guardianrelationship" name="guardianrelationship" value="<?php echo aa_esc($editableApplicationForm["guardianrelationship"]); ?>"></div>
                         <div class="rs-field"><label for="edit_guardiancontact">Contact Number</label><input type="text" id="edit_guardiancontact" name="guardiancontact" value="<?php echo aa_esc($editableApplicationForm["guardiancontact"]); ?>"></div>
@@ -2058,12 +2365,23 @@ if($printAction === "recent_payments"){
                     <div class="rs-panel-head aa-editor-head">
                         <div>
                             <span class="rs-kicker rs-kicker--dark">Extra Information</span>
-                            <h3>Notes and Status</h3>
+                            <h3>Extra Information</h3>
                         </div>
                     </div>
                     <div class="rs-grid rs-grid--2 aa-editor-grid">
                         <div class="rs-field"><label for="edit_medicalnotes">Medical Notes</label><textarea id="edit_medicalnotes" name="medicalnotes" rows="3"><?php echo aa_esc($editableApplicationForm["medicalnotes"]); ?></textarea></div>
                         <div class="rs-field"><label for="edit_studentnote">Student Note</label><textarea id="edit_studentnote" name="studentnote" rows="3"><?php echo aa_esc($editableApplicationForm["studentnote"]); ?></textarea></div>
+                    </div>
+                </section>
+
+                <section class="rs-section">
+                    <div class="rs-panel-head aa-editor-head">
+                        <div>
+                            <span class="rs-kicker rs-kicker--dark">Admin Review</span>
+                            <h3>Status And Review Note</h3>
+                        </div>
+                    </div>
+                    <div class="rs-grid rs-grid--2 aa-editor-grid">
                         <div class="rs-field"><label for="edit_status">Admission Status</label><select id="edit_status" name="status"><option value="draft"<?php echo $editableApplicationForm["status"]==="draft" ? " selected" : ""; ?>>Draft</option><option value="submitted"<?php echo $editableApplicationForm["status"]==="submitted" ? " selected" : ""; ?>>Submitted</option><option value="needs_attention"<?php echo $editableApplicationForm["status"]==="needs_attention" ? " selected" : ""; ?>>Needs Attention</option><option value="reviewed"<?php echo $editableApplicationForm["status"]==="reviewed" ? " selected" : ""; ?>>Reviewed</option></select></div>
                         <div class="rs-field"><label for="edit_reviewnote">Review Note</label><textarea id="edit_reviewnote" name="reviewnote" rows="3"><?php echo aa_esc($editableApplicationForm["reviewnote"]); ?></textarea></div>
                     </div>
@@ -2364,6 +2682,34 @@ if($printAction === "recent_payments"){
 
     openFromHash();
     window.addEventListener('hashchange', openFromHash);
+
+    Array.prototype.slice.call(document.querySelectorAll('.aa-editor-close--header')).forEach(function (link) {
+        link.addEventListener('click', function (event) {
+            event.stopPropagation();
+        });
+    });
+
+    var photoInput = document.getElementById('manual-admission-photo');
+    var photoPreview = document.getElementById('manual-admission-photo-preview');
+    if (photoInput && photoPreview) {
+        photoInput.addEventListener('change', function (event) {
+            var file = event.target.files && event.target.files[0];
+            if (!file) {
+                photoPreview.src = 'online-admission-photo.php';
+                return;
+            }
+            if (!window.FileReader) {
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function (loadEvent) {
+                if (loadEvent.target && typeof loadEvent.target.result === 'string') {
+                    photoPreview.src = loadEvent.target.result;
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    }
 }());
 </script>
 </body>

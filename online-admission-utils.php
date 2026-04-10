@@ -468,9 +468,12 @@ function online_admission_application_gender($application, $postedStudent = null
 
 if(!function_exists('online_admission_application_residence')){
 function online_admission_application_residence($application, $postedStudent = null){
-    $residence = house_master_normalize_residence_label(is_array($application) && isset($application["residencetype"]) ? $application["residencetype"] : "");
-    if($residence === "" && is_array($postedStudent)){
+    $residence = "";
+    if(is_array($postedStudent)){
         $residence = house_master_normalize_residence_label(isset($postedStudent["residentialstatus"]) ? $postedStudent["residentialstatus"] : "");
+    }
+    if($residence === ""){
+        $residence = house_master_normalize_residence_label(is_array($application) && isset($application["residencetype"]) ? $application["residencetype"] : "");
     }
     return $residence;
 }
@@ -537,17 +540,16 @@ function online_admission_find_best_house($con, $branchId, $gender, $residence, 
         return null;
     }
 
-    $genderEsc = mysqli_real_escape_string($con, $gender);
-    $residenceEsc = mysqli_real_escape_string($con, $residence);
     $houses = array();
     $res = mysqli_query($con, "SELECT * FROM tblhouse
         WHERE status='active'
           AND autoassignenabled=1
-          AND housegender='$genderEsc'
-          AND houseresidencetype='$residenceEsc'
         ORDER BY housename ASC");
     if($res){
         while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            if(!house_master_house_profile_matches($row, $gender, $residence)){
+                continue;
+            }
             $row["_load"] = online_admission_house_load_total($con, $row["houseid"], $branchId, $excludeApplicationId);
             $houses[] = $row;
         }

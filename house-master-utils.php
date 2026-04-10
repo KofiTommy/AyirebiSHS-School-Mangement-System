@@ -309,14 +309,21 @@ function house_master_house_profile_matches($house, $gender, $residence){
     if(!is_array($house) || empty($house)){
         return false;
     }
-    $houseGender = house_master_normalize_gender_label(isset($house["housegender"]) ? $house["housegender"] : "");
-    $houseResidence = house_master_normalize_residence_label(isset($house["houseresidencetype"]) ? $house["houseresidencetype"] : "");
     $gender = house_master_normalize_gender_label($gender);
     $residence = house_master_normalize_residence_label($residence);
-    return $houseGender !== "" &&
-        $houseResidence !== "" &&
-        $houseGender === $gender &&
-        $houseResidence === $residence &&
+    $storedGender = house_master_normalize_gender_label(isset($house["housegender"]) ? $house["housegender"] : "");
+    $storedResidence = house_master_normalize_residence_label(isset($house["houseresidencetype"]) ? $house["houseresidencetype"] : "");
+    $guessedProfile = house_master_guess_house_profile(
+        isset($house["housename"]) ? $house["housename"] : "",
+        isset($house["description"]) ? $house["description"] : ""
+    );
+    $guessedGender = house_master_normalize_gender_label($guessedProfile["housegender"]);
+    $guessedResidence = house_master_normalize_residence_label($guessedProfile["houseresidencetype"]);
+
+    $storedMatches = ($storedGender !== "" && $storedResidence !== "" && $storedGender === $gender && $storedResidence === $residence);
+    $guessedMatches = ($guessedGender !== "" && $guessedResidence !== "" && $guessedGender === $gender && $guessedResidence === $residence);
+
+    return ($storedMatches || $guessedMatches) &&
         strtolower(trim((string)(isset($house["status"]) ? $house["status"] : ""))) === "active" &&
         (!isset($house["autoassignenabled"]) || (int)$house["autoassignenabled"] === 1);
 }
