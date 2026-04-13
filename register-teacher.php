@@ -4,7 +4,7 @@ include("dbstring.php");
 include("check-login.php");
 include("house-master-utils.php");
 include_once("company.php");
-if(!house_master_is_admin()){ header("location:".house_master_landing_page()); exit(); }
+if(!house_master_can_manage_module($con, 'student_teacher_registration')){ header("location:".house_master_landing_page()); exit(); }
 
 function tesc($v){ return htmlspecialchars((string)$v, ENT_QUOTES, "UTF-8"); }
 function talert($type,$message){

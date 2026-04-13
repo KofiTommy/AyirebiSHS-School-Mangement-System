@@ -36,7 +36,9 @@ $obj_browser->setBrowser(1);
 <?php
 include("dbstring.php");
 include_once("online-admission-utils.php");
+include_once("user-management-utils.php");
 ensure_online_admission_tables($con);
+ensure_user_management_columns($con);
 
 $_PublicAdmissionOpen=false;
 $_PublicAdmissionPaymentEnabled=false;
@@ -124,6 +126,10 @@ else{
 			if($row['status']=="block"){
 			$_SESSION['Message']="<div style='color:red;text-align:center;padding:8px;text-transform:blink'>Account is blocked!! Please contact administrator</div>";
 			}else{
+				if(isset($row['password_reset_required']) && (int)$row['password_reset_required'] === 1){
+					header("location:change-password.php?force=1");
+					exit();
+				}
 				if($_AccessLevel=="administrator" && $_SystemType=="super_user"){
 					header("location:super.php");
 				}

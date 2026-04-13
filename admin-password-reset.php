@@ -5,6 +5,8 @@ $_SESSION['Message'] = "";
 include("dbstring.php");
 include("audit_notifications.php");
 include_once("house-master-utils.php");
+include_once("user-management-utils.php");
+ensure_user_management_columns($con);
 
 if (!function_exists('ensureAdminPasswordResetSmsLogTable')) {
     function ensureAdminPasswordResetSmsLogTable($con)
@@ -102,7 +104,7 @@ if (isset($_POST['admin_reset_password'])) {
 
             if ($resCheck && $userRow = mysqli_fetch_array($resCheck, MYSQLI_ASSOC)) {
                 $newPassword = md5($newPasswordRaw);
-                $stmtUpdate = mysqli_prepare($con, "UPDATE tblsystemuser SET username=?, password=? WHERE userid=? AND systemtype=? LIMIT 1");
+                $stmtUpdate = mysqli_prepare($con, "UPDATE tblsystemuser SET username=?, password=?, password_reset_required=1, password_last_reset_at=NOW() WHERE userid=? AND systemtype=? LIMIT 1");
                 if ($stmtUpdate) {
                     mysqli_stmt_bind_param($stmtUpdate, "ssss", $newUsername, $newPassword, $targetUserId, $resetType);
                     $okUpdate = mysqli_stmt_execute($stmtUpdate);

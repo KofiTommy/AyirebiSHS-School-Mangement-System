@@ -6,7 +6,7 @@ include("dbstring.php");
 include("house-master-utils.php");
 ensure_house_tables($con);
 
-if(!house_master_is_admin()){
+if(!house_master_can_manage_module($con, 'house_management')){
     header("location:".house_master_landing_page());
     exit();
 }

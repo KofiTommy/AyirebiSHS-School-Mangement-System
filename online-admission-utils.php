@@ -58,6 +58,18 @@ function online_admission_landing_page(){
 }
 }
 
+if(!function_exists('online_admission_can_manage_portal')){
+function online_admission_can_manage_portal($con = null){
+    if(online_admission_is_admin()){
+        return true;
+    }
+    if(!$con || !function_exists('um_current_user_can_access_module')){
+        return false;
+    }
+    return um_current_user_can_access_module($con, 'online_admission');
+}
+}
+
 if(!function_exists('ensure_online_admission_tables')){
 function ensure_online_admission_tables($con){
     ensure_house_tables($con);
@@ -211,6 +223,8 @@ function ensure_online_admission_tables($con){
         documentgroup VARCHAR(30) NOT NULL DEFAULT 'general',
         targetgender VARCHAR(20) NULL,
         targetresidencetype VARCHAR(20) NULL,
+        randomenabled TINYINT(1) NOT NULL DEFAULT 0,
+        randompool VARCHAR(120) NULL,
         title VARCHAR(255) NULL,
         filename VARCHAR(255) NOT NULL,
         originalfilename VARCHAR(255) NULL,
@@ -223,6 +237,20 @@ function ensure_online_admission_tables($con){
         UNIQUE KEY uq_admissiondocument_branch_year_type (branchid, admissionyear, doctype),
         INDEX idx_admissiondocument_branch_year (branchid, admissionyear),
         INDEX idx_admissiondocument_status (status)
+    )");
+
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblonlineadmissiondocumentassignment (
+        assignmentid VARCHAR(40) NOT NULL PRIMARY KEY,
+        documentid VARCHAR(40) NOT NULL,
+        applicationid VARCHAR(40) NOT NULL,
+        randompool VARCHAR(120) NOT NULL,
+        admissionyear VARCHAR(20) NOT NULL,
+        branchid VARCHAR(30) NOT NULL,
+        assignedat DATETIME NOT NULL,
+        updatedat DATETIME NOT NULL,
+        UNIQUE KEY uq_admissiondocassign_app_pool (applicationid, randompool),
+        INDEX idx_admissiondocassign_document (documentid),
+        INDEX idx_admissiondocassign_branch_year (branchid, admissionyear)
     )");
 
     $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionpayment LIKE 'admissioncode'");
@@ -295,7 +323,15 @@ function ensure_online_admission_tables($con){
     if($columnRes && mysqli_num_rows($columnRes) === 0){
         mysqli_query($con, "ALTER TABLE tblonlineadmissiondocument ADD COLUMN targetresidencetype VARCHAR(20) NULL AFTER targetgender");
     }
-    xschool_schema_cache_mark('schema_online_admission_v4');
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissiondocument LIKE 'randomenabled'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissiondocument ADD COLUMN randomenabled TINYINT(1) NOT NULL DEFAULT 0 AFTER targetresidencetype");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissiondocument LIKE 'randompool'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissiondocument ADD COLUMN randompool VARCHAR(120) NULL AFTER randomenabled");
+    }
+    xschool_schema_cache_mark('schema_online_admission_v5');
 }
 }
 
@@ -988,6 +1024,41 @@ function online_admission_document_target_summary($document){
 }
 }
 
+if(!function_exists('online_admission_document_random_enabled')){
+function online_admission_document_random_enabled($document){
+    return is_array($document) && !empty($document) && (int)(isset($document["randomenabled"]) ? $document["randomenabled"] : 0) === 1;
+}
+}
+
+if(!function_exists('online_admission_document_random_pool')){
+function online_admission_document_random_pool($document){
+    if(!is_array($document) || empty($document)){
+        return "";
+    }
+    $pool = trim((string)(isset($document["randompool"]) ? $document["randompool"] : ""));
+    if($pool !== ""){
+        return $pool;
+    }
+    if(online_admission_document_random_enabled($document)){
+        $title = trim((string)(isset($document["title"]) ? $document["title"] : ""));
+        if($title !== ""){
+            return online_admission_document_slug($title);
+        }
+        return trim((string)(isset($document["doctype"]) ? $document["doctype"] : ""));
+    }
+    return "";
+}
+}
+
+if(!function_exists('online_admission_document_delivery_label')){
+function online_admission_document_delivery_label($document){
+    if(online_admission_document_random_enabled($document)){
+        return 'Random Assignment';
+    }
+    return 'Direct Download';
+}
+}
+
 if(!function_exists('online_admission_document_matches_application')){
 function online_admission_document_matches_application($document, $application, $postedStudent = null){
     if(!is_array($document) || empty($document)){
@@ -1095,6 +1166,7 @@ function online_admission_delete_document($con, $branchId, $documentId, &$errorM
     }
 
     $documentIdEsc = mysqli_real_escape_string($con, $documentId);
+    mysqli_query($con, "DELETE FROM tblonlineadmissiondocumentassignment WHERE documentid='$documentIdEsc'");
     $deleted = mysqli_query($con, "DELETE FROM tblonlineadmissiondocument WHERE documentid='$documentIdEsc' LIMIT 1");
     if(!$deleted){
         $errorMessage = "The admission document could not be deleted right now.";
@@ -1106,6 +1178,130 @@ function online_admission_delete_document($con, $branchId, $documentId, &$errorM
         online_admission_remove_document_file_if_unused($con, $filename);
     }
     return $document;
+}
+}
+
+if(!function_exists('online_admission_get_document_assignment')){
+function online_admission_get_document_assignment($con, $applicationId, $randomPool){
+    $applicationIdEsc = mysqli_real_escape_string($con, trim((string)$applicationId));
+    $randomPoolEsc = mysqli_real_escape_string($con, trim((string)$randomPool));
+    if($applicationIdEsc === "" || $randomPoolEsc === ""){
+        return null;
+    }
+    $res = mysqli_query($con, "SELECT * FROM tblonlineadmissiondocumentassignment
+        WHERE applicationid='$applicationIdEsc'
+          AND randompool='$randomPoolEsc'
+        LIMIT 1");
+    if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))){
+        return $row;
+    }
+    return null;
+}
+}
+
+if(!function_exists('online_admission_save_document_assignment')){
+function online_admission_save_document_assignment($con, $application, $document){
+    if(!is_array($application) || empty($application) || !is_array($document) || empty($document)){
+        return false;
+    }
+    $applicationId = trim((string)(isset($application["applicationid"]) ? $application["applicationid"] : ""));
+    $documentId = trim((string)(isset($document["documentid"]) ? $document["documentid"] : ""));
+    $randomPool = online_admission_document_random_pool($document);
+    if($applicationId === "" || $documentId === "" || $randomPool === ""){
+        return false;
+    }
+    $assignmentId = online_admission_generate_id("ADMDOCASN_");
+    $applicationIdEsc = mysqli_real_escape_string($con, $applicationId);
+    $documentIdEsc = mysqli_real_escape_string($con, $documentId);
+    $randomPoolEsc = mysqli_real_escape_string($con, $randomPool);
+    $branchIdEsc = mysqli_real_escape_string($con, trim((string)(isset($application["branchid"]) ? $application["branchid"] : "")));
+    $admissionYearEsc = mysqli_real_escape_string($con, trim((string)(isset($application["admissionyear"]) ? $application["admissionyear"] : "")));
+    $assignmentIdEsc = mysqli_real_escape_string($con, $assignmentId);
+    return mysqli_query($con, "INSERT INTO tblonlineadmissiondocumentassignment(
+            assignmentid, documentid, applicationid, randompool, admissionyear, branchid, assignedat, updatedat
+        ) VALUES(
+            '$assignmentIdEsc', '$documentIdEsc', '$applicationIdEsc', '$randomPoolEsc', '$admissionYearEsc', '$branchIdEsc', NOW(), NOW()
+        ) ON DUPLICATE KEY UPDATE
+            documentid=VALUES(documentid),
+            admissionyear=VALUES(admissionyear),
+            branchid=VALUES(branchid),
+            updatedat=NOW()");
+}
+}
+
+if(!function_exists('online_admission_document_assigned_to_application')){
+function online_admission_document_assigned_to_application($con, $applicationId, $document){
+    $randomPool = online_admission_document_random_pool($document);
+    $documentId = trim((string)(is_array($document) && isset($document["documentid"]) ? $document["documentid"] : ""));
+    if($randomPool === "" || $documentId === ""){
+        return false;
+    }
+    $assignment = online_admission_get_document_assignment($con, $applicationId, $randomPool);
+    return $assignment && trim((string)(isset($assignment["documentid"]) ? $assignment["documentid"] : "")) === $documentId;
+}
+}
+
+if(!function_exists('online_admission_resolve_random_documents_for_application')){
+function online_admission_resolve_random_documents_for_application($con, $documents, $application, $postedStudent = null){
+    if(!is_array($documents) || empty($documents) || !is_array($application) || empty($application)){
+        return is_array($documents) ? $documents : array();
+    }
+    $eligibleDocuments = online_admission_filter_documents_for_application($documents, $application, $postedStudent);
+    if(empty($eligibleDocuments)){
+        return array();
+    }
+
+    $resolved = array();
+    $poolDocuments = array();
+    foreach($eligibleDocuments as $document){
+        if(online_admission_document_random_enabled($document)){
+            $poolKey = online_admission_document_random_pool($document);
+            if($poolKey !== ""){
+                if(!isset($poolDocuments[$poolKey])){
+                    $poolDocuments[$poolKey] = array();
+                }
+                $poolDocuments[$poolKey][] = $document;
+            }
+        }
+    }
+
+    $resolvedPools = array();
+    foreach($eligibleDocuments as $document){
+        if(!online_admission_document_random_enabled($document)){
+            $resolved[] = $document;
+            continue;
+        }
+        $poolKey = online_admission_document_random_pool($document);
+        if($poolKey === "" || isset($resolvedPools[$poolKey])){
+            continue;
+        }
+        $documentsInPool = isset($poolDocuments[$poolKey]) ? $poolDocuments[$poolKey] : array();
+        if(empty($documentsInPool)){
+            continue;
+        }
+        $assignedDocument = null;
+        $assignment = online_admission_get_document_assignment($con, (string)$application["applicationid"], $poolKey);
+        if($assignment){
+            $assignedDocumentId = trim((string)(isset($assignment["documentid"]) ? $assignment["documentid"] : ""));
+            foreach($documentsInPool as $poolDocument){
+                if((string)$poolDocument["documentid"] === $assignedDocumentId){
+                    $assignedDocument = $poolDocument;
+                    break;
+                }
+            }
+        }
+        if(!$assignedDocument){
+            $selectedIndex = array_rand($documentsInPool, 1);
+            $assignedDocument = $documentsInPool[$selectedIndex];
+            online_admission_save_document_assignment($con, $application, $assignedDocument);
+        }
+        if($assignedDocument){
+            $resolved[] = $assignedDocument;
+        }
+        $resolvedPools[$poolKey] = true;
+    }
+
+    return $resolved;
 }
 }
 
@@ -1270,6 +1466,10 @@ function online_admission_save_document($con, $branchId, $admissionYear, $title,
     $targetResidence = $documentGroup === "prospectus"
         ? house_master_normalize_residence_label(isset($options["targetresidencetype"]) ? $options["targetresidencetype"] : "")
         : "";
+    $randomEnabled = $documentGroup === "general" && !empty($options["randomenabled"]) ? 1 : 0;
+    $randomPool = $randomEnabled === 1
+        ? trim((string)(isset($options["randompool"]) ? $options["randompool"] : ""))
+        : "";
     if($branchId === "" || $admissionYear === "" || $title === ""){
         $errorMessage = "The admission document details are incomplete.";
         return false;
@@ -1277,6 +1477,13 @@ function online_admission_save_document($con, $branchId, $admissionYear, $title,
     if($documentGroup === "prospectus" && ($targetGender === "" || $targetResidence === "")){
         $errorMessage = "Choose the gender and residence this prospectus should be assigned to.";
         return false;
+    }
+    if($randomEnabled === 1){
+        $randomPool = online_admission_document_slug($randomPool !== "" ? $randomPool : $title);
+        if($randomPool === ""){
+            $errorMessage = "Enter a valid random assignment pool name.";
+            return false;
+        }
     }
 
     $storedFile = online_admission_store_document_file($file, $errorMessage);
@@ -1295,7 +1502,7 @@ function online_admission_save_document($con, $branchId, $admissionYear, $title,
         $documentId = (string)$existingDocument["documentid"];
         $oldFilename = trim((string)$existingDocument["filename"]);
         $stmt = mysqli_prepare($con, "UPDATE tblonlineadmissiondocument SET
-                title=?, filename=?, originalfilename=?, mimetype=?, filesize=?, documentgroup=?, targetgender=?, targetresidencetype=?, status='active', uploadedat=NOW(), updatedat=NOW(), uploadedby=?
+                title=?, filename=?, originalfilename=?, mimetype=?, filesize=?, documentgroup=?, targetgender=?, targetresidencetype=?, randomenabled=?, randompool=?, status='active', uploadedat=NOW(), updatedat=NOW(), uploadedby=?
             WHERE documentid=?
             LIMIT 1");
         if(!$stmt){
@@ -1305,7 +1512,7 @@ function online_admission_save_document($con, $branchId, $admissionYear, $title,
         }
         mysqli_stmt_bind_param(
             $stmt,
-            "ssssisssss",
+            "ssssisssisss",
             $title,
             $storedFile["filename"],
             $storedFile["originalfilename"],
@@ -1314,6 +1521,8 @@ function online_admission_save_document($con, $branchId, $admissionYear, $title,
             $documentGroup,
             $targetGender,
             $targetResidence,
+            $randomEnabled,
+            $randomPool,
             $uploadedBy,
             $documentId
         );
@@ -1332,9 +1541,9 @@ function online_admission_save_document($con, $branchId, $admissionYear, $title,
 
     $documentId = online_admission_generate_id("ADMDOC_");
     $stmt = mysqli_prepare($con, "INSERT INTO tblonlineadmissiondocument(
-        documentid, branchid, admissionyear, doctype, documentgroup, targetgender, targetresidencetype, title, filename, originalfilename, mimetype, filesize, status, uploadedat, updatedat, uploadedby
+        documentid, branchid, admissionyear, doctype, documentgroup, targetgender, targetresidencetype, randomenabled, randompool, title, filename, originalfilename, mimetype, filesize, status, uploadedat, updatedat, uploadedby
     ) VALUES(
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?
     )");
     if(!$stmt){
         $errorMessage = "The admission document could not be prepared for saving right now.";
@@ -1343,7 +1552,7 @@ function online_admission_save_document($con, $branchId, $admissionYear, $title,
     }
     mysqli_stmt_bind_param(
         $stmt,
-        "sssssssssssis",
+        "sssssssisssssis",
         $documentId,
         $branchId,
         $admissionYear,
@@ -1351,6 +1560,8 @@ function online_admission_save_document($con, $branchId, $admissionYear, $title,
         $documentGroup,
         $targetGender,
         $targetResidence,
+        $randomEnabled,
+        $randomPool,
         $title,
         $storedFile["filename"],
         $storedFile["originalfilename"],

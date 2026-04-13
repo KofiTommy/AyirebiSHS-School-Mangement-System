@@ -4,6 +4,32 @@ $_SESSION['Message']="";
 ?>
 <?php
 include("dbstring.php");
+if(!function_exists('score_report_session_label')){
+function score_report_session_label($dateTimeValue, $batchLabel, $termValue){
+    $yearValue = "";
+    if(trim((string)$dateTimeValue) !== ""){
+        $time = strtotime((string)$dateTimeValue);
+        if($time){
+            $yearValue = date("Y", $time);
+        }
+    }
+    if($yearValue === ""){
+        $yearValue = date("Y");
+    }
+
+    $batchText = trim((string)$batchLabel);
+    if($batchText === ""){
+        $batchText = "Not Set";
+    }
+
+    $termText = trim((string)$termValue);
+    if($termText === ""){
+        $termText = "Not Set";
+    }
+
+    return trim($yearValue." Batch ".$batchText." Semester ".$termText);
+}
+}
 @$_FilterBatch = isset($_GET["filter_batch"]) ? trim($_GET["filter_batch"]) : "";
 @$_FilterClass = isset($_GET["filter_class"]) ? trim($_GET["filter_class"]) : "";
 @$_FilterTerm  = isset($_GET["filter_term"]) ? trim($_GET["filter_term"]) : "";
@@ -205,7 +231,7 @@ echo "<button class='button-show' type='submit'><i class='fa fa-filter' style='c
 echo "<a href='scores-report-all.php' class='button-show' style='display:inline-block;'><i class='fa fa-undo' style='color:white'></i> RESET</a>";
 echo "</div>";
 
-echo "<div style='padding:6px;background:#fff8e1;border:1px solid #f5e6a7;color:#8a6d1d;'>Select Subject, Batch, Class and Semester, then click Apply Filter.</div>";
+echo "<div style='padding:6px;background:#fff8e1;border:1px solid #f5e6a7;color:#8a6d1d;'>Select subject, academic year, class, and semester to focus the correct session, then click Apply Filter.</div>";
 ?>
 
 </form>
@@ -230,7 +256,7 @@ include("dbstring.php");
 
 if($_ReportClassId!="" && $_ReportSubjectId!="" && $_ReportBatchId!="")
 {
-$_SQL_2=mysqli_query($con,"SELECT * FROM tblsubjectassignment sa 
+$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.* FROM tblsubjectassignment sa 
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
@@ -243,7 +269,7 @@ echo "<table width='100%' style='background-color:white'>";
 echo "<caption>";
 echo "Scores Report";
 echo "</caption>";
-echo "<thead><th>SUBJECT</th><th>STUDENT</th><th>CLASS</th><th>SEM.</th><th>*</th><th>TYPE</th><th>MARK</th><th>TOTAL</th><th>POSITION</th><th>GRADE</th></thead>";
+echo "<thead><th>SUBJECT</th><th>STUDENT</th><th>CLASS</th><th>SESSION</th><th>*</th><th>TYPE</th><th>MARK</th><th>TOTAL</th><th>POSITION</th><th>GRADE</th></thead>";
 echo "<tbody>";
 while($row_sub=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC))
 {
@@ -252,7 +278,8 @@ $_SQL_Batch=mysqli_query($con,"SELECT * FROM tblbatch WHERE batchid='$row_sub[ba
 if($rowb=mysqli_fetch_array($_SQL_Batch,MYSQLI_ASSOC)){
 $_BatchName=$rowb["batch"];	
 }
-echo "<tr style='background-color:#dee;font-weight:bold'><td align='left' colspan='10'>".strtoupper($row_sub['subject']).": ".strtoupper($_BatchName) ."</td></tr>";
+$_SessionHeading = score_report_session_label($row_sub['assignment_datetimeentry'], $_BatchName, $row_sub['termname']);
+echo "<tr style='background-color:#dee;font-weight:bold'><td align='left' colspan='10'>".strtoupper($row_sub['subject']).": ".strtoupper($_SessionHeading) ."</td></tr>";
 
 
 //$_SQL_SU=mysqli_query($con,"SELECT * FROM tblsubject");
@@ -300,7 +327,7 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 	echo "<td colspan='2'></td>";
 	echo "<td colspan='3'>$row_ce[class_name]</td>";
 	echo "<td colspan='5'>";
-	echo "SEMESTER: ".$k;
+	echo "SESSION: ".score_report_session_label($row_sub['assignment_datetimeentry'], $_BatchName, $k);
 	echo "</td></tr>";
 
 	@$_TotalMark=0;

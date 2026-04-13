@@ -5,6 +5,32 @@ $_SESSION['Message']="";
 <?php
 include("dbstring.php");
 include("audit_notifications.php");
+if(!function_exists('score_report_session_label')){
+function score_report_session_label($dateTimeValue, $batchLabel, $termValue){
+    $yearValue = "";
+    if(trim((string)$dateTimeValue) !== ""){
+        $time = strtotime((string)$dateTimeValue);
+        if($time){
+            $yearValue = date("Y", $time);
+        }
+    }
+    if($yearValue === ""){
+        $yearValue = date("Y");
+    }
+
+    $batchText = trim((string)$batchLabel);
+    if($batchText === ""){
+        $batchText = "Not Set";
+    }
+
+    $termText = trim((string)$termValue);
+    if($termText === ""){
+        $termText = "Not Set";
+    }
+
+    return trim($yearValue." Batch ".$batchText." Semester ".$termText);
+}
+}
 @$_YearBatchFilter = isset($_GET["year_batch"]) ? trim($_GET["year_batch"]) : "";
 @$_YearBatchFilterSafe = mysqli_real_escape_string($con, $_YearBatchFilter);
 @$_CurrentClassId = isset($_GET["class_id"]) ? trim($_GET["class_id"]) : "";
@@ -390,7 +416,7 @@ echo "</div>";
 if(($_SESSION["ACCESSLEVEL"]=="administrator"||$_SESSION["ACCESSLEVEL"]=="user") && ($_SESSION["SYSTEMTYPE"]=="super_user" ||$_SESSION["SYSTEMTYPE"]=="normal_user"||$_SESSION["SYSTEMTYPE"]=="User"))
 {
 include("dbstring.php");
-$_SQL_2=mysqli_query($con,"SELECT * FROM tblsubjectassignment sa 
+$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.*, bch.batch FROM tblsubjectassignment sa 
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
@@ -401,8 +427,8 @@ $_SQL_2=mysqli_query($con,"SELECT * FROM tblsubjectassignment sa
 //echo "<select id='classid' name='classid' class='validate[required]'>";
 	//echo "<option value=''>Select Subject</option>";
 	while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-//	echo "<option value='$row[class_entryid]'>$row[class_name]:Term: $row[termname] $row[subject]</option>";
-		echo "<div style='padding:5px;background-color:#eee'><a style='color:royalblue;' href='scores-report.php?admin_class_id=$row[class_entryid]&term_id=$row[termname]&subject_id=$row[subjectid]&batchid=$row[batchid]&year_batch=".urlencode($_YearBatchFilter)."'><i class='fa fa-plus' style='color:darkgreen'></i> $row[class_name]:Semester: $row[termname] $row[subject] - $row[batch]</a></div><br/>";
+		$_SessionLabel = score_report_session_label($row['assignment_datetimeentry'], $row['batch'], $row['termname']);
+		echo "<div style='padding:5px;background-color:#eee'><a style='color:royalblue;' href='scores-report.php?admin_class_id=$row[class_entryid]&term_id=$row[termname]&subject_id=$row[subjectid]&batchid=$row[batchid]&year_batch=".urlencode($_YearBatchFilter)."'><i class='fa fa-plus' style='color:darkgreen'></i> $row[class_name]: $row[subject] - $_SessionLabel</a></div><br/>";
 	}
 //echo "</select><br/><br/>";
 /*
@@ -420,7 +446,7 @@ $_SQL_2=mysqli_query($con,"SELECT * FROM tblsubjectassignment sa
 elseif($_SESSION["ACCESSLEVEL"]=="user" && $_SESSION["SYSTEMTYPE"]=="Teacher")
 {
 include("dbstring.php");
-$_SQL_2=mysqli_query($con,"SELECT * FROM tblsubjectassignment sa 
+$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.*, bch.batch FROM tblsubjectassignment sa 
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
@@ -428,7 +454,8 @@ $_SQL_2=mysqli_query($con,"SELECT * FROM tblsubjectassignment sa
 	WHERE sa.userid='$_SESSION[USERID]' ".($_YearBatchFilterSafe!="" ? " AND sa.batchid='$_YearBatchFilterSafe' " : "")." ORDER BY ce.class_name,sa.termname ASC");
 
 	while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-		echo "<div style='padding:5px;background-color:#eee'><a style='color:royalblue;' href='scores-report.php?class_id=$row[class_entryid]&term_id=$row[termname]&subject_id=$row[subjectid]&batchid=$row[batchid]&year_batch=".urlencode($_YearBatchFilter)."'><i class='fa fa-plus' style='color:darkgreen'></i> $row[class_name]:Semester: $row[termname] $row[subject] - $row[batch]</a></div><br/>";
+		$_SessionLabel = score_report_session_label($row['assignment_datetimeentry'], $row['batch'], $row['termname']);
+		echo "<div style='padding:5px;background-color:#eee'><a style='color:royalblue;' href='scores-report.php?class_id=$row[class_entryid]&term_id=$row[termname]&subject_id=$row[subjectid]&batchid=$row[batchid]&year_batch=".urlencode($_YearBatchFilter)."'><i class='fa fa-plus' style='color:darkgreen'></i> $row[class_name]: $row[subject] - $_SessionLabel</a></div><br/>";
 	}
 }
 ?>
@@ -454,7 +481,7 @@ echo "<div style='margin:8px 0 12px 0;padding:8px;border:1px solid #ddd;backgrou
 echo "<label style='display:inline-block;margin-right:16px;'><input type='checkbox' id='bulk_select_students' onclick='toggleBulkStudents(this)' /> Select All Students</label>";
 echo "<button type='submit' name='bulk_delete_students_scores' onclick='return confirmBulkDeleteStudents();' style='background:#b22222;color:white;border:0;padding:8px 10px;cursor:pointer;'><i class='fa fa-trash-o'></i> Delete Selected Students Class + Exam Scores</button>";
 echo "</div>";
-$_SQL_2=mysqli_query($con,"SELECT * FROM tblsubjectassignment sa 
+$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.* FROM tblsubjectassignment sa 
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
@@ -467,7 +494,7 @@ echo "<table width='100%' style='background-color:white'>";
 echo "<caption>";
 echo "Scores Report";
 echo "</caption>";
-echo "<thead><th>*</th><th>SUBJECT</th><th>STUDENT</th><th>CLASS</th><th>SEM.</th><th>TYPE</th><th>MARK</th><th>TOTAL</th></thead>";
+echo "<thead><th>*</th><th>SUBJECT</th><th>STUDENT</th><th>CLASS</th><th>SESSION</th><th>TYPE</th><th>MARK</th><th>TOTAL</th></thead>";
 echo "<tbody>";
 @$serial=0;
 while($row_sub=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC))
@@ -477,7 +504,8 @@ $_SQL_Batch=mysqli_query($con,"SELECT * FROM tblbatch WHERE batchid='$row_sub[ba
 if($rowb=mysqli_fetch_array($_SQL_Batch,MYSQLI_ASSOC)){
 $_BatchName=$rowb["batch"];	
 }
-echo "<tr style='background-color:#FFF;'><td align='left' colspan='8'>".strtoupper($row_sub['subject']).": ".strtoupper($_BatchName) ."</td></tr>";
+$_SessionHeading = score_report_session_label($row_sub['assignment_datetimeentry'], $_BatchName, $row_sub['termname']);
+echo "<tr style='background-color:#FFF;'><td align='left' colspan='8'>".strtoupper($row_sub['subject']).": ".strtoupper($_SessionHeading) ."</td></tr>";
 
 
 //$_SQL_SU=mysqli_query($con,"SELECT * FROM tblsubject");
@@ -526,7 +554,7 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 	echo "<td colspan='2'></td>";
 	echo "<td colspan='1'>$row_ce[class_name]</td>";
 	echo "<td colspan='5'>";
-	echo "SEMESTER: ".$k;
+	echo "SESSION: ".score_report_session_label($row_sub['assignment_datetimeentry'], $_BatchName, $k);
 	echo "</td></tr>";
 
 	@$_TotalMark=0;

@@ -49,6 +49,9 @@ if(online_admission_is_admin()){
         if($allowed){
             $postedStudent = online_admission_get_posted_student_by_id($con, (string)$application["branchid"], (string)$application["postingid"]);
             $allowed = online_admission_document_matches_application($document, $application, $postedStudent);
+            if($allowed && online_admission_document_random_enabled($document)){
+                $allowed = online_admission_document_assigned_to_application($con, (string)$application["applicationid"], $document);
+            }
         }
     }
 }

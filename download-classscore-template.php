@@ -4,6 +4,12 @@ $_SESSION['Message']="";
 ?>
 <?php
 include("dbstring.php");
+include("check-login.php");
+include("class-teacher-utils.php");
+if(!(class_teacher_is_teacher() || class_teacher_is_admin())){
+    header("location:".class_teacher_landing_page());
+    exit();
+}
 @$_Mark=$_POST['marks'];
 @$_AssignmentId=$_POST['assignmentid'];
 @$_UserId=$_POST['userid'];

@@ -5,7 +5,7 @@ include("check-login.php");
 include("duty-roster-utils.php");
 ensure_duty_roster_tables($con);
 
-if(!duty_roster_is_admin()){
+if(!duty_roster_can_manage_module($con)){
     header("location:".duty_roster_landing_page());
     exit();
 }

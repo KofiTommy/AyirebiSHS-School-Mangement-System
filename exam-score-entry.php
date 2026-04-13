@@ -151,6 +151,7 @@ $assignmentSql = "SELECT
         sa.classid AS class_entryid,
         sa.batchid,
         sa.termname,
+        sa.datetimeentry AS assignment_datetimeentry,
         sc.subjectid,
         sub.subject,
         ce.class_name,
@@ -176,7 +177,8 @@ if($assignmentRes){
         $row['saved_students'] = (int)$row['saved_students'];
         $row['pending_students'] = max($row['total_students'] - $row['saved_students'], 0);
         $row['status_meta'] = score_entry_status_meta($row['total_students'], $row['saved_students']);
-        $row['search_label'] = strtolower(trim($row['class_name']." ".$row['subject']." ".$row['batch']." semester ".$row['termname']));
+        $row['session_label'] = score_entry_session_label($row['assignment_datetimeentry'], $row['batch'], $row['termname']);
+        $row['search_label'] = strtolower(trim($row['class_name']." ".$row['subject']." ".$row['session_label']." ".$row['batch']." semester ".$row['termname']));
         $assignments[] = $row;
 
         $assignmentCount++;
@@ -310,7 +312,7 @@ if($selectedAssignment){
                     type="search"
                     id="assignmentSearch"
                     class="score-entry-search"
-                    placeholder="Search by class, subject, batch, or semester"
+                    placeholder="Search by class, subject, or session"
                     autocomplete="off">
             </div>
 
@@ -340,8 +342,7 @@ if($selectedAssignment){
                             <span class="<?php echo score_entry_esc($assignment['status_meta']['class']); ?>"><?php echo score_entry_esc($assignment['status_meta']['label']); ?></span>
                         </div>
                         <div class="score-entry-chip-row">
-                            <span class="score-entry-chip">Semester <?php echo score_entry_esc($assignment['termname']); ?></span>
-                            <span class="score-entry-chip score-entry-chip--accent"><?php echo score_entry_esc($assignment['batch'] !== "" ? $assignment['batch'] : "Batch Not Set"); ?></span>
+                            <span class="score-entry-chip score-entry-chip--accent"><?php echo score_entry_esc($assignment['session_label']); ?></span>
                         </div>
                         <div class="score-entry-assignment-card__bottom">
                             <div class="score-entry-meta-row">
@@ -358,7 +359,7 @@ if($selectedAssignment){
             <?php } else { ?>
             <div class="score-entry-empty-state">
                 <h3>No subject assignments found</h3>
-                <p>Your assigned exam score sheets will appear here once classes, subjects, batches, and semesters have been linked to your account.</p>
+                <p>Your assigned exam score sheets will appear here once classes, subjects, and year-based sessions have been linked to your account.</p>
             </div>
             <?php } ?>
         </section>
@@ -387,8 +388,7 @@ if($selectedAssignment){
                     <div class="score-entry-summary-grid">
                         <article class="score-entry-summary-card"><span>Class</span><strong><?php echo score_entry_esc($selectedAssignment['class_name']); ?></strong></article>
                         <article class="score-entry-summary-card"><span>Subject</span><strong><?php echo score_entry_esc($selectedAssignment['subject']); ?></strong></article>
-                        <article class="score-entry-summary-card"><span>Batch / Year</span><strong><?php echo score_entry_esc($selectedAssignment['batch'] !== "" ? $selectedAssignment['batch'] : "Batch Not Set"); ?></strong></article>
-                        <article class="score-entry-summary-card"><span>Semester</span><strong><?php echo score_entry_esc("Semester ".$selectedAssignment['termname']); ?></strong></article>
+                        <article class="score-entry-summary-card"><span>Session</span><strong><?php echo score_entry_esc($selectedAssignment['session_label']); ?></strong></article>
                         <article class="score-entry-summary-card"><span>Total Students</span><strong><?php echo (int)$selectedAssignment['total_students']; ?></strong></article>
                         <article class="score-entry-summary-card"><span>Already Saved</span><strong><?php echo (int)$selectedAssignment['saved_students']; ?></strong></article>
                         <article class="score-entry-summary-card"><span>Still Pending</span><strong><?php echo (int)$selectedAssignment['pending_students']; ?></strong></article>
@@ -399,7 +399,7 @@ if($selectedAssignment){
                 <?php if((int)$selectedAssignment['total_students'] === 0){ ?>
                 <div class="score-entry-empty-state">
                     <h3>No registered students yet</h3>
-                    <p>This assignment does not currently have registered students for the selected batch and semester, so there is no score sheet to enter yet.</p>
+                    <p>This assignment does not currently have registered students for the selected session, so there is no score sheet to enter yet.</p>
                 </div>
                 <?php } elseif(count($pendingStudents) === 0){ ?>
                 <div class="score-entry-empty-state">

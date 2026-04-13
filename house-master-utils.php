@@ -82,6 +82,19 @@ function house_master_landing_page(){
 }
 }
 
+if(!function_exists('house_master_can_manage_module')){
+function house_master_can_manage_module($con = null, $moduleKey = ''){
+    if(house_master_is_admin()){
+        return true;
+    }
+    $moduleKey = trim((string)$moduleKey);
+    if($moduleKey === '' || !$con || !function_exists('um_current_user_can_access_module')){
+        return false;
+    }
+    return um_current_user_can_access_module($con, $moduleKey);
+}
+}
+
 if(!function_exists('house_master_can_view_senior_dashboard')){
 function house_master_can_view_senior_dashboard($con = null){
     if(house_master_is_admin()){

@@ -7,14 +7,19 @@ if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
    $_SESSION['ACCESSLEVEL'] === "user" &&
    $_SESSION['SYSTEMTYPE'] === "Teacher"){
     include_once("house-master-utils.php");
+    include_once("user-management-utils.php");
     ensure_house_tables($con);
     $_HouseMasterSummary = house_master_get_teacher_role_summary($con, $_SESSION['USERID']);
     $_ShowHouseMasterLinks = !empty($_HouseMasterSummary['has_house_assignment']);
     $_ShowSeniorHouseLinks = !empty($_HouseMasterSummary['has_senior_assignment']);
     $_HouseMasterDashboardLabel = isset($_HouseMasterSummary['dashboard_label']) ? $_HouseMasterSummary['dashboard_label'] : "House Master Dashboard";
+    $_TeacherExtraAccessLinks = um_teacher_extra_nav_links($con, $_SESSION['USERID']);
 }
 if(!isset($_HouseMasterDashboardLabel)){
     $_HouseMasterDashboardLabel = "House Master Dashboard";
+}
+if(!isset($_TeacherExtraAccessLinks)){
+    $_TeacherExtraAccessLinks = array();
 }
 $_ShowExeatManagerLinks = $_ShowHouseMasterLinks || $_ShowSeniorHouseLinks;
 if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE'])){
@@ -235,6 +240,16 @@ if($_ShowSeniorHouseLinks){
 <?php
 }
 ?>
+<a href="lesson-timetable-report.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable</button></a>
+<?php
+if(!empty($_TeacherExtraAccessLinks)){
+    foreach($_TeacherExtraAccessLinks as $_ExtraLink){
+?>
+<a href="<?php echo htmlspecialchars($_ExtraLink['href'], ENT_QUOTES, 'UTF-8'); ?>"><button><i class="fa <?php echo htmlspecialchars($_ExtraLink['icon'], ENT_QUOTES, 'UTF-8'); ?>" style="color:#1d4ed8"></i> <?php echo htmlspecialchars($_ExtraLink['label'], ENT_QUOTES, 'UTF-8'); ?></button></a>
+<?php
+    }
+}
+?>
 <a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
 </div>
 <?php
@@ -254,12 +269,13 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="no
  ?>
 <div id="admin" align="left" style="margin-top:5px;">
 <a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
-<a href="blocked-users.php"><button><i class="fa fa-lock" style="color:royalblue"></i> Blocked Users</button></a>
-<a href="register.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register User</button></a>
+<a href="user-management.php"><button><i class="fa fa-users" style="color:#1d4ed8"></i> User Management</button></a>
 <a href="register-student.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Student</button></a>
 <a href="register-teacher.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Teacher</button></a>
 <a href="class-teacher-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> Class Teacher Assignment</button></a>
 <a href="duty-roster.php"><button><i class="fa fa-calendar-check-o" style="color:#0f766e"></i> Duty Roster</button></a>
+<a href="lesson-timetable.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable Entry</button></a>
+<a href="lesson-timetable-report.php"><button><i class="fa fa-book" style="color:#0f766e"></i> Lesson Timetable Report</button></a>
 <a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
 <a href="house-entry.php"><button><i class="fa fa-home" style="color:teal"></i> House Entry</button></a>
 <a href="house-master-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> House Master Assignment</button></a>
@@ -271,10 +287,8 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="no
 <a href="upload-register.php"><button><i class="fa fa-upload" style="color:blue"></i> Upload Registers</button></a>
 <a href="waec-analysis.php"><button><i class="fa fa-line-chart" style="color:teal"></i> WAEC Analysis</button></a>
 
-<a href="listusers.php"><button><i class="fa fa-user" style="color:royalblue"></i> View Users</button></a>
 <a href="viewusers.php"><button><i class="fa fa-user" style="color:royalblue"></i> View Teachers</button></a>
 <a href="viewstudents.php"><button><i class="fa fa-user" style="color:royalblue"></i> View Students</button></a>
-<a href="admin-password-reset.php"><button><i class="fa fa-key" style="color:#b45309"></i> Reset Password</button></a>
 <?php
 echo "<a  onclick=\"javascript:return confirm('Do you want to clear database?');\" href='global_deletes.php'><button><i class='fa fa-book' style='color:green'></i> Empty Data </button></a>";
 ?>
@@ -288,12 +302,13 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="su
  ?>
 <div id="admin" align="left" style="margin-top:5px;">
 <a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
-<a href="blocked-users.php"><button><i class="fa fa-lock" style="color:royalblue"></i> Blocked Users</button></a>
-<a href="register-super.php"><button ><i class="fa fa-user" style="color:maroon"></i> Register</button></a>
+<a href="user-management.php"><button ><i class="fa fa-users" style="color:#1d4ed8"></i> User Management</button></a>
 <a href="register-student.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Student</button></a>
 <a href="register-teacher.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Teacher</button></a>
 <a href="class-teacher-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> Class Teacher Assignment</button></a>
 <a href="duty-roster.php"><button><i class="fa fa-calendar-check-o" style="color:#0f766e"></i> Duty Roster</button></a>
+<a href="lesson-timetable.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable Entry</button></a>
+<a href="lesson-timetable-report.php"><button><i class="fa fa-book" style="color:#0f766e"></i> Lesson Timetable Report</button></a>
 <a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
 <a href="house-entry.php"><button><i class="fa fa-home" style="color:teal"></i> House Entry</button></a>
 <a href="house-master-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> House Master Assignment</button></a>
@@ -304,10 +319,8 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="su
 <a href="upload-register.php"><button><i class="fa fa-upload" style="color:blue"></i> Upload Registers</button></a>
 <a href="waec-analysis.php"><button><i class="fa fa-line-chart" style="color:teal"></i> WAEC Analysis</button></a>
 
-<a href="listusers.php"><button><i class="fa fa-user" style="color:maroon"></i> View Users</button></a>
 <a href="viewusers.php"><button><i class="fa fa-user" style="color:brown"></i> View Teachers</button></a>
 <a href="viewstudents.php"><button><i class="fa fa-user" style="color:maroon"></i> View Students</button></a>
-<a href="admin-password-reset.php"><button><i class="fa fa-key" style="color:#b45309"></i> Reset Password</button></a>
 <a href="backup_db.php"><button><i class="fa fa-book" style="color:green"></i> Backup </button></a>
 <a href="generateapikey.php"><button><i class="fa fa-book" style="color:green"></i> API KEY </button></a>
 

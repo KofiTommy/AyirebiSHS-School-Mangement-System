@@ -81,3 +81,30 @@ function score_entry_status_meta($totalStudents, $savedStudents){
     );
 }
 }
+
+if(!function_exists('score_entry_session_label')){
+function score_entry_session_label($dateTimeValue, $batchLabel, $termValue){
+    $yearValue = "";
+    if(trim((string)$dateTimeValue) !== ""){
+        $time = strtotime((string)$dateTimeValue);
+        if($time){
+            $yearValue = date("Y", $time);
+        }
+    }
+    if($yearValue === ""){
+        $yearValue = date("Y");
+    }
+
+    $batchText = trim((string)$batchLabel);
+    if($batchText === ""){
+        $batchText = "Not Set";
+    }
+
+    $termText = trim((string)$termValue);
+    if($termText === ""){
+        $termText = "Not Set";
+    }
+
+    return trim($yearValue." Batch ".$batchText." Semester ".$termText);
+}
+}

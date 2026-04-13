@@ -13,6 +13,18 @@ function menuboard_section_end(){
 }
 }
 ?>
+<?php
+if(!isset($con)){
+    include_once("dbstring.php");
+}
+include_once("user-management-utils.php");
+$_TeacherExtraAccessLinks = array();
+if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+   $_SESSION['ACCESSLEVEL'] === "user" &&
+   $_SESSION['SYSTEMTYPE'] === "Teacher"){
+    $_TeacherExtraAccessLinks = um_teacher_extra_nav_links($con, $_SESSION['USERID']);
+}
+?>
 <style>
 .menu-inner .menuboard-section{
     margin:12px 0;
@@ -107,6 +119,32 @@ function menuboard_section_end(){
     border:0;
     border-top:1px solid rgba(255,255,255,0.12);
 }
+
+.menu-inner .menuboard-inline-link{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    position:relative;
+    z-index:2;
+    pointer-events:auto;
+}
+
+.menu-inner .menuboard-inline-link i{
+    width:auto;
+    font-family:FontAwesome !important;
+}
+
+.menu-inner .menuboard-badge{
+    display:inline-block;
+    min-width:18px;
+    padding:1px 6px;
+    border-radius:999px;
+    background:#b91c1c;
+    color:#fff;
+    font-size:10px;
+    text-align:center;
+    line-height:1.2;
+}
 </style>
 <div class="menu-inner">
 <div style="text-align:center">
@@ -171,12 +209,12 @@ echo "<b style='margin-bottom:10px;font-size:12px;'> Branch:". $_Branch ."</b><b
 <a href="messages.php" ><i  class="fa fa-book"> Messages </i></a><br/>
 <?php
 if(($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="normal_user") || ($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="super_user")){
-  echo "<a href='admin-password-reset.php'><i class='fa fa-key'> Reset Teacher/Student Password </i></a><br/>";
+  echo "<a href='user-management.php'><i class='fa fa-users'> User Management </i></a><br/>";
 }
 ?>
 <?php
 if(($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="normal_user") || ($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="super_user")){
-  echo "<a href='admin.php#system-change-notifications'><i class='fa fa-bell'> Notifications <span style='display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:#b91c1c;color:#fff;font-size:10px;text-align:center;'>".$_UnreadChangeCount."</span></i></a><br/>";
+  echo "<a class='menuboard-inline-link' href='admin.php#system-change-notifications'><i class='fa fa-bell'></i><span>Notifications</span><span class='menuboard-badge'>".$_UnreadChangeCount."</span></a><br/>";
 }
 ?>
 
@@ -212,8 +250,17 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher"){
 <a href="student-terminal-data.php"><i class="fa fa-plus"></i> Student Remark Data</a>
 <a href="upload-student-remark-data.php"><i class="fa fa-arrow-circle-up"></i> Upload Students Remark Data</a>
 <a href="terminal-report.php"><i class="fa fa-book"></i> Examination Report</a>
+<a href="lesson-timetable-report.php"><i class="fa fa-calendar"></i> Lesson Timetable</a>
 <a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
 <?php menuboard_section_end(); ?>
+
+<?php if(!empty($_TeacherExtraAccessLinks)){ ?>
+<?php menuboard_section_start('Extended Access', 'fa-unlock'); ?>
+<?php foreach($_TeacherExtraAccessLinks as $_ExtraLink){ ?>
+<a href="<?php echo htmlspecialchars($_ExtraLink['href'], ENT_QUOTES, 'UTF-8'); ?>"><i class="fa <?php echo htmlspecialchars($_ExtraLink['icon'], ENT_QUOTES, 'UTF-8'); ?>"></i> <?php echo htmlspecialchars($_ExtraLink['label'], ENT_QUOTES, 'UTF-8'); ?></a>
+<?php } ?>
+<?php menuboard_section_end(); ?>
+<?php } ?>
 
 <?php
 }
@@ -245,7 +292,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a class="menuboard-home-link" href="super.php"><i class="fa fa-home"></i> Home</a>
 </div>
 
-<?php menuboard_section_start('School Setup', 'fa-cogs', true); ?>
+<?php menuboard_section_start('School Setup', 'fa-cogs'); ?>
 <a href="company-entry.php"><i class="fa fa-plus"></i> School Entry</a>
 <a href="branch-entry.php"><i class="fa fa-plus"></i> Branch Entry</a>
 <a href="batch-entry.php"><i class="fa fa-plus"></i> Batch Entry</a>
@@ -288,6 +335,8 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a href="subject-assignment.php"><i class="fa fa-plus"></i> Subject Assignment</a>
 <a href="class-teacher-assignment.php"><i class="fa fa-plus"></i> Class Teacher Assignment</a>
 <a href="duty-roster.php"><i class="fa fa-calendar-check-o"></i> Duty Roster</a>
+<a href="lesson-timetable.php"><i class="fa fa-calendar"></i> Lesson Timetable Entry</a>
+<a href="lesson-timetable-report.php"><i class="fa fa-book"></i> Lesson Timetable Report</a>
 <a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
 <a href="view-all-subject-assigned.php"><i class="fa fa-plus"></i> View Subject(s) Assigned</a>
 <?php menuboard_section_end(); ?>
@@ -304,6 +353,8 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a href="internal-exam-analysis.php"><i class="fa fa-folder-o"></i> Internal Exams Analysis</a>
 <a href="examanalysis-subject.php"><i class="fa fa-folder-o"></i> Exam Analysis : Subject</a>
 <a href="examanalysis-rank.php"><i class="fa fa-folder-o"></i> Exam Analysis : Rank</a>
+<a href="lesson-timetable.php"><i class="fa fa-calendar"></i> Lesson Timetable Entry</a>
+<a href="lesson-timetable-report.php"><i class="fa fa-book"></i> Lesson Timetable Report</a>
 <a href="examinationtimetable.php"><i class="fa fa-plus"></i> Exam Time Table Entry</a>
 <a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
 <?php menuboard_section_end(); ?>
@@ -327,7 +378,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <a class="menuboard-home-link" href="admin.php"><i class="fa fa-home"></i> Home</a>
 </div>
 
-<?php menuboard_section_start('School Setup', 'fa-cogs', true); ?>
+<?php menuboard_section_start('School Setup', 'fa-cogs'); ?>
 <a href="company-entry.php"><i class="fa fa-plus"></i> School Entry</a>
 <a href="branch-entry.php"><i class="fa fa-plus"></i> Branch Entry</a>
 <a href="batch-entry.php"><i class="fa fa-plus"></i> Batch Entry</a>
@@ -372,6 +423,8 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <a href="subject-assignment.php"><i class="fa fa-plus"></i> Subject Assignment</a>
 <a href="class-teacher-assignment.php"><i class="fa fa-plus"></i> Class Teacher Assignment</a>
 <a href="duty-roster.php"><i class="fa fa-calendar-check-o"></i> Duty Roster</a>
+<a href="lesson-timetable.php"><i class="fa fa-calendar"></i> Lesson Timetable Entry</a>
+<a href="lesson-timetable-report.php"><i class="fa fa-book"></i> Lesson Timetable Report</a>
 <a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
 <a href="view-all-subject-assigned.php"><i class="fa fa-book"></i> View Subject(s) Assigned</a>
 <?php menuboard_section_end(); ?>
@@ -386,6 +439,8 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <a href="internal-exam-analysis.php"><i class="fa fa-folder-o"></i> Internal Exams Analysis</a>
 <a href="examanalysis-subject.php"><i class="fa fa-folder-o"></i> Exam Analysis : Subject</a>
 <a href="examanalysis-rank.php"><i class="fa fa-folder-o"></i> Exam Analysis : Rank</a>
+<a href="lesson-timetable.php"><i class="fa fa-calendar"></i> Lesson Timetable Entry</a>
+<a href="lesson-timetable-report.php"><i class="fa fa-book"></i> Lesson Timetable Report</a>
 <a href="examinationtimetable.php"><i class="fa fa-plus"></i> Exam Time Table Entry</a>
 <a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
 <?php menuboard_section_end(); ?>
@@ -408,7 +463,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
 <a class="active menuboard-home-link" href="user.php"><i class="fa fa-home"></i> Home</a>
 </div>
 
-<?php menuboard_section_start('School Setup', 'fa-cogs', true); ?>
+<?php menuboard_section_start('School Setup', 'fa-cogs'); ?>
 <a href="batch-entry.php"><i class="fa fa-plus"></i> Batch Entry</a>
 <a href="subject-entry.php"><i class="fa fa-plus"></i> Subject Entry</a>
 <a href="class-entry.php"><i class="fa fa-plus"></i> Class Entry</a>

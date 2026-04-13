@@ -19,6 +19,15 @@ function td_alert($type,$message){
     return "<div class=\"$class\">".td_esc($message)."</div>";
 }
 function td_term($term){ $term=trim((string)$term); return $term==="" ? "Semester" : "Semester ".$term; }
+function td_session_label($dateTimeValue,$batchLabel,$termValue){
+    $yearValue = "";
+    if(trim((string)$dateTimeValue) !== ""){
+        $time = strtotime((string)$dateTimeValue);
+        if($time){ $yearValue = date("Y",$time); }
+    }
+    if($yearValue === ""){ $yearValue = date("Y"); }
+    return trim($yearValue." Batch ".trim((string)$batchLabel)." Semester ".trim((string)$termValue));
+}
 function td_date($value){ $time=strtotime((string)$value); return $time ? date("d M Y, H:i",$time) : (string)$value; }
 $teacherId = isset($_SESSION['USERID']) ? (string)$_SESSION['USERID'] : "";
 $teacherIdEsc = mysqli_real_escape_string($con, $teacherId);
@@ -72,7 +81,7 @@ $dutyDashboard = duty_roster_get_teacher_dashboard_context($con, $teacherId);
 
 $classTeacherRoles = array();
 $classTeacherLookup = array();
-$classTeacherRes = mysqli_query($con,"SELECT ct.classid,ct.batchid,ct.termname,ce.class_name,bh.batch
+$classTeacherRes = mysqli_query($con,"SELECT ct.classid,ct.batchid,ct.termname,ct.datetimeentry AS role_datetimeentry,ce.class_name,bh.batch
     FROM tblclassteacher ct
     INNER JOIN tblclassentry ce ON ce.class_entryid=ct.classid
     INNER JOIN tblbatch bh ON bh.batchid=ct.batchid
@@ -82,6 +91,7 @@ if($classTeacherRes){
     while($row=mysqli_fetch_array($classTeacherRes,MYSQLI_ASSOC)){
         $key = $row["batchid"]."|".$row["classid"]."|".$row["termname"];
         $classTeacherLookup[$key] = true;
+        $row["session_label"] = td_session_label($row["role_datetimeentry"], $row["batch"], $row["termname"]);
         $classTeacherRoles[] = $row;
     }
 }
@@ -89,7 +99,8 @@ if($classTeacherRes){
 $assignmentGroups = array();
 $assignedSubjectCount = 0;
 $activeBatchIds = array();
-$assignmentRes = mysqli_query($con,"SELECT sa.classid,sa.batchid,sa.termname,ce.class_name,bh.batch,sub.subject
+$recentTeachingGroupLimit = 6;
+$assignmentRes = mysqli_query($con,"SELECT sa.classid,sa.batchid,sa.termname,sa.datetimeentry AS assignment_datetimeentry,ce.class_name,bh.batch,sub.subject
     FROM tblsubjectassignment sa
     INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
     INNER JOIN tblsubject sub ON sub.subjectid=sc.subjectid
@@ -107,15 +118,33 @@ if($assignmentRes){
                 "class_name"=>$row["class_name"],
                 "batch"=>$row["batch"],
                 "termname"=>$row["termname"],
+                "session_label"=>td_session_label($row["assignment_datetimeentry"], $row["batch"], $row["termname"]),
+                "sort_timestamp"=>(strtotime((string)$row["assignment_datetimeentry"]) ?: 0),
                 "subjects"=>array(),
                 "is_class_teacher"=>isset($classTeacherLookup[$key])
             );
+        } else {
+            $currentSortTime = (strtotime((string)$row["assignment_datetimeentry"]) ?: 0);
+            if($currentSortTime > (int)$assignmentGroups[$key]["sort_timestamp"]){
+                $assignmentGroups[$key]["sort_timestamp"] = $currentSortTime;
+                $assignmentGroups[$key]["session_label"] = td_session_label($row["assignment_datetimeentry"], $row["batch"], $row["termname"]);
+            }
         }
         $assignmentGroups[$key]["subjects"][] = $row["subject"];
     }
 }
 $teachingGroups = array_values($assignmentGroups);
+usort($teachingGroups, function($left, $right){
+    $leftSort = isset($left["sort_timestamp"]) ? (int)$left["sort_timestamp"] : 0;
+    $rightSort = isset($right["sort_timestamp"]) ? (int)$right["sort_timestamp"] : 0;
+    if($leftSort === $rightSort){
+        return strcmp((string)$left["class_name"], (string)$right["class_name"]);
+    }
+    return ($rightSort <=> $leftSort);
+});
+$recentTeachingGroups = array_slice($teachingGroups, 0, $recentTeachingGroupLimit);
 $teachingGroupCount = count($teachingGroups);
+$recentTeachingGroupCount = count($recentTeachingGroups);
 $classTeacherRoleCount = count($classTeacherRoles);
 $activeBatchCount = count($activeBatchIds);
 $myMessageCount = 0;
@@ -144,7 +173,7 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
         <p>Use one cleaner workspace for teaching load, score entry, class-teacher duties, report tools, and communication.</p>
         <div class="teacher-stat-grid">
             <article class="teacher-stat-card"><span>Assigned Subjects</span><strong><?php echo (int)$assignedSubjectCount; ?></strong></article>
-            <article class="teacher-stat-card"><span>Teaching Groups</span><strong><?php echo (int)$teachingGroupCount; ?></strong></article>
+            <article class="teacher-stat-card"><span>Recent Groups</span><strong><?php echo (int)$recentTeachingGroupCount; ?></strong></article>
             <article class="teacher-stat-card"><span>Class Teacher Roles</span><strong><?php echo (int)$classTeacherRoleCount; ?></strong></article>
             <article class="teacher-stat-card"><span>My Messages</span><strong><?php echo (int)$myMessageCount; ?></strong></article>
         </div>
@@ -176,12 +205,13 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
         <div><span class="teacher-section__eyebrow">Quick Actions</span><h2>Move straight into today's work</h2></div>
     </div>
     <div class="teacher-quick-grid">
-        <a class="teacher-action-card" href="view-teacher-subject.php"><span class="teacher-action-card__icon"><i class="fa fa-search"></i></span><h3>Assigned Subjects</h3><p>Review the subjects, classes, batches, and semesters attached to your account.</p></a>
+        <a class="teacher-action-card" href="view-teacher-subject.php"><span class="teacher-action-card__icon"><i class="fa fa-search"></i></span><h3>Assigned Subjects</h3><p>Review the subjects, classes, and year-based sessions attached to your account.</p></a>
         <a class="teacher-action-card" href="class-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-pencil"></i></span><h3>Class Score Entry</h3><p>Capture continuous assessment scores quickly for your assigned workload.</p></a>
         <a class="teacher-action-card" href="exam-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-edit"></i></span><h3>Exam Score Entry</h3><p>Enter end-of-semester exam scores without jumping through menus.</p></a>
         <a class="teacher-action-card" href="upload-classexam-score.php"><span class="teacher-action-card__icon"><i class="fa fa-upload"></i></span><h3>Upload Scores</h3><p>Upload combined class and exam scores from prepared templates.</p></a>
         <a class="teacher-action-card" href="student-terminal-data.php"><span class="teacher-action-card__icon"><i class="fa fa-commenting"></i></span><h3>Student Remarks</h3><p>Enter or update terminal remarks and supporting report details.</p></a>
         <a class="teacher-action-card" href="terminal-report.php"><span class="teacher-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Reports</h3><p>Open report tools for checking, reviewing, and printing reports.</p></a>
+        <a class="teacher-action-card" href="lesson-timetable-report.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Lesson Timetable</h3><p>Open your weekly lesson schedule and check today’s teaching periods quickly.</p></a>
         <a class="teacher-action-card" href="scores-report.php"><span class="teacher-action-card__icon"><i class="fa fa-line-chart"></i></span><h3>Scores Report</h3><p>Check reporting summaries and score outputs for your classes.</p></a>
         <a class="teacher-action-card" href="messages.php"><span class="teacher-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board</h3><p>Open the wider message board when you need more than the dashboard preview.</p></a>
     </div>
@@ -190,17 +220,17 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
 <div class="teacher-layout">
     <section class="teacher-panel teacher-panel--wide">
         <div class="teacher-panel__header">
-            <div><span class="teacher-panel__eyebrow">Teaching Load</span><h2>Assigned subjects and classes</h2></div>
+            <div><span class="teacher-panel__eyebrow">Teaching Load</span><h2>Recent assigned subjects and classes</h2></div>
             <a class="teacher-panel__link" href="view-teacher-subject.php">View Full Subject List</a>
         </div>
-        <?php if(count($teachingGroups) > 0){ ?>
+        <?php if(count($recentTeachingGroups) > 0){ ?>
         <div class="teacher-load-grid">
-            <?php foreach($teachingGroups as $group){ ?>
+            <?php foreach($recentTeachingGroups as $group){ ?>
             <article class="teacher-load-card">
                 <div class="teacher-load-card__head">
                     <div>
                         <h3><?php echo td_esc($group["class_name"]); ?></h3>
-                        <p><?php echo td_esc($group["batch"]); ?> | <?php echo td_esc(td_term($group["termname"])); ?></p>
+                        <p><?php echo td_esc($group["session_label"]); ?></p>
                     </div>
                     <div class="teacher-load-card__badges">
                         <span class="teacher-pill"><?php echo count($group["subjects"]); ?> Subject<?php echo (count($group["subjects"])===1?"":"s"); ?></span>
@@ -211,6 +241,11 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
             </article>
             <?php } ?>
         </div>
+        <?php if($teachingGroupCount > $recentTeachingGroupLimit){ ?>
+        <div class="teacher-empty-state teacher-empty-state--compact">
+            <p>Showing the latest <?php echo (int)$recentTeachingGroupLimit; ?> teaching groups. Open the full subject list to see all <?php echo (int)$teachingGroupCount; ?> active assignments.</p>
+        </div>
+        <?php } ?>
         <?php } else { ?>
         <div class="teacher-empty-state"><h3>No subject assignments yet</h3><p>Your assigned classes and subjects will appear here once they have been linked to your account.</p></div>
         <?php } ?>
@@ -249,8 +284,8 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
                 <?php foreach($classTeacherRoles as $role){ ?>
                 <article class="teacher-role-card">
                     <h3><?php echo td_esc($role["class_name"]); ?></h3>
-                    <p><?php echo td_esc($role["batch"]); ?></p>
-                    <span><?php echo td_esc(td_term($role["termname"])); ?></span>
+                    <p><?php echo td_esc($role["session_label"]); ?></p>
+                    <span>Class teacher assignment</span>
                 </article>
                 <?php } ?>
             </div>
@@ -267,6 +302,7 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
                 <a class="teacher-resource-link" href="download-classscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Class Score Template</strong><small>Download the ready-made upload sheet for class scores.</small></span></a>
                 <a class="teacher-resource-link" href="download-examscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Exam Score Template</strong><small>Get the upload template for exam score entries.</small></span></a>
                 <a class="teacher-resource-link" href="download-classexamscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Class & Exam Template</strong><small>Use one combined spreadsheet for class and exam scores.</small></span></a>
+                <a class="teacher-resource-link" href="lesson-timetable-report.php"><span class="teacher-resource-link__icon"><i class="fa fa-calendar"></i></span><span class="teacher-resource-link__body"><strong>Lesson Timetable</strong><small>Check your assigned lesson periods by day from the teacher workspace.</small></span></a>
                 <a class="teacher-resource-link" href="examinationtimetablereport.php"><span class="teacher-resource-link__icon"><i class="fa fa-calendar"></i></span><span class="teacher-resource-link__body"><strong>Exam Timetable Report</strong><small>Open the timetable report when you need the current exam schedule.</small></span></a>
             </div>
         </section>

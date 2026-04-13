@@ -1,11 +1,16 @@
 <?php
 session_start();
 $_SESSION['Message'] = "";
+include("dbstring.php");
+include("check-login.php");
+include("class-teacher-utils.php");
+if(!(class_teacher_is_teacher() || class_teacher_is_admin())){
+    header("location:".class_teacher_landing_page());
+    exit();
+}
 
 // Handle XLS download at the top to avoid output conflicts
 if (isset($_GET['download']) && $_GET['download'] == 'xls') {
-    include("dbstring.php"); // Include database connection
-
     // Clean any existing output buffers
     while (ob_get_level() > 0) {
         ob_end_clean();

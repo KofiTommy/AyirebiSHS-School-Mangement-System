@@ -6,16 +6,19 @@ if(!isset($con)){
   include_once("dbstring.php");
 }
 include_once("house-master-utils.php");
+include_once("user-management-utils.php");
 ensure_house_tables($con);
 $_ShowHouseMasterLinks = false;
 $_ShowSeniorHouseLinks = false;
 $_HouseMasterDashboardLabel = "House Master Dashboard";
+$_TeacherExtraAccessLinks = array();
 if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
    $_SESSION['ACCESSLEVEL'] === "user" &&
    $_SESSION['SYSTEMTYPE'] === "Teacher"){
   $_ShowHouseMasterLinks = house_master_has_assignment($con, $_SESSION['USERID']);
   $_ShowSeniorHouseLinks = house_master_has_senior_assignment($con, $_SESSION['USERID']);
   $_HouseMasterDashboardLabel = house_master_dashboard_label($con, $_SESSION['USERID']);
+  $_TeacherExtraAccessLinks = um_teacher_extra_nav_links($con, $_SESSION['USERID']);
 }
 $_ShowExeatManagerLinks = $_ShowHouseMasterLinks || $_ShowSeniorHouseLinks;
 echo "<h2 style='color:dodgerblue;margin-top:-30px;'>$_CompanyName</h2>";
@@ -44,6 +47,11 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher")
     if($_ShowSeniorHouseLinks){
       echo "<a href='senior-house-dashboard.php'><i class='fa fa-dashboard' ></i> Senior House Dashboard</a>";
     }
+    if(!empty($_TeacherExtraAccessLinks)){
+      foreach($_TeacherExtraAccessLinks as $_ExtraLink){
+        echo "<a href='".htmlspecialchars($_ExtraLink['href'], ENT_QUOTES, 'UTF-8')."'><i class='fa ".htmlspecialchars($_ExtraLink['icon'], ENT_QUOTES, 'UTF-8')."' ></i> ".htmlspecialchars($_ExtraLink['label'], ENT_QUOTES, 'UTF-8')."</a>";
+      }
+    }
     ?>
     
     </div>
@@ -63,6 +71,7 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher")
      <a href="upload-student-remark-data.php"><i class="fa fa-upload" ></i> Upload Students Remark Data</a>
      <a href="scores-report.php"><i class="fa fa-book" ></i> Scores Report</a>
      <a href="terminal-report.php"> <i class="fa fa-plus" ></i> Terminal Report</a>
+     <a href="lesson-timetable-report.php"><i class="fa fa-calendar" ></i> Lesson Timetable</a>
      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
      
     </div>
@@ -145,7 +154,10 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
     <a href="subject-assignment.php"><i class="fa fa-plus" ></i> Subject Assignment</a>
     <a href="class-teacher-assignment.php"><i class="fa fa-plus" ></i> Class Teacher Assignment</a>
     <a href="duty-roster.php"><i class="fa fa-calendar-check-o" ></i> Duty Roster</a>
+    <a href="lesson-timetable.php"><i class="fa fa-calendar" ></i> Lesson Timetable Entry</a>
+    <a href="lesson-timetable-report.php"><i class="fa fa-book" ></i> Lesson Timetable Report</a>
     <a href="online-admission-admin.php"><i class="fa fa-globe" ></i> Online Admission</a>
+    <a href="user-management.php"><i class="fa fa-users" ></i> User Management</a>
     <a href="house-entry.php"><i class="fa fa-home" ></i> House Entry</a>
     <a href="house-master-assignment.php"><i class="fa fa-plus" ></i> House Master Assignment</a>
     <a href="student-house-assignment.php"><i class="fa fa-users" ></i> Student House Assignment</a>
@@ -169,6 +181,8 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
      <a href="examanalysis-rank.php"><i class="fa fa-trophy" ></i> Exam Analysis: Rank</a>
      
      <a href="terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>
+     <a href="lesson-timetable.php"><i class="fa fa-calendar" ></i> Lesson Timetable Entry</a>
+     <a href="lesson-timetable-report.php"><i class="fa fa-book" ></i> Lesson Timetable Report</a>
      <a href="examinationtimetable.php"><i class="fa fa-plus" ></i> Exam Time Table Entry</a>
      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
      
@@ -236,7 +250,10 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
      <a href="subject-assignment.php"><i class="fa fa-plus" ></i> Subject Assignment</a>
     <a href="class-teacher-assignment.php"><i class="fa fa-plus" ></i> Class Teacher Assignment</a>
     <a href="duty-roster.php"><i class="fa fa-calendar-check-o" ></i> Duty Roster</a>
+    <a href="lesson-timetable.php"><i class="fa fa-calendar" ></i> Lesson Timetable Entry</a>
+    <a href="lesson-timetable-report.php"><i class="fa fa-book" ></i> Lesson Timetable Report</a>
     <a href="online-admission-admin.php"><i class="fa fa-globe" ></i> Online Admission</a>
+    <a href="user-management.php"><i class="fa fa-users" ></i> User Management</a>
     <a href="house-entry.php"><i class="fa fa-home" ></i> House Entry</a>
     <a href="house-master-assignment.php"><i class="fa fa-plus" ></i> House Master Assignment</a>
     <a href="student-house-assignment.php"><i class="fa fa-users" ></i> Student House Assignment</a>
@@ -333,6 +350,8 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
 
      <a href="examinationtimetable.php"><i class="fa fa-plus" ></i> Exam Time Table Entry</a>
      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
+     <a href="lesson-timetable.php"><i class="fa fa-calendar" ></i> Lesson Timetable Entry</a>
+     <a href="lesson-timetable-report.php"><i class="fa fa-book" ></i> Lesson Timetable Report</a>
            
      <a href="student-terminal-data.php"><i class="fa fa-plus" ></i> Student Terminal Data</a>
      <a href="terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>

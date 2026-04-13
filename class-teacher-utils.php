@@ -74,6 +74,18 @@ function class_teacher_landing_page(){
 }
 }
 
+if(!function_exists('class_teacher_can_manage_assignments')){
+function class_teacher_can_manage_assignments($con = null){
+    if(class_teacher_is_admin()){
+        return true;
+    }
+    if(!$con || !function_exists('um_current_user_can_access_module')){
+        return false;
+    }
+    return um_current_user_can_access_module($con, 'class_teacher_assignment');
+}
+}
+
 if(!function_exists('ensure_class_teacher_table')){
 function ensure_class_teacher_table($con){
     if(xschool_schema_cache_is_fresh('schema_tblclassteacher_v1')){

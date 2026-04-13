@@ -46,7 +46,7 @@ body.score-entry-page--exam {
     position: relative;
     overflow: hidden;
     display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(300px, 360px);
+    grid-template-columns: minmax(0, 1.65fr) minmax(260px, 320px);
     gap: 22px;
     padding: clamp(24px, 4vw, 38px);
     border-radius: 34px;
@@ -72,6 +72,10 @@ body.score-entry-page--exam {
 .score-entry-hero__aside {
     position: relative;
     z-index: 1;
+}
+
+.score-entry-hero__aside {
+    align-self: start;
 }
 
 .score-entry-kicker,
@@ -145,10 +149,10 @@ body.score-entry-page--exam {
 }
 
 .score-entry-tip-card {
-    padding: 22px;
-    border-radius: 28px;
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    padding: 18px 18px 16px;
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.1));
+    border: 1px solid rgba(255, 255, 255, 0.2);
     backdrop-filter: blur(12px);
 }
 
@@ -157,19 +161,39 @@ body.score-entry-page--exam {
 }
 
 .score-entry-tip-card h2 {
-    margin: 12px 0 12px;
-    font-size: 1.75rem;
+    margin: 10px 0 10px;
+    font-size: clamp(1.3rem, 2.4vw, 1.5rem);
+    line-height: 1.08;
 }
 
 .score-entry-tip-card ul {
     margin: 0;
-    padding-left: 18px;
-    color: rgba(237, 244, 247, 0.84);
-    line-height: 1.72;
+    padding: 0 0 0 22px;
+    list-style: disc;
+    overflow: visible;
+    background: transparent !important;
+    color: #f3f8fb;
+    line-height: 1.62;
+    font-size: 0.95rem;
+}
+
+.score-entry-tip-card li {
+    float: none;
+    display: list-item;
+    margin: 0;
+    padding: 0;
+    border-right: 0;
+    background: transparent !important;
+    color: #f3f8fb;
+    font-weight: 500;
+}
+
+.score-entry-tip-card li::marker {
+    color: #ffd899;
 }
 
 .score-entry-tip-card li + li {
-    margin-top: 8px;
+    margin-top: 6px;
 }
 
 .score-entry-flash {
@@ -724,6 +748,20 @@ body.score-entry-page--exam {
     .score-entry-hero,
     .score-entry-panel {
         padding: 18px;
+    }
+
+    .score-entry-tip-card {
+        padding: 16px 16px 14px;
+        border-radius: 20px;
+    }
+
+    .score-entry-tip-card h2 {
+        font-size: 1.2rem;
+    }
+
+    .score-entry-tip-card ul {
+        font-size: 0.92rem;
+        line-height: 1.56;
     }
 
     .score-entry-hero h1 {

@@ -76,6 +76,18 @@ function duty_roster_landing_page(){
 }
 }
 
+if(!function_exists('duty_roster_can_manage_module')){
+function duty_roster_can_manage_module($con = null){
+    if(duty_roster_is_admin()){
+        return true;
+    }
+    if(!$con || !function_exists('um_current_user_can_access_module')){
+        return false;
+    }
+    return um_current_user_can_access_module($con, 'duty_roster');
+}
+}
+
 if(!function_exists('duty_roster_escape')){
 function duty_roster_escape($value){
     return htmlspecialchars((string)$value, ENT_QUOTES, "UTF-8");

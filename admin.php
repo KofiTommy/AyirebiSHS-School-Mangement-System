@@ -1211,6 +1211,23 @@ include("links.php");
                                 if (selectedTop) selectedTop.classList.add('active');
                             }
 
+                            function syncDashboardSectionFromLocation() {
+                                const urlParams = new URLSearchParams(window.location.search);
+                                if (window.location.hash === '#system-change-notifications') {
+                                    showDashboardSection('section-notifications');
+                                    return;
+                                }
+                                if (
+                                    urlParams.get('perf_class') ||
+                                    urlParams.get('perf_batch') ||
+                                    urlParams.get('perf_term')
+                                ) {
+                                    showDashboardSection('section-performance');
+                                    return;
+                                }
+                                showDashboardSection('section-overview');
+                            }
+
                             document.querySelectorAll('.dash-side-btn, .dash-top-btn').forEach(btn => {
                                 btn.addEventListener('click', function() {
                                     const target = this.getAttribute('data-target');
@@ -1218,18 +1235,8 @@ include("links.php");
                                 });
                             });
 
-                            const urlParams = new URLSearchParams(window.location.search);
-                            if (window.location.hash === '#system-change-notifications') {
-                                showDashboardSection('section-notifications');
-                            } else if (
-                                urlParams.get('perf_class') ||
-                                urlParams.get('perf_batch') ||
-                                urlParams.get('perf_term')
-                            ) {
-                                showDashboardSection('section-performance');
-                            } else {
-                                showDashboardSection('section-overview');
-                            }
+                            window.addEventListener('hashchange', syncDashboardSectionFromLocation);
+                            syncDashboardSectionFromLocation();
 
                             if (typeof Chart !== 'function') {
                                 return;

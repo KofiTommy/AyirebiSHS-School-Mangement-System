@@ -8,7 +8,7 @@ include_once("house-master-utils.php");
 ensure_online_admission_tables($con);
 ensure_house_tables($con);
 
-if(!online_admission_is_admin()){
+if(!online_admission_can_manage_portal($con)){
     header("location:".online_admission_landing_page());
     exit();
 }
@@ -1061,6 +1061,8 @@ if(isset($_POST["save_admission_documents"])){
     $documentGroup = strtolower(trim((string)(isset($_POST["document_group"]) ? $_POST["document_group"] : "general")));
     $documentTargetGender = trim((string)(isset($_POST["document_target_gender"]) ? $_POST["document_target_gender"] : ""));
     $documentTargetResidence = trim((string)(isset($_POST["document_target_residencetype"]) ? $_POST["document_target_residencetype"] : ""));
+    $documentRandomEnabled = isset($_POST["document_random_enabled"]) ? 1 : 0;
+    $documentRandomPool = trim((string)(isset($_POST["document_random_pool"]) ? $_POST["document_random_pool"] : ""));
     $uploadedBy = isset($_SESSION["USERID"]) ? (string)$_SESSION["USERID"] : "";
     $errors = array();
 
@@ -1088,7 +1090,9 @@ if(isset($_POST["save_admission_documents"])){
             array(
                 "documentgroup" => $documentGroup,
                 "targetgender" => $documentTargetGender,
-                "targetresidencetype" => $documentTargetResidence
+                "targetresidencetype" => $documentTargetResidence,
+                "randomenabled" => $documentRandomEnabled,
+                "randompool" => $documentRandomPool
             )
         );
         if(!$savedDocument){
@@ -1102,7 +1106,9 @@ if(isset($_POST["save_admission_documents"])){
             "\"".$documentTitle."\" uploaded successfully.".(
                 $savedDocument && online_admission_document_group($savedDocument) === "prospectus"
                     ? " Assigned to ".strtolower(online_admission_document_target_summary($savedDocument))."."
-                    : ""
+                    : ($savedDocument && online_admission_document_random_enabled($savedDocument)
+                        ? " Random pool: ".online_admission_document_random_pool($savedDocument)."."
+                        : "")
             )
         )
         : aa_alert("error", implode(" ", $errors));
@@ -1691,11 +1697,8 @@ if($printAction === "recent_payments"){
 
     <nav class="aa-quick-links" aria-label="Admission admin quick links">
         <a href="#portal-entry" class="aa-quick-link"><i class="fa fa-globe"></i> Portal</a>
-        <a href="#payment-settings" class="aa-quick-link"><i class="fa fa-credit-card"></i> Payment</a>
-        <a href="#import-posted-students" class="aa-quick-link"><i class="fa fa-upload"></i> Import</a>
         <a href="#posted-student-setup" class="aa-quick-link"><i class="fa fa-user-plus"></i> Add Student</a>
-        <a href="#admission-houses" class="aa-quick-link"><i class="fa fa-home"></i> Houses</a>
-        <a href="#admission-documents" class="aa-quick-link"><i class="fa fa-folder-open"></i> Documents</a>
+        <a href="#admission-settings-panel" class="aa-quick-link"><i class="fa fa-sliders"></i> Settings</a>
         <a href="#applications" class="aa-quick-link"><i class="fa fa-files-o"></i> Applications</a>
         <a href="#admission-payments" class="aa-quick-link"><i class="fa fa-money"></i> Payments</a>
         <a href="#help-requests" class="aa-quick-link"><i class="fa fa-life-ring"></i> Help</a>
@@ -1831,143 +1834,10 @@ if($printAction === "recent_payments"){
                 </div>
             </form>
         </section>
-
-        <section class="rs-panel aa-section aa-accordion-section is-open" id="admission-houses" data-accordion-group="operations">
-            <div class="rs-panel-head">
-                <div>
-                    <span class="rs-kicker rs-kicker--dark">House Setup</span>
-                    <h2>Student Houses</h2>
-                    <p>Create the houses students will later be assigned to across registration, house management, and exeat workflows.</p>
-                </div>
-                <span class="aa-section-chip aa-section-chip--neutral"><?php echo number_format($houseActiveCount); ?> Active</span>
-            </div>
-
-            <form method="post" action="online-admission-admin.php#admission-houses" class="rs-form aa-house-form">
-                <section class="rs-section">
-                    <div class="rs-grid rs-grid--2">
-                        <div class="rs-field">
-                            <label for="admission_house_name">House Name</label>
-                            <input type="text" id="admission_house_name" name="housename" value="<?php echo aa_esc($houseForm["housename"]); ?>" placeholder="Example: Red House" required>
-                        </div>
-                        <div class="rs-field">
-                            <label for="admission_house_description">Short Description</label>
-                            <textarea id="admission_house_description" name="description" placeholder="Optional note about the house, block, or intake group."><?php echo aa_esc($houseForm["description"]); ?></textarea>
-                        </div>
-                    </div>
-                    <label class="aa-payment-toggle aa-payment-toggle--compact">
-                        <input type="checkbox" name="autoassignenabled" value="1"<?php echo $houseForm["autoassignenabled"] === "1" ? " checked" : ""; ?>>
-                        <span>Use this house in automatic online-admission house assignment.</span>
-                    </label>
-                </section>
-
-                <div class="rs-form-foot">
-                    <p><i class="fa fa-home"></i> The system reads the house name and description to work out whether it is male/female and day/boarding, then routes students to the least-loaded matching house automatically.</p>
-                    <button type="submit" name="save_admission_house" class="rs-submit"><i class="fa fa-plus"></i> Create House</button>
-                </div>
-            </form>
-
-            <div class="aa-house-bar">
-                <div class="aa-payment-config-meta">
-                    <span class="aa-status aa-status--success"><?php echo number_format($houseActiveCount); ?> Active</span>
-                    <span class="aa-status aa-status--neutral"><?php echo number_format(count($studentHouses)); ?> Total Houses</span>
-                </div>
-                <a href="house-entry.php" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-external-link"></i> Open Full House Management</a>
-            </div>
-
-            <div class="aa-house-grid">
-                <?php if(!empty($studentHouses)){ foreach($studentHouses as $houseRow){ ?>
-                <article class="aa-house-card">
-                    <div class="aa-house-card__head">
-                        <div>
-                            <h3><?php echo aa_esc($houseRow["housename"]); ?></h3>
-                            <p><?php echo aa_esc(trim((string)$houseRow["description"]) !== "" ? $houseRow["description"] : "No description added yet."); ?></p>
-                        </div>
-                        <span class="<?php echo aa_house_status_class($houseRow["status"]); ?>"><?php echo aa_esc(ucfirst((string)$houseRow["status"])); ?></span>
-                    </div>
-                    <div class="aa-house-meta">
-                        <span><strong>Students:</strong> <?php echo number_format((int)$houseRow["studenttotal"]); ?> assigned</span>
-                        <span><strong>Auto Assign:</strong> <?php echo (int)$houseRow["autoassignenabled"] === 1 ? "Yes" : "No"; ?></span>
-                        <span><strong>Created:</strong> <?php echo aa_esc(aa_date($houseRow["datetimeentry"], "d M Y")); ?></span>
-                    </div>
-                    <form method="post" action="online-admission-admin.php#admission-houses" class="aa-house-config">
-                        <input type="hidden" name="houseid" value="<?php echo aa_esc($houseRow["houseid"]); ?>">
-                        <label class="aa-payment-toggle aa-payment-toggle--compact aa-house-toggle">
-                            <input type="checkbox" name="autoassignenabled" value="1"<?php echo (int)$houseRow["autoassignenabled"] === 1 ? " checked" : ""; ?>>
-                            <span>Allow automatic assignment to this house</span>
-                        </label>
-                        <button type="submit" name="save_house_profile" class="aa-button aa-button--wide"><i class="fa fa-save"></i> Save House Rules</button>
-                    </form>
-                </article>
-                <?php } } else { ?>
-                <div class="rs-empty"><h3>No houses created yet</h3><p>Add the first student house here and it will be available throughout the system.</p></div>
-                <?php } ?>
-            </div>
-        </section>
-
-        <section class="rs-panel aa-section aa-section--compact aa-accordion-section" id="cycle-rollover" data-accordion-group="operations">
-            <div class="rs-side-head">
-                <span class="rs-kicker rs-kicker--dark">Admission Reset</span>
-                <h2>Clear Admission Year</h2>
-                <span class="aa-section-chip aa-section-chip--warning"><?php echo aa_esc($activeCycle ? $activeCycle["admissionyear"] : "No Active Year"); ?></span>
-            </div>
-            <p class="aa-copy">Use this only when one admission cycle is fully finished and you want to prepare for a new year. Download the year records first, then clear that entire admission year from posted students, forms, payments, and help requests.</p>
-            <div class="aa-rollover-note">
-                <strong>What happens when you clear a year</strong>
-                <span>The system saves that year's student admission photos into a backup folder, then removes that year's posted students, applications, payments, and help requests so the portal is ready for a fresh intake.</span>
-            </div>
-
-            <?php if($activeCycle){ $cycle = $activeCycle; $cycleState = aa_cycle_status($cycle); ?>
-            <div class="aa-cycle-grid">
-                <article class="aa-cycle-card">
-                    <div class="aa-cycle-card__top">
-                        <div>
-                            <h3><?php echo aa_esc($cycle["admissionyear"]); ?> Active Admission Year</h3>
-                            <p>Download the year backup files before using the clear button.</p>
-                        </div>
-                        <span class="<?php echo $cycleState["class"]; ?>"><?php echo aa_esc($cycleState["label"]); ?></span>
-                    </div>
-
-                    <div class="aa-cycle-metrics">
-                        <article><span>Posted</span><strong><?php echo number_format((int)$cycle["posted_total"]); ?></strong></article>
-                        <article><span>Applications</span><strong><?php echo number_format((int)$cycle["application_total"]); ?></strong></article>
-                        <article><span>Drafts</span><strong><?php echo number_format((int)$cycle["draft_total"]); ?></strong></article>
-                        <article><span>Submitted</span><strong><?php echo number_format((int)$cycle["submitted_total"]); ?></strong></article>
-                        <article><span>Reviewed</span><strong><?php echo number_format((int)$cycle["reviewed_total"]); ?></strong></article>
-                        <article><span>Paid</span><strong><?php echo number_format((int)$cycle["payment_success_total"]); ?></strong></article>
-                    </div>
-
-                    <div class="aa-cycle-actions">
-                        <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_posted_students", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Posted List</a>
-                        <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_applications", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Applications</a>
-                        <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_payments", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Payments</a>
-                        <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_help_requests", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Help Requests</a>
-                        <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_images", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-download"></i> Images (ZIP)</a>
-                    </div>
-
-                    <form method="post" action="online-admission-admin.php#cycle-rollover" class="aa-cycle-form">
-                        <input type="hidden" name="clear_year" value="<?php echo aa_esc($cycle["admissionyear"]); ?>">
-                        <div class="rs-field">
-                            <label for="backup_reference_<?php echo aa_esc($cycle["admissionyear"]); ?>">Backup Reference</label>
-                            <input type="text" id="backup_reference_<?php echo aa_esc($cycle["admissionyear"]); ?>" name="backup_reference" placeholder="Example: 2026 SQL backup + year Excel exports">
-                        </div>
-                        <label class="aa-payment-toggle aa-payment-toggle--compact">
-                            <input type="checkbox" name="confirm_clear" value="1">
-                            <span>I have backed up <?php echo aa_esc($cycle["admissionyear"]); ?> and I want to clear it.</span>
-                        </label>
-                        <button type="submit" name="clear_admission_year" class="aa-button aa-button--danger" <?php echo (int)$cycle["posted_total"] < 1 && (int)$cycle["application_total"] < 1 && (int)$cycle["payment_total"] < 1 && (int)$cycle["help_total"] < 1 ? "disabled" : ""; ?>><i class="fa fa-trash"></i> Clear Admission Year</button>
-                        <?php if((int)$cycle["posted_total"] < 1 && (int)$cycle["application_total"] < 1 && (int)$cycle["payment_total"] < 1 && (int)$cycle["help_total"] < 1){ ?><p class="aa-cycle-footnote">There is nothing left to clear for this admission year.</p><?php } ?>
-                    </form>
-                </article>
-            </div>
-            <?php }else{ ?>
-            <div class="rs-empty"><h3>No admission years found</h3><p>Add posted students first before using the reset tools.</p></div>
-            <?php } ?>
-        </section>
         </div>
 
-        <aside class="rs-side">
-            <div class="aa-block-label">Portal Setup</div>
-            <section class="rs-panel aa-accordion-section is-open" id="portal-entry" data-accordion-group="setup">
+        <aside class="rs-side" id="admission-settings">
+            <section class="rs-panel aa-accordion-section is-collapsed" id="portal-entry" data-accordion-group="setup-top">
                 <div class="rs-side-head">
                     <span class="rs-kicker rs-kicker--dark">Public Entry</span>
                     <h2>Admission Portal</h2>
@@ -1981,7 +1851,15 @@ if($printAction === "recent_payments"){
                 <a href="online-admission.php" class="aa-link" target="_blank"><i class="fa fa-external-link"></i> Open Public Admission Portal</a>
             </section>
 
-            <section class="rs-panel aa-accordion-section" id="payment-settings" data-accordion-group="setup">
+            <section class="rs-panel aa-settings-shell aa-accordion-section is-collapsed" id="admission-settings-panel" data-accordion-group="setup-top">
+                <div class="rs-side-head">
+                    <span class="rs-kicker rs-kicker--dark">Workspace Setup</span>
+                    <h2>Admission Settings</h2>
+                    <span class="aa-section-chip aa-section-chip--neutral">5 Tools</span>
+                </div>
+                <p class="aa-copy">Manage import, houses, documents, payment, and year-end reset from one place.</p>
+                <div class="aa-settings-stack">
+            <section class="rs-panel aa-accordion-section" id="payment-settings" data-accordion-group="settings-inner">
                 <div class="rs-side-head">
                     <span class="rs-kicker rs-kicker--dark">Online Payment</span>
                     <h2>Paystack Settings</h2>
@@ -2024,7 +1902,100 @@ if($printAction === "recent_payments"){
                 <a href="online-admission-paystack-test.php" class="aa-link aa-link--ghost"><i class="fa fa-flask"></i> Open Paystack Sandbox Tester</a>
             </section>
 
-            <section class="rs-panel aa-accordion-section" id="admission-documents" data-accordion-group="setup">
+            <section class="rs-panel aa-accordion-section is-open" id="import-posted-students" data-accordion-group="settings-inner">
+                <div class="rs-side-head">
+                    <span class="rs-kicker rs-kicker--dark">Bulk Upload</span>
+                    <h2>Import Posted Students</h2>
+                    <span class="aa-section-chip aa-section-chip--info">CSSPS / CSV</span>
+                </div>
+                <p class="aa-copy">Upload the CSSPS or CSV list here to load many posted students at once.</p>
+                <form method="post" action="online-admission-admin.php" enctype="multipart/form-data" class="aa-upload-form">
+                    <div class="rs-field">
+                        <label for="upload_admissionyear">Default Admission Year</label>
+                        <input type="text" id="upload_admissionyear" name="upload_admissionyear" value="<?php echo date("Y"); ?>">
+                    </div>
+                    <div class="rs-field">
+                        <label for="posted_student_file">Excel / CSV File</label>
+                        <input type="file" id="posted_student_file" name="posted_student_file" accept=".xlsx,.csv" required>
+                    </div>
+                    <button type="submit" name="upload_posted_students" class="aa-button aa-button--wide"><i class="fa fa-upload"></i> Upload Posted Students</button>
+                </form>
+                <a href="online-admission-admin.php?download_posted_template=1" class="aa-link aa-link--ghost"><i class="fa fa-download"></i> Download CSV Template</a>
+            </section>
+
+            <section class="rs-panel aa-accordion-section" id="admission-houses" data-accordion-group="settings-inner">
+                <div class="rs-panel-head">
+                    <div>
+                        <span class="rs-kicker rs-kicker--dark">House Setup</span>
+                        <h2>Student Houses</h2>
+                        <p>Create the houses students will later be assigned to across registration, house management, and exeat workflows.</p>
+                    </div>
+                    <span class="aa-section-chip aa-section-chip--neutral"><?php echo number_format($houseActiveCount); ?> Active</span>
+                </div>
+
+                <form method="post" action="online-admission-admin.php#admission-houses" class="rs-form aa-house-form">
+                    <section class="rs-section">
+                        <div class="rs-grid rs-grid--2">
+                            <div class="rs-field">
+                                <label for="admission_house_name">House Name</label>
+                                <input type="text" id="admission_house_name" name="housename" value="<?php echo aa_esc($houseForm["housename"]); ?>" placeholder="Example: Red House" required>
+                            </div>
+                            <div class="rs-field">
+                                <label for="admission_house_description">Short Description</label>
+                                <textarea id="admission_house_description" name="description" placeholder="Optional note about the house, block, or intake group."><?php echo aa_esc($houseForm["description"]); ?></textarea>
+                            </div>
+                        </div>
+                        <label class="aa-payment-toggle aa-payment-toggle--compact">
+                            <input type="checkbox" name="autoassignenabled" value="1"<?php echo $houseForm["autoassignenabled"] === "1" ? " checked" : ""; ?>>
+                            <span>Use this house in automatic online-admission house assignment.</span>
+                        </label>
+                    </section>
+
+                    <div class="rs-form-foot">
+                        <p><i class="fa fa-home"></i> The system reads the house name and description to work out whether it is male/female and day/boarding, then routes students to the least-loaded matching house automatically.</p>
+                        <button type="submit" name="save_admission_house" class="rs-submit"><i class="fa fa-plus"></i> Create House</button>
+                    </div>
+                </form>
+
+                <div class="aa-house-bar">
+                    <div class="aa-payment-config-meta">
+                        <span class="aa-status aa-status--success"><?php echo number_format($houseActiveCount); ?> Active</span>
+                        <span class="aa-status aa-status--neutral"><?php echo number_format(count($studentHouses)); ?> Total Houses</span>
+                    </div>
+                    <a href="house-entry.php" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-external-link"></i> Open Full House Management</a>
+                </div>
+
+                <div class="aa-house-grid">
+                    <?php if(!empty($studentHouses)){ foreach($studentHouses as $houseRow){ ?>
+                    <article class="aa-house-card">
+                        <div class="aa-house-card__head">
+                            <div>
+                                <h3><?php echo aa_esc($houseRow["housename"]); ?></h3>
+                                <p><?php echo aa_esc(trim((string)$houseRow["description"]) !== "" ? $houseRow["description"] : "No description added yet."); ?></p>
+                            </div>
+                            <span class="<?php echo aa_house_status_class($houseRow["status"]); ?>"><?php echo aa_esc(ucfirst((string)$houseRow["status"])); ?></span>
+                        </div>
+                        <div class="aa-house-meta">
+                            <span><strong>Students:</strong> <?php echo number_format((int)$houseRow["studenttotal"]); ?> assigned</span>
+                            <span><strong>Auto Assign:</strong> <?php echo (int)$houseRow["autoassignenabled"] === 1 ? "Yes" : "No"; ?></span>
+                            <span><strong>Created:</strong> <?php echo aa_esc(aa_date($houseRow["datetimeentry"], "d M Y")); ?></span>
+                        </div>
+                        <form method="post" action="online-admission-admin.php#admission-houses" class="aa-house-config">
+                            <input type="hidden" name="houseid" value="<?php echo aa_esc($houseRow["houseid"]); ?>">
+                            <label class="aa-payment-toggle aa-payment-toggle--compact aa-house-toggle">
+                                <input type="checkbox" name="autoassignenabled" value="1"<?php echo (int)$houseRow["autoassignenabled"] === 1 ? " checked" : ""; ?>>
+                                <span>Allow automatic assignment to this house</span>
+                            </label>
+                            <button type="submit" name="save_house_profile" class="aa-button aa-button--wide"><i class="fa fa-save"></i> Save House Rules</button>
+                        </form>
+                    </article>
+                    <?php } } else { ?>
+                    <div class="rs-empty"><h3>No houses created yet</h3><p>Add the first student house here and it will be available throughout the system.</p></div>
+                    <?php } ?>
+                </div>
+            </section>
+
+            <section class="rs-panel aa-accordion-section" id="admission-documents" data-accordion-group="settings-inner">
                 <div class="rs-side-head">
                     <span class="rs-kicker rs-kicker--dark">Student Downloads</span>
                     <h2>Admission Documents</h2>
@@ -2072,8 +2043,16 @@ if($printAction === "recent_payments"){
                             <label for="document_file">Document File</label>
                             <input type="file" id="document_file" name="document_file" accept=".pdf,.doc,.docx,application/pdf,.doc,.docx" required>
                         </div>
+                        <label class="aa-payment-toggle aa-payment-toggle--compact aa-document-toggle">
+                            <input type="checkbox" id="document_random_enabled" name="document_random_enabled" value="1">
+                            <span>Assign this general document randomly to students.</span>
+                        </label>
+                        <div class="rs-field">
+                            <label for="document_random_pool">Random Pool Name</label>
+                            <input type="text" id="document_random_pool" name="document_random_pool" placeholder="Example: house-list-2026">
+                        </div>
                     </div>
-                    <p class="aa-copy">For a prospectus, choose both the gender and residence target. Uploading another prospectus for the same target replaces the current one for that year.</p>
+                    <p class="aa-copy">For a prospectus, choose both the gender and residence target. Uploading another prospectus for the same target replaces the current one for that year. For random student documents, use the same pool name on every file that should share one fixed assignment per student.</p>
                     <button type="submit" name="save_admission_documents" class="aa-button aa-button--wide"><i class="fa fa-upload"></i> Add Admission Document</button>
                 </form>
                 <div class="aa-document-grid">
@@ -2089,6 +2068,8 @@ if($printAction === "recent_payments"){
                         <div class="aa-document-meta">
                             <span><strong>Type:</strong> <?php echo aa_esc(online_admission_document_group_label($documentRow)); ?></span>
                             <span><strong>Audience:</strong> <?php echo aa_esc(online_admission_document_target_summary($documentRow)); ?></span>
+                            <span><strong>Delivery:</strong> <?php echo aa_esc(online_admission_document_delivery_label($documentRow)); ?></span>
+                            <?php if(online_admission_document_random_enabled($documentRow)){ ?><span><strong>Random Pool:</strong> <?php echo aa_esc(online_admission_document_random_pool($documentRow)); ?></span><?php } ?>
                             <span><strong>Admission Year:</strong> <?php echo aa_esc($documentYear); ?></span>
                             <span><strong>Uploaded:</strong> <?php echo aa_esc(aa_date($documentRow["uploadedat"], "d M Y, g:i a")); ?></span>
                         </div>
@@ -2107,25 +2088,66 @@ if($printAction === "recent_payments"){
                 </div>
             </section>
 
-            <section class="rs-panel aa-accordion-section" id="import-posted-students" data-accordion-group="setup">
+            <section class="rs-panel aa-accordion-section" id="cycle-rollover" data-accordion-group="settings-inner">
                 <div class="rs-side-head">
-                    <span class="rs-kicker rs-kicker--dark">Bulk Upload</span>
-                    <h2>Import Posted Students</h2>
-                    <span class="aa-section-chip aa-section-chip--info">CSSPS / CSV</span>
+                    <span class="rs-kicker rs-kicker--dark">Admission Reset</span>
+                    <h2>Clear Admission Year</h2>
+                    <span class="aa-section-chip aa-section-chip--warning"><?php echo aa_esc($activeCycle ? $activeCycle["admissionyear"] : "No Active Year"); ?></span>
                 </div>
-                <p class="aa-copy">Upload the CSSPS or CSV list here to load many posted students at once.</p>
-                <form method="post" action="online-admission-admin.php" enctype="multipart/form-data" class="aa-upload-form">
-                    <div class="rs-field">
-                        <label for="upload_admissionyear">Default Admission Year</label>
-                        <input type="text" id="upload_admissionyear" name="upload_admissionyear" value="<?php echo date("Y"); ?>">
-                    </div>
-                    <div class="rs-field">
-                        <label for="posted_student_file">Excel / CSV File</label>
-                        <input type="file" id="posted_student_file" name="posted_student_file" accept=".xlsx,.csv" required>
-                    </div>
-                    <button type="submit" name="upload_posted_students" class="aa-button aa-button--wide"><i class="fa fa-upload"></i> Upload Posted Students</button>
-                </form>
-                <a href="online-admission-admin.php?download_posted_template=1" class="aa-link aa-link--ghost"><i class="fa fa-download"></i> Download CSV Template</a>
+                <p class="aa-copy">Use this only when one admission cycle is fully finished and you want to prepare for a new year. Download the year records first, then clear that entire admission year from posted students, forms, payments, and help requests.</p>
+                <div class="aa-rollover-note">
+                    <strong>What happens when you clear a year</strong>
+                    <span>The system saves that year's student admission photos into a backup folder, then removes that year's posted students, applications, payments, and help requests so the portal is ready for a fresh intake.</span>
+                </div>
+
+                <?php if($activeCycle){ $cycle = $activeCycle; $cycleState = aa_cycle_status($cycle); ?>
+                <div class="aa-cycle-grid">
+                    <article class="aa-cycle-card">
+                        <div class="aa-cycle-card__top">
+                            <div>
+                                <h3><?php echo aa_esc($cycle["admissionyear"]); ?> Active Admission Year</h3>
+                                <p>Download the year backup files before using the clear button.</p>
+                            </div>
+                            <span class="<?php echo $cycleState["class"]; ?>"><?php echo aa_esc($cycleState["label"]); ?></span>
+                        </div>
+
+                        <div class="aa-cycle-metrics">
+                            <article><span>Posted</span><strong><?php echo number_format((int)$cycle["posted_total"]); ?></strong></article>
+                            <article><span>Applications</span><strong><?php echo number_format((int)$cycle["application_total"]); ?></strong></article>
+                            <article><span>Drafts</span><strong><?php echo number_format((int)$cycle["draft_total"]); ?></strong></article>
+                            <article><span>Submitted</span><strong><?php echo number_format((int)$cycle["submitted_total"]); ?></strong></article>
+                            <article><span>Reviewed</span><strong><?php echo number_format((int)$cycle["reviewed_total"]); ?></strong></article>
+                            <article><span>Paid</span><strong><?php echo number_format((int)$cycle["payment_success_total"]); ?></strong></article>
+                        </div>
+
+                        <div class="aa-cycle-actions">
+                            <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_posted_students", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Posted List</a>
+                            <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_applications", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Applications</a>
+                            <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_payments", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Payments</a>
+                            <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_help_requests", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-file-excel-o"></i> Help Requests</a>
+                            <a href="<?php echo aa_esc(aa_admin_url(array("export" => "year_images", "cycle_year" => $cycle["admissionyear"]), "#cycle-rollover")); ?>" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-download"></i> Images (ZIP)</a>
+                        </div>
+
+                        <form method="post" action="online-admission-admin.php#cycle-rollover" class="aa-cycle-form">
+                            <input type="hidden" name="clear_year" value="<?php echo aa_esc($cycle["admissionyear"]); ?>">
+                            <div class="rs-field">
+                                <label for="backup_reference_<?php echo aa_esc($cycle["admissionyear"]); ?>">Backup Reference</label>
+                                <input type="text" id="backup_reference_<?php echo aa_esc($cycle["admissionyear"]); ?>" name="backup_reference" placeholder="Example: 2026 SQL backup + year Excel exports">
+                            </div>
+                            <label class="aa-payment-toggle aa-payment-toggle--compact">
+                                <input type="checkbox" name="confirm_clear" value="1">
+                                <span>I have backed up <?php echo aa_esc($cycle["admissionyear"]); ?> and I want to clear it.</span>
+                            </label>
+                            <button type="submit" name="clear_admission_year" class="aa-button aa-button--danger" <?php echo (int)$cycle["posted_total"] < 1 && (int)$cycle["application_total"] < 1 && (int)$cycle["payment_total"] < 1 && (int)$cycle["help_total"] < 1 ? "disabled" : ""; ?>><i class="fa fa-trash"></i> Clear Admission Year</button>
+                            <?php if((int)$cycle["posted_total"] < 1 && (int)$cycle["application_total"] < 1 && (int)$cycle["payment_total"] < 1 && (int)$cycle["help_total"] < 1){ ?><p class="aa-cycle-footnote">There is nothing left to clear for this admission year.</p><?php } ?>
+                        </form>
+                    </article>
+                </div>
+                <?php }else{ ?>
+                <div class="rs-empty"><h3>No admission years found</h3><p>Add posted students first before using the reset tools.</p></div>
+                <?php } ?>
+            </section>
+                </div>
             </section>
         </aside>
     </div>
@@ -2396,7 +2418,7 @@ if($printAction === "recent_payments"){
     </section>
     <?php } ?>
 
-    <section class="rs-panel aa-section aa-accordion-section is-open" id="applications" data-accordion-group="records">
+    <section class="rs-panel aa-section aa-accordion-section is-collapsed" id="applications" data-accordion-group="records">
         <div class="rs-side-head">
             <span class="rs-kicker rs-kicker--dark">Applications</span>
             <h2>Admission Submissions</h2>
@@ -2709,6 +2731,24 @@ if($printAction === "recent_payments"){
             };
             reader.readAsDataURL(file);
         });
+    }
+
+    var documentGroup = document.getElementById('document_group');
+    var documentRandomToggle = document.getElementById('document_random_enabled');
+    var documentRandomPool = document.getElementById('document_random_pool');
+    if (documentGroup && documentRandomToggle && documentRandomPool) {
+        var syncRandomDocumentControls = function () {
+            var enabled = documentGroup.value === 'general' && documentRandomToggle.checked;
+            documentRandomPool.disabled = !enabled;
+        };
+        documentGroup.addEventListener('change', function () {
+            if (documentGroup.value !== 'general') {
+                documentRandomToggle.checked = false;
+            }
+            syncRandomDocumentControls();
+        });
+        documentRandomToggle.addEventListener('change', syncRandomDocumentControls);
+        syncRandomDocumentControls();
     }
 }());
 </script>

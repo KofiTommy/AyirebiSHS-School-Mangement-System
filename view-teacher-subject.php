@@ -4,6 +4,24 @@ $_SESSION['Message']="";
 ?>
 
 <?php
+if(!function_exists('vts_session_label')){
+function vts_session_label($dateTimeValue, $batchLabel, $termValue){
+    $yearValue = "";
+    if(trim((string)$dateTimeValue) !== ""){
+        $time = strtotime((string)$dateTimeValue);
+        if($time){
+            $yearValue = date("Y", $time);
+        }
+    }
+    if($yearValue === ""){
+        $yearValue = date("Y");
+    }
+    return trim($yearValue." Batch ".trim((string)$batchLabel)." Semester ".trim((string)$termValue));
+}
+}
+?>
+
+<?php
 //@$_UserId=$_POST["userid"];
 //Declare the variables
 if(isset($_POST["print_report"])){
@@ -15,7 +33,8 @@ require('fpdf181/fpdf.php');
 $pdf = new FPDF();
 $pdf->AddPage();
 
-$width_cell=array(15,20,40,80,30,20);
+$width_cell=array(15,20,45,75);
+$report_width = array_sum($width_cell);
 $pdf->SetFont('Arial','B',18);
 //Background color of header//
 //Heading of the pdf
@@ -25,14 +44,14 @@ $pdf->SetFont('Arial','B',18);
 
 $p=7;
 $pdf->SetFillColor(255,255,255);
-$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4]+$width_cell[5],10,strtoupper($_CompanyName)." - GES",0,0,'C',true);
+$pdf->Cell($report_width,10,strtoupper($_CompanyName)." - GES",0,0,'C',true);
 $pdf->Ln($p);
 $pdf->SetFont('Arial','B',10);
 
-$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4]+$width_cell[5],10,$_Address.", ".$_Location,0,0,'C',true);
+$pdf->Cell($report_width,10,$_Address.", ".$_Location,0,0,'C',true);
 $pdf->Ln($p);
 
-$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4]+$width_cell[5],10,'TEL:'. $_Telephone1. " ". $_Telephone2,0,0,'C',true);
+$pdf->Cell($report_width,10,'TEL:'. $_Telephone1. " ". $_Telephone2,0,0,'C',true);
 $pdf->Ln($p);
 //$pdf->SetFont('Arial','B',20);
 $pdf->Ln(10);
@@ -46,15 +65,14 @@ $pdf->SetFillColor(255,255,255);
 
 $pdf->SetFont('Arial','B',9);
 //Header starts //
-$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4]+$width_cell[5],10,"LIST OF SUBJECTS ASSIGNED",0,0,'C',true);
+$pdf->Cell($report_width,10,"LIST OF SUBJECTS ASSIGNED",0,0,'C',true);
 $pdf->Ln($p);
 
 //First header column //
 $pdf->Cell($width_cell[0],10,'*',1,0,'C',true);
-$pdf->Cell($width_cell[1],10,'SEMESTER',1,0,'C',true);
-$pdf->Cell($width_cell[2],10,'SUBJECT ID',1,0,'C',true);
-$pdf->Cell($width_cell[3],10,'SUBJECT',1,0,'C',true);
-$pdf->Cell($width_cell[4],10,'BATCH',1,0,'C',true);
+$pdf->Cell($width_cell[1],10,'SUBJECT ID',1,0,'C',true);
+$pdf->Cell($width_cell[2],10,'SUBJECT',1,0,'C',true);
+$pdf->Cell($width_cell[3],10,'SESSION',1,0,'C',true);
 				
 ///header ends///
 
@@ -72,7 +90,7 @@ $_SQL_EXECUTE_USERS=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.u
 while($row_us=mysqli_fetch_array($_SQL_EXECUTE_USERS,MYSQLI_ASSOC))
 {
 $_getUser_ID =$row_us['firstname']." ". $row_us['othernames']." ". $row_us['surname']."(".$row_us['userid'].")";
-$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4],10,$_getUser_ID,1,0,'L',$fill); 
+$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3],10,$_getUser_ID,1,0,'L',$fill); 
 $pdf->Ln(10);
 
 			$_SQL_EXECUTE_VIEW=mysqli_query($con,"SELECT * FROM tblclassentry ce
@@ -93,17 +111,17 @@ $pdf->Ln(10);
 				}
 				else{
 				$pdf->SetFont('Arial','B',9);
-				$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4],10,$row_v['class_name'],1,0,'L',$fill); 
+				$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3],10,$row_v['class_name'],1,0,'L',$fill); 
 				$pdf->Ln(10);
 				@$serial=0;
 				$pdf->SetFont('Arial','',9);
 							
 				while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
 				$pdf->Cell($width_cell[0],10,$serial=$serial+1 .".",1,0,'L',$fill); 
-				$pdf->Cell($width_cell[1],10,$row["termname"],1,0,'C',$fill); 
-				$pdf->Cell($width_cell[2],10,$row["subjectid"],1,0,'L',$fill); 
-				$pdf->Cell($width_cell[3],10,$row["subject"],1,0,'L',$fill); 
-				$pdf->Cell($width_cell[4],10,$row["batch"],1,0,'L',$fill); 
+				$_SessionLabel = vts_session_label($row["datetimeentry"], $row["batch"], $row["termname"]);
+				$pdf->Cell($width_cell[1],10,$row["subjectid"],1,0,'L',$fill); 
+				$pdf->Cell($width_cell[2],10,$row["subject"],1,0,'L',$fill); 
+				$pdf->Cell($width_cell[3],10,$_SessionLabel,1,0,'L',$fill); 
 				
 				$pdf->Ln(10);
 				}
@@ -385,7 +403,7 @@ $_SQL_EXECUTE_USERS=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.u
 //Registered clients
 				echo "<table width='100%' style='background-color:white'>";
 				echo "<caption>List Of Subjects</caption>";
-				echo "<thead><th width='20%'>Class</th><th>Semester</th><th>Batch</th><th>Subject Id</th><th>Subject</th><th>Entry Date/Time</th><th>Status</th></thead>";
+				echo "<thead><th width='20%'>Class</th><th>Session</th><th>Subject Id</th><th>Subject</th><th>Entry Date/Time</th><th>Status</th></thead>";
 				echo "<tbody>";
 				
 while($row_us=mysqli_fetch_array($_SQL_EXECUTE_USERS,MYSQLI_ASSOC))
@@ -453,8 +471,8 @@ AND sa.userid='$row_us[userid]' AND sa.termname='$k' AND sa.batchid='$row_b[batc
 							while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
 							echo "<tr>";
 							echo "<td align='center'></td>";
-							echo "<td align='center'>$row[termname]</td>";
-							echo "<td align='center'>$row[batch]</td>";
+							$_SessionLabel = vts_session_label($row['datetimeentry'], $row['batch'], $row['termname']);
+							echo "<td align='center'>$_SessionLabel</td>";
 							echo "<td align='center'>$row[subjectid]</td>";
 							echo "<td align='left'>$row[subject]</td>";
 							

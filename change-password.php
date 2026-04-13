@@ -6,13 +6,16 @@ $_SESSION['Message']="";
 <?php
 include("dbstring.php");
 include("audit_notifications.php");
+include_once("user-management-utils.php");
+ensure_user_management_columns($con);
 @$_Oldpassword=md5($_POST['oldpassword']);
 @$_NewUsername=$_POST['username'];
 @$_Newpassword=md5($_POST['newpassword']);
+@$_ForceReset=(isset($_GET['force']) && $_GET['force']=="1");
 
 if(isset($_POST['update_account'])){
 $_SQL_EXECUTE=mysqli_query($con,"UPDATE tblsystemuser 
-	SET username='$_NewUsername',password='$_Newpassword' 
+	SET username='$_NewUsername',password='$_Newpassword',password_reset_required=0,password_last_reset_at=NOW() 
 	WHERE userid='$_SESSION[USERID]' AND password='$_Oldpassword'");
 if($_SQL_EXECUTE){
     if (mysqli_affected_rows($con) > 0) {
@@ -59,6 +62,11 @@ include("links.php");
 	<?php
 	echo $_SESSION['Message'];
 	?>
+<?php
+if($_ForceReset){
+    echo "<div style='color:#92400e;text-align:center;background-color:#fffbeb;border:1px solid #fde68a;padding:10px;border-radius:8px;margin-bottom:10px;'>Your password was reset by an administrator. Please choose a new username and password before continuing.</div>";
+}
+?>
 <div class="form-entry" align="left">
 			
 <h3>Change Password 

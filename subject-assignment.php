@@ -10,6 +10,18 @@ include("dbstring.php");
 @$_Term=$_POST['term'];
 @$_Recordedby=$_SESSION['USERID'];
 
+if(!function_exists('sa_session_label')){
+function sa_session_label($yearValue, $batchLabel, $termValue){
+	$yearValue = trim((string)$yearValue);
+	if($yearValue === ""){
+		$yearValue = date("Y");
+	}
+	$batchLabel = trim((string)$batchLabel);
+	$termValue = trim((string)$termValue);
+	return trim($yearValue." Batch ".$batchLabel." Semester ".$termValue);
+}
+}
+
 if(isset($_POST['register_subject_assignment']))
 {
 	if(!is_array($_ClassificationId) || count($_ClassificationId)===0 || !$_UserId || !$_BatchId || !$_Term){
@@ -25,6 +37,13 @@ if(isset($_POST['register_subject_assignment']))
 		if($row_u_2=mysqli_fetch_array($_SQL_EXECUTE_USER_2,MYSQLI_ASSOC)){
 			$_UserFullname=$row_u_2['firstname']." ".$row_u_2['othernames']." ".$row_u_2['surname']." (".$row_u_2['userid'].")";
 		}
+
+		@$_BatchName=$_BatchId;
+		$_SQL_BATCH=mysqli_query($con,"SELECT batch FROM tblbatch WHERE batchid='$_BatchId' LIMIT 1");
+		if($row_batch=mysqli_fetch_array($_SQL_BATCH,MYSQLI_ASSOC)){
+			$_BatchName=$row_batch['batch'];
+		}
+		@$_SessionLabel=sa_session_label(date("Y"), $_BatchName, $_Term);
 
 		foreach ($_ClassificationId as $_Selected_ClassificationId) 
 		{
@@ -62,12 +81,12 @@ if(isset($_POST['register_subject_assignment']))
 				}
 
 				if($row_exist['userid']===$_UserId){
-					$_SESSION['Message']=$_SESSION['Message']."<div style='color:red;text-align:left;background-color:white;padding:4px;'><i class='fa fa-check' style='color:red'></i> $_CLassName : $_Subject already assigned to $_UserFullname for semester $_Term.</div>";
+					$_SESSION['Message']=$_SESSION['Message']."<div style='color:red;text-align:left;background-color:white;padding:4px;'><i class='fa fa-check' style='color:red'></i> $_CLassName : $_Subject already assigned to $_UserFullname for $_SessionLabel.</div>";
 				}else{
 					$_ExistingAssignmentId=mysqli_real_escape_string($con,$row_exist['assignmentid']);
 					$_SQL_UPDATE=mysqli_query($con,"UPDATE tblsubjectassignment SET userid='$_UserId',recordedby='$_Recordedby',datetimeentry=NOW(),status='active' WHERE assignmentid='$_ExistingAssignmentId'");
 					if($_SQL_UPDATE){
-						$_SESSION['Message']=$_SESSION['Message']."<div style='color:green;text-align:left;background-color:white;padding:4px;'><i class='fa fa-check' style='color:green'></i> $_CLassName : $_Subject reassigned from $_ExistingName to $_UserFullname for semester $_Term.</div>";
+						$_SESSION['Message']=$_SESSION['Message']."<div style='color:green;text-align:left;background-color:white;padding:4px;'><i class='fa fa-check' style='color:green'></i> $_CLassName : $_Subject reassigned from $_ExistingName to $_UserFullname for $_SessionLabel.</div>";
 					}else{
 						$_Error=mysqli_error($con);
 						$_SESSION['Message']=$_SESSION['Message']."<div style='color:red'>$_Subject failed to reassign,$_Error</div>";
@@ -78,7 +97,7 @@ if(isset($_POST['register_subject_assignment']))
 				VALUES('$_AssignmentId','$_UserId','$_ClassId','$_Selected_ClassificationId','$_BatchId','$_Term',NOW(),'active','$_Recordedby')");
 				if($_SQL_EXECUTE)
 				{
-					$_SESSION['Message']=$_SESSION['Message']."<div style='color:green;text-align:left;background-color:white;padding:4px;'><i class='fa fa-check' style='color:green'></i> $_CLassName : $_Subject Successfully Assigned To $_UserFullname (Semester $_Term)</div>";
+					$_SESSION['Message']=$_SESSION['Message']."<div style='color:green;text-align:left;background-color:white;padding:4px;'><i class='fa fa-check' style='color:green'></i> $_CLassName : $_Subject successfully assigned to $_UserFullname for $_SessionLabel.</div>";
 				}
 				else{
 					$_Error=mysqli_error($con);
@@ -202,6 +221,9 @@ include("links.php");
 				
 			echo "</select><br/><br/>";
 			?>
+
+			<label>Assignment Year</label><br/>
+			<input type="text" value="<?php echo date("Y"); ?>" readonly/><br/><br/>
 
 			<select id="term" name="term" class="validate[required]">
 				<option value="" >Select Semester</option>

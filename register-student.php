@@ -8,7 +8,7 @@ include_once("company.php");
 ensure_house_tables($con);
 ensure_online_admission_tables($con);
 
-if(!house_master_is_admin()){
+if(!house_master_can_manage_module($con, 'student_teacher_registration')){
     header("location:".house_master_landing_page());
     exit();
 }

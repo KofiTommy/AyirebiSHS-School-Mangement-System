@@ -6,7 +6,7 @@ include("dbstring.php");
 include("class-teacher-utils.php");
 ensure_class_teacher_table($con);
 
-if(!class_teacher_is_admin()){
+if(!class_teacher_can_manage_assignments($con)){
     header("location:".class_teacher_landing_page());
     exit();
 }

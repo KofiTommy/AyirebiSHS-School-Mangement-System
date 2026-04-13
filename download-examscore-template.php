@@ -5,6 +5,12 @@ $_SESSION['Message']="";
 
 <?php
 include("dbstring.php");
+include("check-login.php");
+include("class-teacher-utils.php");
+if(!(class_teacher_is_teacher() || class_teacher_is_admin())){
+    header("location:".class_teacher_landing_page());
+    exit();
+}
 @$_Update_subject=$_POST['update_item'];
 @$_Update_subjectid=$_POST['update_subjectid'];
 

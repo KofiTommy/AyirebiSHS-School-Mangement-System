@@ -503,7 +503,8 @@ $paymentContinueUrl = ($latestPayment && !$paymentPaid && strtolower(trim((strin
 $showAdmissionForm = $accessAuthorized && (!$paymentEnabled || $paymentPaid);
 $documentsUnlocked = ($application && $postedStudent) ? online_admission_documents_unlocked($application, $successfulPayment, $paymentEnabled ? 1 : 0) : false;
 $studentDocuments = ($documentsUnlocked && $postedStudent)
-    ? online_admission_filter_documents_for_application(
+    ? online_admission_resolve_random_documents_for_application(
+        $con,
         online_admission_list_documents($con, $branchId, (string)$postedStudent["admissionyear"]),
         $application,
         $postedStudent
