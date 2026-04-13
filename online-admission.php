@@ -171,19 +171,16 @@ if(isset($_POST["verify_posting"]) && $branchId !== ""){
         $postedStudent = online_admission_find_posted_student($con, $branchId, $beceIndex, $birthdate, $admissionYear);
         if($postedStudent){
             $application = online_admission_ensure_application_for_posting($con, $postedStudent);
-            if($paymentEnabled){
-                $application = online_admission_ensure_application_token($con, $application);
-            }
             if($application){
                 $successfulPayment = online_admission_get_successful_payment_by_application($con, $application["applicationid"]);
                 if($paymentEnabled && online_admission_payment_is_paid($successfulPayment)){
+                    $application = online_admission_ensure_application_token($con, $application);
                     oa_clear_access_session();
                     $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Payment already confirmed. Use token ".trim((string)$application["verificationtoken"])." to sign in.");
                 }else{
                     oa_set_public_session($postedStudent, $application);
                     if($paymentEnabled){
-                        online_admission_mark_token_used($con, $application["applicationid"]);
-                        $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Your token is ".trim((string)$application["verificationtoken"]).". Pay now, then sign in again.");
+                        $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Continue to payment. Your verification token will be issued after payment is confirmed.");
                     }else{
                         $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Your form is now open.");
                     }
@@ -740,7 +737,7 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
                 <?php }elseif(!$paymentAllowed){ ?>
                 <div class="oa-payment-state oa-payment-state--neutral">Payment is not open for this record yet.</div>
                 <?php }else{ ?>
-                <div class="oa-payment-state oa-payment-state--info">Pay on Paystack, then sign in again with your token.</div>
+                <div class="oa-payment-state oa-payment-state--info">Pay on Paystack first. Your verification token will be issued after payment, then you can sign in again.</div>
                 <?php if($latestPayment && trim((string)$latestPayment["reference"]) !== ""){ ?>
                 <div class="oa-payment-meta">
                     <span><strong>Reference:</strong> <?php echo oa_esc($latestPayment["reference"]); ?></span>
@@ -764,7 +761,7 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
                 </div>
                 <div class="oa-note-grid">
                     <article><strong>Pay on Paystack</strong><span>Enter payment details there.</span></article>
-                    <article><strong>Keep your token</strong><span>You will need it to reopen the form.</span></article>
+                    <article><strong>Get your token</strong><span>It will be issued after payment and used to reopen the form.</span></article>
                 </div>
             </section>
         </aside>

@@ -29,7 +29,7 @@ if(
     trim((string)$_SESSION["ONLINE_ADMISSION_APPLICATION_ID"]) === "" ||
     (string)$_SESSION["ONLINE_ADMISSION_TOKEN_AUTH"] !== "1"
 ){
-    admission_payment_redirect("warning", "Verify your posting and sign in with your token before starting payment.");
+    admission_payment_redirect("warning", "Verify your posting before starting payment.");
 }
 
 $application = online_admission_get_application_by_id($con, (string)$_SESSION["ONLINE_ADMISSION_APPLICATION_ID"]);
@@ -44,7 +44,6 @@ if(!$postedStudent){
     admission_payment_redirect("warning", "Please verify your posting again before continuing with payment.");
 }
 
-$application = online_admission_ensure_application_token($con, $application);
 online_admission_attach_payments_to_application($con, $postedStudent["postingid"], $application["applicationid"]);
 $_SESSION["ONLINE_ADMISSION_POSTING_ID"] = (string)$postedStudent["postingid"];
 $_SESSION["ONLINE_ADMISSION_YEAR"] = (string)$postedStudent["admissionyear"];
@@ -59,6 +58,7 @@ if(!online_admission_payment_open_for_student($postedStudent, $application, $pay
 
 $successfulPayment = online_admission_get_successful_payment_by_application($con, $application["applicationid"]);
 if(online_admission_payment_is_paid($successfulPayment)){
+    $application = online_admission_ensure_application_token($con, $application);
     $existingCode = trim((string)$successfulPayment["admissioncode"]);
     if($existingCode === ""){
         $existingCode = online_admission_generate_payment_code($con);

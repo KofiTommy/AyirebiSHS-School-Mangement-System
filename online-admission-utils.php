@@ -2506,7 +2506,6 @@ function online_admission_resolve_payment_context($con, $payment){
         }
     }
     if($application){
-        $application = online_admission_ensure_application_token($con, $application);
         online_admission_attach_payments_to_application($con, $application["postingid"], $application["applicationid"]);
         if(!$postedStudent && $branchId !== ""){
             $postedStudent = online_admission_get_posted_student_by_id($con, $branchId, $application["postingid"]);
@@ -2572,6 +2571,9 @@ function online_admission_process_paystack_payment_result($con, $payment, $data,
     if($storedStatus === "success" && $admissionCode === ""){
         $admissionCode = online_admission_generate_payment_code($con);
         $codeIssuedAt = date("Y-m-d H:i:s");
+    }
+    if($storedStatus === "success" && $application){
+        $application = online_admission_ensure_application_token($con, $application);
     }
 
     online_admission_update_payment_record($con, $payment["paymentid"], array(
