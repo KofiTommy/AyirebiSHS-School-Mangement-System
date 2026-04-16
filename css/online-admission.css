@@ -413,8 +413,19 @@ body.online-admission-page {
     gap: 12px;
 }
 
+.oa-step-guide {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.oa-step-guide--compact {
+    margin-top: 14px;
+}
+
 .oa-note-grid article,
-.oa-status-guide article {
+.oa-status-guide article,
+.oa-step-guide article {
     padding: 16px;
     border-radius: 18px;
     background: #f7fafc;
@@ -422,14 +433,16 @@ body.online-admission-page {
 }
 
 .oa-note-grid strong,
-.oa-status-guide strong {
+.oa-status-guide strong,
+.oa-step-guide strong {
     display: block;
     margin-bottom: 6px;
     color: #103645;
 }
 
 .oa-note-grid span,
-.oa-status-guide span {
+.oa-status-guide span,
+.oa-step-guide span {
     color: #5f768f;
     line-height: 1.6;
 }

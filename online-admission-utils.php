@@ -525,51 +525,40 @@ function online_admission_application_assigned_house($con, $application){
 }
 
 if(!function_exists('online_admission_house_load_total')){
-function online_admission_house_load_total($con, $houseId, $branchId, $excludeApplicationId = ""){
+function online_admission_house_load_total($con, $houseId, $branchId, $admissionYear = "", $excludeApplicationId = ""){
     $houseIdEsc = mysqli_real_escape_string($con, trim((string)$houseId));
     $branchIdEsc = mysqli_real_escape_string($con, trim((string)$branchId));
+    $admissionYearEsc = mysqli_real_escape_string($con, trim((string)$admissionYear));
     $excludeApplicationIdEsc = mysqli_real_escape_string($con, trim((string)$excludeApplicationId));
     if($houseIdEsc === ""){
         return PHP_INT_MAX;
     }
 
-    $studentTotal = 0;
-    $studentSql = "SELECT COUNT(*) AS total
-        FROM tblstudenthouse sh
-        INNER JOIN tblsystemuser su ON su.userid=sh.userid
-        WHERE sh.houseid='$houseIdEsc'
-          AND sh.status='active'
-          AND su.status='active'";
-    if($branchIdEsc !== ""){
-        $studentSql .= " AND su.branchid='$branchIdEsc'";
-    }
-    $studentRes = mysqli_query($con, $studentSql);
-    if($studentRes && ($row = mysqli_fetch_array($studentRes, MYSQLI_ASSOC))){
-        $studentTotal = (int)$row["total"];
-    }
-
     $applicationTotal = 0;
     $appSql = "SELECT COUNT(*) AS total
         FROM tblonlineadmissionapplication
-        WHERE assignedhouseid='$houseIdEsc'
-          AND (linkedstudentid IS NULL OR linkedstudentid='')";
+        WHERE assignedhouseid='$houseIdEsc'";
     if($branchIdEsc !== ""){
         $appSql .= " AND branchid='$branchIdEsc'";
+    }
+    if($admissionYearEsc !== ""){
+        $appSql .= " AND admissionyear='$admissionYearEsc'";
     }
     if($excludeApplicationIdEsc !== ""){
         $appSql .= " AND applicationid<>'$excludeApplicationIdEsc'";
     }
+    $appSql .= " AND status IN('submitted','reviewed','needs_attention')";
     $appRes = mysqli_query($con, $appSql);
     if($appRes && ($row = mysqli_fetch_array($appRes, MYSQLI_ASSOC))){
         $applicationTotal = (int)$row["total"];
     }
 
-    return $studentTotal + $applicationTotal;
+    return $applicationTotal;
 }
 }
 
 if(!function_exists('online_admission_find_best_house')){
-function online_admission_find_best_house($con, $branchId, $gender, $residence, $excludeApplicationId = ""){
+function online_admission_find_best_house($con, $branchId, $gender, $residence, $admissionYear = "", $excludeApplicationId = ""){
     $gender = house_master_normalize_gender_label($gender);
     $residence = house_master_normalize_residence_label($residence);
     if($gender === "" || $residence === ""){
@@ -586,7 +575,7 @@ function online_admission_find_best_house($con, $branchId, $gender, $residence, 
             if(!house_master_house_profile_matches($row, $gender, $residence)){
                 continue;
             }
-            $row["_load"] = online_admission_house_load_total($con, $row["houseid"], $branchId, $excludeApplicationId);
+            $row["_load"] = online_admission_house_load_total($con, $row["houseid"], $branchId, $admissionYear, $excludeApplicationId);
             $houses[] = $row;
         }
     }
@@ -602,7 +591,24 @@ function online_admission_find_best_house($con, $branchId, $gender, $residence, 
         }
         return $leftLoad < $rightLoad ? -1 : 1;
     });
-    return $houses[0];
+
+    $lowestLoad = isset($houses[0]["_load"]) ? (int)$houses[0]["_load"] : 0;
+    $eligibleHouses = array_values(array_filter($houses, function($house) use ($lowestLoad){
+        return (int)(isset($house["_load"]) ? $house["_load"] : 0) === $lowestLoad;
+    }));
+    if(empty($eligibleHouses)){
+        return $houses[0];
+    }
+    if(count($eligibleHouses) === 1){
+        return $eligibleHouses[0];
+    }
+
+    try{
+        $selectedIndex = random_int(0, count($eligibleHouses) - 1);
+    }catch(Exception $e){
+        $selectedIndex = mt_rand(0, count($eligibleHouses) - 1);
+    }
+    return $eligibleHouses[$selectedIndex];
 }
 }
 
@@ -637,7 +643,14 @@ function online_admission_assign_house_for_application($con, $application, $post
         return $currentHouse;
     }
 
-    $bestHouse = online_admission_find_best_house($con, (string)$application["branchid"], $gender, $residence, (string)$application["applicationid"]);
+    $bestHouse = online_admission_find_best_house(
+        $con,
+        (string)$application["branchid"],
+        $gender,
+        $residence,
+        isset($application["admissionyear"]) ? (string)$application["admissionyear"] : "",
+        (string)$application["applicationid"]
+    );
     if(!$bestHouse){
         return $currentHouse;
     }

@@ -641,6 +641,20 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
                 </div>
                 <button type="submit" name="verify_posting" class="oa-submit"><i class="fa fa-check-circle"></i> <?php echo oa_esc($paymentEnabled ? "Verify and Continue" : "Verify and Open Form"); ?></button>
             </form>
+            <div class="oa-step-guide">
+                <article>
+                    <strong>Before You Click Verify</strong>
+                    <span>Use the BECE index number and date of birth exactly as they appear on the student placement records.</span>
+                </article>
+                <article>
+                    <strong>For Parents</strong>
+                    <span>If you are helping a student, verify the details first before moving to payment or the form.</span>
+                </article>
+                <article>
+                    <strong>What Happens Next</strong>
+                    <span><?php echo oa_esc($paymentEnabled ? "Once the record is confirmed, the payment stage will open." : "Once the record is confirmed, the admission form will open immediately."); ?></span>
+                </article>
+            </div>
         </div>
         <?php } ?>
 
@@ -664,6 +678,12 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
                 </div>
                 <button type="submit" name="continue_admission" class="oa-submit"><i class="fa fa-unlock-alt"></i> <?php echo oa_esc($paymentEnabled ? "Continue Admission" : "Resume Saved Admission"); ?></button>
             </form>
+            <div class="oa-step-guide oa-step-guide--compact">
+                <article>
+                    <strong>Returning Students</strong>
+                    <span><?php echo oa_esc($paymentEnabled ? "Use the token issued after payment to reopen your admission form." : "Use your resume token to reopen and continue from where you stopped."); ?></span>
+                </article>
+            </div>
             <?php if($resumeOnlyMode){ ?>
             <div class="oa-form-actions oa-form-actions--stacked">
                 <a href="online-admission.php" class="oa-secondary"><i class="fa fa-arrow-left"></i> First time here? Verify posting instead</a>
@@ -710,6 +730,24 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
                 <div class="oa-payment-callout">
                     <strong>Verification Token</strong>
                     <span><code><?php echo oa_esc($verificationToken); ?></code></span>
+                </div>
+                <div class="oa-step-guide">
+                    <article>
+                        <strong>Step 1: Start Payment</strong>
+                        <span>Click <b>Pay with Paystack</b>. You will be taken to Paystack's secure page to enter Mobile Money or card details.</span>
+                    </article>
+                    <article>
+                        <strong>Step 2: Wait For Confirmation</strong>
+                        <span>Do not close the page during payment. When payment succeeds, the system will issue your verification token.</span>
+                    </article>
+                    <article>
+                        <strong>Step 3: Reopen Admission</strong>
+                        <span>After payment, come back and log in again with the student's BECE index number, date of birth, and the issued token.</span>
+                    </article>
+                    <article>
+                        <strong>Important</strong>
+                        <span>Parents should keep the phone used for payment nearby in case Paystack asks for a confirmation prompt.</span>
+                    </article>
                 </div>
                 <div class="oa-payment-summary">
                     <article>
@@ -799,6 +837,21 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
                 <span>Save draft to get a resume token.</span>
             </div>
             <?php } ?>
+
+            <div class="oa-step-guide">
+                <article>
+                    <strong>Fill Carefully</strong>
+                    <span>Check phone numbers, parent or guardian details, and address information before you submit.</span>
+                </article>
+                <article>
+                    <strong>Photo And Contact</strong>
+                    <span>Upload a clear student photo and make sure the student and guardian phone numbers are correct.</span>
+                </article>
+                <article>
+                    <strong>Submit Once</strong>
+                    <span>After final submission, the form locks unless the school marks it as needing attention.</span>
+                </article>
+            </div>
 
             <form method="post" action="online-admission.php" enctype="multipart/form-data" class="oa-form">
                 <div class="oa-inline-photo-card">
