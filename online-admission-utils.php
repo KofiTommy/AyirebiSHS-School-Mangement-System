@@ -1304,7 +1304,8 @@ function online_admission_resolve_random_documents_for_application($con, $docume
             }
         }
         if(!$assignedDocument){
-            $selectedIndex = array_rand($documentsInPool, 1);
+            $documentsInPool = array_values($documentsInPool);
+            $selectedIndex = random_int(0, count($documentsInPool) - 1);
             $assignedDocument = $documentsInPool[$selectedIndex];
             online_admission_save_document_assignment($con, $application, $assignedDocument);
         }

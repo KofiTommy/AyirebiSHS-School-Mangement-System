@@ -4,6 +4,12 @@ include("check-login.php");
 include("dbstring.php");
 include_once("audit_notifications.php");
 
+$isTeacher = (
+    isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+    $_SESSION['ACCESSLEVEL'] === "user" &&
+    $_SESSION['SYSTEMTYPE'] === "Teacher"
+);
+
 $isAllowed = (
     isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
     $_SESSION['ACCESSLEVEL'] === "administrator" &&
@@ -2095,6 +2101,7 @@ function examdashPrintSection(sectionId, titleText){
         + ".examdash-small{font-size:12px;color:#5f7388;}"
         + ".examdash-collapsible-body{display:block !important;}"
         + ".examdash-collapsible-toggle{display:none !important;}"
+        + ".examdash-board-safe-search{display:none !important;}"
         + ".examdash-distribution-row{display:grid;grid-template-columns:74px 1fr 56px 70px;gap:10px;align-items:center;margin-bottom:8px;}"
         + ".examdash-progress{height:12px;border-radius:999px;background:#e5edf5;overflow:hidden;}"
         + ".examdash-fill{height:100%;background:linear-gradient(90deg,#0f766e,#0b66c3);}"
@@ -2183,6 +2190,47 @@ function examdashMakeCollapsible(sectionId){
     examdashSetCollapsibleState(section, false);
 }
 
+function examdashFilterBoardSafeRows(){
+    var input = document.getElementById("examdash-board-safe-search");
+    var tableBody = document.getElementById("examdash-board-safe-body");
+    var emptyRow = document.getElementById("examdash-board-safe-empty");
+    var countNode = document.getElementById("examdash-board-safe-count");
+    if(!tableBody){
+        return;
+    }
+
+    var query = input ? String(input.value || "").toLowerCase().trim() : "";
+    var rows = tableBody.querySelectorAll("tr[data-board-safe-label]");
+    var visibleCount = 0;
+
+    for(var i = 0; i < rows.length; i++){
+        var label = String(rows[i].getAttribute("data-board-safe-label") || "").toLowerCase();
+        var shouldShow = (query === "" || label.indexOf(query) !== -1);
+        rows[i].style.display = shouldShow ? "" : "none";
+        if(shouldShow){
+            visibleCount++;
+        }
+    }
+
+    if(emptyRow){
+        emptyRow.style.display = visibleCount === 0 ? "" : "none";
+    }
+    if(countNode){
+        countNode.textContent = visibleCount + " student(s)";
+    }
+}
+
+function examdashClearBoardSafeRows(){
+    var input = document.getElementById("examdash-board-safe-search");
+    if(input){
+        input.value = "";
+    }
+    examdashFilterBoardSafeRows();
+    if(input){
+        input.focus();
+    }
+}
+
 window.addEventListener("DOMContentLoaded", function(){
     var collapsibleIds = [
         "examdash-results-listing-print",
@@ -2197,6 +2245,18 @@ window.addEventListener("DOMContentLoaded", function(){
             section.setAttribute("data-collapsible-group", "secondary-analysis");
         }
         examdashMakeCollapsible(collapsibleIds[i]);
+    }
+
+    var boardSafeSearch = document.getElementById("examdash-board-safe-search");
+    if(boardSafeSearch){
+        boardSafeSearch.addEventListener("input", examdashFilterBoardSafeRows);
+        boardSafeSearch.addEventListener("keydown", function(e){
+            if(e.key === "Enter"){
+                e.preventDefault();
+                examdashFilterBoardSafeRows();
+            }
+        });
+        examdashFilterBoardSafeRows();
     }
 });
 </script>
@@ -2355,14 +2415,28 @@ window.addEventListener("DOMContentLoaded", function(){
                 Board-safe scope always uses the full selected batch, class, and semester.
                 Optional dashboard filters are ignored so you do not accidentally publish a partial list.
             </div>
+            <div class="examdash-board-safe-search" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px;">
+                <input type="text" id="examdash-board-safe-search" placeholder="Search by student name, ID, grade, result, or position" style="flex:1 1 280px;min-height:44px;padding:10px 14px;border-radius:12px;border:1px solid #d7e2ee;">
+                <button type="button" class="examdash-btn" onclick="examdashFilterBoardSafeRows()"><i class="fa fa-search"></i> Search</button>
+                <button type="button" class="examdash-btn-muted" onclick="examdashClearBoardSafeRows()"><i class="fa fa-refresh"></i> Reset</button>
+                <span class="examdash-small" id="examdash-board-safe-count"><?php echo count($boardPublishRows); ?> student(s)</span>
+            </div>
             <table class="examdash-table" style="margin-top:14px;">
                 <thead><tr><th>Pos</th><th>Student ID</th><th>Name</th><th>Average %</th><th>Overall Grade</th><th>Results</th></tr></thead>
-                <tbody>
+                <tbody id="examdash-board-safe-body">
                     <?php
                     if(count($boardPublishRows) > 0){
                         foreach($boardPublishRows as $boardRow){
                             $averageText = ($boardRow["avg_percent"] === "") ? "-" : examdash_esc($boardRow["avg_percent"])."%";
-                            echo "<tr>";
+                            $boardSafeLabel = trim(
+                                $boardRow["position"]." ".
+                                $boardRow["userid"]." ".
+                                $boardRow["student_name"]." ".
+                                $boardRow["overall_grade"]." ".
+                                $boardRow["results_text"]." ".
+                                $boardRow["avg_percent"]
+                            );
+                            echo "<tr data-board-safe-label='".examdash_esc($boardSafeLabel)."'>";
                             echo "<td>".examdash_esc($boardRow["position"])."</td>";
                             echo "<td>".examdash_esc($boardRow["userid"])."</td>";
                             echo "<td>".examdash_esc($boardRow["student_name"])."</td>";
@@ -2371,6 +2445,7 @@ window.addEventListener("DOMContentLoaded", function(){
                             echo "<td>".examdash_esc($boardRow["results_text"])."<br><span class='examdash-small'>".(int)$boardRow["pass_count"]." pass(es) out of ".(int)$boardRow["subjects_count"]." subject(s)</span></td>";
                             echo "</tr>";
                         }
+                        echo "<tr id='examdash-board-safe-empty' style='display:none;'><td colspan='6'>No student matched your board-safe search.</td></tr>";
                     } else {
                         echo "<tr><td colspan='6'>No board-safe results are available for this scope yet.</td></tr>";
                     }

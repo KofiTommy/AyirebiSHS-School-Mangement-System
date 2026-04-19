@@ -951,32 +951,18 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
                     </article>
                 </div>
                 <div class="oa-payment-state oa-payment-state--info"><?php echo oa_esc($applicationStatusSummary); ?></div>
-                <?php if($downloadUrl !== "" || $admissionLetterUrl !== "" || $prospectusUrl !== ""){ ?>
-                <div class="oa-form-actions oa-form-actions--stacked">
-                    <?php if($admissionLetterUrl !== ""){ ?>
-                    <a href="<?php echo oa_esc($admissionLetterUrl); ?>" class="oa-submit"><i class="fa fa-file-text-o"></i> Download <?php echo oa_esc($admissionLetterLabel); ?></a>
-                    <?php } ?>
-                    <?php if($prospectusUrl !== ""){ ?>
-                    <a href="<?php echo oa_esc($prospectusUrl); ?>" class="oa-submit"><i class="fa fa-book"></i> Download <?php echo oa_esc($prospectusLabel); ?></a>
-                    <?php } ?>
-                    <?php if($downloadUrl !== ""){ ?>
-                    <a href="<?php echo oa_esc($downloadUrl); ?>" class="oa-submit"><i class="fa fa-download"></i> Download Admission PDF</a>
-                    <?php } ?>
-                </div>
-                <?php } ?>
-            </section>
-
-            <section class="oa-card">
-                <div class="oa-section-head">
-                    <h2>Admission Documents</h2>
-                </div>
+                <div class="oa-download-hub">
+                    <div class="oa-form-head oa-form-head--compact">
+                        <h3>Downloads</h3>
+                    </div>
                 <?php if(!$application || !online_admission_application_is_submitted($application)){ ?>
-                <div class="oa-payment-state oa-payment-state--neutral">Submit your online form first to unlock your admission documents.</div>
+                <div class="oa-payment-state oa-payment-state--neutral">Submit your online form first to unlock your downloads.</div>
                 <?php }elseif($paymentEnabled && !$paymentPaid){ ?>
-                <div class="oa-payment-state oa-payment-state--neutral">Confirm your online payment first to unlock your admission documents.</div>
+                <div class="oa-payment-state oa-payment-state--neutral">Confirm your online payment first to unlock your downloads.</div>
                 <?php }elseif(!$hasStudentDownloads){ ?>
-                <div class="oa-payment-state oa-payment-state--warning">Your admission downloads are not ready yet.</div>
+                <div class="oa-payment-state oa-payment-state--warning">Your downloads are not ready yet.</div>
                 <?php }else{ ?>
+                <div class="oa-payment-state oa-payment-state--info">Download the required documents below and keep them safely. Bring them with you when reporting to the school, and return any document the school expects you to submit after signing or completing it.</div>
                 <div class="oa-document-list">
                     <?php if($admissionLetterUrl !== ""){ ?>
                     <article class="oa-document-card">
@@ -999,8 +985,16 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
                         <a href="online-admission-document.php?documentid=<?php echo oa_esc($documentRow["documentid"]); ?>" class="oa-secondary"><i class="fa fa-download"></i> Download</a>
                     </article>
                     <?php } ?>
+                    <?php if($downloadUrl !== ""){ ?>
+                    <article class="oa-document-card">
+                        <strong>Admission Form PDF</strong>
+                        <span>Download a copy of your completed online admission form.</span>
+                        <a href="<?php echo oa_esc($downloadUrl); ?>" class="oa-secondary"><i class="fa fa-download"></i> Download</a>
+                    </article>
+                    <?php } ?>
                 </div>
                 <?php } ?>
+                </div>
             </section>
 
             <section class="oa-card">

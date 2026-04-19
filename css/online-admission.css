@@ -296,6 +296,15 @@ body.online-admission-page {
     line-height: 1.65;
 }
 
+.oa-form-head--compact {
+    margin-top: 18px;
+    margin-bottom: 14px;
+}
+
+.oa-download-hub {
+    margin-top: 18px;
+}
+
 .oa-form,
 .oa-card--main > .oa-section-head,
 .oa-student-summary,

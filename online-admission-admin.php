@@ -1055,6 +1055,26 @@ if(isset($_POST["save_payment_settings"])){
     exit();
 }
 
+if(isset($_POST["save_portal_settings"])){
+    $currentPaymentSetting = online_admission_get_payment_setting($con, $branchId);
+    $paymentData = array(
+        "portalenabled" => isset($_POST["portal_enabled"]) ? 1 : 0,
+        "enabled" => (int)$currentPaymentSetting["enabled"] === 1 ? 1 : 0,
+        "feeamount" => isset($currentPaymentSetting["feeamount"]) ? (string)$currentPaymentSetting["feeamount"] : "0.00",
+        "currency" => isset($currentPaymentSetting["currency"]) ? (string)$currentPaymentSetting["currency"] : "GHS",
+        "payablestatus" => isset($currentPaymentSetting["payablestatus"]) ? (string)$currentPaymentSetting["payablestatus"] : "verified",
+        "note" => isset($currentPaymentSetting["note"]) ? (string)$currentPaymentSetting["note"] : ""
+    );
+
+    $updatedBy = isset($_SESSION["USERID"]) ? (string)$_SESSION["USERID"] : "";
+    $saved = online_admission_save_payment_setting($con, $branchId, $paymentData, $updatedBy);
+    $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = $saved
+        ? aa_alert("success", "Admission portal settings updated successfully.")
+        : aa_alert("error", "The admission portal settings could not be saved.");
+    header("location:online-admission-admin.php#portal-entry");
+    exit();
+}
+
 if(isset($_POST["save_admission_documents"])){
     $documentYear = trim((string)(isset($_POST["document_year"]) ? $_POST["document_year"] : ""));
     $documentTitle = trim((string)(isset($_POST["document_title"]) ? $_POST["document_title"] : ""));
@@ -1843,11 +1863,18 @@ if($printAction === "recent_payments"){
                     <h2>Admission Portal</h2>
                     <span class="aa-section-chip <?php echo online_admission_portal_is_open($paymentSetting) ? "aa-section-chip--success" : "aa-section-chip--warning"; ?>"><?php echo online_admission_portal_is_open($paymentSetting) ? "Open" : "Closed"; ?></span>
                 </div>
-                <p class="aa-copy">Open or preview the public online admission page from here.</p>
+                <p class="aa-copy">Open, close, or preview the public online admission page from here.</p>
                 <div class="aa-payment-config-meta">
                     <span class="<?php echo online_admission_portal_is_open($paymentSetting) ? "aa-status aa-status--success" : "aa-status aa-status--warning"; ?>"><?php echo online_admission_portal_is_open($paymentSetting) ? "Portal Open" : "Portal Closed"; ?></span>
                     <span class="aa-status aa-status--neutral"><?php echo (int)$paymentSetting["enabled"] === 1 ? "Payment Configured" : "Payment Disabled"; ?></span>
                 </div>
+                <form method="post" action="online-admission-admin.php#portal-entry" class="aa-payment-form">
+                    <label class="aa-payment-toggle">
+                        <input type="checkbox" name="portal_enabled" value="1"<?php echo online_admission_portal_is_open($paymentSetting) ? " checked" : ""; ?>>
+                        <span>Open public online admission portal</span>
+                    </label>
+                    <button type="submit" name="save_portal_settings" class="aa-button aa-button--wide"><i class="fa fa-globe"></i> Save Portal Settings</button>
+                </form>
                 <a href="online-admission.php" class="aa-link" target="_blank"><i class="fa fa-external-link"></i> Open Public Admission Portal</a>
             </section>
 
@@ -1875,10 +1902,6 @@ if($printAction === "recent_payments"){
                 <?php } ?>
                 <form method="post" action="online-admission-admin.php#payment-settings" class="aa-payment-form">
                     <input type="hidden" name="payablestatus" value="verified">
-                    <label class="aa-payment-toggle">
-                        <input type="checkbox" name="portal_enabled" value="1"<?php echo online_admission_portal_is_open($paymentSetting) ? " checked" : ""; ?>>
-                        <span>Open public online admission portal</span>
-                    </label>
                     <label class="aa-payment-toggle">
                         <input type="checkbox" name="payment_enabled" value="1"<?php echo (int)$paymentSetting["enabled"] === 1 ? " checked" : ""; ?>>
                         <span>Enable online admission payment</span>
