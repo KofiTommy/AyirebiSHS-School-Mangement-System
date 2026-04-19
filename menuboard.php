@@ -229,6 +229,8 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher"){
 </div>
 <?php menuboard_section_start('Subject', 'fa-book', true); ?>
 <a href="view-teacher-subject.php"><i class="fa fa-search"></i> View Subject(s) Assigned</a>
+<a href="student-attendance.php"><i class="fa fa-check-square-o"></i> Student Attendance</a>
+<a href="student-attendance-report.php"><i class="fa fa-bar-chart"></i> Attendance Summary</a>
 <?php menuboard_section_end(); ?>
 
 <?php menuboard_section_start('Scores', 'fa-pencil'); ?>
@@ -282,6 +284,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 <?php menuboard_section_start('Examination', 'fa-graduation-cap'); ?>
 <a href="examinationtimetablereport.php"><i class="fa fa-folder-o"></i> Exam Time Table Report</a>
 <a href="individual-terminal-report.php"><i class="fa fa-folder-o"></i> Examination Report</a>
+<a href="student-attendance-report.php"><i class="fa fa-bar-chart"></i> My Attendance</a>
 <?php menuboard_section_end(); ?>
 <?php
 }
@@ -334,6 +337,8 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a href="view-subject-classified.php"><i class="fa fa-plus"></i> View Subject Classified</a>
 <a href="subject-assignment.php"><i class="fa fa-plus"></i> Subject Assignment</a>
 <a href="class-teacher-assignment.php"><i class="fa fa-plus"></i> Class Teacher Assignment</a>
+<a href="student-attendance.php"><i class="fa fa-check-square-o"></i> Student Attendance</a>
+<a href="student-attendance-report.php"><i class="fa fa-bar-chart"></i> Attendance Summary</a>
 <a href="duty-roster.php"><i class="fa fa-calendar-check-o"></i> Duty Roster</a>
 <a href="lesson-timetable.php"><i class="fa fa-calendar"></i> Lesson Timetable Entry</a>
 <a href="lesson-timetable-report.php"><i class="fa fa-book"></i> Lesson Timetable Report</a>
@@ -422,6 +427,8 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <a href="view-subject-classified.php"><i class="fa fa-book"></i> View Subject Classified</a>
 <a href="subject-assignment.php"><i class="fa fa-plus"></i> Subject Assignment</a>
 <a href="class-teacher-assignment.php"><i class="fa fa-plus"></i> Class Teacher Assignment</a>
+<a href="student-attendance.php"><i class="fa fa-check-square-o"></i> Student Attendance</a>
+<a href="student-attendance-report.php"><i class="fa fa-bar-chart"></i> Attendance Summary</a>
 <a href="duty-roster.php"><i class="fa fa-calendar-check-o"></i> Duty Roster</a>
 <a href="lesson-timetable.php"><i class="fa fa-calendar"></i> Lesson Timetable Entry</a>
 <a href="lesson-timetable-report.php"><i class="fa fa-book"></i> Lesson Timetable Report</a>

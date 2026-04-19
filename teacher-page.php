@@ -4,8 +4,10 @@ include("dbstring.php");
 include("check-login.php");
 include("class-teacher-utils.php");
 include("duty-roster-utils.php");
+include("student-attendance-utils.php");
 ensure_class_teacher_table($con);
 ensure_duty_roster_tables($con);
+ensure_student_attendance_tables($con);
 if(!(isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==="user" && $_SESSION['SYSTEMTYPE']==="Teacher")){
     header("location:".class_teacher_landing_page());
     exit();
@@ -78,6 +80,7 @@ if($teacherFilename !== "" && file_exists(__DIR__.DIRECTORY_SEPARATOR."uploads".
     $teacherImage = "uploads/".rawurlencode($teacherFilename);
 }
 $dutyDashboard = duty_roster_get_teacher_dashboard_context($con, $teacherId);
+$attendanceSummary = student_attendance_teacher_dashboard_summary($con, $teacherId);
 
 $classTeacherRoles = array();
 $classTeacherLookup = array();
@@ -176,6 +179,7 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
             <article class="teacher-stat-card"><span>Recent Groups</span><strong><?php echo (int)$recentTeachingGroupCount; ?></strong></article>
             <article class="teacher-stat-card"><span>Class Teacher Roles</span><strong><?php echo (int)$classTeacherRoleCount; ?></strong></article>
             <article class="teacher-stat-card"><span>My Messages</span><strong><?php echo (int)$myMessageCount; ?></strong></article>
+            <article class="teacher-stat-card"><span>Attendance Today</span><strong><?php echo (int)$attendanceSummary["today_session_count"]; ?></strong></article>
         </div>
     </div>
     <aside class="teacher-profile-card">
@@ -206,6 +210,8 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
     </div>
     <div class="teacher-quick-grid">
         <a class="teacher-action-card" href="view-teacher-subject.php"><span class="teacher-action-card__icon"><i class="fa fa-search"></i></span><h3>Assigned Subjects</h3><p>Review the subjects, classes, and year-based sessions attached to your account.</p></a>
+        <a class="teacher-action-card" href="student-attendance.php"><span class="teacher-action-card__icon"><i class="fa fa-check-square-o"></i></span><h3>Student Attendance</h3><p>Take daily attendance for your assigned class-teacher groups and review recent registers.</p></a>
+        <a class="teacher-action-card" href="student-attendance-report.php"><span class="teacher-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>Attendance Summary</h3><p>Review attendance from one date to another with summary cards, trend bars, and student-level totals.</p></a>
         <a class="teacher-action-card" href="class-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-pencil"></i></span><h3>Class Score Entry</h3><p>Capture continuous assessment scores quickly for your assigned workload.</p></a>
         <a class="teacher-action-card" href="exam-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-edit"></i></span><h3>Exam Score Entry</h3><p>Enter end-of-semester exam scores without jumping through menus.</p></a>
         <a class="teacher-action-card" href="upload-classexam-score.php"><span class="teacher-action-card__icon"><i class="fa fa-upload"></i></span><h3>Upload Scores</h3><p>Upload combined class and exam scores from prepared templates.</p></a>

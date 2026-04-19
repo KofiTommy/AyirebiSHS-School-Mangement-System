@@ -241,6 +241,8 @@ if($_ShowSeniorHouseLinks){
 }
 ?>
 <a href="lesson-timetable-report.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable</button></a>
+<a href="student-attendance.php"><button><i class="fa fa-check-square-o" style="color:#0f766e"></i> Student Attendance</button></a>
+<a href="student-attendance-report.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> Attendance Summary</button></a>
 <?php
 if(!empty($_TeacherExtraAccessLinks)){
     foreach($_TeacherExtraAccessLinks as $_ExtraLink){
@@ -259,6 +261,7 @@ elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
  ?>
 <div id="admin" align="left" style="margin-top:5px;">
 <a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
+<a href="student-attendance-report.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> My Attendance</button></a>
 <a href="student-exeat-request.php"><button><i class="fa fa-file" style="color:teal"></i> Request Exeat</button></a>
 <a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
 </div>
@@ -273,6 +276,8 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="no
 <a href="register-student.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Student</button></a>
 <a href="register-teacher.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Teacher</button></a>
 <a href="class-teacher-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> Class Teacher Assignment</button></a>
+<a href="student-attendance.php"><button><i class="fa fa-check-square-o" style="color:#0f766e"></i> Student Attendance</button></a>
+<a href="student-attendance-report.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> Attendance Summary</button></a>
 <a href="duty-roster.php"><button><i class="fa fa-calendar-check-o" style="color:#0f766e"></i> Duty Roster</button></a>
 <a href="lesson-timetable.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable Entry</button></a>
 <a href="lesson-timetable-report.php"><button><i class="fa fa-book" style="color:#0f766e"></i> Lesson Timetable Report</button></a>
@@ -306,6 +311,8 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="su
 <a href="register-student.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Student</button></a>
 <a href="register-teacher.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Teacher</button></a>
 <a href="class-teacher-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> Class Teacher Assignment</button></a>
+<a href="student-attendance.php"><button><i class="fa fa-check-square-o" style="color:#0f766e"></i> Student Attendance</button></a>
+<a href="student-attendance-report.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> Attendance Summary</button></a>
 <a href="duty-roster.php"><button><i class="fa fa-calendar-check-o" style="color:#0f766e"></i> Duty Roster</button></a>
 <a href="lesson-timetable.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable Entry</button></a>
 <a href="lesson-timetable-report.php"><button><i class="fa fa-book" style="color:#0f766e"></i> Lesson Timetable Report</button></a>

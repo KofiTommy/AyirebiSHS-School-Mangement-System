@@ -93,6 +93,12 @@ function um_module_catalog(){
             'description' => 'Assign teachers to classes.',
             'scripts' => array('class-teacher-assignment.php')
         ),
+        'student_attendance' => array(
+            'label' => 'Student Attendance',
+            'group' => 'Academics',
+            'description' => 'Daily student attendance registers for assigned classes.',
+            'scripts' => array('student-attendance.php','student-attendance-report.php')
+        ),
         'duty_roster' => array(
             'label' => 'Duty Roster',
             'group' => 'Operations',
@@ -195,6 +201,7 @@ function um_assignable_module_keys_for_role($roleKey){
             'student_progression',
             'subject_management',
             'class_teacher_assignment',
+            'student_attendance',
             'duty_roster',
             'house_management',
             'notice_communication',
@@ -425,6 +432,8 @@ function um_baseline_scripts_for_role($roleKey){
             'teacher-page.php',
             'view-teacher-subject.php',
             'view-subject-assigned.php',
+            'student-attendance.php',
+            'student-attendance-report.php',
             'download-classscore-template.php',
             'download-examscore-template.php',
             'download-classexamscore-template.php',
@@ -442,6 +451,11 @@ function um_baseline_scripts_for_role($roleKey){
             'house-master-dashboard.php',
             'house-master-exeat.php',
             'senior-house-dashboard.php'
+        );
+    }
+    if($roleKey === 'student'){
+        return array(
+            'student-attendance-report.php'
         );
     }
     return array();
