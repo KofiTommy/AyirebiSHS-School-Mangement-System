@@ -671,6 +671,12 @@
     font-weight: 700;
 }
 
+.aa-house-card__actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 8px;
+}
+
 @media (max-width: 640px) {
     .aa-overview-grid {
         grid-template-columns: 1fr;
@@ -691,6 +697,15 @@
 
     .aa-house-card__head {
         flex-direction: column;
+    }
+
+    .aa-house-card__actions {
+        justify-content: stretch;
+    }
+
+    .aa-house-card__actions .aa-link {
+        width: 100%;
+        justify-content: center;
     }
 
     .aa-house-config .rs-grid {

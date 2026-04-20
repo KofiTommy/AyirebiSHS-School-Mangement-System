@@ -1528,6 +1528,50 @@ if($houseRes){
     }
 }
 
+$houseAssignedStudentsByHouse = array();
+$houseAssignedStudentRowsByHouse = array();
+if($appHasAssignedHouse){
+    $assignedStudentRes = mysqli_query($con, "SELECT assignedhouseid, beceindexnumber, firstname, othernames, surname, gender, residencetype, mobile, status, submittedat
+        FROM tblonlineadmissionapplication
+        WHERE assignedhouseid IS NOT NULL
+          AND TRIM(assignedhouseid) <> ''
+        ORDER BY firstname ASC, othernames ASC, surname ASC");
+    if($assignedStudentRes){
+        while($assignedStudentRow = mysqli_fetch_array($assignedStudentRes, MYSQLI_ASSOC)){
+            $assignedHouseId = trim((string)$assignedStudentRow["assignedhouseid"]);
+            if($assignedHouseId === ""){
+                continue;
+            }
+            $assignedStudentName = trim(
+                (string)$assignedStudentRow["firstname"]." ".
+                (string)$assignedStudentRow["othernames"]." ".
+                (string)$assignedStudentRow["surname"]
+            );
+            if($assignedStudentName === ""){
+                $assignedStudentName = trim((string)$assignedStudentRow["beceindexnumber"]);
+            }elseif(trim((string)$assignedStudentRow["beceindexnumber"]) !== ""){
+                $assignedStudentName .= " (".trim((string)$assignedStudentRow["beceindexnumber"]).")";
+            }
+            if(!isset($houseAssignedStudentsByHouse[$assignedHouseId])){
+                $houseAssignedStudentsByHouse[$assignedHouseId] = array();
+            }
+            $houseAssignedStudentsByHouse[$assignedHouseId][] = $assignedStudentName;
+            if(!isset($houseAssignedStudentRowsByHouse[$assignedHouseId])){
+                $houseAssignedStudentRowsByHouse[$assignedHouseId] = array();
+            }
+            $houseAssignedStudentRowsByHouse[$assignedHouseId][] = array(
+                "studentname" => $assignedStudentName,
+                "beceindexnumber" => (string)$assignedStudentRow["beceindexnumber"],
+                "gender" => (string)$assignedStudentRow["gender"],
+                "residencetype" => (string)$assignedStudentRow["residencetype"],
+                "mobile" => (string)$assignedStudentRow["mobile"],
+                "status" => online_admission_status_label($assignedStudentRow["status"]),
+                "submittedat" => trim((string)$assignedStudentRow["submittedat"]) !== "" ? aa_date($assignedStudentRow["submittedat"], "d M Y, g:i a") : "Not submitted"
+            );
+        }
+    }
+}
+
 $postedExportHeaders = array("BECE Index", "Student", "Gender", "Birth Date", "Programme", "Class", "Residence", "Year", "Mobile", "Added On");
 $postedExportRows = array();
 foreach($postedExportStudents as $student){
@@ -1558,6 +1602,22 @@ foreach($paymentExportSource as $payment){
         aa_date($payment["createdat"], "d M Y, g:i a"),
         trim((string)$payment["paidat"]) !== "" ? aa_date($payment["paidat"], "d M Y, g:i a") : "Not paid",
         trim((string)$payment["applicationid"]) !== "" ? "Open Form" : "Form not started"
+    );
+}
+
+$houseExportHeaders = array("House Name", "Description", "Route", "Online Assigned Students", "Assigned Student Names", "Auto Assign", "Status", "Created");
+$houseExportRows = array();
+foreach($studentHouses as $houseRow){
+    $assignedNames = isset($houseAssignedStudentsByHouse[(string)$houseRow["houseid"]]) ? $houseAssignedStudentsByHouse[(string)$houseRow["houseid"]] : array();
+    $houseExportRows[] = array(
+        (string)$houseRow["housename"],
+        trim((string)$houseRow["description"]) !== "" ? (string)$houseRow["description"] : "No description",
+        aa_house_route_label($houseRow),
+        (string)((int)$houseRow["studenttotal"]),
+        !empty($assignedNames) ? implode("; ", $assignedNames) : "No students assigned yet",
+        (int)$houseRow["autoassignenabled"] === 1 ? "Yes" : "No",
+        ucfirst(trim((string)$houseRow["status"])) !== "" ? ucfirst(trim((string)$houseRow["status"])) : "Active",
+        aa_date($houseRow["datetimeentry"], "d M Y")
     );
 }
 
@@ -1644,6 +1704,9 @@ if($exportAction === "posted_students"){
 if($exportAction === "recent_payments"){
     aa_output_excel_table(aa_file_slug($branchName)."-recent-admission-payments.xls", "Recent Admission Payments", $paymentExportHeaders, $paymentExportRows);
 }
+if($exportAction === "houses"){
+    aa_output_excel_table(aa_file_slug($branchName)."-admission-houses.xls", "Online Admission Houses", $houseExportHeaders, $houseExportRows);
+}
 if($printAction === "posted_students"){
     $title = "Recent Posted Students";
     if($postedSearch !== ""){
@@ -1653,6 +1716,36 @@ if($printAction === "posted_students"){
 }
 if($printAction === "recent_payments"){
     aa_output_print_table("Recent Admission Payments", $paymentExportHeaders, $paymentExportRows, $companyName, $branchName);
+}
+$selectedHouseId = trim((string)(isset($_GET["houseid"]) ? $_GET["houseid"] : ""));
+if($printAction === "house_students" && $selectedHouseId !== ""){
+    $selectedHouseName = "House";
+    foreach($studentHouses as $houseRow){
+        if((string)$houseRow["houseid"] === $selectedHouseId){
+            $selectedHouseName = (string)$houseRow["housename"];
+            break;
+        }
+    }
+    $housePrintRows = array();
+    $houseStudentRows = isset($houseAssignedStudentRowsByHouse[$selectedHouseId]) ? $houseAssignedStudentRowsByHouse[$selectedHouseId] : array();
+    foreach($houseStudentRows as $studentRow){
+        $housePrintRows[] = array(
+            (string)$studentRow["studentname"],
+            (string)$studentRow["beceindexnumber"],
+            (string)$studentRow["gender"],
+            (string)$studentRow["residencetype"],
+            (string)$studentRow["mobile"],
+            (string)$studentRow["status"],
+            (string)$studentRow["submittedat"]
+        );
+    }
+    aa_output_print_table(
+        "House List - ".$selectedHouseName,
+        array("Student", "BECE Index", "Gender", "Residence", "Mobile", "Application Status", "Submitted"),
+        $housePrintRows,
+        $companyName,
+        $branchName
+    );
 }
 ?>
 <!DOCTYPE html>
@@ -1985,7 +2078,10 @@ if($printAction === "recent_payments"){
                         <span class="aa-status aa-status--success"><?php echo number_format($houseActiveCount); ?> Active</span>
                         <span class="aa-status aa-status--neutral"><?php echo number_format(count($studentHouses)); ?> Total Houses</span>
                     </div>
-                    <a href="house-entry.php" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-external-link"></i> Open Full House Management</a>
+                    <div class="aa-search-actions">
+                        <a href="<?php echo aa_esc(aa_admin_url(array("export" => "houses"), "#admission-houses")); ?>" class="aa-link"><i class="fa fa-file-excel-o"></i> Download Excel</a>
+                        <a href="house-entry.php" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-external-link"></i> Open Full House Management</a>
+                    </div>
                 </div>
 
                 <div class="aa-house-grid">
@@ -2011,6 +2107,9 @@ if($printAction === "recent_payments"){
                             </label>
                             <button type="submit" name="save_house_profile" class="aa-button aa-button--wide"><i class="fa fa-save"></i> Save House Rules</button>
                         </form>
+                        <div class="aa-house-card__actions">
+                            <a href="<?php echo aa_esc(aa_admin_url(array("print" => "house_students", "houseid" => $houseRow["houseid"]), "#admission-houses")); ?>" class="aa-link aa-link--ghost aa-link--inline" target="_blank"><i class="fa fa-print"></i> Print List</a>
+                        </div>
                     </article>
                     <?php } } else { ?>
                     <div class="rs-empty"><h3>No houses created yet</h3><p>Add the first student house here and it will be available throughout the system.</p></div>
