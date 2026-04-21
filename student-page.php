@@ -67,8 +67,9 @@ if(isset($_POST['send_message'])){
         include("code.php");
         $messageId = mysqli_real_escape_string($con, (string)$code);
         $messageEsc = mysqli_real_escape_string($con, $message);
-        $_SQL = mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby)
-            VALUES('$messageId','$messageEsc',NOW(),'active','$studentIdEsc')");
+        $messageAudienceEsc = mysqli_real_escape_string($con, um_message_default_audience_for_current_user());
+        $_SQL = mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group)
+            VALUES('$messageId','$messageEsc',NOW(),'active','$studentIdEsc','$messageAudienceEsc')");
         $_SESSION['Message'] = $_SQL ? sd_alert("success", "Message successfully submitted.") : sd_alert("error", "Message failed to submit.");
     }
     header("location:student-page.php#student-messages");
@@ -285,6 +286,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <a class="student-action-card" href="account-statements.php"><span class="student-action-card__icon"><i class="fa fa-money"></i></span><h3>Account Statement</h3><p>Check payments, balances, and your account history for each registered semester.</p></a>
         <a class="student-action-card" href="student-exeat-request.php"><span class="student-action-card__icon"><i class="fa fa-file"></i></span><h3>Request Exeat</h3><p>Submit a house exeat request and review past approvals or pending decisions.</p></a>
         <a class="student-action-card" href="examinationtimetablereport.php"><span class="student-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Exam Timetable</h3><p>Check the latest examination schedule without browsing through old menus.</p></a>
+        <a class="student-action-card" href="lesson-timetable-report.php"><span class="student-action-card__icon"><i class="fa fa-clock-o"></i></span><h3>Lesson Timetable</h3><p>Check your current lesson, what comes next, and your full class timetable for the week.</p></a>
         <a class="student-action-card" href="student-attendance-report.php"><span class="student-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>My Attendance</h3><p>See your attendance between any two dates, follow the graph, and print your summary when needed.</p></a>
         <a class="student-action-card" href="messages.php"><span class="student-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board</h3><p>Open the full school message board when you want the complete conversation view.</p></a>
         <a class="student-action-card" href="edit-account.php"><span class="student-action-card__icon"><i class="fa fa-id-card"></i></span><h3>Profile Settings</h3><p>Update your account details so your school records stay current and accurate.</p></a>

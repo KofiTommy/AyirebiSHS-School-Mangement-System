@@ -97,9 +97,18 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student")
     <a href="#" class="dropbtn"><i class="fa fa-file" ></i> Examination</a>
     <div class="dropdown-content">
       <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
+     <a href="lesson-timetable-report.php"><i class="fa fa-clock-o" ></i> Lesson Timetable</a>
      <a href="individual-terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>
      <a href="student-attendance-report.php"><i class="fa fa-bar-chart" ></i> My Attendance</a>
      <a href="student-exeat-request.php"><i class="fa fa-file" ></i> Request Exeat</a>
+    </div>
+  </li>
+
+  <li class="dropdown">
+    <a href="#" class="dropbtn"><i class="fa fa-comments" ></i> Communication</a>
+    <div class="dropdown-content">
+      <a href="messages.php"><i class="fa fa-comments" ></i> Message Box</a>
+      <a href="account-statements.php"><i class="fa fa-money" ></i> Account Statement</a>
     </div>
   </li>
 

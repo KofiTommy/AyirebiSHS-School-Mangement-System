@@ -11,12 +11,33 @@ if(!lesson_timetable_can_view($con)){
 }
 
 $isTeacherView = lesson_timetable_is_teacher();
+$isStudentView = lesson_timetable_is_student();
 $teacherId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+$studentId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
 
-$filterBatchId = isset($_GET['batchid']) ? trim((string)$_GET['batchid']) : lesson_timetable_default_batch_id($con);
-$filterTermName = isset($_GET['termname']) && trim((string)$_GET['termname']) !== '' ? (string)((int)$_GET['termname']) : "1";
-$filterClassId = isset($_GET['classid']) ? trim((string)$_GET['classid']) : "";
-$filterTeacherId = $isTeacherView ? $teacherId : (isset($_GET['teacherid']) ? trim((string)$_GET['teacherid']) : "");
+$studentContexts = $isStudentView ? lesson_timetable_fetch_student_contexts($con, $studentId) : array();
+$studentContextMap = array();
+foreach($studentContexts as $contextRow){
+    $studentContextMap[(string)$contextRow['context_key']] = $contextRow;
+}
+$selectedStudentContextKey = $isStudentView ? trim((string)(isset($_GET['context']) ? $_GET['context'] : '')) : '';
+if($isStudentView && $selectedStudentContextKey === '' && count($studentContexts) > 0){
+    $selectedStudentContextKey = (string)$studentContexts[0]['context_key'];
+}
+$selectedStudentContext = ($isStudentView && $selectedStudentContextKey !== '' && isset($studentContextMap[$selectedStudentContextKey]))
+    ? $studentContextMap[$selectedStudentContextKey]
+    : null;
+
+$filterBatchId = $isStudentView
+    ? ($selectedStudentContext ? (string)$selectedStudentContext['batchid'] : '')
+    : (isset($_GET['batchid']) ? trim((string)$_GET['batchid']) : lesson_timetable_default_batch_id($con));
+$filterTermName = $isStudentView
+    ? ($selectedStudentContext ? (string)((int)$selectedStudentContext['termname']) : '')
+    : (isset($_GET['termname']) && trim((string)$_GET['termname']) !== '' ? (string)((int)$_GET['termname']) : "1");
+$filterClassId = $isStudentView
+    ? ($selectedStudentContext ? (string)$selectedStudentContext['classid'] : '')
+    : (isset($_GET['classid']) ? trim((string)$_GET['classid']) : "");
+$filterTeacherId = $isTeacherView ? $teacherId : ($isStudentView ? "" : (isset($_GET['teacherid']) ? trim((string)$_GET['teacherid']) : ""));
 
 $batchRows = array();
 $batchResult = mysqli_query($con, "SELECT batchid,batch,status FROM tblbatch ORDER BY status='active' DESC, datetimeentry DESC");
@@ -87,7 +108,7 @@ foreach($weekdays as $day){
 }
 $activeBatchLabel = ($filterBatchId !== '' && isset($batchNames[$filterBatchId])) ? $batchNames[$filterBatchId] : 'All Batches';
 $activeClassLabel = ($filterClassId !== '' && isset($classNames[$filterClassId])) ? $classNames[$filterClassId] : 'All Classes';
-$activeTeacherLabel = ($filterTeacherId !== '' && isset($teacherNames[$filterTeacherId])) ? $teacherNames[$filterTeacherId] : ($isTeacherView ? 'My Timetable' : 'All Teachers');
+$activeTeacherLabel = ($filterTeacherId !== '' && isset($teacherNames[$filterTeacherId])) ? $teacherNames[$filterTeacherId] : ($isTeacherView ? 'My Timetable' : ($isStudentView ? 'My Class Schedule' : 'All Teachers'));
 $activeTermLabel = $filterTermName !== '' ? 'Semester '.$filterTermName : 'All Semesters';
 $timeWindowLabel = 'No lesson periods yet';
 if(count($timeSlots) > 0){
@@ -95,6 +116,10 @@ if(count($timeSlots) > 0){
     $lastSlot = $timeSlots[count($timeSlots) - 1];
     $timeWindowLabel = lesson_timetable_format_time($firstSlot['starttime']).' - '.lesson_timetable_format_time($lastSlot['endtime']);
 }
+$todayName = lesson_timetable_today_name();
+$todayList = isset($todayRows[$todayName]) ? $todayRows[$todayName] : array();
+$currentLessonRow = lesson_timetable_find_current_row($todayList, $todayName);
+$nextLessonRow = lesson_timetable_find_next_row($todayList, $todayName);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -108,8 +133,8 @@ if(count($timeSlots) > 0){
     <section class="lesson-hero lesson-hero--planner">
         <div class="lesson-hero__copy">
             <span class="lesson-eyebrow"><i class="fa fa-calendar-o"></i> Lesson Timetable Report</span>
-            <h1><?php echo $isTeacherView ? 'My weekly teaching planner' : 'Lesson timetable overview'; ?></h1>
-            <p><?php echo $isTeacherView ? 'See your teaching week in a cleaner planner view that works well on your phone, in class, or before assembly.' : 'Review the live school timetable in a cleaner weekly planner that stays readable on desktop and mobile.'; ?></p>
+            <h1><?php echo $isTeacherView ? 'My weekly teaching planner' : ($isStudentView ? 'My class lesson timetable' : 'Lesson timetable overview'); ?></h1>
+            <p><?php echo $isTeacherView ? 'See your teaching week in a cleaner planner view that works well on your phone, in class, or before assembly.' : ($isStudentView ? 'Follow your class timetable, see the lesson you should be in right now, and check what comes next without guessing.' : 'Review the live school timetable in a cleaner weekly planner that stays readable on desktop and mobile.'); ?></p>
             <div class="lesson-hero__chips">
                 <span class="lesson-hero-chip"><i class="fa fa-clone"></i> <?php echo lesson_timetable_escape($activeBatchLabel); ?></span>
                 <span class="lesson-hero-chip"><i class="fa fa-graduation-cap"></i> <?php echo lesson_timetable_escape($activeClassLabel); ?></span>
@@ -117,9 +142,9 @@ if(count($timeSlots) > 0){
             </div>
         </div>
         <div class="lesson-stat-grid">
-            <article class="lesson-stat-card"><span>Visible Lessons</span><strong><?php echo count($rows); ?></strong></article>
-            <article class="lesson-stat-card"><span>Classes</span><strong><?php echo count($classCount); ?></strong></article>
-            <article class="lesson-stat-card"><span>Daily Window</span><strong><?php echo lesson_timetable_escape($timeWindowLabel); ?></strong></article>
+            <article class="lesson-stat-card"><span><?php echo $isStudentView ? 'This Week' : 'Visible Lessons'; ?></span><strong><?php echo count($rows); ?></strong></article>
+            <article class="lesson-stat-card"><span><?php echo $isStudentView ? 'Today' : 'Classes'; ?></span><strong><?php echo $isStudentView ? count($todayList) : count($classCount); ?></strong></article>
+            <article class="lesson-stat-card"><span><?php echo $isStudentView ? 'Now' : 'Daily Window'; ?></span><strong><?php echo lesson_timetable_escape($isStudentView ? ($currentLessonRow ? $currentLessonRow['subject'] : 'Free Period') : $timeWindowLabel); ?></strong></article>
         </div>
     </section>
 
@@ -136,13 +161,26 @@ if(count($timeSlots) > 0){
         <div class="lesson-card__header">
             <div>
                 <h2>Filter Timetable</h2>
-                <p>Use the filters below to focus on the class, semester, and teacher you want to review.</p>
+                <p><?php echo $isStudentView ? 'Choose the registered class session you want to view. The timetable will stay limited to your own lessons.' : 'Use the filters below to focus on the class, semester, and teacher you want to review.'; ?></p>
             </div>
             <span class="lesson-pill"><?php echo lesson_timetable_escape($activeTeacherLabel); ?></span>
         </div>
         <div class="lesson-card__body">
+            <?php if($isStudentView && count($studentContexts) === 0){ ?>
+            <div class="lesson-empty">Your class registration is not available yet, so your lesson timetable cannot be shown right now.</div>
+            <?php } else { ?>
             <form method="get" action="lesson-timetable-report.php" class="lesson-form">
                 <div class="lesson-filter-grid">
+                    <?php if($isStudentView){ ?>
+                    <div class="lesson-form-field lesson-form-field--full">
+                        <label for="context">My Registered Class Session</label>
+                        <select id="context" name="context">
+                            <?php foreach($studentContexts as $contextRow){ ?>
+                            <option value="<?php echo lesson_timetable_escape($contextRow['context_key']); ?>"<?php echo $selectedStudentContextKey === $contextRow['context_key'] ? ' selected' : ''; ?>><?php echo lesson_timetable_escape($contextRow['context_label']); ?></option>
+                            <?php } ?>
+                        </select>
+                    </div>
+                    <?php } else { ?>
                     <div class="lesson-form-field">
                         <label for="batchid">Batch</label>
                         <select id="batchid" name="batchid">
@@ -182,38 +220,61 @@ if(count($timeSlots) > 0){
                         </select>
                         <?php } ?>
                     </div>
+                    <?php } ?>
                 </div>
                 <div class="lesson-form-actions">
                     <button class="lesson-btn lesson-btn--secondary" type="submit"><i class="fa fa-filter"></i> Apply Filter</button>
                     <a class="lesson-btn lesson-btn--secondary" href="lesson-timetable-report.php"><i class="fa fa-refresh"></i> Reset</a>
-                    <?php if(lesson_timetable_can_manage($con)){ ?>
+                    <?php if(!$isStudentView && lesson_timetable_can_manage($con)){ ?>
                     <a class="lesson-btn" href="lesson-timetable.php?batchid=<?php echo urlencode($filterBatchId); ?>&termname=<?php echo urlencode($filterTermName); ?>&classid=<?php echo urlencode($filterClassId); ?>"><i class="fa fa-plus"></i> Manage Lessons</a>
                     <?php } ?>
                 </div>
             </form>
+            <?php } ?>
         </div>
     </section>
 
     <section class="lesson-card" style="margin-bottom:16px;">
         <div class="lesson-card__header">
             <div>
-                <h2>Today</h2>
-                <p><?php echo lesson_timetable_escape(lesson_timetable_today_name()); ?> lesson summary for the current filter.</p>
+                <h2><?php echo $isStudentView ? 'Current Lesson' : 'Today'; ?></h2>
+                <p><?php echo $isStudentView ? 'See what you should be attending right now and what comes next for today.' : lesson_timetable_escape(lesson_timetable_today_name()).' lesson summary for the current filter.'; ?></p>
             </div>
         </div>
         <div class="lesson-card__body">
-            <?php $todayList = isset($todayRows[lesson_timetable_today_name()]) ? $todayRows[lesson_timetable_today_name()] : array(); ?>
+            <?php if($isStudentView){ ?>
+                <div class="lesson-now-grid">
+                    <article class="lesson-helper-item lesson-helper-item--tinted">
+                        <strong><?php echo $currentLessonRow ? 'In progress now' : 'No lesson right now'; ?></strong>
+                        <?php if($currentLessonRow){ ?>
+                        <span><?php echo lesson_timetable_escape($currentLessonRow['subject'].' | '.lesson_timetable_format_time($currentLessonRow['starttime']).' - '.lesson_timetable_format_time($currentLessonRow['endtime'])); ?></span>
+                        <span><?php echo lesson_timetable_escape($currentLessonRow['teacher_name'].(trim((string)$currentLessonRow['location']) !== '' ? ' | '.$currentLessonRow['location'] : '')); ?></span>
+                        <?php } else { ?>
+                        <span><?php echo count($todayList) > 0 ? 'You do not have a lesson at this exact time.' : 'No lesson has been scheduled for today in this class session.'; ?></span>
+                        <?php } ?>
+                    </article>
+                    <article class="lesson-helper-item">
+                        <strong><?php echo $nextLessonRow ? 'Next lesson today' : 'No more lessons today'; ?></strong>
+                        <?php if($nextLessonRow){ ?>
+                        <span><?php echo lesson_timetable_escape($nextLessonRow['subject'].' | '.lesson_timetable_format_time($nextLessonRow['starttime']).' - '.lesson_timetable_format_time($nextLessonRow['endtime'])); ?></span>
+                        <span><?php echo lesson_timetable_escape($nextLessonRow['teacher_name'].(trim((string)$nextLessonRow['location']) !== '' ? ' | '.$nextLessonRow['location'] : '')); ?></span>
+                        <?php } else { ?>
+                        <span>Once the next school day starts, your next lesson will appear here automatically.</span>
+                        <?php } ?>
+                    </article>
+                </div>
+            <?php } ?>
             <?php if(count($todayList) > 0){ ?>
             <div class="lesson-helper-list">
                 <?php foreach($todayList as $row){ ?>
-                <div class="lesson-helper-item">
+                <div class="lesson-helper-item<?php echo ($currentLessonRow && (string)$currentLessonRow['lessonid'] === (string)$row['lessonid']) ? ' lesson-helper-item--tinted' : ''; ?>">
                     <strong><?php echo lesson_timetable_escape(lesson_timetable_format_time($row['starttime']).' - '.lesson_timetable_format_time($row['endtime']).' | '.$row['subject']); ?></strong>
                     <span><?php echo lesson_timetable_escape($row['class_name'].' | '.$row['teacher_name'].(trim((string)$row['location']) !== '' ? ' | '.$row['location'] : '')); ?></span>
                 </div>
                 <?php } ?>
             </div>
             <?php } else { ?>
-            <div class="lesson-empty">No lesson is scheduled for today in the current filter.</div>
+            <div class="lesson-empty"><?php echo $isStudentView ? 'No lesson is scheduled for you today in the selected class session.' : 'No lesson is scheduled for today in the current filter.'; ?></div>
             <?php } ?>
         </div>
     </section>
@@ -222,7 +283,7 @@ if(count($timeSlots) > 0){
         <div class="lesson-card__header">
             <div>
                 <h2>Weekly Planner</h2>
-                <p><?php echo $filterTeacherId !== '' ? 'Showing the selected teacher view in a full-week planner.' : 'Showing all timetable entries in the current weekly planner.'; ?></p>
+                <p><?php echo $isStudentView ? 'Your full class timetable for the selected session, with today and the current lesson highlighted where relevant.' : ($filterTeacherId !== '' ? 'Showing the selected teacher view in a full-week planner.' : 'Showing all timetable entries in the current weekly planner.'); ?></p>
             </div>
             <span class="lesson-pill"><?php echo lesson_timetable_escape($timeWindowLabel); ?></span>
         </div>
@@ -256,13 +317,14 @@ if(count($timeSlots) > 0){
                     <div class="lesson-matrix__cell<?php echo $day === lesson_timetable_today_name() ? ' lesson-matrix__cell--today' : ''; ?>">
                         <?php $slotRows = isset($matrixRows[$day][$slot['key']]) ? $matrixRows[$day][$slot['key']] : array(); ?>
                         <?php if(count($slotRows) > 0){ ?>
-                            <?php foreach($slotRows as $row){ $tokens = lesson_timetable_visual_tokens($row['subjectid'].'-'.$row['classid'].'-'.$row['teacherid']); ?>
-                            <article class="lesson-entry-card" style="--lesson-accent: <?php echo lesson_timetable_escape($tokens['accent']); ?>; --lesson-soft: <?php echo lesson_timetable_escape($tokens['soft']); ?>; --lesson-surface: <?php echo lesson_timetable_escape($tokens['surface']); ?>; --lesson-ink: <?php echo lesson_timetable_escape($tokens['ink']); ?>;">
+                            <?php foreach($slotRows as $row){ $tokens = lesson_timetable_visual_tokens($row['subjectid'].'-'.$row['classid'].'-'.$row['teacherid']); $isCurrentLessonCard = ($currentLessonRow && (string)$currentLessonRow['lessonid'] === (string)$row['lessonid']); ?>
+                            <article class="lesson-entry-card<?php echo $isCurrentLessonCard ? ' lesson-entry-card--current' : ''; ?>" style="--lesson-accent: <?php echo lesson_timetable_escape($tokens['accent']); ?>; --lesson-soft: <?php echo lesson_timetable_escape($tokens['soft']); ?>; --lesson-surface: <?php echo lesson_timetable_escape($tokens['surface']); ?>; --lesson-ink: <?php echo lesson_timetable_escape($tokens['ink']); ?>;">
                                 <div class="lesson-entry-card__timeband"><?php echo lesson_timetable_escape(lesson_timetable_format_time($row['starttime']).' - '.lesson_timetable_format_time($row['endtime'])); ?></div>
                                 <div class="lesson-entry-card__topline">
                                     <span class="lesson-entry-card__subject"><?php echo lesson_timetable_escape($row['subject']); ?></span>
                                     <span class="lesson-entry-card__tag"><?php echo lesson_timetable_escape($row['class_name']); ?></span>
                                 </div>
+                                <?php if($isCurrentLessonCard){ ?><div class="lesson-entry-card__live">Current lesson</div><?php } ?>
                                 <div class="lesson-entry-card__title"><?php echo lesson_timetable_escape($row['teacher_name']); ?></div>
                                 <div class="lesson-entry-card__meta">
                                     <span><i class="fa fa-users"></i> <?php echo lesson_timetable_escape($row['batch']); ?></span>
@@ -289,13 +351,14 @@ if(count($timeSlots) > 0){
                     </div>
                     <div class="lesson-agenda-day__body">
                         <?php if(count($dayRows) > 0){ ?>
-                            <?php foreach($dayRows as $row){ $tokens = lesson_timetable_visual_tokens($row['subjectid'].'-'.$row['classid'].'-'.$row['teacherid']); ?>
-                            <article class="lesson-entry-card lesson-entry-card--mobile" style="--lesson-accent: <?php echo lesson_timetable_escape($tokens['accent']); ?>; --lesson-soft: <?php echo lesson_timetable_escape($tokens['soft']); ?>; --lesson-surface: <?php echo lesson_timetable_escape($tokens['surface']); ?>; --lesson-ink: <?php echo lesson_timetable_escape($tokens['ink']); ?>;">
+                            <?php foreach($dayRows as $row){ $tokens = lesson_timetable_visual_tokens($row['subjectid'].'-'.$row['classid'].'-'.$row['teacherid']); $isCurrentLessonCard = ($currentLessonRow && (string)$currentLessonRow['lessonid'] === (string)$row['lessonid']); ?>
+                            <article class="lesson-entry-card lesson-entry-card--mobile<?php echo $isCurrentLessonCard ? ' lesson-entry-card--current' : ''; ?>" style="--lesson-accent: <?php echo lesson_timetable_escape($tokens['accent']); ?>; --lesson-soft: <?php echo lesson_timetable_escape($tokens['soft']); ?>; --lesson-surface: <?php echo lesson_timetable_escape($tokens['surface']); ?>; --lesson-ink: <?php echo lesson_timetable_escape($tokens['ink']); ?>;">
                                 <div class="lesson-entry-card__timeband"><?php echo lesson_timetable_escape(lesson_timetable_format_time($row['starttime']).' - '.lesson_timetable_format_time($row['endtime'])); ?></div>
                                 <div class="lesson-entry-card__topline">
                                     <span class="lesson-entry-card__subject"><?php echo lesson_timetable_escape($row['subject']); ?></span>
                                     <span class="lesson-entry-card__tag"><?php echo lesson_timetable_escape($row['class_name']); ?></span>
                                 </div>
+                                <?php if($isCurrentLessonCard){ ?><div class="lesson-entry-card__live">Current lesson</div><?php } ?>
                                 <div class="lesson-entry-card__title"><?php echo lesson_timetable_escape($row['teacher_name']); ?></div>
                                 <div class="lesson-entry-card__meta">
                                     <span><i class="fa fa-users"></i> <?php echo lesson_timetable_escape($row['batch']); ?></span>
@@ -313,7 +376,7 @@ if(count($timeSlots) > 0){
                 <?php } ?>
             </div>
             <?php } else { ?>
-            <div class="lesson-empty lesson-empty--large">No timetable entries are available in the current filter yet.</div>
+            <div class="lesson-empty lesson-empty--large"><?php echo $isStudentView ? 'No lesson timetable has been published yet for the selected class session.' : 'No timetable entries are available in the current filter yet.'; ?></div>
             <?php } ?>
         </div>
     </section>

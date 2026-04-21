@@ -42,8 +42,9 @@ if(isset($_POST['send_message'])){
         include("code.php");
         $messageId = mysqli_real_escape_string($con, (string)$code);
         $messageEsc = mysqli_real_escape_string($con, $message);
-        $_SQL = mysqli_query($con,"INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby)
-            VALUES('$messageId','$messageEsc',NOW(),'active','$teacherIdEsc')");
+        $messageAudienceEsc = mysqli_real_escape_string($con, um_message_default_audience_for_current_user());
+        $_SQL = mysqli_query($con,"INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group)
+            VALUES('$messageId','$messageEsc',NOW(),'active','$teacherIdEsc','$messageAudienceEsc')");
         $_SESSION['Message'] = $_SQL ? td_alert("success","Message successfully submitted.") : td_alert("error","Message failed to submit.");
     }
     header("location:teacher-page.php#teacher-messages");

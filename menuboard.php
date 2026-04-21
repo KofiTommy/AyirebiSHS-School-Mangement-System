@@ -276,6 +276,10 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 <a href="account-statements.php"><i class="fa fa-money"></i> Account Statements</a>
 <?php menuboard_section_end(); ?>
 
+<?php menuboard_section_start('Communication', 'fa-comments'); ?>
+<a href="messages.php"><i class="fa fa-comments"></i> Message Box</a>
+<?php menuboard_section_end(); ?>
+
 <?php menuboard_section_start('Records', 'fa-folder-o'); ?>
 <a href="registeredclass.php"><i class="fa fa-folder-o"></i> Registered Class</a>
 <a href="registeredsubject.php"><i class="fa fa-folder-o"></i> Registered Subject</a>
@@ -283,6 +287,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 
 <?php menuboard_section_start('Examination', 'fa-graduation-cap'); ?>
 <a href="examinationtimetablereport.php"><i class="fa fa-folder-o"></i> Exam Time Table Report</a>
+<a href="lesson-timetable-report.php"><i class="fa fa-clock-o"></i> Lesson Timetable</a>
 <a href="individual-terminal-report.php"><i class="fa fa-folder-o"></i> Examination Report</a>
 <a href="student-attendance-report.php"><i class="fa fa-bar-chart"></i> My Attendance</a>
 <?php menuboard_section_end(); ?>

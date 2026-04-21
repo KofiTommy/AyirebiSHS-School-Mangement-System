@@ -261,7 +261,12 @@ elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
  ?>
 <div id="admin" align="left" style="margin-top:5px;">
 <a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
+<a href="individual-terminal-report.php"><button><i class="fa fa-book" style="color:#2563eb"></i> Terminal Report</button></a>
+<a href="account-statements.php"><button><i class="fa fa-money" style="color:#16a34a"></i> Account Statement</button></a>
+<a href="examinationtimetablereport.php"><button><i class="fa fa-calendar" style="color:#7c3aed"></i> Exam Timetable</button></a>
+<a href="lesson-timetable-report.php"><button><i class="fa fa-clock-o" style="color:#0f766e"></i> Lesson Timetable</button></a>
 <a href="student-attendance-report.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> My Attendance</button></a>
+<a href="messages.php"><button><i class="fa fa-comments" style="color:#ea580c"></i> Message Box</button></a>
 <a href="student-exeat-request.php"><button><i class="fa fa-file" style="color:teal"></i> Request Exeat</button></a>
 <a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
 </div>

@@ -45,6 +45,88 @@ function ensure_user_management_columns($con){
         KEY idx_userid (userid),
         KEY idx_modulekey (modulekey)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    if(!um_column_exists($con, 'tblmessages', 'recipient_group')){
+        @mysqli_query($con, "ALTER TABLE tblmessages ADD COLUMN recipient_group VARCHAR(20) NOT NULL DEFAULT 'all' AFTER sentby");
+    }
+
+    @mysqli_query(
+        $con,
+        "UPDATE tblmessages mg
+         INNER JOIN tblsystemuser su ON su.userid=mg.sentby
+         SET mg.recipient_group='teachers'
+         WHERE su.systemtype IN ('Teacher','Student')
+           AND (mg.recipient_group='' OR mg.recipient_group='all' OR mg.recipient_group IS NULL)"
+    );
+}
+}
+
+if(!function_exists('um_message_normalize_audience')){
+function um_message_normalize_audience($audience){
+    $audience = strtolower(trim((string)$audience));
+    if(in_array($audience, array('students','teachers','all'), true)){
+        return $audience;
+    }
+    return 'all';
+}
+}
+
+if(!function_exists('um_message_default_audience_for_current_user')){
+function um_message_default_audience_for_current_user(){
+    $systemType = isset($_SESSION['SYSTEMTYPE']) ? trim((string)$_SESSION['SYSTEMTYPE']) : '';
+    if($systemType === 'Student'){
+        return 'teachers';
+    }
+    if($systemType === 'Teacher'){
+        return 'teachers';
+    }
+    return 'all';
+}
+}
+
+if(!function_exists('um_message_audience_options_for_current_user')){
+function um_message_audience_options_for_current_user(){
+    $systemType = isset($_SESSION['SYSTEMTYPE']) ? trim((string)$_SESSION['SYSTEMTYPE']) : '';
+    if($systemType === 'Student'){
+        return array(
+            'teachers' => 'Teachers And School Office'
+        );
+    }
+    return array(
+        'all' => 'Everyone',
+        'students' => 'Students Only',
+        'teachers' => 'Teachers Only'
+    );
+}
+}
+
+if(!function_exists('um_message_audience_label')){
+function um_message_audience_label($audience){
+    $audience = um_message_normalize_audience($audience);
+    if($audience === 'students'){
+        return 'Students Only';
+    }
+    if($audience === 'teachers'){
+        return 'Teachers Only';
+    }
+    return 'Everyone';
+}
+}
+
+if(!function_exists('um_message_visibility_sql')){
+function um_message_visibility_sql($fieldName){
+    $fieldName = trim((string)$fieldName);
+    if($fieldName === ''){
+        $fieldName = 'recipient_group';
+    }
+    $systemType = isset($_SESSION['SYSTEMTYPE']) ? trim((string)$_SESSION['SYSTEMTYPE']) : '';
+    if($systemType === 'Student'){
+        return $fieldName." IN ('all','students')";
+    }
+    if($systemType === 'Teacher'){
+        return $fieldName." IN ('all','teachers')";
+    }
+    return '1=1';
 }
 }
 
@@ -455,7 +537,12 @@ function um_baseline_scripts_for_role($roleKey){
     }
     if($roleKey === 'student'){
         return array(
-            'student-attendance-report.php'
+            'individual-terminal-report.php',
+            'account-statements.php',
+            'examinationtimetablereport.php',
+            'messages.php',
+            'student-attendance-report.php',
+            'lesson-timetable-report.php'
         );
     }
     return array();

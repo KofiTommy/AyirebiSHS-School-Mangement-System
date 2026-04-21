@@ -56,6 +56,14 @@ function lesson_timetable_is_teacher(){
 }
 }
 
+if(!function_exists('lesson_timetable_is_student')){
+function lesson_timetable_is_student(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === "user" &&
+        $_SESSION['SYSTEMTYPE'] === "Student";
+}
+}
+
 if(!function_exists('lesson_timetable_landing_page')){
 function lesson_timetable_landing_page(){
     if(lesson_timetable_is_admin()){
@@ -88,7 +96,7 @@ function lesson_timetable_can_manage($con = null){
 
 if(!function_exists('lesson_timetable_can_view')){
 function lesson_timetable_can_view($con = null){
-    if(lesson_timetable_is_admin() || lesson_timetable_is_teacher()){
+    if(lesson_timetable_is_admin() || lesson_timetable_is_teacher() || lesson_timetable_is_student()){
         return true;
     }
     if(!$con || !function_exists('um_current_user_can_access_module')){
@@ -161,6 +169,23 @@ if(!function_exists('lesson_timetable_format_time')){
 function lesson_timetable_format_time($value){
     $time = strtotime((string)$value);
     return $time ? date('g:i A', $time) : (string)$value;
+}
+}
+
+if(!function_exists('lesson_timetable_time_seconds')){
+function lesson_timetable_time_seconds($value){
+    $value = trim((string)$value);
+    if($value === ''){
+        return null;
+    }
+    $parts = explode(':', $value);
+    if(count($parts) < 2){
+        return null;
+    }
+    $hour = (int)$parts[0];
+    $minute = (int)$parts[1];
+    $second = isset($parts[2]) ? (int)$parts[2] : 0;
+    return ($hour * 3600) + ($minute * 60) + $second;
 }
 }
 
@@ -531,6 +556,93 @@ function lesson_timetable_fetch_teacher_today_rows($con, $teacherId, $batchId = 
         $filters['batchid'] = $batchId;
     }
     return lesson_timetable_fetch_rows($con, $filters);
+}
+}
+
+if(!function_exists('lesson_timetable_fetch_student_contexts')){
+function lesson_timetable_fetch_student_contexts($con, $studentId){
+    $studentId = mysqli_real_escape_string($con, trim((string)$studentId));
+    if($studentId === ''){
+        return array();
+    }
+    $rows = array();
+    $sql = "SELECT DISTINCT
+                tr.batchid,
+                tr.termname,
+                tr.class_entryid AS classid,
+                ce.class_name,
+                bh.batch,
+                bh.datetimeentry
+            FROM tbltermregistry tr
+            INNER JOIN tblclassentry ce ON ce.class_entryid=tr.class_entryid
+            LEFT JOIN tblbatch bh ON bh.batchid=tr.batchid
+            WHERE tr.userid='$studentId'
+            ORDER BY bh.datetimeentry DESC, tr.termname DESC, ce.class_name ASC";
+    $result = mysqli_query($con, $sql);
+    if($result){
+        while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){
+            $row['context_key'] = (string)$row['batchid'].'|'.(string)$row['termname'].'|'.(string)$row['classid'];
+            $row['context_label'] = trim((string)$row['class_name']).' - '.trim((string)$row['batch']).' - Semester '.trim((string)$row['termname']);
+            $rows[] = $row;
+        }
+    }
+    return $rows;
+}
+}
+
+if(!function_exists('lesson_timetable_find_current_row')){
+function lesson_timetable_find_current_row($rows, $weekday = '', $timeValue = ''){
+    $weekday = trim((string)$weekday) !== '' ? lesson_timetable_normalize_weekday($weekday) : lesson_timetable_today_name();
+    $currentSeconds = lesson_timetable_time_seconds($timeValue !== '' ? $timeValue : date('H:i:s'));
+    if($currentSeconds === null){
+        return null;
+    }
+    if(!is_array($rows)){
+        return null;
+    }
+    foreach($rows as $row){
+        if(lesson_timetable_normalize_weekday(isset($row['weekday']) ? $row['weekday'] : '') !== $weekday){
+            continue;
+        }
+        $startSeconds = lesson_timetable_time_seconds(isset($row['starttime']) ? $row['starttime'] : '');
+        $endSeconds = lesson_timetable_time_seconds(isset($row['endtime']) ? $row['endtime'] : '');
+        if($startSeconds === null || $endSeconds === null){
+            continue;
+        }
+        if($currentSeconds >= $startSeconds && $currentSeconds < $endSeconds){
+            return $row;
+        }
+    }
+    return null;
+}
+}
+
+if(!function_exists('lesson_timetable_find_next_row')){
+function lesson_timetable_find_next_row($rows, $weekday = '', $timeValue = ''){
+    $weekday = trim((string)$weekday) !== '' ? lesson_timetable_normalize_weekday($weekday) : lesson_timetable_today_name();
+    $currentSeconds = lesson_timetable_time_seconds($timeValue !== '' ? $timeValue : date('H:i:s'));
+    if($currentSeconds === null){
+        return null;
+    }
+    if(!is_array($rows)){
+        return null;
+    }
+    $nextRow = null;
+    $nextStart = null;
+    foreach($rows as $row){
+        if(lesson_timetable_normalize_weekday(isset($row['weekday']) ? $row['weekday'] : '') !== $weekday){
+            continue;
+        }
+        $startSeconds = lesson_timetable_time_seconds(isset($row['starttime']) ? $row['starttime'] : '');
+        if($startSeconds === null || $startSeconds <= $currentSeconds){
+            continue;
+        }
+        if($nextStart === null || $startSeconds < $nextStart){
+            $nextStart = $startSeconds;
+            $nextRow = $row;
+        }
+    }
+    return $nextRow;
 }
 }
 ?>
