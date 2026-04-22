@@ -3,18 +3,45 @@ session_start();
 $_SESSION['Message'] = "";
 include("dbstring.php");
 
+if(!function_exists('school_data_column_exists')){
+function school_data_column_exists($con, $table, $column){
+    $tableEsc = mysqli_real_escape_string($con, trim((string)$table));
+    $columnEsc = mysqli_real_escape_string($con, trim((string)$column));
+    $result = @mysqli_query($con, "SHOW COLUMNS FROM `$tableEsc` LIKE '$columnEsc'");
+    return ($result && mysqli_num_rows($result) > 0);
+}
+}
+
+if(!function_exists('ensure_school_data_year_column')){
+function ensure_school_data_year_column($con){
+    static $done = false;
+    if($done || !$con){
+        return;
+    }
+    $done = true;
+    if(!school_data_column_exists($con, 'tblschoolinfo', 'academicyear')){
+        @mysqli_query($con, "ALTER TABLE tblschoolinfo ADD COLUMN academicyear VARCHAR(10) NOT NULL DEFAULT '' AFTER termname");
+        @mysqli_query($con, "UPDATE tblschoolinfo SET academicyear=YEAR(datetimeentry) WHERE academicyear=''");
+    }
+}
+}
+
+ensure_school_data_year_column($con);
+
 @$_ClassId = $_POST['classid'];
 @$_Infoid = trim((string)$_POST['infoid']);
 @$_SchoolClosesInput = trim((string)$_POST['schoolcloses-date']);
 @$_SchoolResumesInput = trim((string)$_POST['schoolresumes']);
 @$_SchoolCloses = ($_SchoolClosesInput !== "" && strtotime($_SchoolClosesInput)) ? date("Y-m-d", strtotime($_SchoolClosesInput)) : "";
 @$_SchoolResumes = ($_SchoolResumesInput !== "" && strtotime($_SchoolResumesInput)) ? date("Y-m-d", strtotime($_SchoolResumesInput)) : "";
+@$_AcademicYear = trim((string)$_POST['academicyear']);
 @$_Term = trim((string)$_POST['term']);
 @$_BatchId = trim((string)$_POST['batchid']);
 @$_Recordedby = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : "";
 
 include("shortcode.php");
 $_FormInfoId = $shortcode;
+$_FormAcademicYear = ($_AcademicYear !== "" ? $_AcademicYear : date("Y"));
 $_FormTerm = $_Term;
 $_FormBatchId = $_BatchId;
 $_FormSchoolCloses = ($_SchoolCloses !== "" && strtotime($_SchoolCloses)) ? date("d/m/Y", strtotime($_SchoolCloses)) : "";
@@ -23,43 +50,46 @@ $_FormButtonText = "SAVE DATA";
 $_IsEditMode = false;
 
 if(isset($_POST['register_school_data'])){
-    if($_Infoid === "" || $_SchoolCloses === "" || $_SchoolResumes === "" || $_Term === "" || $_BatchId === ""){
-        $_SESSION['Message'] = "<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>Please select the semester, batch, school closes date, and next semester begins date.</div>";
+    if($_Infoid === "" || $_SchoolCloses === "" || $_SchoolResumes === "" || $_AcademicYear === "" || $_Term === "" || $_BatchId === ""){
+        $_SESSION['Message'] = "<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>Please select the academic year, semester, batch, school closes date, and next semester begins date.</div>";
     } else {
         $_InfoidEsc = mysqli_real_escape_string($con, $_Infoid);
+        $_AcademicYearEsc = mysqli_real_escape_string($con, $_AcademicYear);
         $_TermEsc = mysqli_real_escape_string($con, $_Term);
         $_BatchIdEsc = mysqli_real_escape_string($con, $_BatchId);
         $_RecordedbyEsc = mysqli_real_escape_string($con, $_Recordedby);
         $_SchoolClosesEsc = mysqli_real_escape_string($con, $_SchoolCloses);
         $_SchoolResumesEsc = mysqli_real_escape_string($con, $_SchoolResumes);
 
-        $_SQL_CHECK = mysqli_query($con, "SELECT * FROM tblschoolinfo WHERE batchid='$_BatchIdEsc' AND termname='$_TermEsc' AND infoid<>'$_InfoidEsc' LIMIT 1");
+        $_SQL_CHECK = mysqli_query($con, "SELECT * FROM tblschoolinfo WHERE batchid='$_BatchIdEsc' AND termname='$_TermEsc' AND academicyear='$_AcademicYearEsc' AND infoid<>'$_InfoidEsc' LIMIT 1");
         if($_SQL_CHECK && mysqli_num_rows($_SQL_CHECK) > 0){
             @$_BatchName = "";
             $_SQL_BATCH = mysqli_query($con, "SELECT * FROM tblbatch WHERE batchid='$_BatchIdEsc' LIMIT 1");
             if($row_ba = mysqli_fetch_array($_SQL_BATCH, MYSQLI_ASSOC)){
                 $_BatchName = $row_ba['batch'];
             }
-            $_SESSION['Message'] = "<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>School data has already been saved for Semester $_Term - Batch: $_BatchName</div>";
+            $_SESSION['Message'] = "<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>School data has already been saved for ".$_AcademicYear." Semester ".$_Term." - Batch: ".$_BatchName."</div>";
         } else {
             $_SQL_EXISTS = mysqli_query($con, "SELECT infoid FROM tblschoolinfo WHERE infoid='$_InfoidEsc' LIMIT 1");
             if($_SQL_EXISTS && mysqli_num_rows($_SQL_EXISTS) > 0){
                 $_SQL_EXECUTE = mysqli_query($con, "UPDATE tblschoolinfo SET
                     batchid='$_BatchIdEsc',
                     termname='$_TermEsc',
+                    academicyear='$_AcademicYearEsc',
                     schoolcloses=STR_TO_DATE('$_SchoolClosesEsc','%Y-%m-%d'),
                     schoolresumes=STR_TO_DATE('$_SchoolResumesEsc','%Y-%m-%d'),
                     recordedby='$_RecordedbyEsc'
                     WHERE infoid='$_InfoidEsc' LIMIT 1");
             } else {
-                $_SQL_EXECUTE = mysqli_query($con, "INSERT INTO tblschoolinfo(infoid,batchid,termname,schoolcloses,schoolresumes,datetimeentry,status,recordedby)
-                    VALUES('$_InfoidEsc','$_BatchIdEsc','$_TermEsc',STR_TO_DATE('$_SchoolClosesEsc','%Y-%m-%d'),STR_TO_DATE('$_SchoolResumesEsc','%Y-%m-%d'),NOW(),'active','$_RecordedbyEsc')");
+                $_SQL_EXECUTE = mysqli_query($con, "INSERT INTO tblschoolinfo(infoid,batchid,termname,academicyear,schoolcloses,schoolresumes,datetimeentry,status,recordedby)
+                    VALUES('$_InfoidEsc','$_BatchIdEsc','$_TermEsc','$_AcademicYearEsc',STR_TO_DATE('$_SchoolClosesEsc','%Y-%m-%d'),STR_TO_DATE('$_SchoolResumesEsc','%Y-%m-%d'),NOW(),'active','$_RecordedbyEsc')");
             }
 
             if($_SQL_EXECUTE){
-                $_SESSION['Message'] = "<div style='color:green;padding:5px;text-align:center;border:1px solid #aea;background-color:#efe;'>School information successfully saved for the selected semester.</div>";
+                $_SESSION['Message'] = "<div style='color:green;padding:5px;text-align:center;border:1px solid #aea;background-color:#efe;'>School information successfully saved for ".$_AcademicYear." Semester ".$_Term.".</div>";
                 include("shortcode.php");
                 $_FormInfoId = $shortcode;
+                $_FormAcademicYear = date("Y");
                 $_FormTerm = "";
                 $_FormBatchId = "";
                 $_FormSchoolCloses = "";
@@ -89,6 +119,7 @@ if(isset($_GET["edit_school"])){
     $_SQL_EDIT = mysqli_query($con, "SELECT * FROM tblschoolinfo WHERE infoid='$_EditInfoId' LIMIT 1");
     if($_SQL_EDIT && ($row_edit = mysqli_fetch_array($_SQL_EDIT, MYSQLI_ASSOC))){
         $_FormInfoId = $row_edit['infoid'];
+        $_FormAcademicYear = trim((string)$row_edit['academicyear']) !== "" ? trim((string)$row_edit['academicyear']) : date("Y", strtotime((string)$row_edit['datetimeentry']));
         $_FormTerm = trim((string)$row_edit['termname']);
         $_FormBatchId = trim((string)$row_edit['batchid']);
         $_FormSchoolCloses = (trim((string)$row_edit['schoolcloses']) !== "") ? date("d/m/Y", strtotime($row_edit['schoolcloses'])) : "";
@@ -127,6 +158,16 @@ include("links.php");
 			<label>School Data Id</label><br/>
 			<input type="text" id="infoid" name="infoid" value="<?php echo htmlspecialchars($_FormInfoId, ENT_QUOTES, 'UTF-8'); ?>" class="validate[required]" readonly/><br/><br/>
 
+                <label>Academic Year</label><br/>
+                <?php
+                echo "<select id='academicyear' name='academicyear' class='validate[required]'>";
+                echo "<option value=''>Select Year</option>";
+                for($_YearOption = 2030; $_YearOption >= ((int)date("Y")) - 4; $_YearOption--){
+                    $_SelectedYear = ((string)$_YearOption === (string)$_FormAcademicYear) ? "selected" : "";
+                    echo "<option value='$_YearOption' $_SelectedYear>$_YearOption</option>";
+                }
+                echo "</select><br/><br/>";
+                ?>
 
 				<select id="term" name="term">
 					<option value="" class="validate[required]">Select Semester</option>
@@ -187,18 +228,21 @@ include("dbstring.php");
 
 $_SQL_SU = mysqli_query($con, "SELECT * FROM tblschoolinfo si 
 INNER JOIN tblbatch bh ON si.batchid=bh.batchid
-ORDER BY bh.datetimeentry DESC, si.termname ASC, si.datetimeentry DESC");
+ORDER BY si.academicyear DESC, bh.datetimeentry DESC, si.termname ASC, si.datetimeentry DESC");
 if($_SQL_SU && mysqli_num_rows($_SQL_SU) > 0){
 echo "<table width='100%' style='background-color:white'>";
 echo "<caption>School Data</caption>";
-echo "<thead><th colspan='2'>Task</th><th>Batch</th><th>Semester</th><th>School Closes</th><th>Next Semester Begins</th><th>Date/Time</th></thead>";
+echo "<thead><th colspan='2'>Task</th><th>Batch</th><th>Year</th><th>Semester</th><th>Label</th><th>School Closes</th><th>Next Semester Begins</th><th>Date/Time</th></thead>";
 echo "<tbody>";
 while($row = mysqli_fetch_array($_SQL_SU, MYSQLI_ASSOC)){
+$_RowYear = trim((string)$row['academicyear']) !== "" ? trim((string)$row['academicyear']) : date("Y", strtotime((string)$row['datetimeentry']));
 echo "<tr>";
-echo "<td align='center'><a title='Edit ($row[batch] - Semester $row[termname])' href='school-data-entry.php?edit_school=$row[infoid]'><i class='fa fa-edit' style='color:royalblue'></i></a></td>";
+echo "<td align='center'><a title='Edit ($_RowYear Semester $row[termname] - $row[batch])' href='school-data-entry.php?edit_school=$row[infoid]'><i class='fa fa-edit' style='color:royalblue'></i></a></td>";
 echo "<td align='center'><a title='Delete ($row[batch])' href='school-data-entry.php?delete_school=$row[infoid]'><i class='fa fa-trash-o' style='color:red'></i></a></td>";
 echo "<td align='center'>$row[batch]</td>";
-echo "<td align='center'>$row[termname]</td>";				
+echo "<td align='center'>$_RowYear</td>";
+echo "<td align='center'>$row[termname]</td>";
+echo "<td align='center'>$_RowYear Semester $row[termname]</td>";				
 echo "<td align='center'>$row[schoolcloses]</td>";
 echo "<td align='center'>$row[schoolresumes]</td>";
 echo "<td align='center'>$row[datetimeentry]</td>";
