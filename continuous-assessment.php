@@ -15,6 +15,7 @@ include("class-position.php");
 
 //@$todayTime =$_POST['today_time2'];
 @$_BatchId=$_POST['batchid'];
+@$_TermId=$_POST['termid'];
 
 if(isset($_POST["print_terminal_report"]))
 {
@@ -34,7 +35,15 @@ if(isset($_POST["print_terminal_report"]))
      
 @$_SchoolCloses="";
 @$_NextTermBegins="";
-$_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId'");
+$_TermFilter = (isset($_TermId) && trim((string)$_TermId)!=="") ? (int)$_TermId : 0;
+if($_TermFilter>0){
+$_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' AND termname='$_TermFilter' ORDER BY datetimeentry DESC LIMIT 1");
+}else{
+$_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' ORDER BY termname DESC, datetimeentry DESC LIMIT 1");
+}
+if((!$_SQL_IN || mysqli_num_rows($_SQL_IN)===0) && $_TermFilter>0){
+$_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' ORDER BY termname DESC, datetimeentry DESC LIMIT 1");
+}
 if($row_in=mysqli_fetch_array($_SQL_IN,MYSQLI_ASSOC))
 {
 $_SchoolCloses=$row_in['schoolcloses'];

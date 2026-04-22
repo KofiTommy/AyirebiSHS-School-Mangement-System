@@ -433,18 +433,6 @@ $reportPreview = array_slice($reportOptions, 0, 6);
             <?php } ?>
         </div>
     </section>
-
-    <section class="student-panel">
-        <div class="student-panel__header">
-            <div><span class="student-panel__eyebrow">Student Essentials</span><h2>What this page now does better</h2></div>
-        </div>
-        <div class="student-list-grid">
-            <article class="student-list-card"><h3>Faster Report Access</h3><p>Your saved semester registrations can now be used to print reports directly from the dashboard.</p><small>Better academic UX</small></article>
-            <article class="student-list-card"><h3>Stronger Visibility</h3><p>Your class, year, house, exeat counts, and finance snapshot are now visible at a glance.</p><small>More useful home page</small></article>
-            <article class="student-list-card"><h3>Safer Message Actions</h3><p>Message deletion now works through your own session and only affects messages created by you.</p><small>Cleaner handling</small></article>
-            <article class="student-list-card"><h3>Mobile Friendly Layout</h3><p>The page collapses into stacked cards and full-width actions so it stays easy to use on phones.</p><small>Responsive design</small></article>
-        </div>
-    </section>
 </div>
 </main>
 </body>

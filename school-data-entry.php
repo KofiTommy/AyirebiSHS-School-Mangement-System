@@ -1,62 +1,101 @@
 <?php
 session_start();
-$_SESSION['Message']="";
-?>
-
-<?php
+$_SESSION['Message'] = "";
 include("dbstring.php");
-@$_ClassId=$_POST['classid'];
-@$_Infoid=$_POST['infoid'];
-@$_SchoolCloses=date("Y-m-d",strtotime($_POST['schoolcloses-date']));
-@$_SchoolResumes=date("Y-m-d",strtotime($_POST['schoolresumes']));
 
-//echo $_SchoolCloses ."<br/>";
-//echo $_SchoolResumes;
+@$_ClassId = $_POST['classid'];
+@$_Infoid = trim((string)$_POST['infoid']);
+@$_SchoolClosesInput = trim((string)$_POST['schoolcloses-date']);
+@$_SchoolResumesInput = trim((string)$_POST['schoolresumes']);
+@$_SchoolCloses = ($_SchoolClosesInput !== "" && strtotime($_SchoolClosesInput)) ? date("Y-m-d", strtotime($_SchoolClosesInput)) : "";
+@$_SchoolResumes = ($_SchoolResumesInput !== "" && strtotime($_SchoolResumesInput)) ? date("Y-m-d", strtotime($_SchoolResumesInput)) : "";
+@$_Term = trim((string)$_POST['term']);
+@$_BatchId = trim((string)$_POST['batchid']);
+@$_Recordedby = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : "";
 
-@$_Term=$_POST['term'];
-@$_BatchId=$_POST['batchid'];
-@$_Recordedby=$_SESSION['USERID'];
+include("shortcode.php");
+$_FormInfoId = $shortcode;
+$_FormTerm = $_Term;
+$_FormBatchId = $_BatchId;
+$_FormSchoolCloses = ($_SchoolCloses !== "" && strtotime($_SchoolCloses)) ? date("d/m/Y", strtotime($_SchoolCloses)) : "";
+$_FormSchoolResumes = ($_SchoolResumes !== "" && strtotime($_SchoolResumes)) ? date("d/m/Y", strtotime($_SchoolResumes)) : "";
+$_FormButtonText = "SAVE DATA";
+$_IsEditMode = false;
 
 if(isset($_POST['register_school_data'])){
-$_SQL_CHECK=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId'");
-if(mysqli_num_rows($_SQL_CHECK)>0){
-	@$_BatchName="";
-	$_SQL_BATCH=mysqli_query($con,"SELECT * FROM tblbatch WHERE batchid='$_BatchId'");
-	if($row_ba=mysqli_fetch_array($_SQL_BATCH,MYSQLI_ASSOC)){
-		$_BatchName=$row_ba['batch'];
-	}
-$_SESSION['Message']="<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>School has already saved for semester $_Term - Batch: $_BatchName</div>";	
-}
-else{
-$_SQL_EXECUTE=mysqli_query($con,"INSERT INTO tblschoolinfo(infoid,batchid,termname,schoolcloses,schoolresumes,datetimeentry,status,recordedby)
-	VALUES('$_Infoid','$_BatchId','$_Term',STR_TO_DATE('$_SchoolCloses','%Y-%m-%d'),STR_TO_DATE('$_SchoolResumes','%Y-%m-%d'),NOW(),'active','$_Recordedby')");
-if($_SQL_EXECUTE){
-	//$_SESSION['Message']="<div style='color:green;text-align:center;background-color:white'>School Information Successfully Saved</div>";
-	$_SESSION['Message']="<div style='color:green;padding:5px;text-align:center;border:1px solid #aea;background-color:#efe;'>School Information Successfully Saved</div>";	
+    if($_Infoid === "" || $_SchoolCloses === "" || $_SchoolResumes === "" || $_Term === "" || $_BatchId === ""){
+        $_SESSION['Message'] = "<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>Please select the semester, batch, school closes date, and next semester begins date.</div>";
+    } else {
+        $_InfoidEsc = mysqli_real_escape_string($con, $_Infoid);
+        $_TermEsc = mysqli_real_escape_string($con, $_Term);
+        $_BatchIdEsc = mysqli_real_escape_string($con, $_BatchId);
+        $_RecordedbyEsc = mysqli_real_escape_string($con, $_Recordedby);
+        $_SchoolClosesEsc = mysqli_real_escape_string($con, $_SchoolCloses);
+        $_SchoolResumesEsc = mysqli_real_escape_string($con, $_SchoolResumes);
 
-	}
-	else{
-		$_Error=mysqli_error($con);
-		//$_SESSION['Message']="<div style='color:red'>School Information failed to saved,$_Error</div>";
-		$_SESSION['Message']="<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>School Information failed to save</div>";	
+        $_SQL_CHECK = mysqli_query($con, "SELECT * FROM tblschoolinfo WHERE batchid='$_BatchIdEsc' AND termname='$_TermEsc' AND infoid<>'$_InfoidEsc' LIMIT 1");
+        if($_SQL_CHECK && mysqli_num_rows($_SQL_CHECK) > 0){
+            @$_BatchName = "";
+            $_SQL_BATCH = mysqli_query($con, "SELECT * FROM tblbatch WHERE batchid='$_BatchIdEsc' LIMIT 1");
+            if($row_ba = mysqli_fetch_array($_SQL_BATCH, MYSQLI_ASSOC)){
+                $_BatchName = $row_ba['batch'];
+            }
+            $_SESSION['Message'] = "<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>School data has already been saved for Semester $_Term - Batch: $_BatchName</div>";
+        } else {
+            $_SQL_EXISTS = mysqli_query($con, "SELECT infoid FROM tblschoolinfo WHERE infoid='$_InfoidEsc' LIMIT 1");
+            if($_SQL_EXISTS && mysqli_num_rows($_SQL_EXISTS) > 0){
+                $_SQL_EXECUTE = mysqli_query($con, "UPDATE tblschoolinfo SET
+                    batchid='$_BatchIdEsc',
+                    termname='$_TermEsc',
+                    schoolcloses=STR_TO_DATE('$_SchoolClosesEsc','%Y-%m-%d'),
+                    schoolresumes=STR_TO_DATE('$_SchoolResumesEsc','%Y-%m-%d'),
+                    recordedby='$_RecordedbyEsc'
+                    WHERE infoid='$_InfoidEsc' LIMIT 1");
+            } else {
+                $_SQL_EXECUTE = mysqli_query($con, "INSERT INTO tblschoolinfo(infoid,batchid,termname,schoolcloses,schoolresumes,datetimeentry,status,recordedby)
+                    VALUES('$_InfoidEsc','$_BatchIdEsc','$_TermEsc',STR_TO_DATE('$_SchoolClosesEsc','%Y-%m-%d'),STR_TO_DATE('$_SchoolResumesEsc','%Y-%m-%d'),NOW(),'active','$_RecordedbyEsc')");
+            }
 
-	}
+            if($_SQL_EXECUTE){
+                $_SESSION['Message'] = "<div style='color:green;padding:5px;text-align:center;border:1px solid #aea;background-color:#efe;'>School information successfully saved for the selected semester.</div>";
+                include("shortcode.php");
+                $_FormInfoId = $shortcode;
+                $_FormTerm = "";
+                $_FormBatchId = "";
+                $_FormSchoolCloses = "";
+                $_FormSchoolResumes = "";
+                $_FormButtonText = "SAVE DATA";
+                $_IsEditMode = false;
+            } else {
+                $_SESSION['Message'] = "<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>School information failed to save.</div>";
+            }
+        }
+    }
 }
-}
-?>
 
-<?php
-include("dbstring.php");
-if(isset($_GET["delete_school"]))
-{
-$_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblschoolinfo WHERE infoid='$_GET[delete_school]'");
-	if($_SQL_EXECUTE){
-	$_SESSION['Message']="<div style='color:maroon;text-align:center;background-color:white'>School Successfully Deleted</div>";
-	}
-	else{
-		$_Error=mysqli_error($con);
-		$_SESSION['Message']="<div style='color:red;text-align:center'>School failed to delete,Error:$_Error</div>";
-	}
+if(isset($_GET["delete_school"])){
+    $_DeleteInfoId = mysqli_real_escape_string($con, trim((string)$_GET['delete_school']));
+    $_SQL_EXECUTE = mysqli_query($con, "DELETE FROM tblschoolinfo WHERE infoid='$_DeleteInfoId' LIMIT 1");
+    if($_SQL_EXECUTE){
+        $_SESSION['Message'] = "<div style='color:maroon;text-align:center;background-color:white'>School information successfully deleted.</div>";
+    } else {
+        $_Error = mysqli_error($con);
+        $_SESSION['Message'] = "<div style='color:red;text-align:center'>School information failed to delete, Error: $_Error</div>";
+    }
+}
+
+if(isset($_GET["edit_school"])){
+    $_EditInfoId = mysqli_real_escape_string($con, trim((string)$_GET['edit_school']));
+    $_SQL_EDIT = mysqli_query($con, "SELECT * FROM tblschoolinfo WHERE infoid='$_EditInfoId' LIMIT 1");
+    if($_SQL_EDIT && ($row_edit = mysqli_fetch_array($_SQL_EDIT, MYSQLI_ASSOC))){
+        $_FormInfoId = $row_edit['infoid'];
+        $_FormTerm = trim((string)$row_edit['termname']);
+        $_FormBatchId = trim((string)$row_edit['batchid']);
+        $_FormSchoolCloses = (trim((string)$row_edit['schoolcloses']) !== "") ? date("d/m/Y", strtotime($row_edit['schoolcloses'])) : "";
+        $_FormSchoolResumes = (trim((string)$row_edit['schoolresumes']) !== "") ? date("d/m/Y", strtotime($row_edit['schoolresumes'])) : "";
+        $_FormButtonText = "UPDATE DATA";
+        $_IsEditMode = true;
+    }
 }
 ?>
 
@@ -70,13 +109,9 @@ include("links.php");
 <body>
 
 	<div class="header">
-		<!--<img src="images/logo.png" width="100px" height="100px" alt="logo"/>-->
 	<?php
 	include("menu.php");
 	?>		
-	<?php
-	//include("side-menu.php");
-	?>
 	</div>
 <div class="main-platform" style="">
 	<table width="100%">
@@ -84,20 +119,19 @@ include("links.php");
 			<td valign="top" width="30%" align="center">
 				<div class="form-entry" align="left">
 			
-			<h3>School Data Entry 
-				</h3>
+			<h3>School Data Entry</h3>
+			<p style="margin-top:-4px;color:#555;">Save one record per batch and semester, so each semester can carry its own closing and reopening dates.</p>
 		
 			<form method="post" id="formID" name="formID" action="school-data-entry.php">
 
 			<label>School Data Id</label><br/>
-			<input type="text" id="infoid" name="infoid" value="<?php include("shortcode.php");echo $shortcode;?>" class="validate[required]" readonly/><br/><br/>
+			<input type="text" id="infoid" name="infoid" value="<?php echo htmlspecialchars($_FormInfoId, ENT_QUOTES, 'UTF-8'); ?>" class="validate[required]" readonly/><br/><br/>
 
 
 				<select id="term" name="term">
 					<option value="" class="validate[required]">Select Semester</option>
-					<option value="1">1</option>
-					<option value="2">2</option>
-					<!--<option value="3">3</option>-->
+					<option value="1" <?php echo ($_FormTerm === "1" ? "selected" : ""); ?>>1</option>
+					<option value="2" <?php echo ($_FormTerm === "2" ? "selected" : ""); ?>>2</option>
 				</select>
 				<br/><br/>
 
@@ -116,27 +150,31 @@ function show_alert(){
 
 
 				<label>School Closes</label><br/>
-				<input type="text" maxlength="25" size="25" onclick="javascript:NewCssCal ('schoolcloses-date','ddMMyyyy','','','','','')" id="schoolcloses-date" name="schoolcloses-date" value="" readonly   onchange="CheckSchoolCloses()"/>
+				<input type="text" maxlength="25" size="25" onclick="javascript:NewCssCal ('schoolcloses-date','ddMMyyyy','','','','','')" id="schoolcloses-date" name="schoolcloses-date" value="<?php echo htmlspecialchars($_FormSchoolCloses, ENT_QUOTES, 'UTF-8'); ?>" readonly onchange="CheckSchoolCloses()"/>
 				<br/><br/>
      
 	<label>Next Semester Begins</label><br/>
-				<input type="text" maxlength="25" size="25" onclick="javascript:NewCssCal ('schoolresumes','ddMMyyyy','','','','','')" id="schoolresumes" name="schoolresumes" value="" readonly   onchange="CheckSchoolResume()" />
+				<input type="text" maxlength="25" size="25" onclick="javascript:NewCssCal ('schoolresumes','ddMMyyyy','','','','','')" id="schoolresumes" name="schoolresumes" value="<?php echo htmlspecialchars($_FormSchoolResumes, ENT_QUOTES, 'UTF-8'); ?>" readonly onchange="CheckSchoolResume()" />
 				<br/><br/>
      		
 
 				<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
+			$_SQL_2 = mysqli_query($con, "SELECT * FROM tblbatch ORDER BY datetimeentry DESC");
 
 			echo "<select id='batchid' name='batchid' class='validate[required]'>";
 			echo "<option value=''>Select Batch</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[batchid]'>$row[batch]</option>";
+				while($row = mysqli_fetch_array($_SQL_2, MYSQLI_ASSOC)){
+                    $_SelectedBatch = ($_FormBatchId === $row['batchid']) ? "selected" : "";
+					echo "<option value='$row[batchid]' $_SelectedBatch>$row[batch]</option>";
 				}
 				
 			echo "</select><br/><br/>";
 			?>
 
-			<div align="center"><button class="button-save" id="register_school_data" name="register_school_data"><i class="fa fa-save"></i> SAVE DATA</button></div>
+			<div align="center"><button class="button-save" id="register_school_data" name="register_school_data"><i class="fa fa-save"></i> <?php echo htmlspecialchars($_FormButtonText, ENT_QUOTES, 'UTF-8'); ?></button></div>
+            <?php if($_IsEditMode){ ?>
+            <div align="center" style="padding-top:10px;"><a href="school-data-entry.php">Cancel Edit</a></div>
+            <?php } ?>
 		</form>
 
 		</div>
@@ -147,26 +185,23 @@ function show_alert(){
 echo $_SESSION['Message'];
 include("dbstring.php");
 
-$_SQL_SU=mysqli_query($con,"SELECT * FROM tblschoolinfo si 
-INNER JOIN tblbatch bh ON si.batchid=bh.batchid");
-if(mysqli_num_rows($_SQL_SU)>0){
-				//Registered clients
+$_SQL_SU = mysqli_query($con, "SELECT * FROM tblschoolinfo si 
+INNER JOIN tblbatch bh ON si.batchid=bh.batchid
+ORDER BY bh.datetimeentry DESC, si.termname ASC, si.datetimeentry DESC");
+if($_SQL_SU && mysqli_num_rows($_SQL_SU) > 0){
 echo "<table width='100%' style='background-color:white'>";
 echo "<caption>School Data</caption>";
-echo "<thead><th colspan=1>Task</th><th>Batch</th><th>Semester</th><th>School Closes</th><th>Next Semester Begins</th><th>Date/Time</th></thead>";
+echo "<thead><th colspan='2'>Task</th><th>Batch</th><th>Semester</th><th>School Closes</th><th>Next Semester Begins</th><th>Date/Time</th></thead>";
 echo "<tbody>";
-while($row=mysqli_fetch_array($_SQL_SU,MYSQLI_ASSOC)){
+while($row = mysqli_fetch_array($_SQL_SU, MYSQLI_ASSOC)){
 echo "<tr>";
+echo "<td align='center'><a title='Edit ($row[batch] - Semester $row[termname])' href='school-data-entry.php?edit_school=$row[infoid]'><i class='fa fa-edit' style='color:royalblue'></i></a></td>";
 echo "<td align='center'><a title='Delete ($row[batch])' href='school-data-entry.php?delete_school=$row[infoid]'><i class='fa fa-trash-o' style='color:red'></i></a></td>";
 echo "<td align='center'>$row[batch]</td>";
 echo "<td align='center'>$row[termname]</td>";				
-echo "<td align='center'>";
-echo $row['schoolcloses'];
-echo "</td>";
+echo "<td align='center'>$row[schoolcloses]</td>";
 echo "<td align='center'>$row[schoolresumes]</td>";
-echo "<td align='center'>";
-echo $row['datetimeentry'];
-echo "</td>";
+echo "<td align='center'>$row[datetimeentry]</td>";
 echo "</tr>";
 }
 echo "</tbody>";
@@ -182,10 +217,8 @@ echo "</table>";
 <button onclick="topFunction()" id="myBtn" title="Go to top">Top</button> 
 
  <script>
-//Get the button
 var mybutton = document.getElementById("myBtn");
 
-// When the user scrolls down 20px from the top of the document, show the button
 window.onscroll = function() {scrollFunction()};
 
 function scrollFunction() {
@@ -196,7 +229,6 @@ function scrollFunction() {
   }
 }
 
-// When the user clicks on the button, scroll to the top of the document
 function topFunction() {
   document.body.scrollTop = 0;
   document.documentElement.scrollTop = 0;
