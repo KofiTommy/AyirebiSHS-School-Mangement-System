@@ -5,6 +5,8 @@ $_SESSION['Message']="";
 <?php
 include("dbstring.php");
 include("audit_notifications.php");
+include_once("semester-registry-utils.php");
+semester_registry_ensure_academic_year_column($con);
 if(!function_exists('score_report_session_label')){
 function score_report_session_label($dateTimeValue, $batchLabel, $termValue){
     $yearValue = "";
@@ -31,7 +33,7 @@ function score_report_session_label($dateTimeValue, $batchLabel, $termValue){
     return trim($yearValue." Batch ".$batchText." Semester ".$termText);
 }
 }
-@$_YearBatchFilter = isset($_GET["year_batch"]) ? trim($_GET["year_batch"]) : "";
+@$_YearBatchFilter = semester_registry_normalize_year($_GET["year_batch"] ?? "");
 @$_YearBatchFilterSafe = mysqli_real_escape_string($con, $_YearBatchFilter);
 @$_CurrentClassId = isset($_GET["class_id"]) ? trim($_GET["class_id"]) : "";
 @$_CurrentTermId = isset($_GET["term_id"]) ? trim($_GET["term_id"]) : "";
@@ -257,6 +259,7 @@ if(!$isAdmin){
            AND sc.classid='$_ClassSafe'
            AND sc.subjectid='$_SubjectSafe'
            AND sa.batchid='$_BatchSafe'
+           ".($_YearBatchFilterSafe!="" ? " AND ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe' " : "")."
            ".($_TermSafe!="" ? " AND sa.termname='$_TermSafe' " : "")."
          LIMIT 1"
     );
@@ -282,6 +285,7 @@ $_SQL_CHECK_DELETE = mysqli_query(
      WHERE sc.classid='$_ClassSafe'
        AND sc.subjectid='$_SubjectSafe'
        AND sa.batchid='$_BatchSafe'"
+    .($_YearBatchFilterSafe!="" ? " AND ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe' " : "")
     .($_TermSafe!="" ? " AND sa.termname='$_TermSafe' " : "")
     ." AND mk.userid IN ($_StudentInSql)
        AND mk.testtype IN ('Class Score','Exam Score')
@@ -308,6 +312,7 @@ if($_DeleteError==""){
          WHERE sc.classid='$_ClassSafe'
            AND sc.subjectid='$_SubjectSafe'
            AND sa.batchid='$_BatchSafe'"
+        .($_YearBatchFilterSafe!="" ? " AND ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe' " : "")
         .($_TermSafe!="" ? " AND sa.termname='$_TermSafe' " : "")
         ." AND mk.userid IN ($_StudentInSql)
            AND mk.testtype IN ('Class Score','Exam Score')
@@ -401,13 +406,14 @@ include("menu.php");
 <?php
 include("dbstring.php");
 echo "<div style='margin-bottom:10px;'>";
-echo "<label style='font-weight:bold;'>Academic Year (Batch)</label><br/>";
+echo "<label style='font-weight:bold;'>Academic Year</label><br/>";
 echo "<select id='year_batch' name='year_batch' onchange='window.location=\"scores-report.php?year_batch=\"+encodeURIComponent(this.value)' style='width:100%;padding:6px;'>";
 echo "<option value=''>All Years</option>";
-$_SQL_BF=mysqli_query($con,"SELECT batchid,batch FROM tblbatch ORDER BY datetimeentry DESC");
+$_SQL_BF=mysqli_query($con,"SELECT DISTINCT YEAR(datetimeentry) AS academicyear FROM tblsubjectassignment ORDER BY academicyear DESC");
 while($row_bf=mysqli_fetch_array($_SQL_BF,MYSQLI_ASSOC)){
-    $_sel = ($_YearBatchFilter==$row_bf["batchid"]) ? "selected" : "";
-    echo "<option value='$row_bf[batchid]' $_sel>$row_bf[batch]</option>";
+    $_YearOption = trim((string)$row_bf["academicyear"]);
+    $_sel = ($_YearBatchFilter===$_YearOption) ? "selected" : "";
+    echo "<option value='$_YearOption' $_sel>$_YearOption</option>";
 }
 echo "</select>";
 echo "</div>";
@@ -421,7 +427,7 @@ $_SQL_2=mysqli_query($con,"SELECT sa.*, sa.datetimeentry AS assignment_datetimee
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
 	INNER JOIN tblbatch bch ON bch.batchid=sa.batchid
-	".($_YearBatchFilterSafe!="" ? " WHERE sa.batchid='$_YearBatchFilterSafe' " : "")."
+	".($_YearBatchFilterSafe!="" ? " WHERE ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe' " : "")."
 	ORDER BY ce.class_name,sa.termname ASC");
 
 //echo "<select id='classid' name='classid' class='validate[required]'>";
@@ -451,7 +457,7 @@ $_SQL_2=mysqli_query($con,"SELECT sa.*, sa.datetimeentry AS assignment_datetimee
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
 	INNER JOIN tblbatch bch ON bch.batchid=sa.batchid
-	WHERE sa.userid='$_SESSION[USERID]' ".($_YearBatchFilterSafe!="" ? " AND sa.batchid='$_YearBatchFilterSafe' " : "")." ORDER BY ce.class_name,sa.termname ASC");
+	WHERE sa.userid='$_SESSION[USERID]' ".($_YearBatchFilterSafe!="" ? " AND ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe' " : "")." ORDER BY ce.class_name,sa.termname ASC");
 
 	while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
 		$_SessionLabel = score_report_session_label($row['assignment_datetimeentry'], $row['batch'], $row['termname']);
@@ -481,11 +487,11 @@ echo "<div style='margin:8px 0 12px 0;padding:8px;border:1px solid #ddd;backgrou
 echo "<label style='display:inline-block;margin-right:16px;'><input type='checkbox' id='bulk_select_students' onclick='toggleBulkStudents(this)' /> Select All Students</label>";
 echo "<button type='submit' name='bulk_delete_students_scores' onclick='return confirmBulkDeleteStudents();' style='background:#b22222;color:white;border:0;padding:8px 10px;cursor:pointer;'><i class='fa fa-trash-o'></i> Delete Selected Students Class + Exam Scores</button>";
 echo "</div>";
-$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.* FROM tblsubjectassignment sa 
+$_SQL_2=mysqli_query($con,"SELECT sa.*, ".semester_registry_assignment_year_sql("sa")." AS assignment_year, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.* FROM tblsubjectassignment sa 
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
-	WHERE sa.userid='$_SESSION[USERID]' AND sc.subjectid='$_GET[subject_id]' AND sa.batchid='$_GET[batchid]' ORDER BY ce.class_name,sa.termname ASC");
+	WHERE sa.userid='$_SESSION[USERID]' AND sc.subjectid='$_GET[subject_id]' AND sa.batchid='$_GET[batchid]' ".($_YearBatchFilterSafe!="" ? " AND ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe'" : "")." ORDER BY ce.class_name,sa.termname ASC");
 
 
 //$_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.systemtype='Student'  ORDER BY su.userid");
@@ -518,7 +524,7 @@ echo strtoupper($row_rsu['subject']);
 echo "</td></tr>";
 */
 $_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
-	ON ce.class_entryid=tr.class_entryid WHERE tr.class_entryid='$row_sub[class_entryid]' AND tr.batchid='$row_sub[batchid]'");
+	ON ce.class_entryid=tr.class_entryid WHERE tr.class_entryid='$row_sub[class_entryid]' AND tr.batchid='$row_sub[batchid]' AND ".semester_registry_resolved_year_sql("tr")."='$row_sub[assignment_year]'");
 if(mysqli_num_rows($_SQL_CLASS)==0){
 }else{
 while($row_ce=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
@@ -542,7 +548,7 @@ $_SQL_EXECUTE=mysqli_query($con,"SELECT *,su.userid FROM tblmark mk
 		INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
 		INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
 		INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
-		WHERE su.userid='$row_rsu[userid]' AND sa.batchid='$row_sub[batchid]'
+		WHERE su.userid='$row_rsu[userid]' AND sa.batchid='$row_sub[batchid]' AND ".semester_registry_assignment_year_sql("sa")."='$row_sub[assignment_year]'
 		AND ce.class_entryid='$row_ce[class_entryid]' AND sa.termname='$k' 
 		AND sub.subjectid='$_GET[subject_id]'
 		ORDER BY su.userid ASC");

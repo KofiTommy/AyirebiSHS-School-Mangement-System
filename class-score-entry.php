@@ -4,6 +4,8 @@ include("dbstring.php");
 include("check-login.php");
 include("audit_notifications.php");
 include("score-entry-utils.php");
+include_once("semester-registry-utils.php");
+semester_registry_ensure_academic_year_column($con);
 
 $pageFile = "class-score-entry.php";
 $pageTitle = "Class Score Entry";
@@ -20,6 +22,7 @@ $selectedClassId = trim((string)($_GET['class_ID'] ?? ($_POST['class_ID'] ?? '')
 $selectedTermId = trim((string)($_GET['term_ID'] ?? ($_POST['term_ID'] ?? '')));
 $selectedBatchId = trim((string)($_GET['batch_ID'] ?? ($_POST['batch_ID'] ?? '')));
 $selectedSubjectId = trim((string)($_GET['subject_ID'] ?? ($_POST['subject_ID'] ?? '')));
+$selectedYearId = semester_registry_normalize_year($_GET['year_ID'] ?? ($_POST['year_ID'] ?? ''));
 $prefillTotal = trim((string)($_GET['prefill_total'] ?? ''));
 
 if(isset($_POST['save_all_mark'])){
@@ -27,6 +30,7 @@ if(isset($_POST['save_all_mark'])){
     $selectedTermId = trim((string)($_POST['term_ID'] ?? $selectedTermId));
     $selectedBatchId = trim((string)($_POST['batch_ID'] ?? $selectedBatchId));
     $selectedSubjectId = trim((string)($_POST['subject_ID'] ?? $selectedSubjectId));
+    $selectedYearId = semester_registry_normalize_year($_POST['year_ID'] ?? $selectedYearId);
 
     $messages = array();
     $marks = isset($_POST['marks']) && is_array($_POST['marks']) ? $_POST['marks'] : array();
@@ -132,7 +136,7 @@ if(isset($_POST['save_all_mark'])){
     }
 
     $_SESSION['Message'] = implode("", $messages);
-    header("location:".score_entry_build_url($pageFile, $selectedClassId, $selectedTermId, $selectedBatchId, $selectedSubjectId, $prefillTotal));
+    header("location:".score_entry_build_url($pageFile, $selectedClassId, $selectedTermId, $selectedBatchId, $selectedSubjectId, $prefillTotal, $selectedYearId));
     exit();
 }
 
@@ -152,6 +156,7 @@ $assignmentSql = "SELECT
         sa.batchid,
         sa.termname,
         sa.datetimeentry AS assignment_datetimeentry,
+        ".semester_registry_assignment_year_sql("sa")." AS assignment_year,
         sc.subjectid,
         sub.subject,
         ce.class_name,
@@ -164,7 +169,10 @@ $assignmentSql = "SELECT
     INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid
     INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
     LEFT JOIN tblbatch bh ON bh.batchid=sa.batchid
-    LEFT JOIN tbltermregistry tr ON tr.class_entryid=sa.classid AND tr.batchid=sa.batchid AND tr.termname=sa.termname
+    LEFT JOIN tbltermregistry tr ON tr.class_entryid=sa.classid
+        AND tr.batchid=sa.batchid
+        AND tr.termname=sa.termname
+        AND ".semester_registry_resolved_year_sql("tr")."=".semester_registry_assignment_year_sql("sa")."
     LEFT JOIN tblsystemuser stu ON stu.userid=tr.userid AND stu.systemtype='Student'
     LEFT JOIN tblmark mk ON mk.assignmentid=sa.assignmentid AND mk.userid=tr.userid AND mk.testtype='$scoreType'
     WHERE sa.userid='$teacherIdSafe' AND sa.status='active'
@@ -177,7 +185,7 @@ if($assignmentRes){
         $row['saved_students'] = (int)$row['saved_students'];
         $row['pending_students'] = max($row['total_students'] - $row['saved_students'], 0);
         $row['status_meta'] = score_entry_status_meta($row['total_students'], $row['saved_students']);
-        $row['session_label'] = score_entry_session_label($row['assignment_datetimeentry'], $row['batch'], $row['termname']);
+        $row['session_label'] = score_entry_session_label($row['assignment_datetimeentry'], $row['batch'], $row['termname'], $row['assignment_year']);
         $row['search_label'] = strtolower(trim($row['class_name']." ".$row['subject']." ".$row['session_label']." ".$row['batch']." semester ".$row['termname']));
         $assignments[] = $row;
 
@@ -197,7 +205,8 @@ if($assignmentRes){
             $selectedClassId === (string)$row['class_entryid'] &&
             $selectedBatchId === (string)$row['batchid'] &&
             $selectedTermId === (string)$row['termname'] &&
-            $selectedSubjectId === (string)$row['subjectid']
+            $selectedSubjectId === (string)$row['subjectid'] &&
+            $selectedYearId === (string)$row['assignment_year']
         ){
             $selectedAssignment = $row;
         }
@@ -212,6 +221,7 @@ if($selectedAssignment){
     $selectedBatchSafe = mysqli_real_escape_string($con, (string)$selectedAssignment['batchid']);
     $selectedTermSafe = mysqli_real_escape_string($con, (string)$selectedAssignment['termname']);
     $selectedSubjectSafe = mysqli_real_escape_string($con, (string)$selectedAssignment['subjectid']);
+    $selectedYearSafe = mysqli_real_escape_string($con, (string)$selectedAssignment['assignment_year']);
 
     $studentSql = "SELECT DISTINCT
             su.userid,
@@ -226,6 +236,7 @@ if($selectedAssignment){
             AND sa.classid=tr.class_entryid
             AND sa.batchid=tr.batchid
             AND sa.termname=tr.termname
+            AND ".semester_registry_resolved_year_sql("tr")."=".semester_registry_assignment_year_sql("sa")."
         INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
         LEFT JOIN tblmark mk ON mk.assignmentid=sa.assignmentid
             AND mk.userid=su.userid
@@ -235,6 +246,7 @@ if($selectedAssignment){
           AND tr.class_entryid='$selectedClassSafe'
           AND tr.batchid='$selectedBatchSafe'
           AND tr.termname='$selectedTermSafe'
+          AND ".semester_registry_resolved_year_sql("tr")."='$selectedYearSafe'
           AND sc.subjectid='$selectedSubjectSafe'
         ORDER BY su.firstname ASC, su.othernames ASC, su.surname ASC, su.userid ASC";
 
@@ -254,8 +266,9 @@ if($selectedAssignment){
     $scoresReportUrl = "scores-report.php?class_id=".urlencode((string)$selectedAssignment['class_entryid'])
         ."&term_id=".urlencode((string)$selectedAssignment['termname'])
         ."&subject_id=".urlencode((string)$selectedAssignment['subjectid'])
-        ."&batchid=".urlencode((string)$selectedAssignment['batchid']);
-    $uploadUrl = score_entry_build_url($uploadPage, (string)$selectedAssignment['class_entryid'], (string)$selectedAssignment['termname'], (string)$selectedAssignment['batchid'], (string)$selectedAssignment['subjectid']);
+        ."&batchid=".urlencode((string)$selectedAssignment['batchid'])
+        ."&year_batch=".urlencode((string)$selectedAssignment['assignment_year']);
+    $uploadUrl = score_entry_build_url($uploadPage, (string)$selectedAssignment['class_entryid'], (string)$selectedAssignment['termname'], (string)$selectedAssignment['batchid'], (string)$selectedAssignment['subjectid'], "", (string)$selectedAssignment['assignment_year']);
 }
 ?>
 <!DOCTYPE html>
@@ -327,7 +340,8 @@ if($selectedAssignment){
                         (string)$assignment['termname'],
                         (string)$assignment['batchid'],
                         (string)$assignment['subjectid'],
-                        $prefillTotal
+                        $prefillTotal,
+                        (string)$assignment['assignment_year']
                     );
                     ?>
                     <a
@@ -413,13 +427,14 @@ if($selectedAssignment){
                 <?php } else { ?>
                 <form
                     method="post"
-                    action="<?php echo score_entry_esc(score_entry_build_url($pageFile, $selectedAssignment['class_entryid'], $selectedAssignment['termname'], $selectedAssignment['batchid'], $selectedAssignment['subjectid'], $prefillTotal)); ?>"
+                    action="<?php echo score_entry_esc(score_entry_build_url($pageFile, $selectedAssignment['class_entryid'], $selectedAssignment['termname'], $selectedAssignment['batchid'], $selectedAssignment['subjectid'], $prefillTotal, $selectedAssignment['assignment_year'])); ?>"
                     data-score-sheet>
                     <input type="hidden" name="assignmentid" value="<?php echo score_entry_esc((string)$selectedAssignment['assignmentid']); ?>">
                     <input type="hidden" name="class_ID" value="<?php echo score_entry_esc((string)$selectedAssignment['class_entryid']); ?>">
                     <input type="hidden" name="term_ID" value="<?php echo score_entry_esc((string)$selectedAssignment['termname']); ?>">
                     <input type="hidden" name="batch_ID" value="<?php echo score_entry_esc((string)$selectedAssignment['batchid']); ?>">
                     <input type="hidden" name="subject_ID" value="<?php echo score_entry_esc((string)$selectedAssignment['subjectid']); ?>">
+                    <input type="hidden" name="year_ID" value="<?php echo score_entry_esc((string)$selectedAssignment['assignment_year']); ?>">
 
                     <div class="score-entry-sheet-toolbar">
                         <div class="score-entry-sheet-toolbar__group">

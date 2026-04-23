@@ -55,6 +55,7 @@ function getSubjectAnalysisRows($con,$subjectId,$batchId,$classId,$termId){
 //Declare the variables
 @$_SubjectID=$_POST['subjectid'];
 @$_BatchId=$_POST['batchid'];
+@$_AcademicYear=trim((string)$_POST['academicyear']);
 @$_ClassId=$_POST['classid'];
 @$_TermId=$_POST['termid'];
 
@@ -72,8 +73,13 @@ if(isset($_POST["print_examanalysis_report"]))
 
 @$_SchoolCloses="";
 @$_NextTermBegins="";
+@$_AcademicYearLabel="";
 $_TermFilter = (isset($_TermId) && trim((string)$_TermId)!=="") ? (int)$_TermId : 0;
-if($_TermFilter>0){
+$_AcademicYearFilter = trim((string)$_AcademicYear);
+if($_TermFilter>0 && $_AcademicYearFilter!==""){
+$_AcademicYearFilterEsc=mysqli_real_escape_string($con,$_AcademicYearFilter);
+$_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' AND termname='$_TermFilter' AND academicyear='$_AcademicYearFilterEsc' ORDER BY datetimeentry DESC LIMIT 1");
+}elseif($_TermFilter>0){
 $_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' AND termname='$_TermFilter' ORDER BY datetimeentry DESC LIMIT 1");
 }else{
 $_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' ORDER BY termname DESC, datetimeentry DESC LIMIT 1");
@@ -85,6 +91,10 @@ if($row_in=mysqli_fetch_array($_SQL_IN,MYSQLI_ASSOC))
 {
 $_SchoolCloses=$row_in['schoolcloses'];
 $_NextTermBegins=$row_in['schoolresumes'];
+$_AcademicYearLabel=trim((string)(isset($row_in['academicyear']) ? $row_in['academicyear'] : ''));
+if($_AcademicYearLabel===""){
+    $_AcademicYearLabel=(trim((string)$row_in['datetimeentry'])!=="" ? date("Y",strtotime((string)$row_in['datetimeentry'])) : "");
+}
 }
 
 @$_Roll=0;
@@ -174,7 +184,7 @@ $fill =false;
 $pdf->Ln(10);
 
 @$serial1=0;
-$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4],10,strtoupper($_SubjectName).": ".strtoupper($_BatchName)." | ".strtoupper($_ClassName)." | SEM ".$_TermId,1,0,'L',$fill);
+$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4],10,strtoupper($_SubjectName).": ".strtoupper($_BatchName)." | ".strtoupper($_ClassName)." | AY ".strtoupper($_AcademicYearLabel!=="" ? $_AcademicYearLabel : $_BatchName)." | SEM ".$_TermId,1,0,'L',$fill);
 $pdf->Ln(10);
 for($idx=0;$idx<count($_AnalysisRows);$idx++){
 $row_rsu=$_AnalysisRows[$idx];
@@ -291,6 +301,7 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblmark WHERE markid='$_GET[delete_
 }
 
 @$_FilterBatch=isset($_GET["batchid"])?$_GET["batchid"]:"";
+@$_FilterAcademicYear=isset($_GET["academic_year"])?trim((string)$_GET["academic_year"]):"";
 @$_FilterClass=isset($_GET["class_id"])?$_GET["class_id"]:"";
 @$_FilterTerm=isset($_GET["term_id"])?$_GET["term_id"]:"";
 @$_FilterSubject=isset($_GET["subject_id"])?$_GET["subject_id"]:"";
@@ -304,14 +315,15 @@ include("links.php");
 <script type="text/javascript">
 function applySubjectFilter(){
 	var batch=document.getElementById("filter_batchid").value;
+	var academicYear=document.getElementById("filter_academicyear").value;
 	var cls=document.getElementById("filter_classid").value;
 	var term=document.getElementById("filter_termid").value;
 	var subject=document.getElementById("filter_subjectid").value;
-	if(batch=="" || cls=="" || term=="" || subject==""){
-		alert("Select Batch, Class, Term and Subject.");
+	if(batch=="" || academicYear=="" || cls=="" || term=="" || subject==""){
+		alert("Select Batch, Academic Year, Class, Term and Subject.");
 		return;
 	}
-	window.location.href="examanalysis-subject.php?batchid="+encodeURIComponent(batch)+"&class_id="+encodeURIComponent(cls)+"&term_id="+encodeURIComponent(term)+"&subject_id="+encodeURIComponent(subject);
+	window.location.href="examanalysis-subject.php?batchid="+encodeURIComponent(batch)+"&academic_year="+encodeURIComponent(academicYear)+"&class_id="+encodeURIComponent(cls)+"&term_id="+encodeURIComponent(term)+"&subject_id="+encodeURIComponent(subject);
 }
 </script>
 </head>
@@ -358,6 +370,33 @@ $_SQL_FB=mysqli_query($con,"SELECT DISTINCT bch.batchid,bch.batch FROM tblsubjec
 while($row_fb=mysqli_fetch_array($_SQL_FB,MYSQLI_ASSOC)){
 	$_Sel=($_FilterBatch==$row_fb["batchid"])?"selected":"";
 	echo "<option value='$row_fb[batchid]' $_Sel>$row_fb[batch]</option>";
+}
+echo "</select>";
+
+echo "<select id='filter_academicyear' style='margin-right:5px;'>";
+echo "<option value=''>Academic Year</option>";
+@$_YearFilterWhere="";
+if($_FilterBatch!=""){ $_YearFilterWhere=$_YearFilterWhere." AND batchid='$_FilterBatch'"; }
+$_SQL_FY=mysqli_query($con,"
+SELECT DISTINCT academic_year FROM (
+	SELECT CASE
+		WHEN TRIM(COALESCE(academicyear,''))<>'' THEN academicyear
+		ELSE YEAR(datetimeentry)
+	END AS academic_year
+	FROM tblschoolinfo
+	".($_YearFilterWhere!=="" ? " WHERE 1=1 $_YearFilterWhere " : "")."
+	UNION
+	SELECT YEAR(datetimeentry) AS academic_year
+	FROM tblsubjectassignment
+	".($_YearFilterWhere!=="" ? " WHERE 1=1 $_YearFilterWhere " : "")."
+) year_options
+WHERE academic_year IS NOT NULL AND academic_year<>''
+ORDER BY academic_year DESC");
+if($_SQL_FY){
+while($row_fy=mysqli_fetch_array($_SQL_FY,MYSQLI_ASSOC)){
+	$_Sel=($_FilterAcademicYear==(string)$row_fy["academic_year"])?"selected":"";
+	echo "<option value='$row_fy[academic_year]' $_Sel>$row_fy[academic_year]</option>";
+}
 }
 echo "</select>";
 
@@ -440,18 +479,32 @@ $_AnalysisRows=getSubjectAnalysisRows($con,$_SubjectId,$_BatchId2,$_ClassId2,$_T
 
 echo "<input type='hidden' name='subjectid' value='$_SubjectId' />";
 echo "<input type='hidden' name='batchid' value='$_BatchId2' />";
+echo "<input type='hidden' name='academicyear' value='$_FilterAcademicYear' />";
 echo "<input type='hidden' name='classid' value='$_ClassId2' />";
 echo "<input type='hidden' name='termid' value='$_TermId2' />";
 echo "<button class='button-pay' id='print_examanalysis_report' name='print_examanalysis_report'><i class='fa fa-print'></i> Print Report</button><br/><br/>";		
 
 echo "<table width='100%' style='background-color:white'>";
 echo "<caption>";
-echo "Scores Report - ".strtoupper($_SubjectName)." | ".strtoupper($_BatchName)." | ".strtoupper($_ClassName)." | SEM ".$_TermId2;
+$_AcademicYearLabel2 = "";
+if($_FilterAcademicYear!==""){
+$_AcademicYearFilterEsc2=mysqli_real_escape_string($con,$_FilterAcademicYear);
+$_SQL_IN_2=mysqli_query($con,"SELECT academicyear,datetimeentry FROM tblschoolinfo WHERE batchid='$_BatchId2' AND termname='$_TermId2' AND academicyear='$_AcademicYearFilterEsc2' ORDER BY datetimeentry DESC LIMIT 1");
+}else{
+$_SQL_IN_2=mysqli_query($con,"SELECT academicyear,datetimeentry FROM tblschoolinfo WHERE batchid='$_BatchId2' AND termname='$_TermId2' ORDER BY datetimeentry DESC LIMIT 1");
+}
+if($_SQL_IN_2 && ($row_in_2=mysqli_fetch_array($_SQL_IN_2,MYSQLI_ASSOC))){
+    $_AcademicYearLabel2=trim((string)(isset($row_in_2['academicyear']) ? $row_in_2['academicyear'] : ''));
+    if($_AcademicYearLabel2===""){
+        $_AcademicYearLabel2=(trim((string)$row_in_2['datetimeentry'])!=="" ? date("Y",strtotime((string)$row_in_2['datetimeentry'])) : "");
+    }
+}
+echo "Scores Report - ".strtoupper($_SubjectName)." | ".strtoupper($_BatchName)." | ".strtoupper($_ClassName)." | AY ".strtoupper($_AcademicYearLabel2!=="" ? $_AcademicYearLabel2 : $_BatchName)." | SEM ".$_TermId2;
 echo "</caption>";
 echo "<thead><th>*</th><th>STUDENT</th><th>TOTAL</th><th>POSITION</th><th>GRADE</th></thead>";
 echo "<tbody>";
 @$serial1=0;
-echo "<tr style='background-color:#dee;font-weight:bold'><td align='left' colspan='10'>".strtoupper($_SubjectName).": ".strtoupper($_BatchName)." | ".strtoupper($_ClassName)." | SEM ".$_TermId2."</td></tr>";
+echo "<tr style='background-color:#dee;font-weight:bold'><td align='left' colspan='10'>".strtoupper($_SubjectName).": ".strtoupper($_BatchName)." | ".strtoupper($_ClassName)." | AY ".strtoupper($_AcademicYearLabel2!=="" ? $_AcademicYearLabel2 : $_BatchName)." | SEM ".$_TermId2."</td></tr>";
 for($idx=0;$idx<count($_AnalysisRows);$idx++){
 $row_rsu=$_AnalysisRows[$idx];
 $serial1=$serial1+1;
@@ -478,8 +531,8 @@ echo "</tr>";
 }
 echo "</tbody>";
 echo "</table>";
-}elseif(isset($_GET["batchid"]) || isset($_GET["class_id"]) || isset($_GET["term_id"]) || isset($_GET["subject_id"])){
-echo "<div style='padding:8px;background-color:#fff3cd;color:#8a6d3b;border:1px solid #f5d48a;'>Select all filters: Batch, Class, Term and Subject.</div>";
+}elseif(isset($_GET["batchid"]) || isset($_GET["academic_year"]) || isset($_GET["class_id"]) || isset($_GET["term_id"]) || isset($_GET["subject_id"])){
+echo "<div style='padding:8px;background-color:#fff3cd;color:#8a6d3b;border:1px solid #f5d48a;'>Select all filters: Batch, Academic Year, Class, Term and Subject.</div>";
 }
 ?>
 </form>

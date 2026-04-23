@@ -20,7 +20,7 @@ function score_entry_alert($type, $message){
 }
 
 if(!function_exists('score_entry_build_url')){
-function score_entry_build_url($page, $classId, $termId, $batchId, $subjectId, $prefillTotal = ""){
+function score_entry_build_url($page, $classId, $termId, $batchId, $subjectId, $prefillTotal = "", $yearId = ""){
     $params = array();
     if(trim((string)$classId) !== ""){
         $params['class_ID'] = trim((string)$classId);
@@ -33,6 +33,9 @@ function score_entry_build_url($page, $classId, $termId, $batchId, $subjectId, $
     }
     if(trim((string)$subjectId) !== ""){
         $params['subject_ID'] = trim((string)$subjectId);
+    }
+    if(trim((string)$yearId) !== ""){
+        $params['year_ID'] = trim((string)$yearId);
     }
     if(trim((string)$prefillTotal) !== ""){
         $params['prefill_total'] = trim((string)$prefillTotal);
@@ -83,12 +86,14 @@ function score_entry_status_meta($totalStudents, $savedStudents){
 }
 
 if(!function_exists('score_entry_session_label')){
-function score_entry_session_label($dateTimeValue, $batchLabel, $termValue){
-    $yearValue = "";
-    if(trim((string)$dateTimeValue) !== ""){
-        $time = strtotime((string)$dateTimeValue);
-        if($time){
-            $yearValue = date("Y", $time);
+function score_entry_session_label($dateTimeValue, $batchLabel, $termValue, $yearOverride = ""){
+    $yearValue = trim((string)$yearOverride);
+    if($yearValue === ""){
+        if(trim((string)$dateTimeValue) !== ""){
+            $time = strtotime((string)$dateTimeValue);
+            if($time){
+                $yearValue = date("Y", $time);
+            }
         }
     }
     if($yearValue === ""){

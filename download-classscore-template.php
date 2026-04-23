@@ -6,6 +6,8 @@ $_SESSION['Message']="";
 include("dbstring.php");
 include("check-login.php");
 include("class-teacher-utils.php");
+include_once("semester-registry-utils.php");
+semester_registry_ensure_academic_year_column($con);
 if(!(class_teacher_is_teacher() || class_teacher_is_admin())){
     header("location:".class_teacher_landing_page());
     exit();
@@ -151,6 +153,7 @@ $_SQL_2=mysqli_query($con,"SELECT * FROM tblsubjectassignment sa
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
+	INNER JOIN tblbatch bch ON bch.batchid=sa.batchid
 	WHERE sa.userid='$_SESSION[USERID]' ORDER BY sa.termname ASC");
 
 /*echo "<select id='classid' name='classid' class='validate[required]'>";
@@ -180,10 +183,10 @@ while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
 	echo $row['termname'];
 	echo "</td>";
 	echo "<td>";
-	echo $row['subject']."(".$row['subjectid'].")";
+	echo $row['subject']."(".$row['subjectid'].") - ".semester_registry_session_label(date('Y-m-d H:i:s', strtotime($row['datetimeentry'])), $row['batch'], $row['termname']);
 	echo "</td>";
 	echo "<td align='center'>";
-	echo "<a href='download-classscore-template.php?class_ID=$row[class_entryid]&term_ID=$row[termname]&batch_ID=$row[batchid]&subject_ID=$row[subjectid]'><i class='fa fa-plus' style='color:blue'></i></a>";
+	echo "<a href='download-classscore-template.php?class_ID=$row[class_entryid]&term_ID=$row[termname]&batch_ID=$row[batchid]&subject_ID=$row[subjectid]&year_ID=".date('Y', strtotime($row['datetimeentry']))."'><i class='fa fa-plus' style='color:blue'></i></a>";
 	echo "</td>";
 	echo "</tr>";
 	}
@@ -221,24 +224,31 @@ if(isset($_GET['class_ID']))
 @$_ClassId=$_GET['class_ID'];
 @$_Term=$_GET['term_ID'];
 @$_SubjectId=$_GET['subject_ID'];
+@$_AcademicYear=semester_registry_normalize_year($_GET['year_ID'] ?? '');
 @$_ClassName="";
 @$_BatchName="";
+$_AcademicYearWhere = "";
+if($_AcademicYear!==""){
+$_AcademicYearWhere = " AND ".semester_registry_resolved_year_sql("tr")."='".mysqli_real_escape_string($con,$_AcademicYear)."'";
+}
 
 $_SQL_EXECUTE_VIEW=mysqli_query($con,"SELECT *,su.userid FROM tblsystemuser su 
 INNER JOIN tbltermregistry tr ON su.userid=tr.userid
-INNER JOIN tblsubjectassignment sa ON sa.classid=tr.class_entryid AND sa.batchid=tr.batchid AND sa.termname=tr.termname
+INNER JOIN tblsubjectassignment sa ON sa.classid=tr.class_entryid AND sa.batchid=tr.batchid AND sa.termname=tr.termname AND ".semester_registry_resolved_year_sql("tr")."=".semester_registry_assignment_year_sql("sa")."
 INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
 INNER JOIN tblsubject sub ON sub.subjectid=sc.subjectid
  WHERE tr.class_entryid='$_ClassId' AND tr.batchid='$_BatchId' AND tr.termname='$_Term' 
+ $_AcademicYearWhere
  AND su.systemtype='Student' AND sc.subjectid='$_SubjectId' AND sa.userid='$_SESSION[USERID]'");
 
 
 $_SQL_EXE=mysqli_query($con,"SELECT *,su.userid FROM tblsystemuser su 
 INNER JOIN tbltermregistry tr ON su.userid=tr.userid
-INNER JOIN tblsubjectassignment sa ON sa.classid=tr.class_entryid AND sa.batchid=tr.batchid AND sa.termname=tr.termname
+INNER JOIN tblsubjectassignment sa ON sa.classid=tr.class_entryid AND sa.batchid=tr.batchid AND sa.termname=tr.termname AND ".semester_registry_resolved_year_sql("tr")."=".semester_registry_assignment_year_sql("sa")."
 INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
 INNER JOIN tblsubject sub ON sub.subjectid=sc.subjectid
  WHERE tr.class_entryid='$_ClassId' AND tr.batchid='$_BatchId' AND tr.termname='$_Term' 
+ $_AcademicYearWhere
  AND su.systemtype='Student' AND sc.subjectid='$_SubjectId' AND sa.userid='$_SESSION[USERID]'");
 
 /*
@@ -263,7 +273,7 @@ echo "<div align='right'><button id='download_score_template' name='download_sco
 echo "<table width='100%' style='background-color:white'>";
 echo "<caption>";
 if($row_ss=mysqli_fetch_array($_SQL_EXE,MYSQLI_ASSOC)){
-echo strtoupper($_ClassName)." : SEMESTER ".$_Term ." : ". strtoupper($row_ss['subject'])." ---BATCH: ".strtoupper($_BatchName);
+echo strtoupper($_ClassName)." : ".strtoupper(semester_registry_session_label($_AcademicYear!=="" ? $_AcademicYear : date('Y'), $_BatchName, $_Term))." : ". strtoupper($row_ss['subject']);
 }
 echo "</caption>";
 echo "<thead><th>*</th><th>STUDENT</th></thead>";

@@ -41,6 +41,16 @@ include("links.php");
 		<div id="subscription-style1" align="left">
 			<!--Employee Details -->
 			<h3>Group Semester Registration</h3>
+			<div style="padding:10px;margin-bottom:12px;background:#eef6ff;border:1px solid #bcd;color:#0b63ce;line-height:1.6;">
+				Upload columns in this order:
+				<strong>User Id</strong>,
+				<strong>Student Name</strong>,
+				<strong>Class Name</strong>,
+				<strong>Semester</strong>,
+				<strong>Batch</strong>,
+				<strong>Academic Year</strong>.
+				<br/>Example Academic Year: <strong>2026</strong>
+			</div>
 			<label>Upload Excel File*</label><br>
 			<input type="file" id="file1" name="file1" class="validate[required]"/><br><br>				
 			

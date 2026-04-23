@@ -2,15 +2,21 @@
 <?php
 @$_SESSION['Message'] ="";
 session_start();
-function insertSemesterData($_UserId,$_Class_Name,$_Semester,$_Batch)
+include_once("semester-registry-utils.php");
+function insertSemesterData($_UserId,$_Class_Name,$_Semester,$_Batch,$_AcademicYear="")
 {
 
 include("dbstring.php");
+semester_registry_ensure_academic_year_column($con);
 
 //Declaration of variables
 
 @$_Class_EntryId="";
 @$_BatchId="";
+$_AcademicYear = semester_registry_normalize_year($_AcademicYear);
+if($_AcademicYear===""){
+$_AcademicYear = date("Y");
+}
 
 
 if($_UserId=="userid")
@@ -33,18 +39,20 @@ $_BatchId=$rowcb["batchid"];
 include("code.php");
 $_SemesterId=$code;
 
+$_AcademicYearSafe = mysqli_real_escape_string($con, $_AcademicYear);
+$resolvedYearSql = semester_registry_resolved_year_sql("tr");
 $sql="SELECT * FROM tblsystemuser su INNER JOIN tbltermregistry tr 
-ON su.userid=tr.userid WHERE su.userid='$_UserId' AND tr.class_entryid='$_Class_EntryId' AND tr.batchid='$_BatchId'";
+ON su.userid=tr.userid WHERE su.userid='$_UserId' AND tr.class_entryid='$_Class_EntryId' AND tr.batchid='$_BatchId' AND tr.termname='$_Semester' AND $resolvedYearSql='$_AcademicYearSafe'";
 $result = mysqli_query($con,$sql);
 $count = mysqli_num_rows($result);
 
 if($count>0){
-	$_SESSION['Message'] =$_SESSION['Message'] ."<div style='background-color:white;color:red;' align='center'>Semester Information already created!! </div><br>";
+	$_SESSION['Message'] =$_SESSION['Message'] ."<div style='background-color:white;color:red;' align='center'>Semester information already created for academic year $_AcademicYear.</div><br>";
 	}
 	else
 	{
-	$_SQL_EXECUTE=mysqli_query($con,"INSERT INTO tbltermregistry(termid,userid,class_entryid,termname,batchid,status,datetimeentry,recordedby)
-			VALUES('$_SemesterId','$_UserId','$_Class_EntryId','$_Semester','$_BatchId','active',NOW(),'$_SESSION[USERID]')");
+	$_SQL_EXECUTE=mysqli_query($con,"INSERT INTO tbltermregistry(termid,userid,class_entryid,termname,batchid,academicyear,status,datetimeentry,recordedby)
+			VALUES('$_SemesterId','$_UserId','$_Class_EntryId','$_Semester','$_BatchId','$_AcademicYearSafe','active',NOW(),'$_SESSION[USERID]')");
 
 		if($_SQL_EXECUTE){
 		//$_SESSION['Message'] =$_SESSION['Message'] ."<div style='background-color:white;color:green;' align='center'>Semester Successfully Saved </div><br>";
@@ -75,12 +83,13 @@ if(isset($_POST['submit_group_data']))
 		$_Class_Name = $field[2];
 		$_Semester =$field[3];
 		$_Batch =$field[4];
+		$_AcademicYear = isset($field[5]) ? $field[5] : '';
 		
 	$counter = $counter + 1;
 
 //echo "User:".$_Batch ."<br/>";
 
-insertSemesterData($_UserId,$_Class_Name,$_Semester,$_Batch);
+insertSemesterData($_UserId,$_Class_Name,$_Semester,$_Batch,$_AcademicYear);
 	}
 	
 	if($counter>0)

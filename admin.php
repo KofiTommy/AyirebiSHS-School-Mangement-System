@@ -679,13 +679,49 @@ include("links.php");
 
                         $_ClassFilter = isset($_GET['perf_class']) ? trim($_GET['perf_class']) : '';
                         $_BatchFilter = isset($_GET['perf_batch']) ? trim($_GET['perf_batch']) : '';
+                        $_YearFilter = isset($_GET['perf_year']) ? trim($_GET['perf_year']) : '';
                         $_TermFilter = isset($_GET['perf_term']) ? trim($_GET['perf_term']) : '';
                         $_ClassFilterSafe = mysqli_real_escape_string($con, $_ClassFilter);
                         $_BatchFilterSafe = mysqli_real_escape_string($con, $_BatchFilter);
+                        $_YearFilterSafe = mysqli_real_escape_string($con, $_YearFilter);
                         $_TermFilterSafe = mysqli_real_escape_string($con, $_TermFilter);
+
+                        $_PerfClassName = "";
+                        $_PerfBatchName = "";
+                        $_PerfScopeParts = array();
+                        if($_ClassFilterSafe !== ''){
+                            $_SQL_SCOPE_CLASS = mysqli_query($con, "SELECT class_name FROM tblclassentry WHERE class_entryid='$_ClassFilterSafe' LIMIT 1");
+                            if($_SQL_SCOPE_CLASS && $row_scope_class = mysqli_fetch_array($_SQL_SCOPE_CLASS, MYSQLI_ASSOC)){
+                                $_PerfClassName = trim((string)$row_scope_class['class_name']);
+                                if($_PerfClassName !== ''){
+                                    $_PerfScopeParts[] = $_PerfClassName;
+                                }
+                            }
+                        }
+                        if($_BatchFilterSafe !== ''){
+                            $_SQL_SCOPE_BATCH = mysqli_query($con, "SELECT batch FROM tblbatch WHERE batchid='$_BatchFilterSafe' LIMIT 1");
+                            if($_SQL_SCOPE_BATCH && $row_scope_batch = mysqli_fetch_array($_SQL_SCOPE_BATCH, MYSQLI_ASSOC)){
+                                $_PerfBatchName = trim((string)$row_scope_batch['batch']);
+                                if($_PerfBatchName !== ''){
+                                    $_PerfScopeParts[] = $_PerfBatchName;
+                                }
+                            }
+                        }
+                        if($_YearFilter !== ''){
+                            $_PerfScopeParts[] = "AY ".$_YearFilter;
+                        }
+                        if($_TermFilter !== ''){
+                            $_PerfScopeParts[] = "Semester ".$_TermFilter;
+                        }
+                        $_PerfScopeLabel = count($_PerfScopeParts) > 0 ? implode(" | ", $_PerfScopeParts) : "All classes, batches, academic years, and semesters";
+                        $_PerfChartTitle = "Average vs Pass Rate by Subject";
+                        if(count($_PerfScopeParts) > 0){
+                            $_PerfChartTitle .= " - ".$_PerfScopeLabel;
+                        }
 
                         $_ClassOptions = mysqli_query($con, "SELECT class_entryid, class_name FROM tblclassentry ORDER BY class_name ASC");
                         $_BatchOptions = mysqli_query($con, "SELECT batchid, batch FROM tblbatch ORDER BY datetimeentry DESC");
+                        $_YearOptions = mysqli_query($con, "SELECT DISTINCT YEAR(datetimeentry) AS assignment_year FROM tblsubjectassignment WHERE datetimeentry IS NOT NULL ORDER BY assignment_year DESC");
                         $_TermOptions = mysqli_query($con, "SELECT DISTINCT termname FROM tblsubjectassignment ORDER BY termname ASC");
 
                         $_PerfWhere = " WHERE mk.status='active' ";
@@ -694,6 +730,9 @@ include("links.php");
                         }
                         if($_BatchFilterSafe !== ''){
                             $_PerfWhere .= " AND sa.batchid='$_BatchFilterSafe' ";
+                        }
+                        if($_YearFilterSafe !== ''){
+                            $_PerfWhere .= " AND YEAR(sa.datetimeentry)='$_YearFilterSafe' ";
                         }
                         if($_TermFilterSafe !== ''){
                             $_PerfWhere .= " AND sa.termname='$_TermFilterSafe' ";
@@ -705,6 +744,9 @@ include("links.php");
                         }
                         if($_BatchFilterSafe !== ''){
                             $_AssignWhere .= " AND sa.batchid='$_BatchFilterSafe' ";
+                        }
+                        if($_YearFilterSafe !== ''){
+                            $_AssignWhere .= " AND YEAR(sa.datetimeentry)='$_YearFilterSafe' ";
                         }
                         if($_TermFilterSafe !== ''){
                             $_AssignWhere .= " AND sa.termname='$_TermFilterSafe' ";
@@ -734,9 +776,10 @@ include("links.php");
                         $_PendingSubjects = max(0, $_TotalAssignedSubjects - $_SubmittedSubjects);
 
                         $_PendingRows = array();
-                        $_SQL_PENDING_LIST = mysqli_query($con, "SELECT
+                            $_SQL_PENDING_LIST = mysqli_query($con, "SELECT
                                 sa.assignmentid,
                                 sa.termname,
+                                YEAR(sa.datetimeentry) AS assignment_year,
                                 ce.class_name,
                                 bch.batch,
                                 sub.subject,
@@ -761,12 +804,12 @@ include("links.php");
                             }
                         }
 
-                        $_HasReadinessScope = ($_ClassFilterSafe !== '' && $_BatchFilterSafe !== '' && $_TermFilterSafe !== '');
-                        $_ReadinessStatusLabel = "Select Scope";
-                        $_ReadinessPillClass = "readiness-pill-neutral";
-                        $_ReadinessDetail = "Select class, batch, and semester to evaluate whether the full class result set is ready.";
-                        $_ReadinessMeta = "This badge uses complete student-subject coverage, not just whether a subject has started receiving scores.";
-                        $_ReadinessScore = "";
+                            $_HasReadinessScope = ($_ClassFilterSafe !== '' && $_BatchFilterSafe !== '' && $_TermFilterSafe !== '');
+                            $_ReadinessStatusLabel = "Select Scope";
+                            $_ReadinessPillClass = "readiness-pill-neutral";
+                            $_ReadinessDetail = "Select class, batch, academic year, and semester to evaluate whether the full class result set is ready.";
+                            $_ReadinessMeta = "This badge uses complete student-subject coverage, not just whether a subject has started receiving scores.";
+                            $_ReadinessScore = "";
                         $_ReadinessCounts = array(
                             'expected_rows' => 0,
                             'complete_rows' => 0,
@@ -790,7 +833,7 @@ include("links.php");
                                 $_ReadyBatchName = $row_ready_batch['batch'];
                             }
 
-                            $_ReadinessMeta = trim($_ReadyClassName." / ".$_ReadyBatchName." / Semester ".$_TermFilter, " /");
+                            $_ReadinessMeta = trim($_ReadyClassName." / ".$_ReadyBatchName." / ".($_YearFilter !== '' ? $_YearFilter." / " : "")."Semester ".$_TermFilter, " /");
 
                             $_SQL_CLASS_READY = mysqli_query($con, "SELECT
                                     COUNT(*) AS expected_rows,
@@ -813,6 +856,7 @@ include("links.php");
                                     WHERE tr.class_entryid='$_ClassFilterSafe'
                                       AND tr.batchid='$_BatchFilterSafe'
                                       AND tr.termname='$_TermFilterSafe'
+                                      ".($_YearFilterSafe !== '' ? " AND YEAR(sa.datetimeentry)='$_YearFilterSafe' " : "")."
                                       AND stu.systemtype='Student'
                                     GROUP BY tr.userid, sc.subjectid
                                 ) ready");
@@ -1029,7 +1073,7 @@ include("links.php");
                         <div class="perf-panel" role="region" aria-label="Subject Performance" id="subject-performance-section">
                             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
                                 <h3 style="margin:0;color:#0f172a;font-size:1rem;">Subject Performance Metrics</h3>
-                                <div style="color:#475569;font-size:0.85rem;">Filter by class and batch</div>
+                                <div style="color:#475569;font-size:0.85rem;">Filter by class, batch, academic year, and semester</div>
                             </div>
 
                             <form method="get" action="admin.php" class="perf-toolbar">
@@ -1062,6 +1106,23 @@ include("links.php");
                                     </select>
                                 </div>
                                 <div>
+                                    <label for="perf_year">Academic Year</label>
+                                    <select id="perf_year" name="perf_year">
+                                        <option value="">All Years</option>
+                                        <?php
+                                        if($_YearOptions){
+                                            while($row_y = mysqli_fetch_array($_YearOptions, MYSQLI_ASSOC)){
+                                                if(trim((string)$row_y['assignment_year']) === ''){
+                                                    continue;
+                                                }
+                                                $selected = ($_YearFilter === (string)$row_y['assignment_year']) ? "selected" : "";
+                                                echo "<option value='".htmlspecialchars($row_y['assignment_year'])."' $selected>".htmlspecialchars($row_y['assignment_year'])."</option>";
+                                            }
+                                        }
+                                        ?>
+                                    </select>
+                                </div>
+                                <div>
                                     <label for="perf_term">Semester</label>
                                     <select id="perf_term" name="perf_term">
                                         <option value="">All Semesters</option>
@@ -1084,6 +1145,10 @@ include("links.php");
                                     <a href="admin.php" class="quick-action-btn" style="width:100%;"><i class="fa fa-undo"></i> Reset</a>
                                 </div>
                             </form>
+
+                            <div style="margin-bottom:12px;padding:10px 12px;border:1px solid #dbeafe;background:#eff6ff;border-radius:14px;color:#1e3a8a;font-size:0.92rem;">
+                                <strong>Current Scope:</strong> <?php echo htmlspecialchars($_PerfScopeLabel); ?>
+                            </div>
 
                             <div class="cards-side" style="margin-bottom:12px;">
                                 <div class="card">
@@ -1122,6 +1187,7 @@ include("links.php");
                                 <div class="card total" style="grid-column: span 3;">
                                     <h4>Top Subject</h4>
                                     <p style="font-size:1.1rem;"><?php echo htmlspecialchars($_BestSubject); ?> (<?php echo number_format($_BestSubjectScore,2); ?>%)</p>
+                                    <div style="font-size:0.82rem;color:#cbd5e1;margin-top:6px;"><?php echo htmlspecialchars($_PerfScopeLabel); ?></div>
                                 </div>
                             </div>
 
@@ -1137,6 +1203,7 @@ include("links.php");
                                             echo "<li>";
                                             echo "<strong>".htmlspecialchars($pendingRow['subject'])."</strong>";
                                             echo " | Class: ".htmlspecialchars($pendingRow['class_name']);
+                                            echo " | Academic Year: ".htmlspecialchars($pendingRow['assignment_year']);
                                             echo " | Semester: ".htmlspecialchars($pendingRow['termname']);
                                             echo " | Batch: ".htmlspecialchars($pendingRow['batch']);
                                             echo " | Teacher: ".htmlspecialchars($pendingRow['teacher_name']);
@@ -1220,6 +1287,7 @@ include("links.php");
                                 if (
                                     urlParams.get('perf_class') ||
                                     urlParams.get('perf_batch') ||
+                                    urlParams.get('perf_year') ||
                                     urlParams.get('perf_term')
                                 ) {
                                     showDashboardSection('section-performance');
@@ -1298,6 +1366,7 @@ include("links.php");
                                 const perfLabels = <?php echo json_encode($_PerfLabels); ?>;
                                 const perfAvg = <?php echo json_encode($_PerfAvg); ?>;
                                 const perfPass = <?php echo json_encode($_PerfPass); ?>;
+                                const perfTitle = <?php echo json_encode($_PerfChartTitle); ?>;
                                 const perfCtx = perfCanvas.getContext('2d');
 
                                 if (perfLabels.length > 0) {
@@ -1329,7 +1398,7 @@ include("links.php");
                                                 legend: { position: 'top' },
                                                 title: {
                                                     display: true,
-                                                    text: 'Average vs Pass Rate by Subject'
+                                                    text: perfTitle
                                                 }
                                             },
                                             scales: {

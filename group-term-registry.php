@@ -5,17 +5,24 @@ $_SESSION['Message']="";
 
 <?php
 include("dbstring.php");
+include_once("semester-registry-utils.php");
+semester_registry_ensure_academic_year_column($con);
 @$_ClassId=$_POST['classid'];
 //@$_TermId=$_POST['termid'];
 @$_UserId=$_POST['userid'];
 @$_Term=$_POST['term'];
 @$_BatchId=$_POST['batchid'];
+@$_AcademicYear=semester_registry_normalize_year($_POST['academicyear'] ?? '');
 @$_Recordedby=$_SESSION['USERID'];
 
 if(isset($_POST['register_term'])){
 if(!$_UserId)
 {
 $_SESSION['Message']="<div style='color:red'>No user selected</div>";
+}
+elseif($_ClassId=="" || $_Term=="" || $_BatchId=="" || $_AcademicYear=="")
+{
+$_SESSION['Message']="<div style='color:red'>Select class, semester, batch, and academic year before saving.</div>";
 }
 else{
 foreach($_UserId as $selecteduser){
@@ -24,18 +31,20 @@ include("code.php");
 //Get individual student id
 $_UserId=$selecteduser;
 
-$_SQL_CHECK=mysqli_query($con,"SELECT * FROM tbltermregistry WHERE userid='$_UserId' AND class_entryid='$_ClassId' AND termname='$_Term' AND batchid='$_BatchId'");
+$_AcademicYearSafe=mysqli_real_escape_string($con,$_AcademicYear);
+$_ResolvedYearSql = semester_registry_resolved_year_sql("tbltermregistry");
+$_SQL_CHECK=mysqli_query($con,"SELECT * FROM tbltermregistry WHERE userid='$_UserId' AND class_entryid='$_ClassId' AND termname='$_Term' AND batchid='$_BatchId' AND $_ResolvedYearSql='$_AcademicYearSafe'");
 if(mysqli_num_rows($_SQL_CHECK)>0){
 	@$_BatchName="";
 	$_SQL_BATCH=mysqli_query($con,"SELECT * FROM tblbatch WHERE batchid='$_BatchId'");
 	if($row_ba=mysqli_fetch_array($_SQL_BATCH,MYSQLI_ASSOC)){
 		$_BatchName=$row_ba['batch'];
 	}
-$_SESSION['Message']=$_SESSION['Message']."<div style='color:red'>Student has already registered for Term $_Term or Batch: $_BatchName already created</div>";	
+$_SESSION['Message']=$_SESSION['Message']."<div style='color:red'>Student has already registered for Academic Year $_AcademicYear, Semester $_Term, Batch: $_BatchName.</div>";	
 }
 else{
-$_SQL_EXECUTE=mysqli_query($con,"INSERT INTO tbltermregistry(termid,userid,class_entryid,termname,batchid,status,datetimeentry,recordedby)
-	VALUES('$_TermId','$_UserId','$_ClassId','$_Term','$_BatchId','active',NOW(),'$_Recordedby')");
+$_SQL_EXECUTE=mysqli_query($con,"INSERT INTO tbltermregistry(termid,userid,class_entryid,termname,batchid,academicyear,status,datetimeentry,recordedby)
+	VALUES('$_TermId','$_UserId','$_ClassId','$_Term','$_BatchId','$_AcademicYearSafe','active',NOW(),'$_Recordedby')");
 if($_SQL_EXECUTE){
 @$_FullName="";
 $_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser WHERE userid='$_UserId'");
@@ -219,8 +228,19 @@ var inputs = document.getElementsByName("userid[]");
 			?>		
 				<select id="term" name="term">
 					<option value="" class="validate[required]">Select Semester</option>
-					<option value="1">1</option>
-					<option value="2">2</option>
+					<option value="1" <?php echo (($_POST['term'] ?? '')==='1' ? 'selected' : ''); ?>>1</option>
+					<option value="2" <?php echo (($_POST['term'] ?? '')==='2' ? 'selected' : ''); ?>>2</option>
+				</select>
+				<br/><br/>
+
+				<select id="academicyear" name="academicyear" class="validate[required]">
+					<option value="">Select Academic Year</option>
+					<?php
+					foreach(semester_registry_year_options() as $yearOption){
+						$_Selected = ($_AcademicYear === $yearOption) ? "selected" : "";
+						echo "<option value='$yearOption' $_Selected>$yearOption</option>";
+					}
+					?>
 				</select>
 				<br/><br/>
 
@@ -230,7 +250,8 @@ var inputs = document.getElementsByName("userid[]");
 			echo "<select id='batchid' name='batchid' class='validate[required]'>";
 			echo "<option value=''>Select Batch</option>";
 				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[batchid]'>$row[batch]</option>";
+					$_SelectedBatch = (($_POST['batchid'] ?? '')==$row['batchid']) ? "selected" : "";
+					echo "<option value='$row[batchid]' $_SelectedBatch>$row[batch]</option>";
 				}
 				
 			echo "</select><br/><br/>";

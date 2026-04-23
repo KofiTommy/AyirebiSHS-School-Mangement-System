@@ -4,6 +4,8 @@ $_SESSION['Message']="";
 include("positions.php");
 include("class-position.php");
 include_once("dbstring.php");
+include_once("semester-registry-utils.php");
+semester_registry_ensure_academic_year_column($con);
 
 @$_position_obj=new Position;
 @$_position_obj_1=new Position;
@@ -16,6 +18,7 @@ include_once("dbstring.php");
 
 //@$todayTime =$_POST['today_time2'];
 @$_BatchId=$_POST['batchid'];
+@$_AcademicYear=trim((string)$_POST['academicyear']);
 @$_TermId=$_POST['termid'];
 @$_ClassId=$_POST['classid'];
 
@@ -39,8 +42,13 @@ if(isset($_POST["print_terminal_report"]))
      
 @$_SchoolCloses="";
 @$_NextTermBegins="";
+@$_AcademicYearLabel="";
 $_TermFilter = (isset($_TermId) && trim((string)$_TermId)!=="") ? (int)$_TermId : 0;
-if($_TermFilter>0){
+$_AcademicYearFilter = trim((string)$_AcademicYear);
+if($_TermFilter>0 && $_AcademicYearFilter!==""){
+$_AcademicYearFilterEsc=mysqli_real_escape_string($con,$_AcademicYearFilter);
+$_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' AND termname='$_TermFilter' AND academicyear='$_AcademicYearFilterEsc' ORDER BY datetimeentry DESC LIMIT 1");
+}elseif($_TermFilter>0){
 $_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' AND termname='$_TermFilter' ORDER BY datetimeentry DESC LIMIT 1");
 }else{
 $_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' ORDER BY termname DESC, datetimeentry DESC LIMIT 1");
@@ -52,6 +60,10 @@ if($row_in=mysqli_fetch_array($_SQL_IN,MYSQLI_ASSOC))
 {
 $_SchoolCloses=$row_in['schoolcloses'];
 $_NextTermBegins=$row_in['schoolresumes'];
+$_AcademicYearLabel=trim((string)(isset($row_in['academicyear']) ? $row_in['academicyear'] : ''));
+if($_AcademicYearLabel===""){
+    $_AcademicYearLabel=(trim((string)$row_in['datetimeentry'])!=="" ? date("Y",strtotime((string)$row_in['datetimeentry'])) : "");
+}
 }
 
 @$_Roll=0;
@@ -172,11 +184,11 @@ $_OverallScore=$row_om['OverallScore'];
        $pdf->Ln($n);
 
        $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2],10,'No. On Roll: '.$_Roll,0,0,'L',true);
-       $pdf->Cell($width_cell[3]+$width_cell[4]+$width_cell[5],10,'Year: '.$row_ps['batch'],0,0,'L',true);
+       $pdf->Cell($width_cell[3]+$width_cell[4]+$width_cell[5],10,'Batch: '.$row_ps['batch'],0,0,'L',true);
        $pdf->Ln($n);
 
        $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2],10,'School Closes: '.$_SchoolCloses,0,0,'L',true);
-       $pdf->Cell($width_cell[3]+$width_cell[4]+$width_cell[5],10,'Semester: '.$row_ps['termname'],0,0,'L',true);
+       $pdf->Cell($width_cell[3]+$width_cell[4]+$width_cell[5],10,'Academic Year: '.($_AcademicYearLabel!=="" ? $_AcademicYearLabel : $row_ps['batch']).' | Semester: '.$row_ps['termname'],0,0,'L',true);
        $pdf->Ln($n);
 
        $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4]+$width_cell[5],10,'Next Term Begins: '.$_NextTermBegins,0,0,'L',true);
@@ -492,9 +504,40 @@ echo "<fieldset><legend>BATCH</legend>";
 					echo "<option value='$row[batchid]' $_Sel>$row[batch]</option>";
 			}	
 			echo "</select><br/><br/>";
+			$_SelectedAcademicYear = isset($_POST['academicyear']) ? trim((string)$_POST['academicyear']) : '';
+			echo "<select id='academicyear' name='academicyear' class='validate[required]'>";
+			echo "<option value=''>Select Academic Year</option>";
+			$_YearWhereSql = "";
+			if($_SelectedBatchId!==''){
+				$_SelectedBatchIdEsc = mysqli_real_escape_string($con,$_SelectedBatchId);
+				$_YearWhereSql = " WHERE batchid='$_SelectedBatchIdEsc' ";
+			}
+			$_SQL_YEAR_OPT=mysqli_query($con,"
+				SELECT DISTINCT academic_year FROM (
+					SELECT CASE
+						WHEN TRIM(COALESCE(academicyear,''))<>'' THEN academicyear
+						ELSE YEAR(datetimeentry)
+					END AS academic_year
+					FROM tblschoolinfo
+					$_YearWhereSql
+					UNION
+					SELECT YEAR(datetimeentry) AS academic_year
+					FROM tblsubjectassignment
+					$_YearWhereSql
+				) year_options
+				WHERE academic_year IS NOT NULL AND academic_year<>''
+				ORDER BY academic_year DESC
+			");
+			if($_SQL_YEAR_OPT){
+				while($row_year=mysqli_fetch_array($_SQL_YEAR_OPT,MYSQLI_ASSOC)){
+					$_SelYear = ($_SelectedAcademicYear===(string)$row_year['academic_year']) ? "selected" : "";
+					echo "<option value='$row_year[academic_year]' $_SelYear>$row_year[academic_year]</option>";
+				}
+			}
+			echo "</select><br/><br/>";
 			$_SelectedTermId = isset($_POST['termid']) ? $_POST['termid'] : '';
 			if($_SelectedTermId!==""){
-				$_SelectedTermLabel = "Semester ".$_SelectedTermId;
+				$_SelectedTermLabel = ($_SelectedAcademicYear!=="" ? $_SelectedAcademicYear." | " : "")."Semester ".$_SelectedTermId;
 			}
 			echo "<select id='termid' name='termid' class='validate[required]'>";
 			echo "<option value=''>Select Semester</option>";
@@ -511,6 +554,7 @@ echo "<fieldset><legend>BATCH</legend>";
 					INNER JOIN tblclassentry ce ON tr.class_entryid=ce.class_entryid
 					WHERE tr.userid='$_SESSION[USERID]'
 					  AND tr.batchid='".mysqli_real_escape_string($con,$_SelectedBatchId)."'
+					  ".($_SelectedAcademicYear!=="" ? " AND ".semester_registry_resolved_year_sql("tr")."='".mysqli_real_escape_string($con,$_SelectedAcademicYear)."'" : "")."
 					ORDER BY ce.class_name ASC");
 			}else{
 				$_SQL_CLASS_OPT=mysqli_query($con,"SELECT class_entryid,class_name FROM tblclassentry ORDER BY class_name ASC");
