@@ -1,5 +1,23 @@
 <?php
 session_start();
+register_shutdown_function(function () {
+    $lastError = error_get_last();
+    if (!$lastError) {
+        return;
+    }
+    $fatalTypes = array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR);
+    if (!in_array($lastError['type'], $fatalTypes, true)) {
+        return;
+    }
+    $message = "Score entry fatal: ".$lastError['message']." in ".basename($lastError['file']).":".$lastError['line'];
+    $logFile = __DIR__.DIRECTORY_SEPARATOR."score-entry-fatal.log";
+    @file_put_contents($logFile, "[".date('Y-m-d H:i:s')."] ".$message.PHP_EOL, FILE_APPEND);
+    if (!headers_sent()) {
+        @http_response_code(500);
+        @header('Content-Type: text/plain; charset=utf-8');
+    }
+    echo $message;
+});
 include("dbstring.php");
 include("check-login.php");
 include("audit_notifications.php");
