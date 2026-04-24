@@ -7,6 +7,42 @@ include("score-entry-utils.php");
 if(file_exists(__DIR__.DIRECTORY_SEPARATOR."semester-registry-utils.php")){
     include_once("semester-registry-utils.php");
 }
+if(!function_exists('semester_registry_column_exists')){
+    function semester_registry_column_exists($con, $tableName, $columnName){
+        $tableSafe = mysqli_real_escape_string($con, (string)$tableName);
+        $columnSafe = mysqli_real_escape_string($con, (string)$columnName);
+        $sql = "SHOW COLUMNS FROM `".$tableSafe."` LIKE '".$columnSafe."'";
+        $result = mysqli_query($con, $sql);
+        return ($result && mysqli_num_rows($result) > 0);
+    }
+}
+if(!function_exists('semester_registry_ensure_academic_year_column')){
+    function semester_registry_ensure_academic_year_column($con){
+        if(!semester_registry_column_exists($con, 'tbltermregistry', 'academicyear')){
+            @mysqli_query($con, "ALTER TABLE tbltermregistry ADD COLUMN academicyear VARCHAR(10) NOT NULL DEFAULT '' AFTER batchid");
+            @mysqli_query($con, "UPDATE tbltermregistry SET academicyear=CAST(YEAR(datetimeentry) AS CHAR) WHERE TRIM(COALESCE(academicyear,''))=''");
+        }
+    }
+}
+if(!function_exists('semester_registry_normalize_year')){
+    function semester_registry_normalize_year($value){
+        $value = trim((string)$value);
+        if($value === '' || preg_match('/^\d{4}$/', $value) !== 1){
+            return '';
+        }
+        return $value;
+    }
+}
+if(!function_exists('semester_registry_resolved_year_sql')){
+    function semester_registry_resolved_year_sql($alias = 'tr'){
+        return "COALESCE(NULLIF(TRIM(".$alias.".academicyear),''), CAST(YEAR(".$alias.".datetimeentry) AS CHAR))";
+    }
+}
+if(!function_exists('semester_registry_assignment_year_sql')){
+    function semester_registry_assignment_year_sql($alias = 'sa'){
+        return "CAST(YEAR(".$alias.".datetimeentry) AS CHAR)";
+    }
+}
 semester_registry_ensure_academic_year_column($con);
 
 $pageFile = "exam-score-entry.php";
