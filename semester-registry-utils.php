@@ -58,7 +58,7 @@ function semester_registry_resolved_year_sql($alias = 'tr'){
     if($alias === ''){
         $alias = 'tr';
     }
-    return "COALESCE(NULLIF(TRIM(".$alias.".academicyear),''), CAST(YEAR(".$alias.".datetimeentry) AS CHAR))";
+    return "COALESCE(NULLIF(TRIM(CONVERT(".$alias.".academicyear USING utf8mb4)),''), DATE_FORMAT(".$alias.".datetimeentry, '%Y'))";
 }
 }
 
@@ -68,7 +68,7 @@ function semester_registry_assignment_year_sql($alias = 'sa'){
     if($alias === ''){
         $alias = 'sa';
     }
-    return "CAST(YEAR(".$alias.".datetimeentry) AS CHAR)";
+    return "DATE_FORMAT(".$alias.".datetimeentry, '%Y')";
 }
 }
 

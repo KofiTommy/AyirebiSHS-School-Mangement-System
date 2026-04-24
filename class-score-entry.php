@@ -53,12 +53,12 @@ if(!function_exists('semester_registry_normalize_year')){
 }
 if(!function_exists('semester_registry_resolved_year_sql')){
     function semester_registry_resolved_year_sql($alias = 'tr'){
-        return "COALESCE(NULLIF(TRIM(".$alias.".academicyear),''), CAST(YEAR(".$alias.".datetimeentry) AS CHAR))";
+        return "COALESCE(NULLIF(TRIM(CONVERT(".$alias.".academicyear USING utf8mb4)),''), DATE_FORMAT(".$alias.".datetimeentry, '%Y'))";
     }
 }
 if(!function_exists('semester_registry_assignment_year_sql')){
     function semester_registry_assignment_year_sql($alias = 'sa'){
-        return "CAST(YEAR(".$alias.".datetimeentry) AS CHAR)";
+        return "DATE_FORMAT(".$alias.".datetimeentry, '%Y')";
     }
 }
 semester_registry_ensure_academic_year_column($con);
