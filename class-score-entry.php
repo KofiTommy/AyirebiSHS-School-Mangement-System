@@ -4,7 +4,9 @@ include("dbstring.php");
 include("check-login.php");
 include("audit_notifications.php");
 include("score-entry-utils.php");
-include_once("semester-registry-utils.php");
+if(file_exists(__DIR__.DIRECTORY_SEPARATOR."semester-registry-utils.php")){
+    include_once("semester-registry-utils.php");
+}
 semester_registry_ensure_academic_year_column($con);
 
 $pageFile = "class-score-entry.php";
