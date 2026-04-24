@@ -56,25 +56,25 @@ $uploadPage = "upload-exam-score-entry.php";
 $teacherId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : "";
 $teacherIdSafe = mysqli_real_escape_string($con, $teacherId);
 
-$selectedClassId = trim((string)($_GET['class_ID'] ?? ($_POST['class_ID'] ?? '')));
-$selectedTermId = trim((string)($_GET['term_ID'] ?? ($_POST['term_ID'] ?? '')));
-$selectedBatchId = trim((string)($_GET['batch_ID'] ?? ($_POST['batch_ID'] ?? '')));
-$selectedSubjectId = trim((string)($_GET['subject_ID'] ?? ($_POST['subject_ID'] ?? '')));
-$selectedYearId = semester_registry_normalize_year($_GET['year_ID'] ?? ($_POST['year_ID'] ?? ''));
-$prefillTotal = trim((string)($_GET['prefill_total'] ?? ''));
+$selectedClassId = trim((string)(isset($_GET['class_ID']) ? $_GET['class_ID'] : (isset($_POST['class_ID']) ? $_POST['class_ID'] : '')));
+$selectedTermId = trim((string)(isset($_GET['term_ID']) ? $_GET['term_ID'] : (isset($_POST['term_ID']) ? $_POST['term_ID'] : '')));
+$selectedBatchId = trim((string)(isset($_GET['batch_ID']) ? $_GET['batch_ID'] : (isset($_POST['batch_ID']) ? $_POST['batch_ID'] : '')));
+$selectedSubjectId = trim((string)(isset($_GET['subject_ID']) ? $_GET['subject_ID'] : (isset($_POST['subject_ID']) ? $_POST['subject_ID'] : '')));
+$selectedYearId = semester_registry_normalize_year(isset($_GET['year_ID']) ? $_GET['year_ID'] : (isset($_POST['year_ID']) ? $_POST['year_ID'] : ''));
+$prefillTotal = trim((string)(isset($_GET['prefill_total']) ? $_GET['prefill_total'] : ''));
 
 if(isset($_POST['save_all_mark'])){
-    $selectedClassId = trim((string)($_POST['class_ID'] ?? $selectedClassId));
-    $selectedTermId = trim((string)($_POST['term_ID'] ?? $selectedTermId));
-    $selectedBatchId = trim((string)($_POST['batch_ID'] ?? $selectedBatchId));
-    $selectedSubjectId = trim((string)($_POST['subject_ID'] ?? $selectedSubjectId));
-    $selectedYearId = semester_registry_normalize_year($_POST['year_ID'] ?? $selectedYearId);
+    $selectedClassId = trim((string)(isset($_POST['class_ID']) ? $_POST['class_ID'] : $selectedClassId));
+    $selectedTermId = trim((string)(isset($_POST['term_ID']) ? $_POST['term_ID'] : $selectedTermId));
+    $selectedBatchId = trim((string)(isset($_POST['batch_ID']) ? $_POST['batch_ID'] : $selectedBatchId));
+    $selectedSubjectId = trim((string)(isset($_POST['subject_ID']) ? $_POST['subject_ID'] : $selectedSubjectId));
+    $selectedYearId = semester_registry_normalize_year(isset($_POST['year_ID']) ? $_POST['year_ID'] : $selectedYearId);
 
     $messages = array();
     $marks = isset($_POST['marks']) && is_array($_POST['marks']) ? $_POST['marks'] : array();
     $selectedUsers = isset($_POST['userid']) && is_array($_POST['userid']) ? $_POST['userid'] : array();
-    $assignmentId = trim((string)($_POST['assignmentid'] ?? ''));
-    $totalMark = trim((string)($_POST['totalscore'] ?? ''));
+    $assignmentId = trim((string)(isset($_POST['assignmentid']) ? $_POST['assignmentid'] : ''));
+    $totalMark = trim((string)(isset($_POST['totalscore']) ? $_POST['totalscore'] : ''));
     $prefillTotal = $totalMark;
 
     $savedCount = 0;
@@ -105,7 +105,7 @@ if(isset($_POST['save_all_mark'])){
                     continue;
                 }
 
-                $selectedMark = trim((string)($marks[$selectedUser] ?? ''));
+                $selectedMark = trim((string)(isset($marks[$selectedUser]) ? $marks[$selectedUser] : ''));
                 if($selectedMark === '' || !is_numeric($selectedMark)){
                     $skippedCount++;
                     continue;
