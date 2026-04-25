@@ -507,7 +507,9 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
 <?php menuboard_section_start('Examination', 'fa-graduation-cap'); ?>
 <a href="examinationtimetable.php"><i class="fa fa-plus"></i> Exam Time Table Entry</a>
 <a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
+<?php if($_ShowTeacherAttendanceLinks){ ?>
 <a href="student-terminal-data.php"><i class="fa fa-plus"></i> Student Terminal Data</a>
+<?php } ?>
 <a href="terminal-report.php"><i class="fa fa-book"></i> Examination Report</a>
 <a href="scores-report.php"><i class="fa fa-book"></i> Scores Report</a>
 <?php menuboard_section_end(); ?>

@@ -8,7 +8,12 @@ ensure_student_terminal_term_column($con);
 
 $isAdminRole = class_teacher_is_admin();
 $isTeacherRole = class_teacher_is_teacher();
+$isTeacherWithClassRole = ($isTeacherRole && class_teacher_has_any_assignment($con, $_SESSION['USERID']));
 if(!$isAdminRole && !$isTeacherRole){
+    header("location:".class_teacher_landing_page());
+    exit();
+}
+if($isTeacherRole && !$isTeacherWithClassRole){
     header("location:".class_teacher_landing_page());
     exit();
 }

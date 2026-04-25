@@ -252,7 +252,6 @@ $reportPreview = array_slice($reportOptions, 0, 6);
     <div class="student-hero__copy">
         <span class="student-kicker"><?php echo sd_esc($portalTitle); ?></span>
         <h1>Welcome back, <?php echo sd_esc($studentShortName); ?>.</h1>
-        <p>Track your classes, print reports faster, follow house and exeat updates, and keep up with your account and school messages in one cleaner workspace.</p>
         <div class="student-stat-grid">
             <article class="student-stat-card"><span>Registered Classes</span><strong><?php echo (int)$classCount; ?></strong></article>
             <article class="student-stat-card"><span>Report Options</span><strong><?php echo (int)$availableReportCount; ?></strong></article>
@@ -287,16 +286,16 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <div><span class="student-section__eyebrow">Quick Actions</span><h2>Jump straight into your student tools</h2></div>
     </div>
     <div class="student-quick-grid">
-        <a class="student-action-card" href="individual-terminal-report.php"><span class="student-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Report</h3><p>Open the report page to review or print your semester report.</p></a>
-        <a class="student-action-card" href="account-statements.php"><span class="student-action-card__icon"><i class="fa fa-money"></i></span><h3>Account Statement</h3><p>Check payments, balances, and your account history for each registered semester.</p></a>
-        <a class="student-action-card" href="student-exeat-request.php"><span class="student-action-card__icon"><i class="fa fa-file"></i></span><h3>Request Exeat</h3><p>Submit a house exeat request and review past approvals or pending decisions.</p></a>
-        <a class="student-action-card" href="examinationtimetablereport.php"><span class="student-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Exam Timetable</h3><p>Check the latest examination schedule without browsing through old menus.</p></a>
-        <a class="student-action-card" href="lesson-timetable-report.php"><span class="student-action-card__icon"><i class="fa fa-clock-o"></i></span><h3>Lesson Timetable</h3><p>Check your current lesson, what comes next, and your full class timetable for the week.</p></a>
-        <a class="student-action-card" href="student-attendance-report.php"><span class="student-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>My Attendance</h3><p>See your attendance between any two dates, follow the graph, and print your summary when needed.</p></a>
-        <a class="student-action-card" href="messages.php"><span class="student-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board</h3><p>Open the full school message board when you want the complete conversation view.</p></a>
-        <a class="student-action-card" href="edit-account.php"><span class="student-action-card__icon"><i class="fa fa-id-card"></i></span><h3>Profile Settings</h3><p>Update your account details so your school records stay current and accurate.</p></a>
-        <a class="student-action-card" href="uploaduser-image.php"><span class="student-action-card__icon"><i class="fa fa-image"></i></span><h3>Profile Image</h3><p>Add or replace your student image so your portal profile looks complete.</p></a>
-        <a class="student-action-card" href="logout.php"><span class="student-action-card__icon"><i class="fa fa-power-off"></i></span><h3>Sign Out</h3><p>Log out quickly after checking reports, payments, or other student activities.</p></a>
+        <a class="student-action-card" href="individual-terminal-report.php"><span class="student-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Report</h3></a>
+        <a class="student-action-card" href="account-statements.php"><span class="student-action-card__icon"><i class="fa fa-money"></i></span><h3>Account Statement</h3></a>
+        <a class="student-action-card" href="student-exeat-request.php"><span class="student-action-card__icon"><i class="fa fa-file"></i></span><h3>Request Exeat</h3></a>
+        <a class="student-action-card" href="examinationtimetablereport.php"><span class="student-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Exam Timetable</h3></a>
+        <a class="student-action-card" href="lesson-timetable-report.php"><span class="student-action-card__icon"><i class="fa fa-clock-o"></i></span><h3>Lesson Timetable</h3></a>
+        <a class="student-action-card" href="student-attendance-report.php"><span class="student-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>My Attendance</h3></a>
+        <a class="student-action-card" href="messages.php"><span class="student-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board</h3></a>
+        <a class="student-action-card" href="edit-account.php"><span class="student-action-card__icon"><i class="fa fa-id-card"></i></span><h3>Profile Settings</h3></a>
+        <a class="student-action-card" href="uploaduser-image.php"><span class="student-action-card__icon"><i class="fa fa-image"></i></span><h3>Profile Image</h3></a>
+        <a class="student-action-card" href="logout.php"><span class="student-action-card__icon"><i class="fa fa-power-off"></i></span><h3>Sign Out</h3></a>
     </div>
 </section>
 
@@ -322,7 +321,6 @@ $reportPreview = array_slice($reportOptions, 0, 6);
                     <span class="student-report-card__year"><?php echo sd_esc($report['batch']); ?></span>
                 </div>
                 <h3><?php echo sd_esc($report['class_name']); ?></h3>
-                <p>Use this saved registration to print your semester report directly from the dashboard.</p>
                 <form method="post" action="individual-terminal-report.php" class="student-inline-form">
                     <input type="hidden" name="batchid" value="<?php echo sd_esc((string)$report['batchid']); ?>">
                     <input type="hidden" name="termid" value="<?php echo sd_esc((string)$report['termname']); ?>">
@@ -333,7 +331,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
             <?php } ?>
         </div>
         <?php } else { ?>
-        <div class="student-empty-state"><h3>No report options yet</h3><p>Your report-ready semester registrations will appear here as soon as your class and semester records are available.</p></div>
+        <div class="student-empty-state"><h3>No report options yet</h3></div>
         <?php } ?>
     </section>
 
@@ -378,7 +376,6 @@ $reportPreview = array_slice($reportOptions, 0, 6);
                     </article>
                 </div>
             </div>
-            <div class="student-engagement-note">You earn points for useful actions like checking reports, attendance, timetable, account details, and school messages. Daily caps keep the progress fair.</div>
             <div class="student-engagement-list">
                 <?php if(count($engagementRecent) > 0){ ?>
                     <?php foreach($engagementRecent as $activity){ ?>
@@ -391,7 +388,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
                     </article>
                     <?php } ?>
                 <?php } else { ?>
-                <div class="student-empty-state student-empty-state--compact"><p>Your private progress will begin showing here as you keep using the student portal.</p></div>
+                <div class="student-empty-state student-empty-state--compact"><p>No activity yet.</p></div>
                 <?php } ?>
             </div>
         </section>
@@ -410,7 +407,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
                 <?php } ?>
             </div>
             <?php } else { ?>
-            <div class="student-empty-state student-empty-state--compact"><p>Your registered classes will show here after your school registration is completed.</p></div>
+            <div class="student-empty-state student-empty-state--compact"><p>No classes yet.</p></div>
             <?php } ?>
         </section>
 
@@ -440,7 +437,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
                 <?php } ?>
             </div>
             <?php } else { ?>
-            <div class="student-empty-state student-empty-state--compact"><p>You have not submitted any exeat request yet.</p></div>
+            <div class="student-empty-state student-empty-state--compact"><p>No exeat request yet.</p></div>
             <?php } ?>
         </section>
 
@@ -472,7 +469,6 @@ $reportPreview = array_slice($reportOptions, 0, 6);
             <label for="message">Write a message</label>
             <textarea id="message" name="message" placeholder="Share a concern, ask for support, or leave an update for the school team." required></textarea>
             <div class="student-message-form__actions">
-                <span>Your messages here are sent straight to admin for review.</span>
                 <button class="student-primary-btn" type="submit" name="send_message"><i class="fa fa-send"></i> Send Message</button>
             </div>
         </form>
@@ -492,7 +488,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
                 </article>
                 <?php } ?>
             <?php } else { ?>
-            <div class="student-empty-state student-empty-state--compact"><p>You have not posted any message yet.</p></div>
+            <div class="student-empty-state student-empty-state--compact"><p>No messages yet.</p></div>
             <?php } ?>
         </div>
     </section>

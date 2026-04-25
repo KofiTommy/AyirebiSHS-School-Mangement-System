@@ -75,8 +75,10 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher")
      <hr>
      <a href="upload-class-score-entry.php"><i class="fa fa-upload" ></i> Upload Class Score Entry</a>
      <a href="upload-exam-score-entry.php"><i class="fa fa-upload" ></i> Upload Exam Score Entry</a>
+     <?php if($_ShowTeacherAttendanceLinks){ ?>
      <a href="student-terminal-data.php"><i class="fa fa-plus" ></i> Student Remark Data</a>
      <a href="upload-student-remark-data.php"><i class="fa fa-upload" ></i> Upload Students Remark Data</a>
+     <?php } ?>
      <a href="scores-report.php"><i class="fa fa-book" ></i> Scores Report</a>
      <a href="terminal-report.php"> <i class="fa fa-plus" ></i> Terminal Report</a>
      <a href="lesson-timetable-report.php"><i class="fa fa-calendar" ></i> Lesson Timetable</a>

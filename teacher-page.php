@@ -180,7 +180,6 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
     <div class="teacher-hero__copy">
         <span class="teacher-kicker">Teacher Workspace</span>
         <h1>Welcome back, <?php echo td_esc($teacherShortName); ?>.</h1>
-        <p>Use one cleaner workspace for teaching load, score entry, class-teacher duties, report tools, and communication.</p>
         <div class="teacher-stat-grid">
             <article class="teacher-stat-card"><span>Assigned Subjects</span><strong><?php echo (int)$assignedSubjectCount; ?></strong></article>
             <article class="teacher-stat-card"><span>Recent Groups</span><strong><?php echo (int)$recentTeachingGroupCount; ?></strong></article>
@@ -218,16 +217,18 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <div><span class="teacher-section__eyebrow">Quick Actions</span><h2>Move straight into today's work</h2></div>
     </div>
     <div class="teacher-quick-grid">
-        <a class="teacher-action-card" href="view-teacher-subject.php"><span class="teacher-action-card__icon"><i class="fa fa-search"></i></span><h3>Assigned Subjects</h3><p>Review the subjects, classes, and year-based sessions attached to your account.</p></a>
+        <a class="teacher-action-card" href="view-teacher-subject.php"><span class="teacher-action-card__icon"><i class="fa fa-search"></i></span><h3>Assigned Subjects</h3></a>
         <?php if($teacherCanTakeAttendance){ ?>
-        <a class="teacher-action-card" href="student-attendance.php"><span class="teacher-action-card__icon"><i class="fa fa-check-square-o"></i></span><h3>Student Attendance</h3><p>Take daily attendance for your assigned class-teacher groups and review recent registers.</p></a>
-        <a class="teacher-action-card" href="student-attendance-report.php"><span class="teacher-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>Attendance Summary</h3><p>Review attendance from one date to another with summary cards, trend bars, and student-level totals.</p></a>
+        <a class="teacher-action-card" href="student-attendance.php"><span class="teacher-action-card__icon"><i class="fa fa-check-square-o"></i></span><h3>Student Attendance</h3></a>
+        <a class="teacher-action-card" href="student-attendance-report.php"><span class="teacher-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>Attendance Summary</h3></a>
         <?php } ?>
-        <a class="teacher-action-card" href="class-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-pencil"></i></span><h3>Class Score Entry</h3><p>Capture continuous assessment scores quickly for your assigned workload.</p></a>
-        <a class="teacher-action-card" href="exam-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-edit"></i></span><h3>Exam Score Entry</h3><p>Enter end-of-semester exam scores without jumping through menus.</p></a>
-        <a class="teacher-action-card" href="upload-classexam-score.php"><span class="teacher-action-card__icon"><i class="fa fa-upload"></i></span><h3>Upload Scores</h3><p>Upload combined class and exam scores from prepared templates.</p></a>
-        <a class="teacher-action-card" href="student-terminal-data.php"><span class="teacher-action-card__icon"><i class="fa fa-commenting"></i></span><h3>Student Remarks</h3><p>Enter or update terminal remarks and supporting report details.</p></a>
-        <a class="teacher-action-card" href="terminal-report.php"><span class="teacher-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Reports</h3><p>Open report tools for checking, reviewing, and printing reports.</p></a>
+        <a class="teacher-action-card" href="class-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-pencil"></i></span><h3>Class Score Entry</h3></a>
+        <a class="teacher-action-card" href="exam-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-edit"></i></span><h3>Exam Score Entry</h3></a>
+        <a class="teacher-action-card" href="upload-classexam-score.php"><span class="teacher-action-card__icon"><i class="fa fa-upload"></i></span><h3>Upload Scores</h3></a>
+        <?php if($teacherCanTakeAttendance){ ?>
+        <a class="teacher-action-card" href="student-terminal-data.php"><span class="teacher-action-card__icon"><i class="fa fa-commenting"></i></span><h3>Student Remarks</h3></a>
+        <?php } ?>
+        <a class="teacher-action-card" href="terminal-report.php"><span class="teacher-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Reports</h3></a>
         <a class="teacher-action-card" href="lesson-timetable-report.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Lesson Timetable</h3><p>Open your weekly lesson schedule and check today’s teaching periods quickly.</p></a>
         <a class="teacher-action-card" href="scores-report.php"><span class="teacher-action-card__icon"><i class="fa fa-line-chart"></i></span><h3>Scores Report</h3><p>Check reporting summaries and score outputs for your classes.</p></a>
         <a class="teacher-action-card" href="messages.php"><span class="teacher-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board</h3><p>Open the wider message board when you need more than the dashboard preview.</p></a>
@@ -260,11 +261,11 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         </div>
         <?php if($teachingGroupCount > $recentTeachingGroupLimit){ ?>
         <div class="teacher-empty-state teacher-empty-state--compact">
-            <p>Showing the latest <?php echo (int)$recentTeachingGroupLimit; ?> teaching groups. Open the full subject list to see all <?php echo (int)$teachingGroupCount; ?> active assignments.</p>
+            <p>Showing latest <?php echo (int)$recentTeachingGroupLimit; ?> of <?php echo (int)$teachingGroupCount; ?>.</p>
         </div>
         <?php } ?>
         <?php } else { ?>
-        <div class="teacher-empty-state"><h3>No subject assignments yet</h3><p>Your assigned classes and subjects will appear here once they have been linked to your account.</p></div>
+        <div class="teacher-empty-state"><h3>No subject assignments yet</h3></div>
         <?php } ?>
     </section>
 
@@ -309,7 +310,6 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
                     </article>
                 </div>
             </div>
-            <div class="teacher-engagement-note">Points are earned for useful work like score entry, attendance, timetable checks, and communication. Daily caps keep the system fair.</div>
             <div class="teacher-engagement-list">
                 <?php if(count($engagementRecent) > 0){ ?>
                     <?php foreach($engagementRecent as $activity){ ?>
@@ -322,7 +322,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
                     </article>
                     <?php } ?>
                 <?php } else { ?>
-                <div class="teacher-empty-state teacher-empty-state--compact"><p>Your private progress will start showing here as you use the portal.</p></div>
+                <div class="teacher-empty-state teacher-empty-state--compact"><p>No activity yet.</p></div>
                 <?php } ?>
             </div>
         </section>
@@ -340,13 +340,13 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
                         <span class="teacher-duty-period"><?php echo td_esc($card["period"]); ?></span>
                     </div>
                     <h3><?php echo td_esc($card["title"]); ?></h3>
-                    <p><?php echo td_esc($card["location"] !== "" ? $card["location"] : "Location will be confirmed by admin."); ?></p>
+                    <p><?php echo td_esc($card["location"] !== "" ? $card["location"] : "Pending"); ?></p>
                     <?php if($card["note"] !== ""){ ?><small><?php echo td_esc($card["note"]); ?></small><?php } ?>
                 </article>
                 <?php } ?>
             </div>
             <?php } else { ?>
-            <div class="teacher-empty-state teacher-empty-state--compact"><p>No duty roster has been assigned to you yet. When admin adds one, it will appear here automatically.</p></div>
+            <div class="teacher-empty-state teacher-empty-state--compact"><p>No duty roster yet.</p></div>
             <?php } ?>
         </section>
 
@@ -365,7 +365,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
                 <?php } ?>
             </div>
             <?php } else { ?>
-            <div class="teacher-empty-state teacher-empty-state--compact"><p>You do not currently have any active class-teacher assignment.</p></div>
+            <div class="teacher-empty-state teacher-empty-state--compact"><p>No class-teacher role yet.</p></div>
             <?php } ?>
         </section>
 
@@ -374,11 +374,11 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
                 <div><span class="teacher-panel__eyebrow">Resources</span><h2>Downloads and links</h2></div>
             </div>
             <div class="teacher-resource-list">
-                <a class="teacher-resource-link" href="download-classscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Class Score Template</strong><small>Download the ready-made upload sheet for class scores.</small></span></a>
-                <a class="teacher-resource-link" href="download-examscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Exam Score Template</strong><small>Get the upload template for exam score entries.</small></span></a>
-                <a class="teacher-resource-link" href="download-classexamscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Class & Exam Template</strong><small>Use one combined spreadsheet for class and exam scores.</small></span></a>
-                <a class="teacher-resource-link" href="lesson-timetable-report.php"><span class="teacher-resource-link__icon"><i class="fa fa-calendar"></i></span><span class="teacher-resource-link__body"><strong>Lesson Timetable</strong><small>Check your assigned lesson periods by day from the teacher workspace.</small></span></a>
-                <a class="teacher-resource-link" href="examinationtimetablereport.php"><span class="teacher-resource-link__icon"><i class="fa fa-calendar"></i></span><span class="teacher-resource-link__body"><strong>Exam Timetable Report</strong><small>Open the timetable report when you need the current exam schedule.</small></span></a>
+                <a class="teacher-resource-link" href="download-classscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Class Score Template</strong></span></a>
+                <a class="teacher-resource-link" href="download-examscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Exam Score Template</strong></span></a>
+                <a class="teacher-resource-link" href="download-classexamscore-template.php"><span class="teacher-resource-link__icon"><i class="fa fa-download"></i></span><span class="teacher-resource-link__body"><strong>Class & Exam Template</strong></span></a>
+                <a class="teacher-resource-link" href="lesson-timetable-report.php"><span class="teacher-resource-link__icon"><i class="fa fa-calendar"></i></span><span class="teacher-resource-link__body"><strong>Lesson Timetable</strong></span></a>
+                <a class="teacher-resource-link" href="examinationtimetablereport.php"><span class="teacher-resource-link__icon"><i class="fa fa-calendar"></i></span><span class="teacher-resource-link__body"><strong>Exam Timetable Report</strong></span></a>
             </div>
         </section>
     </div>
@@ -394,7 +394,6 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
             <label for="message">Write a message</label>
             <textarea id="message" name="message" placeholder="Share an update, request support, or leave a note for the school team." required></textarea>
             <div class="teacher-message-form__actions">
-                <span>Messages sent here go straight to admin for review.</span>
                 <button class="teacher-primary-btn" type="submit" name="send_message"><i class="fa fa-send"></i> Send Message</button>
             </div>
         </form>
@@ -414,7 +413,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
                 </article>
                 <?php } ?>
             <?php } else { ?>
-            <div class="teacher-empty-state teacher-empty-state--compact"><p>You have not posted any message yet.</p></div>
+            <div class="teacher-empty-state teacher-empty-state--compact"><p>No messages yet.</p></div>
             <?php } ?>
         </div>
     </section>
