@@ -112,6 +112,67 @@ function lesson_timetable_escape($value){
 }
 }
 
+if(!function_exists('lesson_timetable_column_exists')){
+function lesson_timetable_column_exists($con, $table, $column){
+    $table = trim((string)$table);
+    $column = trim((string)$column);
+    if($table === '' || $column === ''){
+        return false;
+    }
+    $tableEsc = mysqli_real_escape_string($con, $table);
+    $columnEsc = mysqli_real_escape_string($con, $column);
+    $result = @mysqli_query($con, "SHOW COLUMNS FROM `$tableEsc` LIKE '$columnEsc'");
+    return ($result && mysqli_num_rows($result) > 0);
+}
+}
+
+if(!function_exists('lesson_timetable_normalize_year')){
+function lesson_timetable_normalize_year($value){
+    $value = preg_replace('/[^0-9]/', '', trim((string)$value));
+    return strlen($value) === 4 ? $value : '';
+}
+}
+
+if(!function_exists('lesson_timetable_resolved_year_sql')){
+function lesson_timetable_resolved_year_sql($alias = 'lt'){
+    $alias = trim((string)$alias);
+    if($alias === ''){
+        $alias = 'lt';
+    }
+    return "COALESCE(NULLIF(TRIM(CONVERT(".$alias.".academicyear USING utf8mb4)),''), DATE_FORMAT(".$alias.".datetimeentry, '%Y'))";
+}
+}
+
+if(!function_exists('lesson_timetable_termregistry_year_sql')){
+function lesson_timetable_termregistry_year_sql($alias = 'tr'){
+    $alias = trim((string)$alias);
+    if($alias === ''){
+        $alias = 'tr';
+    }
+    return "COALESCE(NULLIF(TRIM(CONVERT(".$alias.".academicyear USING utf8mb4)),''), DATE_FORMAT(".$alias.".datetimeentry, '%Y'))";
+}
+}
+
+if(!function_exists('lesson_timetable_assignment_year_sql')){
+function lesson_timetable_assignment_year_sql($alias = 'sa'){
+    $alias = trim((string)$alias);
+    if($alias === ''){
+        $alias = 'sa';
+    }
+    return "DATE_FORMAT(".$alias.".datetimeentry, '%Y')";
+}
+}
+
+if(!function_exists('lesson_timetable_session_label')){
+function lesson_timetable_session_label($academicYear, $batchLabel, $termValue){
+    $academicYear = lesson_timetable_normalize_year($academicYear);
+    if($academicYear === ''){
+        $academicYear = date('Y');
+    }
+    return trim($academicYear.' Batch '.trim((string)$batchLabel).' Semester '.trim((string)$termValue));
+}
+}
+
 if(!function_exists('lesson_timetable_make_id')){
 function lesson_timetable_make_id($prefix = 'LESSON'){
     $prefix = strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string)$prefix));
@@ -304,13 +365,14 @@ function lesson_timetable_today_name(){
 
 if(!function_exists('ensure_lesson_timetable_table')){
 function ensure_lesson_timetable_table($con){
-    if(xschool_schema_cache_is_fresh('schema_lesson_timetable_v1')){
+    if(xschool_schema_cache_is_fresh('schema_lesson_timetable_v2')){
         return;
     }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbllessontimetable (
         lessonid VARCHAR(40) NOT NULL PRIMARY KEY,
         classid VARCHAR(30) NOT NULL,
         batchid VARCHAR(30) NOT NULL,
+        academicyear VARCHAR(10) NOT NULL DEFAULT '',
         termname INT NOT NULL,
         weekday VARCHAR(20) NOT NULL,
         subjectid VARCHAR(30) NOT NULL,
@@ -323,12 +385,63 @@ function ensure_lesson_timetable_table($con){
         datetimeentry DATETIME NOT NULL,
         updatedat DATETIME NULL,
         recordedby VARCHAR(30) NOT NULL,
-        INDEX idx_lessontimetable_class (classid,batchid,termname),
+        INDEX idx_lessontimetable_class (classid,batchid,academicyear,termname),
         INDEX idx_lessontimetable_teacher (teacherid,weekday),
         INDEX idx_lessontimetable_day (weekday,starttime),
         INDEX idx_lessontimetable_status (status)
     )");
-    xschool_schema_cache_mark('schema_lesson_timetable_v1');
+    if(!lesson_timetable_column_exists($con, 'tbllessontimetable', 'academicyear')){
+        @mysqli_query($con, "ALTER TABLE tbllessontimetable ADD COLUMN academicyear VARCHAR(10) NOT NULL DEFAULT '' AFTER batchid");
+    }
+    @mysqli_query($con, "UPDATE tbllessontimetable SET academicyear=DATE_FORMAT(datetimeentry, '%Y') WHERE TRIM(COALESCE(academicyear,''))=''");
+
+    if(!lesson_timetable_column_exists($con, 'tbltermregistry', 'academicyear')){
+        @mysqli_query($con, "ALTER TABLE tbltermregistry ADD COLUMN academicyear VARCHAR(10) NOT NULL DEFAULT '' AFTER batchid");
+    }
+    @mysqli_query($con, "UPDATE tbltermregistry SET academicyear=DATE_FORMAT(datetimeentry, '%Y') WHERE TRIM(COALESCE(academicyear,''))=''");
+
+    xschool_schema_cache_mark('schema_lesson_timetable_v2');
+}
+}
+
+if(!function_exists('lesson_timetable_year_options')){
+function lesson_timetable_year_options($con){
+    $years = array();
+    $currentYear = (int)date('Y');
+    $maxFutureYear = max($currentYear + 4, 2030);
+    for($year = $currentYear - 1; $year <= $maxFutureYear; $year++){
+        $years[(string)$year] = (string)$year;
+    }
+
+    $queries = array(
+        "SELECT DISTINCT ".lesson_timetable_resolved_year_sql('lt')." AS academicyear FROM tbllessontimetable lt WHERE lt.status='active'",
+        "SELECT DISTINCT ".lesson_timetable_termregistry_year_sql('tr')." AS academicyear FROM tbltermregistry tr WHERE tr.status='active'"
+    );
+    foreach($queries as $sql){
+        $result = @mysqli_query($con, $sql);
+        if($result){
+            while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){
+                $year = lesson_timetable_normalize_year(isset($row['academicyear']) ? $row['academicyear'] : '');
+                if($year !== ''){
+                    $years[$year] = $year;
+                }
+            }
+        }
+    }
+
+    rsort($years, SORT_STRING);
+    return array_values($years);
+}
+}
+
+if(!function_exists('lesson_timetable_default_academic_year')){
+function lesson_timetable_default_academic_year($con){
+    $currentYear = date('Y');
+    $years = lesson_timetable_year_options($con);
+    if(in_array($currentYear, $years, true)){
+        return $currentYear;
+    }
+    return count($years) > 0 ? (string)$years[0] : $currentYear;
 }
 }
 
@@ -347,10 +460,14 @@ function lesson_timetable_default_batch_id($con){
 }
 
 if(!function_exists('lesson_timetable_fetch_assignment_options')){
-function lesson_timetable_fetch_assignment_options($con, $batchId = '', $termName = '', $classId = ''){
+function lesson_timetable_fetch_assignment_options($con, $batchId = '', $academicYear = '', $termName = '', $classId = ''){
     $where = " WHERE sa.status='active' AND su.status='active' AND su.systemtype='Teacher' ";
     if(trim((string)$batchId) !== ''){
         $where .= " AND sa.batchid='".mysqli_real_escape_string($con, trim((string)$batchId))."'";
+    }
+    $academicYear = lesson_timetable_normalize_year($academicYear);
+    if($academicYear !== ''){
+        $where .= " AND ".lesson_timetable_assignment_year_sql('sa')."='".mysqli_real_escape_string($con, $academicYear)."'";
     }
     if(trim((string)$classId) !== ''){
         $where .= " AND sa.classid='".mysqli_real_escape_string($con, trim((string)$classId))."'";
@@ -363,6 +480,7 @@ function lesson_timetable_fetch_assignment_options($con, $batchId = '', $termNam
                 sa.userid AS teacherid,
                 sa.classid,
                 sa.batchid,
+                ".lesson_timetable_assignment_year_sql('sa')." AS academicyear,
                 sa.termname,
                 sc.subjectid,
                 sub.subject,
@@ -393,13 +511,14 @@ function lesson_timetable_fetch_assignment_options($con, $batchId = '', $termNam
 }
 
 if(!function_exists('lesson_timetable_teacher_subject_is_valid')){
-function lesson_timetable_teacher_subject_is_valid($con, $teacherId, $subjectId, $classId, $batchId, $termName){
+function lesson_timetable_teacher_subject_is_valid($con, $teacherId, $subjectId, $classId, $batchId, $academicYear, $termName){
     $teacherId = mysqli_real_escape_string($con, trim((string)$teacherId));
     $subjectId = mysqli_real_escape_string($con, trim((string)$subjectId));
     $classId = mysqli_real_escape_string($con, trim((string)$classId));
     $batchId = mysqli_real_escape_string($con, trim((string)$batchId));
+    $academicYear = lesson_timetable_normalize_year($academicYear);
     $termName = (int)$termName;
-    if($teacherId === '' || $subjectId === '' || $classId === '' || $batchId === '' || $termName <= 0){
+    if($teacherId === '' || $subjectId === '' || $classId === '' || $batchId === '' || $academicYear === '' || $termName <= 0){
         return false;
     }
     $sql = "SELECT sa.assignmentid
@@ -408,6 +527,7 @@ function lesson_timetable_teacher_subject_is_valid($con, $teacherId, $subjectId,
         WHERE sa.userid='$teacherId'
           AND sa.classid='$classId'
           AND sa.batchid='$batchId'
+          AND ".lesson_timetable_assignment_year_sql('sa')."='".mysqli_real_escape_string($con, $academicYear)."'
           AND sa.termname='$termName'
           AND sa.status='active'
           AND sc.subjectid='$subjectId'
@@ -418,12 +538,16 @@ function lesson_timetable_teacher_subject_is_valid($con, $teacherId, $subjectId,
 }
 
 if(!function_exists('lesson_timetable_has_class_overlap')){
-function lesson_timetable_has_class_overlap($con, $classId, $batchId, $termName, $weekday, $startTime, $endTime, $excludeLessonId = ''){
+function lesson_timetable_has_class_overlap($con, $classId, $batchId, $academicYear, $termName, $weekday, $startTime, $endTime, $excludeLessonId = ''){
     $classId = mysqli_real_escape_string($con, trim((string)$classId));
     $batchId = mysqli_real_escape_string($con, trim((string)$batchId));
+    $academicYear = lesson_timetable_normalize_year($academicYear);
     $weekday = mysqli_real_escape_string($con, lesson_timetable_normalize_weekday($weekday));
     $startTime = mysqli_real_escape_string($con, trim((string)$startTime));
     $endTime = mysqli_real_escape_string($con, trim((string)$endTime));
+    if($academicYear === ''){
+        return false;
+    }
     $excludeSql = '';
     if(trim((string)$excludeLessonId) !== ''){
         $excludeSql = " AND lessonid!='".mysqli_real_escape_string($con, trim((string)$excludeLessonId))."'";
@@ -433,6 +557,7 @@ function lesson_timetable_has_class_overlap($con, $classId, $batchId, $termName,
         WHERE status='active'
           AND classid='$classId'
           AND batchid='$batchId'
+          AND ".lesson_timetable_resolved_year_sql('tbllessontimetable')."='".mysqli_real_escape_string($con, $academicYear)."'
           AND termname='".((int)$termName)."'
           AND weekday='$weekday'
           AND starttime<'$endTime'
@@ -445,11 +570,15 @@ function lesson_timetable_has_class_overlap($con, $classId, $batchId, $termName,
 }
 
 if(!function_exists('lesson_timetable_has_teacher_overlap')){
-function lesson_timetable_has_teacher_overlap($con, $teacherId, $weekday, $startTime, $endTime, $excludeLessonId = ''){
+function lesson_timetable_has_teacher_overlap($con, $teacherId, $academicYear, $weekday, $startTime, $endTime, $excludeLessonId = ''){
     $teacherId = mysqli_real_escape_string($con, trim((string)$teacherId));
+    $academicYear = lesson_timetable_normalize_year($academicYear);
     $weekday = mysqli_real_escape_string($con, lesson_timetable_normalize_weekday($weekday));
     $startTime = mysqli_real_escape_string($con, trim((string)$startTime));
     $endTime = mysqli_real_escape_string($con, trim((string)$endTime));
+    if($academicYear === ''){
+        return false;
+    }
     $excludeSql = '';
     if(trim((string)$excludeLessonId) !== ''){
         $excludeSql = " AND lessonid!='".mysqli_real_escape_string($con, trim((string)$excludeLessonId))."'";
@@ -458,6 +587,7 @@ function lesson_timetable_has_teacher_overlap($con, $teacherId, $weekday, $start
         FROM tbllessontimetable
         WHERE status='active'
           AND teacherid='$teacherId'
+          AND ".lesson_timetable_resolved_year_sql('tbllessontimetable')."='".mysqli_real_escape_string($con, $academicYear)."'
           AND weekday='$weekday'
           AND starttime<'$endTime'
           AND endtime>'$startTime'
@@ -483,6 +613,9 @@ function lesson_timetable_fetch_rows($con, $filters = array()){
     if(isset($filters['subjectid']) && trim((string)$filters['subjectid']) !== ''){
         $where .= " AND lt.subjectid='".mysqli_real_escape_string($con, trim((string)$filters['subjectid']))."'";
     }
+    if(isset($filters['academicyear']) && lesson_timetable_normalize_year($filters['academicyear']) !== ''){
+        $where .= " AND ".lesson_timetable_resolved_year_sql('lt')."='".mysqli_real_escape_string($con, lesson_timetable_normalize_year($filters['academicyear']))."'";
+    }
     if(isset($filters['termname']) && trim((string)$filters['termname']) !== ''){
         $where .= " AND lt.termname='".((int)$filters['termname'])."'";
     }
@@ -498,6 +631,7 @@ function lesson_timetable_fetch_rows($con, $filters = array()){
     }
     $sql = "SELECT
                 lt.*,
+                ".lesson_timetable_resolved_year_sql('lt')." AS resolved_academicyear,
                 ce.class_name,
                 bh.batch,
                 sub.subject,
@@ -510,12 +644,13 @@ function lesson_timetable_fetch_rows($con, $filters = array()){
             INNER JOIN tblsubject sub ON sub.subjectid=lt.subjectid
             INNER JOIN tblsystemuser su ON su.userid=lt.teacherid
             ".$where."
-            ORDER BY bh.datetimeentry DESC, ce.class_name ASC, lt.termname ASC, ".lesson_timetable_day_sort_sql('lt.weekday').", lt.starttime ASC".$limitSql;
+            ORDER BY ".lesson_timetable_resolved_year_sql('lt')." DESC, bh.datetimeentry DESC, ce.class_name ASC, lt.termname ASC, ".lesson_timetable_day_sort_sql('lt.weekday').", lt.starttime ASC".$limitSql;
     $rows = array();
     $result = mysqli_query($con, $sql);
     if($result){
         while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){
             $row['teacher_name'] = trim($row['firstname'].' '.$row['othernames'].' '.$row['surname']);
+            $row['academicyear'] = lesson_timetable_normalize_year(isset($row['resolved_academicyear']) ? $row['resolved_academicyear'] : (isset($row['academicyear']) ? $row['academicyear'] : ''));
             $rows[] = $row;
         }
     }
@@ -547,13 +682,16 @@ function lesson_timetable_group_rows_by_day($rows){
 }
 
 if(!function_exists('lesson_timetable_fetch_teacher_today_rows')){
-function lesson_timetable_fetch_teacher_today_rows($con, $teacherId, $batchId = ''){
+function lesson_timetable_fetch_teacher_today_rows($con, $teacherId, $batchId = '', $academicYear = ''){
     $filters = array(
         'teacherid' => $teacherId,
         'weekday' => lesson_timetable_today_name(),
     );
     if(trim((string)$batchId) !== ''){
         $filters['batchid'] = $batchId;
+    }
+    if(lesson_timetable_normalize_year($academicYear) !== ''){
+        $filters['academicyear'] = $academicYear;
     }
     return lesson_timetable_fetch_rows($con, $filters);
 }
@@ -568,6 +706,7 @@ function lesson_timetable_fetch_student_contexts($con, $studentId){
     $rows = array();
     $sql = "SELECT DISTINCT
                 tr.batchid,
+                ".lesson_timetable_termregistry_year_sql('tr')." AS academicyear,
                 tr.termname,
                 tr.class_entryid AS classid,
                 ce.class_name,
@@ -577,12 +716,16 @@ function lesson_timetable_fetch_student_contexts($con, $studentId){
             INNER JOIN tblclassentry ce ON ce.class_entryid=tr.class_entryid
             LEFT JOIN tblbatch bh ON bh.batchid=tr.batchid
             WHERE tr.userid='$studentId'
-            ORDER BY bh.datetimeentry DESC, tr.termname DESC, ce.class_name ASC";
+            ORDER BY ".lesson_timetable_termregistry_year_sql('tr')." DESC, bh.datetimeentry DESC, tr.termname DESC, ce.class_name ASC";
     $result = mysqli_query($con, $sql);
     if($result){
         while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){
-            $row['context_key'] = (string)$row['batchid'].'|'.(string)$row['termname'].'|'.(string)$row['classid'];
-            $row['context_label'] = trim((string)$row['class_name']).' - '.trim((string)$row['batch']).' - Semester '.trim((string)$row['termname']);
+            $row['academicyear'] = lesson_timetable_normalize_year(isset($row['academicyear']) ? $row['academicyear'] : '');
+            if($row['academicyear'] === ''){
+                $row['academicyear'] = date('Y');
+            }
+            $row['context_key'] = (string)$row['batchid'].'|'.(string)$row['academicyear'].'|'.(string)$row['termname'].'|'.(string)$row['classid'];
+            $row['context_label'] = trim((string)$row['class_name']).' - '.(string)$row['academicyear'].' - '.trim((string)$row['batch']).' - Semester '.trim((string)$row['termname']);
             $rows[] = $row;
         }
     }

@@ -410,6 +410,236 @@ body.student-dashboard-page {
     line-height: 1.45;
 }
 
+.student-engagement-grid {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.student-engagement-hero {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(220px, 0.7fr);
+    gap: 18px;
+    padding: 20px;
+    border-radius: 24px;
+    border: 1px solid rgba(17, 43, 69, 0.08);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(241, 247, 250, 0.96));
+}
+
+.student-engagement-hero--starter {
+    box-shadow: inset 0 0 0 1px rgba(17, 43, 69, 0.03);
+}
+
+.student-engagement-hero--active {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(235, 248, 245, 0.98));
+}
+
+.student-engagement-hero--engaged {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(251, 245, 232, 0.98));
+}
+
+.student-engagement-hero--consistent {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(236, 242, 252, 0.98));
+}
+
+.student-engagement-hero--champion {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(244, 236, 253, 0.98));
+}
+
+.student-engagement-hero__eyebrow {
+    display: inline-block;
+    color: #617991;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.student-engagement-hero h3 {
+    margin: 10px 0 0;
+    color: #112b45;
+    font-size: 1.7rem;
+}
+
+.student-engagement-stars {
+    margin-top: 14px;
+    display: flex;
+    gap: 8px;
+    font-size: 1.12rem;
+    color: rgba(17, 43, 69, 0.18);
+}
+
+.student-engagement-stars .is-active {
+    color: #d69b37;
+}
+
+.student-engagement-total {
+    margin-top: 14px;
+    color: #112b45;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.student-engagement-meter {
+    margin-top: 14px;
+    width: 100%;
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(17, 43, 69, 0.08);
+    overflow: hidden;
+}
+
+.student-engagement-meter__fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #0ea38c 0%, #d69b37 100%);
+}
+
+.student-engagement-progress-copy {
+    margin: 12px 0 0;
+    color: #5d748d;
+    line-height: 1.65;
+}
+
+.student-engagement-side {
+    display: grid;
+    gap: 12px;
+}
+
+.student-engagement-stat {
+    padding: 16px 18px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(17, 43, 69, 0.08);
+}
+
+.student-engagement-stat span {
+    display: block;
+    color: #617991;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.72rem;
+}
+
+.student-engagement-stat strong {
+    display: block;
+    margin-top: 10px;
+    color: #112b45;
+    font-size: 1.3rem;
+}
+
+.student-engagement-card {
+    padding: 16px 18px;
+    border-radius: 22px;
+    border: 1px solid rgba(17, 43, 69, 0.08);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(241, 247, 250, 0.96));
+}
+
+.student-engagement-card span,
+.student-engagement-item__meta span {
+    display: block;
+    color: #617991;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.72rem;
+}
+
+.student-engagement-card strong {
+    display: block;
+    margin-top: 10px;
+    color: #112b45;
+    font-size: 1.4rem;
+}
+
+.student-engagement-card small {
+    display: block;
+    margin-top: 8px;
+    color: #5d748d;
+    line-height: 1.6;
+}
+
+.student-engagement-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+.student-engagement-badge--starter {
+    background: rgba(17, 43, 69, 0.08);
+    color: #17324d;
+}
+
+.student-engagement-badge--active {
+    background: rgba(14, 163, 140, 0.14);
+    color: #0e7468;
+}
+
+.student-engagement-badge--engaged {
+    background: rgba(214, 155, 55, 0.16);
+    color: #9a5f09;
+}
+
+.student-engagement-badge--consistent {
+    background: rgba(45, 92, 185, 0.14);
+    color: #284f9c;
+}
+
+.student-engagement-badge--champion {
+    background: rgba(115, 58, 190, 0.14);
+    color: #6c35b3;
+}
+
+.student-engagement-note {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(17, 43, 69, 0.05);
+    color: #5d748d;
+    line-height: 1.7;
+}
+
+.student-engagement-list {
+    margin-top: 18px;
+    display: grid;
+    gap: 12px;
+}
+
+.student-engagement-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(246, 250, 252, 0.96);
+    border: 1px solid rgba(17, 43, 69, 0.08);
+}
+
+.student-engagement-item__meta strong {
+    display: block;
+    color: #112b45;
+    line-height: 1.45;
+}
+
+.student-engagement-item__meta span {
+    margin-top: 6px;
+}
+
+.student-engagement-points {
+    min-width: 56px;
+    text-align: right;
+    font-weight: 800;
+    color: #0e7468;
+    font-size: 1.05rem;
+}
+
 .student-report-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -733,6 +963,13 @@ body.student-dashboard-page {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .student-engagement-grid {
+        grid-template-columns: 1fr;
+    }
+    .student-engagement-hero {
+        grid-template-columns: 1fr;
+    }
+
     .student-section__heading,
     .student-panel__header,
     .student-message-card__meta {
@@ -774,6 +1011,24 @@ body.student-dashboard-page {
     .student-quick-grid,
     .student-report-grid {
         grid-template-columns: 1fr;
+    }
+
+    .student-engagement-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .student-engagement-stars {
+        font-size: 1rem;
+    }
+
+    .student-engagement-total {
+        font-size: 1.7rem;
+    }
+
+    .student-engagement-points {
+        min-width: 0;
+        text-align: left;
     }
 
     .student-message-form__actions {

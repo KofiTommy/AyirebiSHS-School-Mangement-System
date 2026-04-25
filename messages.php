@@ -26,6 +26,9 @@ function msg_audience_badge_class($audience){
     if($audience === 'teachers'){
         return 'messages-audience messages-audience--teachers';
     }
+    if($audience === 'admins'){
+        return 'messages-audience messages-audience--admins';
+    }
     return 'messages-audience messages-audience--all';
 }
 }
@@ -57,7 +60,9 @@ if(isset($_POST["send_message"])){
     } else {
         $_ChosenAudience = isset($_POST['message_audience']) ? um_message_normalize_audience($_POST['message_audience']) : $__DefaultAudience;
         if($__SystemType === 'Student'){
-            $_ChosenAudience = 'teachers';
+            $_ChosenAudience = 'admins';
+        } elseif($__SystemType === 'Teacher'){
+            $_ChosenAudience = 'admins';
         }
         $_MessageId = mysqli_real_escape_string($con, (string)$code);
         $_ChosenAudienceEsc = mysqli_real_escape_string($con, $_ChosenAudience);
@@ -65,6 +70,11 @@ if(isset($_POST["send_message"])){
         $_SQL = mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group)
             VALUES('$_MessageId','$_MessageEsc',NOW(),'active','$__CurrentUserIdEsc','$_ChosenAudienceEsc')");
         if($_SQL){
+            if($__SystemType === 'Teacher'){
+                engagement_track_daily_action($con, 'teacher_message_sent_daily', $__CurrentUserId);
+            } elseif($__SystemType === 'Student'){
+                engagement_track_daily_action($con, 'student_message_sent_daily', $__CurrentUserId);
+            }
             $_SESSION['Message'] = "<div style='color:#166534;padding:10px;'>Message successfully sent.</div>";
         } else {
             $_SESSION['Message'] = "<div style='color:#991b1b;padding:10px;'>Message failed to send.</div>";
@@ -147,9 +157,9 @@ if($_SQL_BOARD_MESSAGES){
 
 $visibilityHint = "You can see all active message groups here.";
 if($__SystemType === 'Student'){
-    $visibilityHint = "You will only see general notices and messages directed to students.";
+    $visibilityHint = "You will only see general notices and messages directed to students. Any message you send from here goes to admin only.";
 } elseif($__SystemType === 'Teacher'){
-    $visibilityHint = "You will only see general notices and messages directed to teachers.";
+    $visibilityHint = "You will only see general notices and messages directed to teachers. Any message you send from here goes to admin only.";
 }
 ?>
 <!DOCTYPE html>

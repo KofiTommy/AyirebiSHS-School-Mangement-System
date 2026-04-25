@@ -19,10 +19,14 @@ if(!isset($con)){
 }
 include_once("user-management-utils.php");
 $_TeacherExtraAccessLinks = array();
+$_ShowTeacherAttendanceLinks = false;
 if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
    $_SESSION['ACCESSLEVEL'] === "user" &&
    $_SESSION['SYSTEMTYPE'] === "Teacher"){
+    include_once("class-teacher-utils.php");
+    ensure_class_teacher_table($con);
     $_TeacherExtraAccessLinks = um_teacher_extra_nav_links($con, $_SESSION['USERID']);
+    $_ShowTeacherAttendanceLinks = class_teacher_has_any_assignment($con, $_SESSION['USERID']);
 }
 ?>
 <style>
@@ -229,8 +233,10 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher"){
 </div>
 <?php menuboard_section_start('Subject', 'fa-book', true); ?>
 <a href="view-teacher-subject.php"><i class="fa fa-search"></i> View Subject(s) Assigned</a>
+<?php if($_ShowTeacherAttendanceLinks){ ?>
 <a href="student-attendance.php"><i class="fa fa-check-square-o"></i> Student Attendance</a>
 <a href="student-attendance-report.php"><i class="fa fa-bar-chart"></i> Attendance Summary</a>
+<?php } ?>
 <?php menuboard_section_end(); ?>
 
 <?php menuboard_section_start('Scores', 'fa-pencil'); ?>

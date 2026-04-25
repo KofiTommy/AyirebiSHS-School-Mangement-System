@@ -67,9 +67,12 @@ if(isset($_POST['send_message'])){
         include("code.php");
         $messageId = mysqli_real_escape_string($con, (string)$code);
         $messageEsc = mysqli_real_escape_string($con, $message);
-        $messageAudienceEsc = mysqli_real_escape_string($con, um_message_default_audience_for_current_user());
+        $messageAudienceEsc = mysqli_real_escape_string($con, 'admins');
         $_SQL = mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group)
             VALUES('$messageId','$messageEsc',NOW(),'active','$studentIdEsc','$messageAudienceEsc')");
+        if($_SQL){
+            engagement_track_daily_action($con, 'student_message_sent_daily', $studentId);
+        }
         $_SESSION['Message'] = $_SQL ? sd_alert("success", "Message successfully submitted.") : sd_alert("error", "Message failed to submit.");
     }
     header("location:student-page.php#student-messages");
@@ -229,6 +232,8 @@ if($messageRes){
         $myMessages[] = $row;
     }
 }
+$engagementSummary = engagement_get_summary($con, $studentId);
+$engagementRecent = engagement_get_recent_activity($con, $studentId, 5);
 
 $reportPreview = array_slice($reportOptions, 0, 6);
 ?>
@@ -335,6 +340,64 @@ $reportPreview = array_slice($reportOptions, 0, 6);
     <div class="student-panel-stack">
         <section class="student-panel">
             <div class="student-panel__header">
+                <div><span class="student-panel__eyebrow">Engagement</span><h2>Stay active on your student portal</h2></div>
+            </div>
+            <div class="student-engagement-hero student-engagement-hero--<?php echo sd_esc($engagementSummary["badge"]["tone"]); ?>">
+                <div class="student-engagement-hero__copy">
+                    <span class="student-engagement-hero__eyebrow">Current Level</span>
+                    <h3><?php echo sd_esc($engagementSummary["badge"]["label"]); ?></h3>
+                    <div class="student-engagement-stars" aria-label="<?php echo (int)$engagementSummary["stars"]; ?> stars">
+                        <?php for($starIndex = 1; $starIndex <= 5; $starIndex++){ ?>
+                        <i class="fa fa-star<?php echo ($starIndex <= (int)$engagementSummary["stars"]) ? " is-active" : ""; ?>"></i>
+                        <?php } ?>
+                    </div>
+                    <div class="student-engagement-total"><?php echo number_format((int)$engagementSummary["total_points"]); ?> points</div>
+                    <div class="student-engagement-meter" aria-hidden="true">
+                        <span class="student-engagement-meter__fill" style="width: <?php echo (int)$engagementSummary["progress_percent"]; ?>%;"></span>
+                    </div>
+                    <p class="student-engagement-progress-copy">
+                        <?php if(!empty($engagementSummary["next_badge"])){ ?>
+                            <?php echo number_format((int)$engagementSummary["points_to_next"]); ?> more point<?php echo ((int)$engagementSummary["points_to_next"] === 1 ? "" : "s"); ?> to reach <?php echo sd_esc((string)$engagementSummary["next_badge"]["label"]); ?>.
+                        <?php } else { ?>
+                            Top level reached. Keep showing up well.
+                        <?php } ?>
+                    </p>
+                </div>
+                <div class="student-engagement-side">
+                    <article class="student-engagement-stat">
+                        <span>This Week</span>
+                        <strong><?php echo number_format((int)$engagementSummary["week_points"]); ?></strong>
+                    </article>
+                    <article class="student-engagement-stat">
+                        <span>Active Streak</span>
+                        <strong><?php echo number_format((int)$engagementSummary["streak_days"]); ?> Day<?php echo ((int)$engagementSummary["streak_days"] === 1 ? "" : "s"); ?></strong>
+                    </article>
+                    <article class="student-engagement-stat">
+                        <span>Progress</span>
+                        <strong><?php echo (int)$engagementSummary["progress_percent"]; ?>%</strong>
+                    </article>
+                </div>
+            </div>
+            <div class="student-engagement-note">You earn points for useful actions like checking reports, attendance, timetable, account details, and school messages. Daily caps keep the progress fair.</div>
+            <div class="student-engagement-list">
+                <?php if(count($engagementRecent) > 0){ ?>
+                    <?php foreach($engagementRecent as $activity){ ?>
+                    <article class="student-engagement-item">
+                        <div class="student-engagement-item__meta">
+                            <strong><?php echo sd_esc((string)$activity["actionlabel"]); ?></strong>
+                            <span><?php echo sd_esc(sd_date((string)$activity["datetimeentry"])); ?></span>
+                        </div>
+                        <div class="student-engagement-points">+<?php echo number_format((int)$activity["pointvalue"]); ?></div>
+                    </article>
+                    <?php } ?>
+                <?php } else { ?>
+                <div class="student-empty-state student-empty-state--compact"><p>Your private progress will begin showing here as you keep using the student portal.</p></div>
+                <?php } ?>
+            </div>
+        </section>
+
+        <section class="student-panel">
+            <div class="student-panel__header">
                 <div><span class="student-panel__eyebrow">Registrations</span><h2>My classes and years</h2></div>
             </div>
             <?php if($classCount > 0){ ?>
@@ -409,7 +472,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
             <label for="message">Write a message</label>
             <textarea id="message" name="message" placeholder="Share a concern, ask for support, or leave an update for the school team." required></textarea>
             <div class="student-message-form__actions">
-                <span>Your messages here are sent into the wider school message feed.</span>
+                <span>Your messages here are sent straight to admin for review.</span>
                 <button class="student-primary-btn" type="submit" name="send_message"><i class="fa fa-send"></i> Send Message</button>
             </div>
         </form>

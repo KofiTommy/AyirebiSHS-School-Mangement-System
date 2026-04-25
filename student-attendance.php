@@ -73,6 +73,12 @@ if(isset($_POST["save_attendance_register"])){
         $errorMessage = "";
         $savedSession = student_attendance_save_register($con, $selectedAssignment, $attendanceDate, $statuses, $notes, $generalNote, $currentUserId, $errorMessage);
         if($savedSession){
+            engagement_track_event_action(
+                $con,
+                'teacher_attendance_saved',
+                (string)$selectedAssignment["assignmentid"].'|'.$attendanceDate,
+                $currentUserId
+            );
             $savedEntries = student_attendance_get_entries($con, (string)$savedSession["sessionid"]);
             $savedCounts = student_attendance_count_session_statuses($savedEntries);
             $_SESSION["ATTENDANCE_MESSAGE"] = sa_alert(

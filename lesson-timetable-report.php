@@ -31,6 +31,9 @@ $selectedStudentContext = ($isStudentView && $selectedStudentContextKey !== '' &
 $filterBatchId = $isStudentView
     ? ($selectedStudentContext ? (string)$selectedStudentContext['batchid'] : '')
     : (isset($_GET['batchid']) ? trim((string)$_GET['batchid']) : lesson_timetable_default_batch_id($con));
+$filterAcademicYear = $isStudentView
+    ? ($selectedStudentContext ? lesson_timetable_normalize_year($selectedStudentContext['academicyear']) : '')
+    : (isset($_GET['academicyear']) ? lesson_timetable_normalize_year($_GET['academicyear']) : lesson_timetable_default_academic_year($con));
 $filterTermName = $isStudentView
     ? ($selectedStudentContext ? (string)((int)$selectedStudentContext['termname']) : '')
     : (isset($_GET['termname']) && trim((string)$_GET['termname']) !== '' ? (string)((int)$_GET['termname']) : "1");
@@ -39,6 +42,7 @@ $filterClassId = $isStudentView
     : (isset($_GET['classid']) ? trim((string)$_GET['classid']) : "");
 $filterTeacherId = $isTeacherView ? $teacherId : ($isStudentView ? "" : (isset($_GET['teacherid']) ? trim((string)$_GET['teacherid']) : ""));
 
+$academicYearOptions = lesson_timetable_year_options($con);
 $batchRows = array();
 $batchResult = mysqli_query($con, "SELECT batchid,batch,status FROM tblbatch ORDER BY status='active' DESC, datetimeentry DESC");
 if($batchResult){
@@ -65,6 +69,7 @@ if($teacherResult){
 
 $rows = lesson_timetable_fetch_rows($con, array(
     'batchid' => $filterBatchId,
+    'academicyear' => $filterAcademicYear,
     'termname' => $filterTermName,
     'classid' => $filterClassId,
     'teacherid' => $filterTeacherId
@@ -72,6 +77,7 @@ $rows = lesson_timetable_fetch_rows($con, array(
 $groupedRows = lesson_timetable_group_rows_by_day($rows);
 $todayRows = lesson_timetable_group_rows_by_day(lesson_timetable_fetch_rows($con, array(
     'batchid' => $filterBatchId,
+    'academicyear' => $filterAcademicYear,
     'termname' => $filterTermName,
     'classid' => $filterClassId,
     'teacherid' => $filterTeacherId,
@@ -109,6 +115,7 @@ foreach($weekdays as $day){
 $activeBatchLabel = ($filterBatchId !== '' && isset($batchNames[$filterBatchId])) ? $batchNames[$filterBatchId] : 'All Batches';
 $activeClassLabel = ($filterClassId !== '' && isset($classNames[$filterClassId])) ? $classNames[$filterClassId] : 'All Classes';
 $activeTeacherLabel = ($filterTeacherId !== '' && isset($teacherNames[$filterTeacherId])) ? $teacherNames[$filterTeacherId] : ($isTeacherView ? 'My Timetable' : ($isStudentView ? 'My Class Schedule' : 'All Teachers'));
+$activeYearLabel = $filterAcademicYear !== '' ? $filterAcademicYear : 'All Years';
 $activeTermLabel = $filterTermName !== '' ? 'Semester '.$filterTermName : 'All Semesters';
 $timeWindowLabel = 'No lesson periods yet';
 if(count($timeSlots) > 0){
@@ -137,6 +144,7 @@ $nextLessonRow = lesson_timetable_find_next_row($todayList, $todayName);
             <p><?php echo $isTeacherView ? 'See your teaching week in a cleaner planner view that works well on your phone, in class, or before assembly.' : ($isStudentView ? 'Follow your class timetable, see the lesson you should be in right now, and check what comes next without guessing.' : 'Review the live school timetable in a cleaner weekly planner that stays readable on desktop and mobile.'); ?></p>
             <div class="lesson-hero__chips">
                 <span class="lesson-hero-chip"><i class="fa fa-clone"></i> <?php echo lesson_timetable_escape($activeBatchLabel); ?></span>
+                <span class="lesson-hero-chip"><i class="fa fa-calendar-check-o"></i> <?php echo lesson_timetable_escape($activeYearLabel); ?></span>
                 <span class="lesson-hero-chip"><i class="fa fa-graduation-cap"></i> <?php echo lesson_timetable_escape($activeClassLabel); ?></span>
                 <span class="lesson-hero-chip"><i class="fa fa-user"></i> <?php echo lesson_timetable_escape($activeTeacherLabel); ?></span>
             </div>
@@ -152,7 +160,7 @@ $nextLessonRow = lesson_timetable_find_next_row($todayList, $todayName);
         <div class="lesson-toolbar__group">
             <span class="lesson-pill"><?php echo count($subjectCount); ?> Subject<?php echo count($subjectCount) === 1 ? '' : 's'; ?></span>
             <span class="lesson-pill"><?php echo count($timeSlots); ?> Time Slot<?php echo count($timeSlots) === 1 ? '' : 's'; ?></span>
-            <span class="lesson-pill"><?php echo lesson_timetable_escape($activeTermLabel); ?></span>
+            <span class="lesson-pill"><?php echo lesson_timetable_escape($activeYearLabel.' | '.$activeTermLabel); ?></span>
         </div>
         <button class="lesson-btn lesson-btn--secondary" type="button" onclick="window.print();"><i class="fa fa-print"></i> Print</button>
     </section>
@@ -161,7 +169,7 @@ $nextLessonRow = lesson_timetable_find_next_row($todayList, $todayName);
         <div class="lesson-card__header">
             <div>
                 <h2>Filter Timetable</h2>
-                <p><?php echo $isStudentView ? 'Choose the registered class session you want to view. The timetable will stay limited to your own lessons.' : 'Use the filters below to focus on the class, semester, and teacher you want to review.'; ?></p>
+                <p><?php echo $isStudentView ? 'Choose the registered class session you want to view. The timetable will stay limited to your own lessons.' : 'Use the filters below to focus on the class, academic year, semester, and teacher you want to review.'; ?></p>
             </div>
             <span class="lesson-pill"><?php echo lesson_timetable_escape($activeTeacherLabel); ?></span>
         </div>
@@ -187,6 +195,14 @@ $nextLessonRow = lesson_timetable_find_next_row($todayList, $todayName);
                             <option value="">All Batches</option>
                             <?php foreach($batchRows as $batch){ ?>
                             <option value="<?php echo lesson_timetable_escape($batch['batchid']); ?>"<?php echo $filterBatchId === $batch['batchid'] ? ' selected' : ''; ?>><?php echo lesson_timetable_escape($batch['batch']); ?></option>
+                            <?php } ?>
+                        </select>
+                    </div>
+                    <div class="lesson-form-field">
+                        <label for="academicyear">Academic Year</label>
+                        <select id="academicyear" name="academicyear">
+                            <?php foreach($academicYearOptions as $yearOption){ ?>
+                            <option value="<?php echo lesson_timetable_escape($yearOption); ?>"<?php echo $filterAcademicYear === $yearOption ? ' selected' : ''; ?>><?php echo lesson_timetable_escape($yearOption); ?></option>
                             <?php } ?>
                         </select>
                     </div>
@@ -226,7 +242,7 @@ $nextLessonRow = lesson_timetable_find_next_row($todayList, $todayName);
                     <button class="lesson-btn lesson-btn--secondary" type="submit"><i class="fa fa-filter"></i> Apply Filter</button>
                     <a class="lesson-btn lesson-btn--secondary" href="lesson-timetable-report.php"><i class="fa fa-refresh"></i> Reset</a>
                     <?php if(!$isStudentView && lesson_timetable_can_manage($con)){ ?>
-                    <a class="lesson-btn" href="lesson-timetable.php?batchid=<?php echo urlencode($filterBatchId); ?>&termname=<?php echo urlencode($filterTermName); ?>&classid=<?php echo urlencode($filterClassId); ?>"><i class="fa fa-plus"></i> Manage Lessons</a>
+                    <a class="lesson-btn" href="lesson-timetable.php?batchid=<?php echo urlencode($filterBatchId); ?>&academicyear=<?php echo urlencode($filterAcademicYear); ?>&termname=<?php echo urlencode($filterTermName); ?>&classid=<?php echo urlencode($filterClassId); ?>"><i class="fa fa-plus"></i> Manage Lessons</a>
                     <?php } ?>
                 </div>
             </form>
@@ -285,7 +301,7 @@ $nextLessonRow = lesson_timetable_find_next_row($todayList, $todayName);
                 <h2>Weekly Planner</h2>
                 <p><?php echo $isStudentView ? 'Your full class timetable for the selected session, with today and the current lesson highlighted where relevant.' : ($filterTeacherId !== '' ? 'Showing the selected teacher view in a full-week planner.' : 'Showing all timetable entries in the current weekly planner.'); ?></p>
             </div>
-            <span class="lesson-pill"><?php echo lesson_timetable_escape($timeWindowLabel); ?></span>
+            <span class="lesson-pill"><?php echo lesson_timetable_escape($activeYearLabel.' | '.$activeTermLabel.' | '.$timeWindowLabel); ?></span>
         </div>
         <div class="lesson-card__body">
             <div class="lesson-day-strip">
@@ -327,6 +343,7 @@ $nextLessonRow = lesson_timetable_find_next_row($todayList, $todayName);
                                 <?php if($isCurrentLessonCard){ ?><div class="lesson-entry-card__live">Current lesson</div><?php } ?>
                                 <div class="lesson-entry-card__title"><?php echo lesson_timetable_escape($row['teacher_name']); ?></div>
                                 <div class="lesson-entry-card__meta">
+                                    <span><i class="fa fa-calendar"></i> <?php echo lesson_timetable_escape($row['academicyear']); ?></span>
                                     <span><i class="fa fa-users"></i> <?php echo lesson_timetable_escape($row['batch']); ?></span>
                                     <span><i class="fa fa-calendar-check-o"></i> Semester <?php echo lesson_timetable_escape($row['termname']); ?></span>
                                     <?php if(trim((string)$row['location']) !== ''){ ?><span><i class="fa fa-map-marker"></i> <?php echo lesson_timetable_escape($row['location']); ?></span><?php } ?>
@@ -361,6 +378,7 @@ $nextLessonRow = lesson_timetable_find_next_row($todayList, $todayName);
                                 <?php if($isCurrentLessonCard){ ?><div class="lesson-entry-card__live">Current lesson</div><?php } ?>
                                 <div class="lesson-entry-card__title"><?php echo lesson_timetable_escape($row['teacher_name']); ?></div>
                                 <div class="lesson-entry-card__meta">
+                                    <span><i class="fa fa-calendar"></i> <?php echo lesson_timetable_escape($row['academicyear']); ?></span>
                                     <span><i class="fa fa-users"></i> <?php echo lesson_timetable_escape($row['batch']); ?></span>
                                     <span><i class="fa fa-calendar-check-o"></i> Semester <?php echo lesson_timetable_escape($row['termname']); ?></span>
                                     <?php if(trim((string)$row['location']) !== ''){ ?><span><i class="fa fa-map-marker"></i> <?php echo lesson_timetable_escape($row['location']); ?></span><?php } ?>

@@ -45,6 +45,9 @@ if(isset($_POST['send_message'])){
         $messageAudienceEsc = mysqli_real_escape_string($con, um_message_default_audience_for_current_user());
         $_SQL = mysqli_query($con,"INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group)
             VALUES('$messageId','$messageEsc',NOW(),'active','$teacherIdEsc','$messageAudienceEsc')");
+        if($_SQL){
+            engagement_track_daily_action($con, 'teacher_message_sent_daily', $teacherId);
+        }
         $_SESSION['Message'] = $_SQL ? td_alert("success","Message successfully submitted.") : td_alert("error","Message failed to submit.");
     }
     header("location:teacher-page.php#teacher-messages");
@@ -150,6 +153,7 @@ $recentTeachingGroups = array_slice($teachingGroups, 0, $recentTeachingGroupLimi
 $teachingGroupCount = count($teachingGroups);
 $recentTeachingGroupCount = count($recentTeachingGroups);
 $classTeacherRoleCount = count($classTeacherRoles);
+$teacherCanTakeAttendance = ($classTeacherRoleCount > 0);
 $activeBatchCount = count($activeBatchIds);
 $myMessageCount = 0;
 $countRes = mysqli_query($con,"SELECT COUNT(*) AS total_messages FROM tblmessages WHERE sentby='$teacherIdEsc' AND status='active'");
@@ -158,6 +162,8 @@ $myMessages = array();
 $myMessagesRes = mysqli_query($con,"SELECT messageid,messages,datetimeentry FROM tblmessages
     WHERE sentby='$teacherIdEsc' AND status='active' ORDER BY datetimeentry DESC LIMIT 6");
 if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){ $myMessages[] = $row; } }
+$engagementSummary = engagement_get_summary($con, $teacherId);
+$engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -180,7 +186,9 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
             <article class="teacher-stat-card"><span>Recent Groups</span><strong><?php echo (int)$recentTeachingGroupCount; ?></strong></article>
             <article class="teacher-stat-card"><span>Class Teacher Roles</span><strong><?php echo (int)$classTeacherRoleCount; ?></strong></article>
             <article class="teacher-stat-card"><span>My Messages</span><strong><?php echo (int)$myMessageCount; ?></strong></article>
+            <?php if($teacherCanTakeAttendance){ ?>
             <article class="teacher-stat-card"><span>Attendance Today</span><strong><?php echo (int)$attendanceSummary["today_session_count"]; ?></strong></article>
+            <?php } ?>
         </div>
     </div>
     <aside class="teacher-profile-card">
@@ -211,8 +219,10 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
     </div>
     <div class="teacher-quick-grid">
         <a class="teacher-action-card" href="view-teacher-subject.php"><span class="teacher-action-card__icon"><i class="fa fa-search"></i></span><h3>Assigned Subjects</h3><p>Review the subjects, classes, and year-based sessions attached to your account.</p></a>
+        <?php if($teacherCanTakeAttendance){ ?>
         <a class="teacher-action-card" href="student-attendance.php"><span class="teacher-action-card__icon"><i class="fa fa-check-square-o"></i></span><h3>Student Attendance</h3><p>Take daily attendance for your assigned class-teacher groups and review recent registers.</p></a>
         <a class="teacher-action-card" href="student-attendance-report.php"><span class="teacher-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>Attendance Summary</h3><p>Review attendance from one date to another with summary cards, trend bars, and student-level totals.</p></a>
+        <?php } ?>
         <a class="teacher-action-card" href="class-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-pencil"></i></span><h3>Class Score Entry</h3><p>Capture continuous assessment scores quickly for your assigned workload.</p></a>
         <a class="teacher-action-card" href="exam-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-edit"></i></span><h3>Exam Score Entry</h3><p>Enter end-of-semester exam scores without jumping through menus.</p></a>
         <a class="teacher-action-card" href="upload-classexam-score.php"><span class="teacher-action-card__icon"><i class="fa fa-upload"></i></span><h3>Upload Scores</h3><p>Upload combined class and exam scores from prepared templates.</p></a>
@@ -259,6 +269,64 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
     </section>
 
     <div class="teacher-panel-stack">
+        <section class="teacher-panel">
+            <div class="teacher-panel__header">
+                <div><span class="teacher-panel__eyebrow">Engagement</span><h2>Keep your teaching flow active</h2></div>
+            </div>
+            <div class="teacher-engagement-hero teacher-engagement-hero--<?php echo td_esc($engagementSummary["badge"]["tone"]); ?>">
+                <div class="teacher-engagement-hero__copy">
+                    <span class="teacher-engagement-hero__eyebrow">Current Level</span>
+                    <h3><?php echo td_esc($engagementSummary["badge"]["label"]); ?></h3>
+                    <div class="teacher-engagement-stars" aria-label="<?php echo (int)$engagementSummary["stars"]; ?> stars">
+                        <?php for($starIndex = 1; $starIndex <= 5; $starIndex++){ ?>
+                        <i class="fa fa-star<?php echo ($starIndex <= (int)$engagementSummary["stars"]) ? " is-active" : ""; ?>"></i>
+                        <?php } ?>
+                    </div>
+                    <div class="teacher-engagement-total"><?php echo number_format((int)$engagementSummary["total_points"]); ?> points</div>
+                    <div class="teacher-engagement-meter" aria-hidden="true">
+                        <span class="teacher-engagement-meter__fill" style="width: <?php echo (int)$engagementSummary["progress_percent"]; ?>%;"></span>
+                    </div>
+                    <p class="teacher-engagement-progress-copy">
+                        <?php if(!empty($engagementSummary["next_badge"])){ ?>
+                            <?php echo number_format((int)$engagementSummary["points_to_next"]); ?> more point<?php echo ((int)$engagementSummary["points_to_next"] === 1 ? "" : "s"); ?> to reach <?php echo td_esc((string)$engagementSummary["next_badge"]["label"]); ?>.
+                        <?php } else { ?>
+                            Top level reached. Keep the momentum going.
+                        <?php } ?>
+                    </p>
+                </div>
+                <div class="teacher-engagement-side">
+                    <article class="teacher-engagement-stat">
+                        <span>This Week</span>
+                        <strong><?php echo number_format((int)$engagementSummary["week_points"]); ?></strong>
+                    </article>
+                    <article class="teacher-engagement-stat">
+                        <span>Active Streak</span>
+                        <strong><?php echo number_format((int)$engagementSummary["streak_days"]); ?> Day<?php echo ((int)$engagementSummary["streak_days"] === 1 ? "" : "s"); ?></strong>
+                    </article>
+                    <article class="teacher-engagement-stat">
+                        <span>Progress</span>
+                        <strong><?php echo (int)$engagementSummary["progress_percent"]; ?>%</strong>
+                    </article>
+                </div>
+            </div>
+            <div class="teacher-engagement-note">Points are earned for useful work like score entry, attendance, timetable checks, and communication. Daily caps keep the system fair.</div>
+            <div class="teacher-engagement-list">
+                <?php if(count($engagementRecent) > 0){ ?>
+                    <?php foreach($engagementRecent as $activity){ ?>
+                    <article class="teacher-engagement-item">
+                        <div class="teacher-engagement-item__meta">
+                            <strong><?php echo td_esc((string)$activity["actionlabel"]); ?></strong>
+                            <span><?php echo td_esc(td_date((string)$activity["datetimeentry"])); ?></span>
+                        </div>
+                        <div class="teacher-engagement-points">+<?php echo number_format((int)$activity["pointvalue"]); ?></div>
+                    </article>
+                    <?php } ?>
+                <?php } else { ?>
+                <div class="teacher-empty-state teacher-empty-state--compact"><p>Your private progress will start showing here as you use the portal.</p></div>
+                <?php } ?>
+            </div>
+        </section>
+
         <section class="teacher-panel">
             <div class="teacher-panel__header">
                 <div><span class="teacher-panel__eyebrow">Duty Roster</span><h2>Duty reminders on your dashboard</h2></div>
@@ -326,7 +394,7 @@ if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){
             <label for="message">Write a message</label>
             <textarea id="message" name="message" placeholder="Share an update, request support, or leave a note for the school team." required></textarea>
             <div class="teacher-message-form__actions">
-                <span>Messages posted here will appear in the wider school feed.</span>
+                <span>Messages sent here go straight to admin for review.</span>
                 <button class="teacher-primary-btn" type="submit" name="send_message"><i class="fa fa-send"></i> Send Message</button>
             </div>
         </form>

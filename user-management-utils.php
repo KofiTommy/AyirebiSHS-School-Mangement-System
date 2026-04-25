@@ -64,7 +64,7 @@ function ensure_user_management_columns($con){
 if(!function_exists('um_message_normalize_audience')){
 function um_message_normalize_audience($audience){
     $audience = strtolower(trim((string)$audience));
-    if(in_array($audience, array('students','teachers','all'), true)){
+    if(in_array($audience, array('students','teachers','admins','all'), true)){
         return $audience;
     }
     return 'all';
@@ -75,10 +75,10 @@ if(!function_exists('um_message_default_audience_for_current_user')){
 function um_message_default_audience_for_current_user(){
     $systemType = isset($_SESSION['SYSTEMTYPE']) ? trim((string)$_SESSION['SYSTEMTYPE']) : '';
     if($systemType === 'Student'){
-        return 'teachers';
+        return 'admins';
     }
     if($systemType === 'Teacher'){
-        return 'teachers';
+        return 'admins';
     }
     return 'all';
 }
@@ -89,13 +89,19 @@ function um_message_audience_options_for_current_user(){
     $systemType = isset($_SESSION['SYSTEMTYPE']) ? trim((string)$_SESSION['SYSTEMTYPE']) : '';
     if($systemType === 'Student'){
         return array(
-            'teachers' => 'Teachers And School Office'
+            'admins' => 'Admin Only'
+        );
+    }
+    if($systemType === 'Teacher'){
+        return array(
+            'admins' => 'Admin Only'
         );
     }
     return array(
         'all' => 'Everyone',
         'students' => 'Students Only',
-        'teachers' => 'Teachers Only'
+        'teachers' => 'Teachers Only',
+        'admins' => 'Admin Only'
     );
 }
 }
@@ -108,6 +114,9 @@ function um_message_audience_label($audience){
     }
     if($audience === 'teachers'){
         return 'Teachers Only';
+    }
+    if($audience === 'admins'){
+        return 'Admin Only';
     }
     return 'Everyone';
 }

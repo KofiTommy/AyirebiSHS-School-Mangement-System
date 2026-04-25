@@ -137,6 +137,20 @@ function class_teacher_is_assigned($con, $teacherId, $classId, $batchId, $termNa
 }
 }
 
+if(!function_exists('class_teacher_has_any_assignment')){
+function class_teacher_has_any_assignment($con, $teacherId){
+    $teacherId = mysqli_real_escape_string($con, (string)$teacherId);
+    if($teacherId === ""){
+        return false;
+    }
+    $sql = "SELECT assignmentid FROM tblclassteacher
+            WHERE userid='$teacherId' AND status='active'
+            LIMIT 1";
+    $res = mysqli_query($con, $sql);
+    return ($res && mysqli_num_rows($res) > 0);
+}
+}
+
 if(!function_exists('class_teacher_can_manage_student_batch')){
 function class_teacher_can_manage_student_batch($con, $teacherId, $studentId, $batchId, $termName = null){
     $teacherId = mysqli_real_escape_string($con, (string)$teacherId);

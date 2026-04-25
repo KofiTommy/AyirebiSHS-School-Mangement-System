@@ -60,8 +60,15 @@ function student_attendance_landing_page(){
 
 if(!function_exists('student_attendance_can_access')){
 function student_attendance_can_access($con = null){
-    if(student_attendance_is_admin() || student_attendance_is_teacher()){
+    if(student_attendance_is_admin()){
         return true;
+    }
+    if(student_attendance_is_teacher()){
+        if(!$con){
+            return false;
+        }
+        $teacherId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+        return $teacherId !== '' && class_teacher_has_any_assignment($con, $teacherId);
     }
     if($con && function_exists('um_current_user_can_access_module')){
         return um_current_user_can_access_module($con, 'student_attendance');

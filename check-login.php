@@ -5,6 +5,7 @@ if(!isset($_SESSION['USERID']) || $_SESSION['USERID']==""){
 }
 include("dbstring.php");
 include_once("user-management-utils.php");
+include_once("engagement-utils.php");
 ensure_user_management_columns($con);
 //Read the key from a file
 //$filename=fopen("api.txt", "r");
@@ -45,4 +46,5 @@ if($__CurrentScript !== "change-password.php" && $__CurrentScript !== "logout.ph
     }
 }
 um_enforce_current_module_access($con);
+engagement_track_current_script($con);
 ?>

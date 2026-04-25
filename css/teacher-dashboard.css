@@ -476,6 +476,236 @@ body.teacher-dashboard-page {
     font-weight: 700;
 }
 
+.teacher-engagement-grid {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.teacher-engagement-hero {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(220px, 0.7fr);
+    gap: 18px;
+    padding: 20px;
+    border-radius: 24px;
+    border: 1px solid rgba(17, 42, 68, 0.08);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(241, 247, 250, 0.96));
+}
+
+.teacher-engagement-hero--starter {
+    box-shadow: inset 0 0 0 1px rgba(17, 42, 68, 0.03);
+}
+
+.teacher-engagement-hero--active {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(235, 248, 245, 0.98));
+}
+
+.teacher-engagement-hero--engaged {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(251, 245, 232, 0.98));
+}
+
+.teacher-engagement-hero--consistent {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(236, 242, 252, 0.98));
+}
+
+.teacher-engagement-hero--champion {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(244, 236, 253, 0.98));
+}
+
+.teacher-engagement-hero__eyebrow {
+    display: inline-block;
+    color: #61778f;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.teacher-engagement-hero h3 {
+    margin: 10px 0 0;
+    color: #112a44;
+    font-size: 1.7rem;
+}
+
+.teacher-engagement-stars {
+    margin-top: 14px;
+    display: flex;
+    gap: 8px;
+    font-size: 1.12rem;
+    color: rgba(17, 42, 68, 0.18);
+}
+
+.teacher-engagement-stars .is-active {
+    color: #d69b37;
+}
+
+.teacher-engagement-total {
+    margin-top: 14px;
+    color: #112a44;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.teacher-engagement-meter {
+    margin-top: 14px;
+    width: 100%;
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(17, 42, 68, 0.08);
+    overflow: hidden;
+}
+
+.teacher-engagement-meter__fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #0f9a8d 0%, #d69b37 100%);
+}
+
+.teacher-engagement-progress-copy {
+    margin: 12px 0 0;
+    color: #5b7188;
+    line-height: 1.65;
+}
+
+.teacher-engagement-side {
+    display: grid;
+    gap: 12px;
+}
+
+.teacher-engagement-stat {
+    padding: 16px 18px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(17, 42, 68, 0.08);
+}
+
+.teacher-engagement-stat span {
+    display: block;
+    color: #61778f;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.72rem;
+}
+
+.teacher-engagement-stat strong {
+    display: block;
+    margin-top: 10px;
+    color: #112a44;
+    font-size: 1.3rem;
+}
+
+.teacher-engagement-card {
+    padding: 16px 18px;
+    border-radius: 22px;
+    border: 1px solid rgba(17, 42, 68, 0.08);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(241, 247, 250, 0.96));
+}
+
+.teacher-engagement-card span,
+.teacher-engagement-item__meta span {
+    display: block;
+    color: #61778f;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.72rem;
+}
+
+.teacher-engagement-card strong {
+    display: block;
+    margin-top: 10px;
+    color: #112a44;
+    font-size: 1.4rem;
+}
+
+.teacher-engagement-card small {
+    display: block;
+    margin-top: 8px;
+    color: #60758d;
+    line-height: 1.6;
+}
+
+.teacher-engagement-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+.teacher-engagement-badge--starter {
+    background: rgba(17, 42, 68, 0.08);
+    color: #17314b;
+}
+
+.teacher-engagement-badge--active {
+    background: rgba(15, 154, 141, 0.14);
+    color: #0d7b72;
+}
+
+.teacher-engagement-badge--engaged {
+    background: rgba(214, 155, 55, 0.16);
+    color: #9a5f09;
+}
+
+.teacher-engagement-badge--consistent {
+    background: rgba(45, 92, 185, 0.14);
+    color: #284f9c;
+}
+
+.teacher-engagement-badge--champion {
+    background: rgba(115, 58, 190, 0.14);
+    color: #6c35b3;
+}
+
+.teacher-engagement-note {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(17, 42, 68, 0.05);
+    color: #4f647b;
+    line-height: 1.7;
+}
+
+.teacher-engagement-list {
+    margin-top: 18px;
+    display: grid;
+    gap: 12px;
+}
+
+.teacher-engagement-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(246, 250, 252, 0.96);
+    border: 1px solid rgba(17, 42, 68, 0.08);
+}
+
+.teacher-engagement-item__meta strong {
+    display: block;
+    color: #112a44;
+    line-height: 1.45;
+}
+
+.teacher-engagement-item__meta span {
+    margin-top: 6px;
+}
+
+.teacher-engagement-points {
+    min-width: 56px;
+    text-align: right;
+    font-weight: 800;
+    color: #0f7f75;
+    font-size: 1.05rem;
+}
+
 .teacher-resource-list {
     display: grid;
     gap: 12px;
@@ -747,6 +977,12 @@ body.teacher-dashboard-page {
     .teacher-panel-stack {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+    .teacher-engagement-grid {
+        grid-template-columns: 1fr;
+    }
+    .teacher-engagement-hero {
+        grid-template-columns: 1fr;
+    }
     .teacher-load-card__head,
     .teacher-section__heading,
     .teacher-panel__header,
@@ -783,6 +1019,20 @@ body.teacher-dashboard-page {
     .teacher-quick-grid,
     .teacher-panel-stack {
         grid-template-columns: 1fr;
+    }
+    .teacher-engagement-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .teacher-engagement-stars {
+        font-size: 1rem;
+    }
+    .teacher-engagement-total {
+        font-size: 1.7rem;
+    }
+    .teacher-engagement-points {
+        min-width: 0;
+        text-align: left;
     }
     .teacher-message-form__actions {
         align-items: stretch;

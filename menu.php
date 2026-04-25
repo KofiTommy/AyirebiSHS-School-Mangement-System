@@ -7,19 +7,25 @@ if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
    $_SESSION['ACCESSLEVEL'] === "user" &&
    $_SESSION['SYSTEMTYPE'] === "Teacher"){
     include_once("house-master-utils.php");
+    include_once("class-teacher-utils.php");
     include_once("user-management-utils.php");
     ensure_house_tables($con);
+    ensure_class_teacher_table($con);
     $_HouseMasterSummary = house_master_get_teacher_role_summary($con, $_SESSION['USERID']);
     $_ShowHouseMasterLinks = !empty($_HouseMasterSummary['has_house_assignment']);
     $_ShowSeniorHouseLinks = !empty($_HouseMasterSummary['has_senior_assignment']);
     $_HouseMasterDashboardLabel = isset($_HouseMasterSummary['dashboard_label']) ? $_HouseMasterSummary['dashboard_label'] : "House Master Dashboard";
     $_TeacherExtraAccessLinks = um_teacher_extra_nav_links($con, $_SESSION['USERID']);
+    $_ShowTeacherAttendanceLinks = class_teacher_has_any_assignment($con, $_SESSION['USERID']);
 }
 if(!isset($_HouseMasterDashboardLabel)){
     $_HouseMasterDashboardLabel = "House Master Dashboard";
 }
 if(!isset($_TeacherExtraAccessLinks)){
     $_TeacherExtraAccessLinks = array();
+}
+if(!isset($_ShowTeacherAttendanceLinks)){
+    $_ShowTeacherAttendanceLinks = false;
 }
 $_ShowExeatManagerLinks = $_ShowHouseMasterLinks || $_ShowSeniorHouseLinks;
 if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE'])){
@@ -241,8 +247,10 @@ if($_ShowSeniorHouseLinks){
 }
 ?>
 <a href="lesson-timetable-report.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable</button></a>
+<?php if($_ShowTeacherAttendanceLinks){ ?>
 <a href="student-attendance.php"><button><i class="fa fa-check-square-o" style="color:#0f766e"></i> Student Attendance</button></a>
 <a href="student-attendance-report.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> Attendance Summary</button></a>
+<?php } ?>
 <?php
 if(!empty($_TeacherExtraAccessLinks)){
     foreach($_TeacherExtraAccessLinks as $_ExtraLink){
