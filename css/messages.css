@@ -203,8 +203,16 @@
     padding:14px 16px;
     background:#ffffff;
     color:#0f172a;
+    -webkit-text-fill-color:#0f172a;
+    color-scheme:light;
     font-size:0.97rem;
     box-sizing:border-box;
+}
+
+.messages-form select option,
+.messages-form select optgroup{
+    color:#0f172a;
+    background:#ffffff;
 }
 
 .messages-form textarea{
@@ -228,6 +236,20 @@
     color:#0f766e;
     font-size:0.93rem;
     line-height:1.55;
+}
+
+.messages-target-preview{
+    padding:11px 14px;
+    border-radius:16px;
+    background:#f8fafc;
+    border:1px solid #cbd5e1;
+    color:#334155;
+    font-size:0.93rem;
+    line-height:1.55;
+}
+
+.messages-target-preview strong{
+    color:#0f172a;
 }
 
 .messages-form__actions{
@@ -331,6 +353,27 @@
 .messages-audience--admins{
     background:#ede9fe;
     color:#6d28d9;
+}
+
+.messages-audience--direct{
+    background:#e0f2fe;
+    color:#0f766e;
+}
+
+.messages-audience--class{
+    background:#fee2e2;
+    color:#b45309;
+}
+
+.messages-audience--house{
+    background:#dcfce7;
+    color:#166534;
+}
+
+.messages-target-label{
+    color:#1e3a8a;
+    font-size:0.84rem;
+    font-weight:700;
 }
 
 .messages-role,

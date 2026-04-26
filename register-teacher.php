@@ -20,14 +20,20 @@ function tchecked($form,$key,$value){ return told($form,$key)===$value ? " check
 function tbirthday($value){
     $value=trim((string)$value);
     if($value===""){ return ""; }
-    if(preg_match('/^(\d{4})-(\d{2})-(\d{2})$/',$value,$m) && checkdate((int)$m[2],(int)$m[3],(int)$m[1])){ return $value; }
+    if(preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:\s+\d{2}:\d{2}:\d{2})?$/',$value,$m) && checkdate((int)$m[2],(int)$m[3],(int)$m[1])){ return sprintf("%04d-%02d-%02d",$m[1],$m[2],$m[3]); }
     if(preg_match('/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/',$value,$m) && checkdate((int)$m[2],(int)$m[1],(int)$m[3])){ return sprintf("%04d-%02d-%02d",$m[3],$m[2],$m[1]); }
     $digits=preg_replace('/\D+/','',$value);
     if(strlen($digits)===8){
         $d=(int)substr($digits,0,2); $m=(int)substr($digits,2,2); $y=(int)substr($digits,4,4);
         if(checkdate($m,$d,$y)){ return sprintf("%04d-%02d-%02d",$y,$m,$d); }
     }
+    $timestamp=strtotime($value);
+    if($timestamp!==false){ return date("Y-m-d",$timestamp); }
     return false;
+}
+function tbirthday_input_value($value){
+    $normalized=tbirthday($value);
+    return $normalized===false ? "" : $normalized;
 }
 function tage($birthday){
     if(!$birthday){ return ""; }
@@ -284,7 +290,7 @@ $signedInName=isset($_SESSION["FULLNAME"]) ? trim((string)$_SESSION["FULLNAME"])
                                 <label class="rs-choice"><input type="radio" name="gender" value="female"<?php echo tchecked($form,"gender","female"); ?>><span>Female</span></label>
                             </div>
                         </div>
-                        <div class="rs-field"><label for="birthday">Date of Birth</label><input type="date" id="birthday" name="birthday" value="<?php echo tesc(told($form,"birthday")); ?>" max="<?php echo date("Y-m-d"); ?>" required></div>
+                        <div class="rs-field"><label for="birthday">Date of Birth</label><input type="date" id="birthday" name="birthday" value="<?php echo tesc(tbirthday_input_value(told($form,"birthday"))); ?>" max="<?php echo date("Y-m-d"); ?>" required></div>
                         <div class="rs-field"><label for="age">Age</label><input type="text" id="age" name="age" value="<?php echo tesc(told($form,"age")); ?>" readonly></div>
                         <div class="rs-field"><label for="mobile">Mobile Number</label><input type="tel" id="mobile" name="mobile" value="<?php echo tesc(told($form,"mobile")); ?>" required></div>
                         <div class="rs-field"><label for="email">Email Address</label><input type="email" id="email" name="email" value="<?php echo tesc(told($form,"email")); ?>" required></div>

@@ -5,9 +5,11 @@ include("check-login.php");
 include("class-teacher-utils.php");
 include("duty-roster-utils.php");
 include("student-attendance-utils.php");
+include("house-master-utils.php");
 ensure_class_teacher_table($con);
 ensure_duty_roster_tables($con);
 ensure_student_attendance_tables($con);
+ensure_house_tables($con);
 if(!(isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==="user" && $_SESSION['SYSTEMTYPE']==="Teacher")){
     header("location:".class_teacher_landing_page());
     exit();
@@ -31,8 +33,72 @@ function td_session_label($dateTimeValue,$batchLabel,$termValue){
     return trim($yearValue." Batch ".trim((string)$batchLabel)." Semester ".trim((string)$termValue));
 }
 function td_date($value){ $time=strtotime((string)$value); return $time ? date("d M Y, H:i",$time) : (string)$value; }
+function td_message_target_key($type, $group, $value){
+    return trim((string)$type)."|".trim((string)$group)."|".trim((string)$value);
+}
+function td_message_add_target(&$options, $type, $group, $value, $label){
+    $key = td_message_target_key($type, $group, $value);
+    if(isset($options[$key])){
+        return;
+    }
+    $options[$key] = array(
+        'recipient_type' => trim((string)$type),
+        'recipient_group' => trim((string)$group),
+        'recipient_value' => trim((string)$value),
+        'recipient_label' => trim((string)$label)
+    );
+}
+function td_teacher_message_targets($con, $teacherId){
+    $teacherIdEsc = mysqli_real_escape_string($con, (string)$teacherId);
+    $options = array();
+    td_message_add_target($options, 'group', 'admins', '', 'Admin Only');
+
+    $classRes = mysqli_query($con, "SELECT ct.classid,ct.batchid,ct.termname,ce.class_name,bh.batch
+        FROM tblclassteacher ct
+        INNER JOIN tblclassentry ce ON ce.class_entryid=ct.classid
+        LEFT JOIN tblbatch bh ON bh.batchid=ct.batchid
+        WHERE ct.userid='$teacherIdEsc' AND ct.status='active'
+        ORDER BY bh.datetimeentry DESC, ct.termname DESC, ce.class_name ASC");
+    if($classRes){
+        while($row = mysqli_fetch_array($classRes, MYSQLI_ASSOC)){
+            $payload = trim((string)$row['classid'])."|".trim((string)$row['batchid'])."|".trim((string)$row['termname']);
+            $label = "My Class Students";
+            $classLabel = trim((string)$row['class_name']);
+            $batchLabel = trim((string)$row['batch']);
+            $termLabel = trim((string)$row['termname']);
+            if($classLabel !== '' || $batchLabel !== '' || $termLabel !== ''){
+                $label .= " (".trim($classLabel.($batchLabel !== '' ? " · ".$batchLabel : '').($termLabel !== '' ? " · Semester ".$termLabel : '')).")";
+            }
+            td_message_add_target($options, 'class_scope', 'students', $payload, $label);
+        }
+    }
+
+    $houseRes = mysqli_query($con, "SELECT hm.houseid,h.housename
+        FROM tblhousemaster hm
+        INNER JOIN tblhouse h ON h.houseid=hm.houseid
+        WHERE hm.userid='$teacherIdEsc' AND hm.status='active' AND h.status='active'
+        ORDER BY h.housename ASC");
+    if($houseRes){
+        while($row = mysqli_fetch_array($houseRes, MYSQLI_ASSOC)){
+            $houseId = trim((string)$row['houseid']);
+            if($houseId === ''){
+                continue;
+            }
+            $label = "My House Students";
+            $houseLabel = trim((string)$row['housename']);
+            if($houseLabel !== ''){
+                $label .= " (".$houseLabel.")";
+            }
+            td_message_add_target($options, 'house_scope', 'students', $houseId, $label);
+        }
+    }
+
+    return $options;
+}
 $teacherId = isset($_SESSION['USERID']) ? (string)$_SESSION['USERID'] : "";
 $teacherIdEsc = mysqli_real_escape_string($con, $teacherId);
+$teacherMessageTargets = td_teacher_message_targets($con, $teacherId);
+$teacherDefaultMessageTarget = key($teacherMessageTargets);
 
 if(isset($_POST['send_message'])){
     $message = trim((string)(isset($_POST['message']) ? $_POST['message'] : ""));
@@ -42,9 +108,22 @@ if(isset($_POST['send_message'])){
         include("code.php");
         $messageId = mysqli_real_escape_string($con, (string)$code);
         $messageEsc = mysqli_real_escape_string($con, $message);
-        $messageAudienceEsc = mysqli_real_escape_string($con, um_message_default_audience_for_current_user());
-        $_SQL = mysqli_query($con,"INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group)
-            VALUES('$messageId','$messageEsc',NOW(),'active','$teacherIdEsc','$messageAudienceEsc')");
+        $targetKey = isset($_POST['message_target']) ? trim((string)$_POST['message_target']) : (string)$teacherDefaultMessageTarget;
+        if($targetKey === '' || !isset($teacherMessageTargets[$targetKey])){
+            $targetKey = (string)$teacherDefaultMessageTarget;
+        }
+        $targetMeta = isset($teacherMessageTargets[$targetKey]) ? $teacherMessageTargets[$targetKey] : array(
+            'recipient_type' => 'group',
+            'recipient_group' => 'admins',
+            'recipient_value' => '',
+            'recipient_label' => 'Admin Only'
+        );
+        $messageAudienceEsc = mysqli_real_escape_string($con, $targetMeta['recipient_group']);
+        $messageTypeEsc = mysqli_real_escape_string($con, $targetMeta['recipient_type']);
+        $messageValueEsc = mysqli_real_escape_string($con, $targetMeta['recipient_value']);
+        $messageLabelEsc = mysqli_real_escape_string($con, $targetMeta['recipient_label']);
+        $_SQL = mysqli_query($con,"INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group,recipient_type,recipient_value,recipient_label)
+            VALUES('$messageId','$messageEsc',NOW(),'active','$teacherIdEsc','$messageAudienceEsc','$messageTypeEsc','$messageValueEsc','$messageLabelEsc')");
         if($_SQL){
             engagement_track_daily_action($con, 'teacher_message_sent_daily', $teacherId);
         }
@@ -156,10 +235,11 @@ $classTeacherRoleCount = count($classTeacherRoles);
 $teacherCanTakeAttendance = ($classTeacherRoleCount > 0);
 $activeBatchCount = count($activeBatchIds);
 $myMessageCount = 0;
+$messageUnreadCount = um_message_unread_count($con, $teacherId, 'Teacher');
 $countRes = mysqli_query($con,"SELECT COUNT(*) AS total_messages FROM tblmessages WHERE sentby='$teacherIdEsc' AND status='active'");
 if($countRes && $countRow=mysqli_fetch_array($countRes,MYSQLI_ASSOC)){ $myMessageCount = (int)$countRow["total_messages"]; }
 $myMessages = array();
-$myMessagesRes = mysqli_query($con,"SELECT messageid,messages,datetimeentry FROM tblmessages
+$myMessagesRes = mysqli_query($con,"SELECT messageid,messages,datetimeentry,recipient_label FROM tblmessages
     WHERE sentby='$teacherIdEsc' AND status='active' ORDER BY datetimeentry DESC LIMIT 6");
 if($myMessagesRes){ while($row=mysqli_fetch_array($myMessagesRes,MYSQLI_ASSOC)){ $myMessages[] = $row; } }
 $engagementSummary = engagement_get_summary($con, $teacherId);
@@ -231,7 +311,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <a class="teacher-action-card" href="terminal-report.php"><span class="teacher-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Reports</h3></a>
         <a class="teacher-action-card" href="lesson-timetable-report.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Lesson Timetable</h3><p>Open your weekly lesson schedule and check today’s teaching periods quickly.</p></a>
         <a class="teacher-action-card" href="scores-report.php"><span class="teacher-action-card__icon"><i class="fa fa-line-chart"></i></span><h3>Scores Report</h3><p>Check reporting summaries and score outputs for your classes.</p></a>
-        <a class="teacher-action-card" href="messages.php"><span class="teacher-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board</h3><p>Open the wider message board when you need more than the dashboard preview.</p></a>
+        <a class="teacher-action-card" href="messages.php"><span class="teacher-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the wider message board when you need more than the dashboard preview."; ?></p></a>
     </div>
 </section>
 
@@ -388,12 +468,24 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
     <section class="teacher-panel" id="teacher-messages">
         <div class="teacher-panel__header">
             <div><span class="teacher-panel__eyebrow">Message Center</span><h2>Send and manage your messages</h2></div>
-            <a class="teacher-panel__link" href="messages.php">Open Full Message Board</a>
+            <a class="teacher-panel__link" href="messages.php">Open Full Message Board<?php if($messageUnreadCount > 0){ ?><span class="teacher-panel__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></a>
         </div>
         <form method="post" action="teacher-page.php#teacher-messages" class="teacher-message-form">
             <label for="message">Write a message</label>
             <textarea id="message" name="message" placeholder="Share an update, request support, or leave a note for the school team." required></textarea>
+            <?php if(count($teacherMessageTargets) > 1){ ?>
+            <label for="message_target">Send To</label>
+            <select id="message_target" name="message_target">
+                <?php foreach($teacherMessageTargets as $targetKey => $targetMeta){ ?>
+                <option value="<?php echo td_esc($targetKey); ?>"<?php echo ((string)$targetKey === (string)$teacherDefaultMessageTarget ? " selected" : ""); ?>><?php echo td_esc($targetMeta['recipient_label']); ?></option>
+                <?php } ?>
+            </select>
+            <div class="teacher-message-target-preview" data-teacher-target-preview>
+                Sending to: <strong><?php echo td_esc($teacherMessageTargets[$teacherDefaultMessageTarget]['recipient_label']); ?></strong>
+            </div>
+            <?php } ?>
             <div class="teacher-message-form__actions">
+                <span><?php echo (count($teacherMessageTargets) > 1) ? "Choose who should receive this message before sending." : "Your message will go to admin only."; ?></span>
                 <button class="teacher-primary-btn" type="submit" name="send_message"><i class="fa fa-send"></i> Send Message</button>
             </div>
         </form>
@@ -403,7 +495,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
                 <?php foreach($myMessages as $message){ ?>
                 <article class="teacher-message-card">
                     <div class="teacher-message-card__meta">
-                        <span><?php echo td_esc(td_date($message["datetimeentry"])); ?></span>
+                        <span><?php echo td_esc(td_date($message["datetimeentry"])); ?><?php echo (trim((string)$message["recipient_label"]) !== '' ? ' · To: '.td_esc((string)$message["recipient_label"]) : ''); ?></span>
                         <form method="post" action="teacher-page.php#teacher-messages">
                             <input type="hidden" name="messageid" value="<?php echo td_esc((string)$message["messageid"]); ?>">
                             <button type="submit" name="delete_message" class="teacher-message-delete" onclick="return confirm('Delete this message?');"><i class="fa fa-trash"></i> Delete</button>
@@ -420,5 +512,28 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
 
 </div>
 </main>
+<script>
+(function(){
+    var select = document.getElementById('message_target');
+    var preview = document.querySelector('[data-teacher-target-preview]');
+    if(!select || !preview){
+        return;
+    }
+    var strong = preview.querySelector('strong');
+    var syncPreview = function(){
+        var text = '';
+        if(select.selectedIndex >= 0 && select.options[select.selectedIndex]){
+            text = select.options[select.selectedIndex].text;
+        }
+        if(strong){
+            strong.textContent = text;
+        }else{
+            preview.textContent = text === '' ? '' : 'Sending to: ' + text;
+        }
+    };
+    select.addEventListener('change', syncPreview);
+    syncPreview();
+})();
+</script>
 </body>
 </html>

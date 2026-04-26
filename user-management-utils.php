@@ -49,6 +49,17 @@ function ensure_user_management_columns($con){
     if(!um_column_exists($con, 'tblmessages', 'recipient_group')){
         @mysqli_query($con, "ALTER TABLE tblmessages ADD COLUMN recipient_group VARCHAR(20) NOT NULL DEFAULT 'all' AFTER sentby");
     }
+    if(!um_column_exists($con, 'tblmessages', 'recipient_type')){
+        @mysqli_query($con, "ALTER TABLE tblmessages ADD COLUMN recipient_type VARCHAR(30) NOT NULL DEFAULT 'group' AFTER recipient_group");
+    }
+    if(!um_column_exists($con, 'tblmessages', 'recipient_value')){
+        @mysqli_query($con, "ALTER TABLE tblmessages ADD COLUMN recipient_value VARCHAR(150) NOT NULL DEFAULT '' AFTER recipient_type");
+    }
+    if(!um_column_exists($con, 'tblmessages', 'recipient_label')){
+        @mysqli_query($con, "ALTER TABLE tblmessages ADD COLUMN recipient_label VARCHAR(160) NOT NULL DEFAULT '' AFTER recipient_value");
+    }
+
+    @mysqli_query($con, "UPDATE tblmessages SET recipient_type='group' WHERE TRIM(COALESCE(recipient_type,''))=''");
 
     @mysqli_query(
         $con,
@@ -58,6 +69,14 @@ function ensure_user_management_columns($con){
          WHERE su.systemtype IN ('Teacher','Student')
            AND (mg.recipient_group='' OR mg.recipient_group='all' OR mg.recipient_group IS NULL)"
     );
+
+    @mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblmessageviewstate (
+        userid VARCHAR(60) NOT NULL,
+        lastseenat DATETIME NULL DEFAULT NULL,
+        datetimeentry DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        lastupdatedat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (userid)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 }
 
@@ -136,6 +155,101 @@ function um_message_visibility_sql($fieldName){
         return $fieldName." IN ('all','teachers')";
     }
     return '1=1';
+}
+}
+
+if(!function_exists('um_message_visibility_where_for_user')){
+function um_message_visibility_where_for_user($con, $userId, $systemType, $alias = 'mg'){
+    $userIdEsc = mysqli_real_escape_string($con, trim((string)$userId));
+    $systemType = trim((string)$systemType);
+    $alias = preg_replace('/[^A-Za-z0-9_]/', '', trim((string)$alias));
+    if($alias === ''){
+        $alias = 'mg';
+    }
+
+    if($systemType === 'Student'){
+        return "(".$alias.".sentby='$userIdEsc'
+            OR (COALESCE(".$alias.".recipient_type,'group')='group' AND COALESCE(".$alias.".recipient_group,'all') IN ('all','students'))
+            OR (COALESCE(".$alias.".recipient_type,'group')='user' AND ".$alias.".recipient_value='$userIdEsc')
+            OR (COALESCE(".$alias.".recipient_type,'group')='class_scope' AND EXISTS (
+                SELECT 1
+                FROM tbltermregistry tr
+                WHERE tr.userid='$userIdEsc'
+                  AND CONCAT(tr.class_entryid,'|',tr.batchid,'|',tr.termname)=".$alias.".recipient_value
+            ))
+            OR (COALESCE(".$alias.".recipient_type,'group')='house_scope' AND EXISTS (
+                SELECT 1
+                FROM tblstudenthouse sh
+                WHERE sh.userid='$userIdEsc'
+                  AND sh.status='active'
+                  AND sh.houseid=".$alias.".recipient_value
+            )))";
+    }
+
+    if($systemType === 'Teacher'){
+        return "(".$alias.".sentby='$userIdEsc'
+            OR (COALESCE(".$alias.".recipient_type,'group')='group' AND COALESCE(".$alias.".recipient_group,'all') IN ('all','teachers'))
+            OR (COALESCE(".$alias.".recipient_type,'group')='user' AND ".$alias.".recipient_value='$userIdEsc'))";
+    }
+
+    return '1=1';
+}
+}
+
+if(!function_exists('um_mark_messages_seen')){
+function um_mark_messages_seen($con, $userId = ''){
+    ensure_user_management_columns($con);
+    $userId = trim((string)$userId);
+    if($userId === ''){
+        $userId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+    }
+    if($userId === ''){
+        return false;
+    }
+    $userIdEsc = mysqli_real_escape_string($con, $userId);
+    return @mysqli_query($con, "INSERT INTO tblmessageviewstate(userid,lastseenat,datetimeentry,lastupdatedat)
+        VALUES('$userIdEsc',NOW(),NOW(),NOW())
+        ON DUPLICATE KEY UPDATE lastseenat=NOW(), lastupdatedat=NOW()");
+}
+}
+
+if(!function_exists('um_message_unread_count')){
+function um_message_unread_count($con, $userId = '', $systemType = ''){
+    ensure_user_management_columns($con);
+    $userId = trim((string)$userId);
+    if($userId === ''){
+        $userId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+    }
+    if($userId === ''){
+        return 0;
+    }
+    $systemType = trim((string)$systemType);
+    if($systemType === ''){
+        $systemType = isset($_SESSION['SYSTEMTYPE']) ? trim((string)$_SESSION['SYSTEMTYPE']) : '';
+    }
+    $userIdEsc = mysqli_real_escape_string($con, $userId);
+    $lastSeen = '';
+    $stateRes = @mysqli_query($con, "SELECT lastseenat FROM tblmessageviewstate WHERE userid='$userIdEsc' LIMIT 1");
+    if($stateRes && ($stateRow = mysqli_fetch_array($stateRes, MYSQLI_ASSOC))){
+        $lastSeen = trim((string)$stateRow['lastseenat']);
+    }
+    $visibilitySql = um_message_visibility_where_for_user($con, $userId, $systemType, 'mg');
+    $timeFilter = '';
+    if($lastSeen !== ''){
+        $lastSeenEsc = mysqli_real_escape_string($con, $lastSeen);
+        $timeFilter = " AND mg.datetimeentry > '$lastSeenEsc'";
+    }
+    $sql = "SELECT COUNT(*) AS total_unread
+        FROM tblmessages mg
+        WHERE mg.status='active'
+          AND mg.sentby<>'$userIdEsc'
+          AND $visibilitySql
+          $timeFilter";
+    $res = @mysqli_query($con, $sql);
+    if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))){
+        return (int)$row['total_unread'];
+    }
+    return 0;
 }
 }
 
@@ -521,6 +635,7 @@ function um_baseline_scripts_for_role($roleKey){
     if($roleKey === 'teacher'){
         return array(
             'teacher-page.php',
+            'messages.php',
             'view-teacher-subject.php',
             'view-subject-assigned.php',
             'student-attendance.php',

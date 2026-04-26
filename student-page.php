@@ -2,8 +2,10 @@
 session_start();
 include("dbstring.php");
 include("check-login.php");
+include("class-teacher-utils.php");
 include("house-master-utils.php");
 include("company.php");
+ensure_class_teacher_table($con);
 ensure_house_tables($con);
 
 if(!house_master_is_student()){
@@ -56,8 +58,146 @@ function sd_status_class($status){
     return "student-status-pill student-status-pill--neutral";
 }
 
+function sd_person_name($row){
+    $parts = array();
+    foreach(array('firstname', 'othernames', 'surname') as $field){
+        if(isset($row[$field])){
+            $value = trim((string)$row[$field]);
+            if($value !== ''){
+                $parts[] = $value;
+            }
+        }
+    }
+    return trim(implode(' ', $parts));
+}
+
+function sd_message_target_key($type, $group, $value){
+    return trim((string)$type).'|'.trim((string)$group).'|'.trim((string)$value);
+}
+
+function sd_message_add_target(&$options, $type, $group, $value, $label){
+    $key = sd_message_target_key($type, $group, $value);
+    if(isset($options[$key])){
+        return;
+    }
+    $options[$key] = array(
+        'recipient_type' => trim((string)$type),
+        'recipient_group' => trim((string)$group),
+        'recipient_value' => trim((string)$value),
+        'recipient_label' => trim((string)$label)
+    );
+}
+
+function sd_student_class_teacher_targets($con, $studentId){
+    $studentIdEsc = mysqli_real_escape_string($con, (string)$studentId);
+    $options = array();
+    $sql = "SELECT
+                ct.userid AS recipient_userid,
+                su.firstname,
+                su.othernames,
+                su.surname,
+                ce.class_name,
+                bh.batch,
+                tr.termname
+            FROM tbltermregistry tr
+            INNER JOIN tblclassteacher ct
+                ON ct.classid=tr.class_entryid
+               AND ct.batchid=tr.batchid
+               AND ct.termname=tr.termname
+               AND ct.status='active'
+            INNER JOIN tblsystemuser su
+                ON su.userid=ct.userid
+               AND su.status='active'
+            LEFT JOIN tblclassentry ce ON ce.class_entryid=tr.class_entryid
+            LEFT JOIN tblbatch bh ON bh.batchid=tr.batchid
+            WHERE tr.userid='$studentIdEsc'
+            ORDER BY bh.datetimeentry DESC, tr.termname DESC, ct.datetimeentry DESC
+            LIMIT 6";
+    $res = mysqli_query($con, $sql);
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $teacherId = trim((string)$row['recipient_userid']);
+            if($teacherId === ''){
+                continue;
+            }
+            $teacherName = sd_person_name($row);
+            $classLabel = trim((string)$row['class_name']);
+            $batchLabel = trim((string)$row['batch']);
+            $termLabel = trim((string)$row['termname']);
+            $label = "My Class Teacher";
+            if($teacherName !== ''){
+                $label .= " - ".$teacherName;
+            }
+            if($classLabel !== '' || $batchLabel !== '' || $termLabel !== ''){
+                $label .= " (".trim($classLabel.($batchLabel !== '' ? " · ".$batchLabel : '').($termLabel !== '' ? " · Semester ".$termLabel : '')).")";
+            }
+            sd_message_add_target($options, 'user', 'teachers', $teacherId, $label);
+        }
+    }
+    return $options;
+}
+
+function sd_student_house_teacher_targets($con, $studentId){
+    $studentIdEsc = mysqli_real_escape_string($con, (string)$studentId);
+    $options = array();
+    $sql = "SELECT
+                hm.userid AS recipient_userid,
+                su.firstname,
+                su.othernames,
+                su.surname,
+                h.housename
+            FROM tblstudenthouse sh
+            INNER JOIN tblhousemaster hm
+                ON hm.houseid=sh.houseid
+               AND hm.status='active'
+            INNER JOIN tblsystemuser su
+                ON su.userid=hm.userid
+               AND su.status='active'
+            INNER JOIN tblhouse h
+                ON h.houseid=sh.houseid
+               AND h.status='active'
+            WHERE sh.userid='$studentIdEsc'
+              AND sh.status='active'
+            ORDER BY hm.datetimeentry DESC
+            LIMIT 6";
+    $res = mysqli_query($con, $sql);
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $teacherId = trim((string)$row['recipient_userid']);
+            if($teacherId === ''){
+                continue;
+            }
+            $teacherName = sd_person_name($row);
+            $houseLabel = trim((string)$row['housename']);
+            $label = "My House Master / Mistress";
+            if($teacherName !== ''){
+                $label .= " - ".$teacherName;
+            }
+            if($houseLabel !== ''){
+                $label .= " (".$houseLabel.")";
+            }
+            sd_message_add_target($options, 'user', 'teachers', $teacherId, $label);
+        }
+    }
+    return $options;
+}
+
+function sd_student_message_targets($con, $studentId){
+    $options = array();
+    sd_message_add_target($options, 'group', 'admins', '', 'Admin Only');
+    foreach(sd_student_class_teacher_targets($con, $studentId) as $key => $meta){
+        $options[$key] = $meta;
+    }
+    foreach(sd_student_house_teacher_targets($con, $studentId) as $key => $meta){
+        $options[$key] = $meta;
+    }
+    return $options;
+}
+
 $studentId = isset($_SESSION['USERID']) ? (string)$_SESSION['USERID'] : "";
 $studentIdEsc = mysqli_real_escape_string($con, $studentId);
+$studentMessageTargets = sd_student_message_targets($con, $studentId);
+$studentDefaultMessageTarget = key($studentMessageTargets);
 
 if(isset($_POST['send_message'])){
     $message = trim((string)(isset($_POST['message']) ? $_POST['message'] : ""));
@@ -67,9 +207,22 @@ if(isset($_POST['send_message'])){
         include("code.php");
         $messageId = mysqli_real_escape_string($con, (string)$code);
         $messageEsc = mysqli_real_escape_string($con, $message);
-        $messageAudienceEsc = mysqli_real_escape_string($con, 'admins');
-        $_SQL = mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group)
-            VALUES('$messageId','$messageEsc',NOW(),'active','$studentIdEsc','$messageAudienceEsc')");
+        $targetKey = isset($_POST['message_target']) ? trim((string)$_POST['message_target']) : (string)$studentDefaultMessageTarget;
+        if($targetKey === '' || !isset($studentMessageTargets[$targetKey])){
+            $targetKey = (string)$studentDefaultMessageTarget;
+        }
+        $targetMeta = isset($studentMessageTargets[$targetKey]) ? $studentMessageTargets[$targetKey] : array(
+            'recipient_type' => 'group',
+            'recipient_group' => 'admins',
+            'recipient_value' => '',
+            'recipient_label' => 'Admin Only'
+        );
+        $messageAudienceEsc = mysqli_real_escape_string($con, $targetMeta['recipient_group']);
+        $messageTypeEsc = mysqli_real_escape_string($con, $targetMeta['recipient_type']);
+        $messageValueEsc = mysqli_real_escape_string($con, $targetMeta['recipient_value']);
+        $messageLabelEsc = mysqli_real_escape_string($con, $targetMeta['recipient_label']);
+        $_SQL = mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group,recipient_type,recipient_value,recipient_label)
+            VALUES('$messageId','$messageEsc',NOW(),'active','$studentIdEsc','$messageAudienceEsc','$messageTypeEsc','$messageValueEsc','$messageLabelEsc')");
         if($_SQL){
             engagement_track_daily_action($con, 'student_message_sent_daily', $studentId);
         }
@@ -194,6 +347,7 @@ if($paidRes && $row = mysqli_fetch_array($paidRes, MYSQLI_ASSOC)){
     $latestPaymentDate = trim((string)$row['latest_payment']);
 }
 $financeBalance = $financeBilled - $financePaid;
+$messageUnreadCount = um_message_unread_count($con, $studentId, 'Student');
 
 $exeatTotal = 0;
 $exeatPending = 0;
@@ -222,7 +376,7 @@ if($exeatRes){
 }
 
 $myMessages = array();
-$messageRes = mysqli_query($con, "SELECT messageid,messages,datetimeentry
+$messageRes = mysqli_query($con, "SELECT messageid,messages,datetimeentry,recipient_label
     FROM tblmessages
     WHERE sentby='$studentIdEsc' AND status='active'
     ORDER BY datetimeentry DESC
@@ -292,7 +446,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <a class="student-action-card" href="examinationtimetablereport.php"><span class="student-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Exam Timetable</h3></a>
         <a class="student-action-card" href="lesson-timetable-report.php"><span class="student-action-card__icon"><i class="fa fa-clock-o"></i></span><h3>Lesson Timetable</h3></a>
         <a class="student-action-card" href="student-attendance-report.php"><span class="student-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>My Attendance</h3></a>
-        <a class="student-action-card" href="messages.php"><span class="student-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board</h3></a>
+        <a class="student-action-card" href="messages.php"><span class="student-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the full message board when you need your full conversation view."; ?></p></a>
         <a class="student-action-card" href="edit-account.php"><span class="student-action-card__icon"><i class="fa fa-id-card"></i></span><h3>Profile Settings</h3></a>
         <a class="student-action-card" href="uploaduser-image.php"><span class="student-action-card__icon"><i class="fa fa-image"></i></span><h3>Profile Image</h3></a>
         <a class="student-action-card" href="logout.php"><span class="student-action-card__icon"><i class="fa fa-power-off"></i></span><h3>Sign Out</h3></a>
@@ -463,12 +617,24 @@ $reportPreview = array_slice($reportOptions, 0, 6);
     <section class="student-panel" id="student-messages">
         <div class="student-panel__header">
             <div><span class="student-panel__eyebrow">Message Center</span><h2>Send and manage your messages</h2></div>
-            <a class="student-panel__link" href="messages.php">Open Full Message Board</a>
+            <a class="student-panel__link" href="messages.php">Open Full Message Board<?php if($messageUnreadCount > 0){ ?><span class="student-panel__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></a>
         </div>
         <form method="post" action="student-page.php#student-messages" class="student-message-form">
             <label for="message">Write a message</label>
             <textarea id="message" name="message" placeholder="Share a concern, ask for support, or leave an update for the school team." required></textarea>
+            <?php if(count($studentMessageTargets) > 1){ ?>
+            <label for="message_target">Send To</label>
+            <select id="message_target" name="message_target">
+                <?php foreach($studentMessageTargets as $targetKey => $targetMeta){ ?>
+                <option value="<?php echo sd_esc($targetKey); ?>"<?php echo ((string)$targetKey === (string)$studentDefaultMessageTarget ? " selected" : ""); ?>><?php echo sd_esc($targetMeta['recipient_label']); ?></option>
+                <?php } ?>
+            </select>
+            <div class="student-message-target-preview" data-student-target-preview>
+                Sending to: <strong><?php echo sd_esc($studentMessageTargets[$studentDefaultMessageTarget]['recipient_label']); ?></strong>
+            </div>
+            <?php } ?>
             <div class="student-message-form__actions">
+                <span><?php echo (count($studentMessageTargets) > 1) ? "Choose admin, your class teacher, or your house master or mistress before sending." : "Your message will go to admin only."; ?></span>
                 <button class="student-primary-btn" type="submit" name="send_message"><i class="fa fa-send"></i> Send Message</button>
             </div>
         </form>
@@ -478,7 +644,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
                 <?php foreach($myMessages as $message){ ?>
                 <article class="student-message-card">
                     <div class="student-message-card__meta">
-                        <span><?php echo sd_esc(sd_date($message['datetimeentry'])); ?></span>
+                        <span><?php echo sd_esc(sd_date($message['datetimeentry'])); ?><?php echo (trim((string)$message['recipient_label']) !== '' ? ' · To: '.sd_esc((string)$message['recipient_label']) : ''); ?></span>
                         <form method="post" action="student-page.php#student-messages">
                             <input type="hidden" name="messageid" value="<?php echo sd_esc((string)$message['messageid']); ?>">
                             <button type="submit" name="delete_message" class="student-message-delete" onclick="return confirm('Delete this message?');"><i class="fa fa-trash"></i> Delete</button>
@@ -494,5 +660,28 @@ $reportPreview = array_slice($reportOptions, 0, 6);
     </section>
 </div>
 </main>
+<script>
+(function(){
+    var select = document.getElementById('message_target');
+    var preview = document.querySelector('[data-student-target-preview]');
+    if(!select || !preview){
+        return;
+    }
+    var strong = preview.querySelector('strong');
+    var syncPreview = function(){
+        var text = '';
+        if(select.selectedIndex >= 0 && select.options[select.selectedIndex]){
+            text = select.options[select.selectedIndex].text;
+        }
+        if(strong){
+            strong.textContent = text;
+        }else{
+            preview.textContent = text === '' ? '' : 'Sending to: ' + text;
+        }
+    };
+    select.addEventListener('change', syncPreview);
+    syncPreview();
+})();
+</script>
 </body>
 </html>

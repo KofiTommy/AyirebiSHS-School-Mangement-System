@@ -839,21 +839,42 @@ body.teacher-dashboard-page {
     color: #112a44;
 }
 
+.teacher-message-form select,
 .teacher-message-form textarea {
     width: 100%;
-    min-height: 160px;
-    resize: vertical;
     border-radius: 18px;
     border: 1px solid rgba(17, 42, 68, 0.12);
     padding: 16px;
     background: #ffffff;
     color: #17314b;
+    -webkit-text-fill-color: #17314b;
+    color-scheme: light;
     font-family: inherit;
     font-size: 1rem;
     line-height: 1.6;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
 }
 
+.teacher-message-form select {
+    min-height: 56px;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-bottom: 2px;
+    appearance: none;
+}
+
+.teacher-message-form select option,
+.teacher-message-form select optgroup {
+    color: #17314b;
+    background: #ffffff;
+}
+
+.teacher-message-form textarea {
+    min-height: 160px;
+    resize: vertical;
+}
+
+.teacher-message-form select:focus,
 .teacher-message-form textarea:focus {
     outline: none;
     border-color: rgba(15, 154, 141, 0.4);
@@ -872,6 +893,40 @@ body.teacher-dashboard-page {
 .teacher-message-form__actions span {
     color: #5f748c;
     line-height: 1.55;
+}
+
+.teacher-message-target-preview {
+    margin-top: 12px;
+    padding: 11px 14px;
+    border-radius: 16px;
+    background: rgba(17, 42, 68, 0.05);
+    border: 1px solid rgba(17, 42, 68, 0.1);
+    color: #48627f;
+    line-height: 1.55;
+}
+
+.teacher-message-target-preview strong {
+    color: #112a44;
+}
+
+.teacher-panel__badge,
+.teacher-action-card__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 10px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #fff3da;
+    color: #8a4b00;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.teacher-action-card__badge {
+    vertical-align: middle;
 }
 
 .teacher-primary-btn {

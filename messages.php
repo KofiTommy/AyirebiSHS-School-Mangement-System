@@ -3,6 +3,10 @@ session_start();
 include("dbstring.php");
 include("check-login.php");
 include("code.php");
+include_once("class-teacher-utils.php");
+include_once("house-master-utils.php");
+ensure_class_teacher_table($con);
+ensure_house_tables($con);
 
 if(!function_exists('msg_esc')){
 function msg_esc($value){
@@ -33,15 +37,334 @@ function msg_audience_badge_class($audience){
 }
 }
 
+if(!function_exists('msg_person_name')){
+function msg_person_name($row){
+    $full = trim(
+        (isset($row['firstname']) ? (string)$row['firstname'] : '') . ' ' .
+        (isset($row['othernames']) ? (string)$row['othernames'] : '') . ' ' .
+        (isset($row['surname']) ? (string)$row['surname'] : '')
+    );
+    return $full !== '' ? $full : (isset($row['userid']) ? (string)$row['userid'] : '');
+}
+}
+
+if(!function_exists('msg_target_key')){
+function msg_target_key($type, $group, $value){
+    return trim((string)$type) . '|' . trim((string)$group) . '|' . trim((string)$value);
+}
+}
+
+if(!function_exists('msg_add_target_option')){
+function msg_add_target_option(&$options, $type, $group, $value, $label, $badgeLabel = ''){
+    $key = msg_target_key($type, $group, $value);
+    if(isset($options[$key])){
+        return;
+    }
+    $options[$key] = array(
+        'recipient_type' => trim((string)$type),
+        'recipient_group' => trim((string)$group),
+        'recipient_value' => trim((string)$value),
+        'recipient_label' => trim((string)$label),
+        'badge_label' => trim((string)$badgeLabel)
+    );
+}
+}
+
+if(!function_exists('msg_student_current_class_teacher_options')){
+function msg_student_current_class_teacher_options($con, $studentId){
+    $studentIdEsc = mysqli_real_escape_string($con, (string)$studentId);
+    $options = array();
+    $sql = "SELECT
+                ct.userid AS recipient_userid,
+                su.userid,
+                su.firstname,
+                su.othernames,
+                su.surname,
+                ce.class_name,
+                bh.batch,
+                tr.termname
+            FROM tbltermregistry tr
+            INNER JOIN tblclassteacher ct
+                ON ct.classid=tr.class_entryid
+               AND ct.batchid=tr.batchid
+               AND ct.termname=tr.termname
+               AND ct.status='active'
+            INNER JOIN tblsystemuser su
+                ON su.userid=ct.userid
+               AND su.status='active'
+            LEFT JOIN tblclassentry ce ON ce.class_entryid=tr.class_entryid
+            LEFT JOIN tblbatch bh ON bh.batchid=tr.batchid
+            WHERE tr.userid='$studentIdEsc'
+            ORDER BY bh.datetimeentry DESC, tr.termname DESC, ct.datetimeentry DESC
+            LIMIT 6";
+    $res = mysqli_query($con, $sql);
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $teacherId = trim((string)$row['recipient_userid']);
+            if($teacherId === ''){
+                continue;
+            }
+            $teacherName = msg_person_name($row);
+            $classLabel = trim((string)$row['class_name']);
+            $batchLabel = trim((string)$row['batch']);
+            $termLabel = trim((string)$row['termname']);
+            $label = "My Class Teacher";
+            if($teacherName !== ''){
+                $label .= " - ".$teacherName;
+            }
+            if($classLabel !== '' || $batchLabel !== '' || $termLabel !== ''){
+                $label .= " (".trim($classLabel.($batchLabel !== '' ? " · ".$batchLabel : '').($termLabel !== '' ? " · Semester ".$termLabel : '')).")";
+            }
+            msg_add_target_option($options, 'user', 'teachers', $teacherId, $label, 'Direct');
+        }
+    }
+    return $options;
+}
+}
+
+if(!function_exists('msg_student_house_master_options')){
+function msg_student_house_master_options($con, $studentId){
+    $studentIdEsc = mysqli_real_escape_string($con, (string)$studentId);
+    $options = array();
+    $sql = "SELECT
+                hm.userid AS recipient_userid,
+                su.userid,
+                su.firstname,
+                su.othernames,
+                su.surname,
+                h.housename
+            FROM tblstudenthouse sh
+            INNER JOIN tblhousemaster hm
+                ON hm.houseid=sh.houseid
+               AND hm.status='active'
+            INNER JOIN tblsystemuser su
+                ON su.userid=hm.userid
+               AND su.status='active'
+            INNER JOIN tblhouse h
+                ON h.houseid=sh.houseid
+               AND h.status='active'
+            WHERE sh.userid='$studentIdEsc'
+              AND sh.status='active'
+            ORDER BY hm.datetimeentry DESC
+            LIMIT 6";
+    $res = mysqli_query($con, $sql);
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $teacherId = trim((string)$row['recipient_userid']);
+            if($teacherId === ''){
+                continue;
+            }
+            $teacherName = msg_person_name($row);
+            $houseLabel = trim((string)$row['housename']);
+            $label = "My House Master / Mistress";
+            if($teacherName !== ''){
+                $label .= " - ".$teacherName;
+            }
+            if($houseLabel !== ''){
+                $label .= " (".$houseLabel.")";
+            }
+            msg_add_target_option($options, 'user', 'teachers', $teacherId, $label, 'Direct');
+        }
+    }
+    return $options;
+}
+}
+
+if(!function_exists('msg_teacher_class_scope_options')){
+function msg_teacher_class_scope_options($con, $teacherId){
+    $teacherIdEsc = mysqli_real_escape_string($con, (string)$teacherId);
+    $options = array();
+    $sql = "SELECT ct.classid,ct.batchid,ct.termname,ce.class_name,bh.batch
+            FROM tblclassteacher ct
+            INNER JOIN tblclassentry ce ON ce.class_entryid=ct.classid
+            LEFT JOIN tblbatch bh ON bh.batchid=ct.batchid
+            WHERE ct.userid='$teacherIdEsc' AND ct.status='active'
+            ORDER BY bh.datetimeentry DESC, ct.termname DESC, ce.class_name ASC";
+    $res = mysqli_query($con, $sql);
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $payload = trim((string)$row['classid'])."|".trim((string)$row['batchid'])."|".trim((string)$row['termname']);
+            $label = "My Class Students";
+            $classLabel = trim((string)$row['class_name']);
+            $batchLabel = trim((string)$row['batch']);
+            $termLabel = trim((string)$row['termname']);
+            if($classLabel !== '' || $batchLabel !== '' || $termLabel !== ''){
+                $label .= " (".trim($classLabel.($batchLabel !== '' ? " · ".$batchLabel : '').($termLabel !== '' ? " · Semester ".$termLabel : '')).")";
+            }
+            msg_add_target_option($options, 'class_scope', 'students', $payload, $label, 'Class');
+        }
+    }
+    return $options;
+}
+}
+
+if(!function_exists('msg_teacher_house_scope_options')){
+function msg_teacher_house_scope_options($con, $teacherId){
+    $teacherIdEsc = mysqli_real_escape_string($con, (string)$teacherId);
+    $options = array();
+    $sql = "SELECT hm.houseid,h.housename
+            FROM tblhousemaster hm
+            INNER JOIN tblhouse h ON h.houseid=hm.houseid
+            WHERE hm.userid='$teacherIdEsc' AND hm.status='active' AND h.status='active'
+            ORDER BY h.housename ASC";
+    $res = mysqli_query($con, $sql);
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $houseId = trim((string)$row['houseid']);
+            if($houseId === ''){
+                continue;
+            }
+            $label = "My House Students";
+            $houseLabel = trim((string)$row['housename']);
+            if($houseLabel !== ''){
+                $label .= " (".$houseLabel.")";
+            }
+            msg_add_target_option($options, 'house_scope', 'students', $houseId, $label, 'House');
+        }
+    }
+    return $options;
+}
+}
+
+if(!function_exists('msg_target_options_for_current_user')){
+function msg_target_options_for_current_user($con, $userId, $systemType){
+    $options = array();
+    $systemType = trim((string)$systemType);
+
+    if($systemType === 'Student'){
+        msg_add_target_option($options, 'group', 'admins', '', 'Admin Only', 'Admin');
+        foreach(msg_student_current_class_teacher_options($con, $userId) as $key => $meta){
+            $options[$key] = $meta;
+        }
+        foreach(msg_student_house_master_options($con, $userId) as $key => $meta){
+            $options[$key] = $meta;
+        }
+        return $options;
+    }
+
+    if($systemType === 'Teacher'){
+        msg_add_target_option($options, 'group', 'admins', '', 'Admin Only', 'Admin');
+        foreach(msg_teacher_class_scope_options($con, $userId) as $key => $meta){
+            $options[$key] = $meta;
+        }
+        foreach(msg_teacher_house_scope_options($con, $userId) as $key => $meta){
+            $options[$key] = $meta;
+        }
+        return $options;
+    }
+
+    msg_add_target_option($options, 'group', 'all', '', 'Everyone', 'Everyone');
+    msg_add_target_option($options, 'group', 'students', '', 'Students Only', 'Students');
+    msg_add_target_option($options, 'group', 'teachers', '', 'Teachers Only', 'Teachers');
+    msg_add_target_option($options, 'group', 'admins', '', 'Admin Only', 'Admin');
+    return $options;
+}
+}
+
+if(!function_exists('msg_default_target_key')){
+function msg_default_target_key($options){
+    if(isset($options[msg_target_key('group', 'admins', '')])){
+        return msg_target_key('group', 'admins', '');
+    }
+    reset($options);
+    return key($options);
+}
+}
+
+if(!function_exists('msg_target_badge_class')){
+function msg_target_badge_class($recipientType, $recipientGroup){
+    $recipientType = trim((string)$recipientType);
+    if($recipientType === 'user'){
+        return 'messages-audience messages-audience--direct';
+    }
+    if($recipientType === 'class_scope'){
+        return 'messages-audience messages-audience--class';
+    }
+    if($recipientType === 'house_scope'){
+        return 'messages-audience messages-audience--house';
+    }
+    return msg_audience_badge_class($recipientGroup);
+}
+}
+
+if(!function_exists('msg_target_badge_label')){
+function msg_target_badge_label($recipientType, $recipientGroup, $recipientLabel){
+    $recipientType = trim((string)$recipientType);
+    if($recipientType === 'user'){
+        return 'Direct';
+    }
+    if($recipientType === 'class_scope'){
+        return 'Class';
+    }
+    if($recipientType === 'house_scope'){
+        return 'House';
+    }
+    if(trim((string)$recipientLabel) !== ''){
+        return trim((string)$recipientLabel);
+    }
+    return um_message_audience_label($recipientGroup);
+}
+}
+
+if(!function_exists('msg_target_label')){
+function msg_target_label($recipientType, $recipientGroup, $recipientLabel){
+    $recipientType = trim((string)$recipientType);
+    if($recipientType === 'group'){
+        return um_message_audience_label($recipientGroup);
+    }
+    if(trim((string)$recipientLabel) !== ''){
+        return trim((string)$recipientLabel);
+    }
+    return um_message_audience_label($recipientGroup);
+}
+}
+
+if(!function_exists('msg_visibility_where_sql')){
+function msg_visibility_where_sql($con, $userId, $systemType){
+    $userIdEsc = mysqli_real_escape_string($con, (string)$userId);
+    $systemType = trim((string)$systemType);
+
+    if($systemType === 'Student'){
+        return "(mg.sentby='$userIdEsc'
+            OR (COALESCE(mg.recipient_type,'group')='group' AND COALESCE(mg.recipient_group,'all') IN ('all','students'))
+            OR (COALESCE(mg.recipient_type,'group')='user' AND mg.recipient_value='$userIdEsc')
+            OR (COALESCE(mg.recipient_type,'group')='class_scope' AND EXISTS (
+                SELECT 1
+                FROM tbltermregistry tr
+                WHERE tr.userid='$userIdEsc'
+                  AND CONCAT(tr.class_entryid,'|',tr.batchid,'|',tr.termname)=mg.recipient_value
+            ))
+            OR (COALESCE(mg.recipient_type,'group')='house_scope' AND EXISTS (
+                SELECT 1
+                FROM tblstudenthouse sh
+                WHERE sh.userid='$userIdEsc'
+                  AND sh.status='active'
+                  AND sh.houseid=mg.recipient_value
+            )))";
+    }
+
+    if($systemType === 'Teacher'){
+        return "(mg.sentby='$userIdEsc'
+            OR (COALESCE(mg.recipient_type,'group')='group' AND COALESCE(mg.recipient_group,'all') IN ('all','teachers'))
+            OR (COALESCE(mg.recipient_type,'group')='user' AND mg.recipient_value='$userIdEsc'))";
+    }
+
+    return "1=1";
+}
+}
+
 $__CurrentUserId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : "";
 $__CurrentUserIdEsc = mysqli_real_escape_string($con, $__CurrentUserId);
-$__AudienceOptions = um_message_audience_options_for_current_user();
-$__DefaultAudience = um_message_default_audience_for_current_user();
-$__VisibilitySql = um_message_visibility_sql('mg.recipient_group');
 $__CanManageAllMessages = um_is_admin_manager();
 $__SystemType = isset($_SESSION['SYSTEMTYPE']) ? trim((string)$_SESSION['SYSTEMTYPE']) : '';
 $__UserFullName = isset($_SESSION['FULLNAME']) ? trim((string)$_SESSION['FULLNAME']) : '';
 $__UserDisplayName = $__UserFullName !== '' ? $__UserFullName : (isset($_SESSION['USERNAME']) ? trim((string)$_SESSION['USERNAME']) : $__CurrentUserId);
+$__TargetOptions = msg_target_options_for_current_user($con, $__CurrentUserId, $__SystemType);
+$__DefaultTarget = msg_default_target_key($__TargetOptions);
+$__VisibilitySql = msg_visibility_where_sql($con, $__CurrentUserId, $__SystemType);
+if($__CurrentUserId !== ''){
+    um_mark_messages_seen($con, $__CurrentUserId);
+}
 $__RoleLabel = 'School Communication';
 if($__SystemType === 'Student'){
     $__RoleLabel = 'Student Message Box';
@@ -58,17 +381,24 @@ if(isset($_POST["send_message"])){
     if($_Message === ''){
         $_SESSION['Message'] = "<div style='color:#991b1b;padding:10px;'>Please type a message before sending.</div>";
     } else {
-        $_ChosenAudience = isset($_POST['message_audience']) ? um_message_normalize_audience($_POST['message_audience']) : $__DefaultAudience;
-        if($__SystemType === 'Student'){
-            $_ChosenAudience = 'admins';
-        } elseif($__SystemType === 'Teacher'){
-            $_ChosenAudience = 'admins';
+        $_TargetKey = isset($_POST['message_target']) ? trim((string)$_POST['message_target']) : $__DefaultTarget;
+        if($_TargetKey === '' || !isset($__TargetOptions[$_TargetKey])){
+            $_TargetKey = $__DefaultTarget;
         }
+        $_TargetMeta = isset($__TargetOptions[$_TargetKey]) ? $__TargetOptions[$_TargetKey] : array(
+            'recipient_type' => 'group',
+            'recipient_group' => 'admins',
+            'recipient_value' => '',
+            'recipient_label' => 'Admin Only'
+        );
         $_MessageId = mysqli_real_escape_string($con, (string)$code);
-        $_ChosenAudienceEsc = mysqli_real_escape_string($con, $_ChosenAudience);
         $_MessageEsc = mysqli_real_escape_string($con, $_Message);
-        $_SQL = mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group)
-            VALUES('$_MessageId','$_MessageEsc',NOW(),'active','$__CurrentUserIdEsc','$_ChosenAudienceEsc')");
+        $_RecipientGroupEsc = mysqli_real_escape_string($con, (string)$_TargetMeta['recipient_group']);
+        $_RecipientTypeEsc = mysqli_real_escape_string($con, (string)$_TargetMeta['recipient_type']);
+        $_RecipientValueEsc = mysqli_real_escape_string($con, (string)$_TargetMeta['recipient_value']);
+        $_RecipientLabelEsc = mysqli_real_escape_string($con, (string)$_TargetMeta['recipient_label']);
+        $_SQL = mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group,recipient_type,recipient_value,recipient_label)
+            VALUES('$_MessageId','$_MessageEsc',NOW(),'active','$__CurrentUserIdEsc','$_RecipientGroupEsc','$_RecipientTypeEsc','$_RecipientValueEsc','$_RecipientLabelEsc')");
         if($_SQL){
             if($__SystemType === 'Teacher'){
                 engagement_track_daily_action($con, 'teacher_message_sent_daily', $__CurrentUserId);
@@ -124,6 +454,7 @@ if($_SQL_BOARD_COUNT && ($row_board_count = mysqli_fetch_array($_SQL_BOARD_COUNT
 }
 
 $_SQL_MY_MESSAGES = mysqli_query($con, "SELECT messageid,messages,datetimeentry,recipient_group
+        ,COALESCE(recipient_type,'group') AS recipient_type,COALESCE(recipient_value,'') AS recipient_value,COALESCE(recipient_label,'') AS recipient_label
     FROM tblmessages
     WHERE sentby='$__CurrentUserIdEsc' AND status='active'
     ORDER BY datetimeentry DESC
@@ -139,6 +470,9 @@ $_SQL_BOARD_MESSAGES = mysqli_query($con, "SELECT
         mg.messages,
         mg.datetimeentry,
         mg.recipient_group,
+        COALESCE(mg.recipient_type,'group') AS recipient_type,
+        COALESCE(mg.recipient_value,'') AS recipient_value,
+        COALESCE(mg.recipient_label,'') AS recipient_label,
         mg.sentby,
         su.firstname,
         su.othernames,
@@ -157,9 +491,9 @@ if($_SQL_BOARD_MESSAGES){
 
 $visibilityHint = "You can see all active message groups here.";
 if($__SystemType === 'Student'){
-    $visibilityHint = "You will only see general notices and messages directed to students. Any message you send from here goes to admin only.";
+    $visibilityHint = "You can message admin, your assigned class teacher, and your house master or mistress here. You will also see messages sent to your class or house.";
 } elseif($__SystemType === 'Teacher'){
-    $visibilityHint = "You will only see general notices and messages directed to teachers. Any message you send from here goes to admin only.";
+    $visibilityHint = "You can message admin, send updates to your assigned class students, and send house notices to your assigned house students from here.";
 }
 ?>
 <!DOCTYPE html>
@@ -225,16 +559,19 @@ if($__SystemType === 'Student'){
                         <label for="message">Message</label>
                         <textarea id="message" name="message" placeholder="Type your message here..." required></textarea>
 
-                        <?php if(count($__AudienceOptions) > 1){ ?>
-                        <label for="message_audience">Send To</label>
-                        <select id="message_audience" name="message_audience">
-                            <?php foreach($__AudienceOptions as $__AudienceValue => $__AudienceLabel){ ?>
-                            <option value="<?php echo msg_esc($__AudienceValue); ?>"<?php echo ($__AudienceValue === $__DefaultAudience ? " selected" : ""); ?>><?php echo msg_esc($__AudienceLabel); ?></option>
+                        <?php if(count($__TargetOptions) > 1){ ?>
+                        <label for="message_target">Send To</label>
+                        <select id="message_target" name="message_target">
+                            <?php foreach($__TargetOptions as $__TargetKey => $__TargetMeta){ ?>
+                            <option value="<?php echo msg_esc($__TargetKey); ?>"<?php echo ($__TargetKey === $__DefaultTarget ? " selected" : ""); ?>><?php echo msg_esc(msg_target_label($__TargetMeta['recipient_type'], $__TargetMeta['recipient_group'], $__TargetMeta['recipient_label'])); ?></option>
                             <?php } ?>
                         </select>
+                        <div class="messages-target-preview" data-messages-target-preview>
+                            Sending to: <strong><?php echo msg_esc(msg_target_label($__TargetOptions[$__DefaultTarget]['recipient_type'], $__TargetOptions[$__DefaultTarget]['recipient_group'], $__TargetOptions[$__DefaultTarget]['recipient_label'])); ?></strong>
+                        </div>
                         <?php } else { ?>
                         <div class="messages-helper">
-                            Your message will go to teachers and school office only.
+                            Your message will go to <?php echo msg_esc(msg_target_label($__TargetOptions[$__DefaultTarget]['recipient_type'], $__TargetOptions[$__DefaultTarget]['recipient_group'], $__TargetOptions[$__DefaultTarget]['recipient_label'])); ?>.
                         </div>
                         <?php } ?>
 
@@ -259,9 +596,10 @@ if($__SystemType === 'Student'){
                             <?php foreach($myMessages as $message){ ?>
                             <article class="messages-item messages-item--mine">
                                 <div class="messages-item__meta">
-                                    <span class="<?php echo msg_esc(msg_audience_badge_class(isset($message['recipient_group']) ? $message['recipient_group'] : 'all')); ?>">
-                                        <?php echo msg_esc(um_message_audience_label(isset($message['recipient_group']) ? $message['recipient_group'] : 'all')); ?>
+                                    <span class="<?php echo msg_esc(msg_target_badge_class(isset($message['recipient_type']) ? $message['recipient_type'] : 'group', isset($message['recipient_group']) ? $message['recipient_group'] : 'all')); ?>">
+                                        <?php echo msg_esc(msg_target_badge_label(isset($message['recipient_type']) ? $message['recipient_type'] : 'group', isset($message['recipient_group']) ? $message['recipient_group'] : 'all', isset($message['recipient_label']) ? $message['recipient_label'] : '')); ?>
                                     </span>
+                                    <span class="messages-target-label">To: <?php echo msg_esc(msg_target_label(isset($message['recipient_type']) ? $message['recipient_type'] : 'group', isset($message['recipient_group']) ? $message['recipient_group'] : 'all', isset($message['recipient_label']) ? $message['recipient_label'] : '')); ?></span>
                                     <span class="messages-time"><?php echo msg_esc(msg_time($message['datetimeentry'])); ?></span>
                                 </div>
                                 <p><?php echo nl2br(msg_esc($message['messages'])); ?></p>
@@ -300,9 +638,10 @@ if($__SystemType === 'Student'){
                         <article class="messages-item">
                             <div class="messages-item__meta">
                                 <div class="messages-item__who">
-                                    <span class="<?php echo msg_esc(msg_audience_badge_class(isset($message['recipient_group']) ? $message['recipient_group'] : 'all')); ?>">
-                                        <?php echo msg_esc(um_message_audience_label(isset($message['recipient_group']) ? $message['recipient_group'] : 'all')); ?>
+                                    <span class="<?php echo msg_esc(msg_target_badge_class(isset($message['recipient_type']) ? $message['recipient_type'] : 'group', isset($message['recipient_group']) ? $message['recipient_group'] : 'all')); ?>">
+                                        <?php echo msg_esc(msg_target_badge_label(isset($message['recipient_type']) ? $message['recipient_type'] : 'group', isset($message['recipient_group']) ? $message['recipient_group'] : 'all', isset($message['recipient_label']) ? $message['recipient_label'] : '')); ?>
                                     </span>
+                                    <span class="messages-target-label"><?php echo msg_esc(msg_target_label(isset($message['recipient_type']) ? $message['recipient_type'] : 'group', isset($message['recipient_group']) ? $message['recipient_group'] : 'all', isset($message['recipient_label']) ? $message['recipient_label'] : '')); ?></span>
                                     <strong><?php echo msg_esc($__SenderName !== '' ? $__SenderName : $message['sentby']); ?></strong>
                                     <span class="messages-role"><?php echo msg_esc($message['systemtype']); ?></span>
                                     <?php if($__IsMine){ ?><span class="messages-you">You</span><?php } ?>
@@ -328,5 +667,28 @@ if($__SystemType === 'Student'){
             </section>
         </section>
     </main>
+    <script>
+    (function(){
+        var select = document.getElementById('message_target');
+        var preview = document.querySelector('[data-messages-target-preview]');
+        if(!select || !preview){
+            return;
+        }
+        var strong = preview.querySelector('strong');
+        var syncPreview = function(){
+            var text = '';
+            if(select.selectedIndex >= 0 && select.options[select.selectedIndex]){
+                text = select.options[select.selectedIndex].text;
+            }
+            if(strong){
+                strong.textContent = text;
+            }else{
+                preview.textContent = text === '' ? '' : 'Sending to: ' + text;
+            }
+        };
+        select.addEventListener('change', syncPreview);
+        syncPreview();
+    })();
+    </script>
 </body>
 </html>
