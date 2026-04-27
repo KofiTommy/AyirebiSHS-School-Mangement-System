@@ -133,6 +133,43 @@ function examdash_filter_rows($rows, $subjectId = "", $gender = "", $grade = "")
     return $filtered;
 }
 
+function examdash_normalize_year($value){
+    $value = trim((string)$value);
+    return preg_match('/^\d{4}$/', $value) ? $value : "";
+}
+
+function examdash_column_exists($con, $table, $column){
+    static $cache = array();
+    $key = strtolower(trim((string)$table)).'.'.strtolower(trim((string)$column));
+    if(isset($cache[$key])){
+        return $cache[$key];
+    }
+    $tableEsc = mysqli_real_escape_string($con, trim((string)$table));
+    $columnEsc = mysqli_real_escape_string($con, trim((string)$column));
+    $res = @mysqli_query($con, "SHOW COLUMNS FROM `$tableEsc` LIKE '$columnEsc'");
+    $cache[$key] = ($res && mysqli_num_rows($res) > 0);
+    return $cache[$key];
+}
+
+function examdash_assignment_year_sql($alias = "sa"){
+    $alias = trim((string)$alias);
+    if($alias === ""){
+        $alias = "sa";
+    }
+    return "DATE_FORMAT(".$alias.".datetimeentry, '%Y')";
+}
+
+function examdash_termregistry_year_sql($con, $alias = "tr"){
+    $alias = trim((string)$alias);
+    if($alias === ""){
+        $alias = "tr";
+    }
+    if(examdash_column_exists($con, 'tbltermregistry', 'academicyear')){
+        return "COALESCE(NULLIF(TRIM(CONVERT(".$alias.".academicyear USING utf8mb4)),''), DATE_FORMAT(".$alias.".datetimeentry, '%Y'))";
+    }
+    return "DATE_FORMAT(".$alias.".datetimeentry, '%Y')";
+}
+
 function examdash_build_summary($rows){
     $summary = array(
         "total_results" => 0,
@@ -1278,6 +1315,7 @@ if($isTeacher){
 }
 
 $filterBatch = isset($_GET["batchid"]) ? trim((string)$_GET["batchid"]) : "";
+$filterAcademicYear = isset($_GET["academic_year"]) ? examdash_normalize_year($_GET["academic_year"]) : "";
 $filterClass = isset($_GET["class_id"]) ? trim((string)$_GET["class_id"]) : "";
 $filterTerm = isset($_GET["term_id"]) ? trim((string)$_GET["term_id"]) : "";
 $focusSubject = isset($_GET["focus_subject"]) ? trim((string)$_GET["focus_subject"]) : "";
@@ -1295,6 +1333,7 @@ if(!in_array($focusGender, array("Male", "Female"), true)){
 
 $queryDefaults = array(
     "batchid" => $filterBatch,
+    "academic_year" => $filterAcademicYear,
     "class_id" => $filterClass,
     "term_id" => $filterTerm,
     "focus_subject" => $focusSubject,
@@ -1305,6 +1344,7 @@ $queryDefaults = array(
 );
 
 $batchOptions = array();
+$yearOptions = array();
 $classOptions = array();
 $termOptions = array();
 $subjectOptions = array();
@@ -1320,6 +1360,27 @@ if($batchRes){
     }
 }
 
+$yearSql = "SELECT DISTINCT ".examdash_assignment_year_sql("sa")." AS academicyear
+    FROM tblsubjectassignment sa
+    INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
+    WHERE 1=1 ".$teacherWhere;
+if($filterBatch !== ""){
+    $yearSql .= " AND sa.batchid='".mysqli_real_escape_string($con, $filterBatch)."'";
+}
+if($filterClass !== ""){
+    $yearSql .= " AND sc.classid='".mysqli_real_escape_string($con, $filterClass)."'";
+}
+$yearSql .= " ORDER BY academicyear DESC";
+$yearRes = mysqli_query($con, $yearSql);
+if($yearRes){
+    while($row = mysqli_fetch_array($yearRes, MYSQLI_ASSOC)){
+        $yearValue = examdash_normalize_year(isset($row["academicyear"]) ? $row["academicyear"] : "");
+        if($yearValue !== ""){
+            $yearOptions[] = array("academicyear" => $yearValue);
+        }
+    }
+}
+
 $classSql = "SELECT DISTINCT ce.class_entryid,ce.class_name
     FROM tblsubjectassignment sa
     INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
@@ -1327,6 +1388,9 @@ $classSql = "SELECT DISTINCT ce.class_entryid,ce.class_name
     WHERE 1=1 ".$teacherWhere;
 if($filterBatch !== ""){
     $classSql .= " AND sa.batchid='".mysqli_real_escape_string($con, $filterBatch)."'";
+}
+if($filterAcademicYear !== ""){
+    $classSql .= " AND ".examdash_assignment_year_sql("sa")."='".mysqli_real_escape_string($con, $filterAcademicYear)."'";
 }
 $classSql .= " ORDER BY ce.class_name ASC";
 $classRes = mysqli_query($con, $classSql);
@@ -1342,6 +1406,9 @@ $termSql = "SELECT DISTINCT sa.termname
     WHERE 1=1 ".$teacherWhere;
 if($filterBatch !== ""){
     $termSql .= " AND sa.batchid='".mysqli_real_escape_string($con, $filterBatch)."'";
+}
+if($filterAcademicYear !== ""){
+    $termSql .= " AND ".examdash_assignment_year_sql("sa")."='".mysqli_real_escape_string($con, $filterAcademicYear)."'";
 }
 if($filterClass !== ""){
     $termSql .= " AND sc.classid='".mysqli_real_escape_string($con, $filterClass)."'";
@@ -1362,6 +1429,9 @@ $subjectSql = "SELECT DISTINCT sub.subjectid,sub.subject
 if($filterBatch !== ""){
     $subjectSql .= " AND sa.batchid='".mysqli_real_escape_string($con, $filterBatch)."'";
 }
+if($filterAcademicYear !== ""){
+    $subjectSql .= " AND ".examdash_assignment_year_sql("sa")."='".mysqli_real_escape_string($con, $filterAcademicYear)."'";
+}
 if($filterClass !== ""){
     $subjectSql .= " AND sc.classid='".mysqli_real_escape_string($con, $filterClass)."'";
 }
@@ -1376,8 +1446,9 @@ if($subjectRes){
     }
 }
 
-$scopeReady = ($filterBatch !== "" && $filterClass !== "" && $filterTerm !== "");
+$scopeReady = ($filterBatch !== "" && $filterAcademicYear !== "" && $filterClass !== "" && $filterTerm !== "");
 $scopeTitle = "";
+$academicYearName = "";
 $batchName = "";
 $className = "";
 $scopeMessage = "";
@@ -1446,8 +1517,10 @@ $completenessSummary = array(
 
 if($scopeReady){
     $batchEsc = mysqli_real_escape_string($con, $filterBatch);
+    $yearEsc = mysqli_real_escape_string($con, $filterAcademicYear);
     $classEsc = mysqli_real_escape_string($con, $filterClass);
     $termEsc = mysqli_real_escape_string($con, $filterTerm);
+    $academicYearName = $filterAcademicYear;
 
     $batchNameRes = mysqli_query($con, "SELECT batch FROM tblbatch WHERE batchid='$batchEsc' LIMIT 1");
     if($batchNameRes && $row = mysqli_fetch_array($batchNameRes, MYSQLI_ASSOC)){
@@ -1457,7 +1530,7 @@ if($scopeReady){
     if($classNameRes && $row = mysqli_fetch_array($classNameRes, MYSQLI_ASSOC)){
         $className = $row["class_name"];
     }
-    $scopeTitle = trim($batchName." / ".$className." / Semester ".$filterTerm, " /");
+    $scopeTitle = trim($academicYearName." / ".$batchName." / ".$className." / Semester ".$filterTerm, " /");
 
     $registeredSql = "SELECT DISTINCT su.userid,su.firstname,su.othernames,su.surname,su.gender
         FROM tbltermregistry tr
@@ -1468,6 +1541,11 @@ if($scopeReady){
     $registeredSql .= " WHERE tr.batchid='$batchEsc'
         AND tr.class_entryid='$classEsc'
         AND tr.termname='$termEsc'
+        AND ".examdash_termregistry_year_sql($con, "tr")."='$yearEsc'";
+    if($isTeacher){
+        $registeredSql .= " AND ".examdash_assignment_year_sql("sa")."='$yearEsc'";
+    }
+    $registeredSql .= "
         AND su.systemtype='Student'
         ORDER BY su.firstname ASC,su.othernames ASC,su.surname ASC";
     $registeredRes = mysqli_query($con, $registeredSql);
@@ -1491,6 +1569,7 @@ if($scopeReady){
         INNER JOIN tblsystemuser su ON su.userid=tr.userid
         WHERE tr.batchid='$batchEsc'
             AND tr.class_entryid='$classEsc'
+            AND ".examdash_termregistry_year_sql($con, "tr")."='$yearEsc'
             AND su.systemtype='Student'
         GROUP BY tr.termname,su.gender
         ORDER BY tr.termname ASC";
@@ -1530,7 +1609,9 @@ if($scopeReady){
             AND su.systemtype='Student'
             AND sa.batchid='$batchEsc'
             AND sc.classid='$classEsc'
-            AND sa.termname='$termEsc'".$teacherWhere."
+            AND sa.termname='$termEsc'
+            AND ".examdash_assignment_year_sql("sa")."='$yearEsc'
+            AND ".examdash_termregistry_year_sql($con, "tr")."='$yearEsc'".$teacherWhere."
         GROUP BY su.userid,su.firstname,su.othernames,su.surname,su.gender,sc.subjectid,sub.subject
         HAVING total_possible > 0
         ORDER BY sub.subject ASC,su.firstname ASC,su.othernames ASC,su.surname ASC";
@@ -1577,7 +1658,9 @@ if($scopeReady){
         WHERE mk.status='active'
             AND su.systemtype='Student'
             AND sa.batchid='$batchEsc'
-            AND sc.classid='$classEsc'".$teacherWhere."
+            AND sc.classid='$classEsc'
+            AND ".examdash_assignment_year_sql("sa")."='$yearEsc'
+            AND ".examdash_termregistry_year_sql($con, "tr")."='$yearEsc'".$teacherWhere."
             ".($focusSubject !== "" ? " AND sc.subjectid='".mysqli_real_escape_string($con, $focusSubject)."'" : "")."
         GROUP BY sa.termname,su.userid,su.firstname,su.othernames,su.surname,su.gender,sc.subjectid,sub.subject
         HAVING total_possible > 0
@@ -1676,6 +1759,8 @@ if($scopeReady){
         WHERE tr.batchid='$batchEsc'
             AND tr.class_entryid='$classEsc'
             AND tr.termname='$termEsc'
+            AND ".examdash_termregistry_year_sql($con, "tr")."='$yearEsc'
+            AND ".examdash_assignment_year_sql("sa")."='$yearEsc'
             AND su.systemtype='Student'".$teacherWhere.$focusSubjectSql."
         GROUP BY su.userid,su.firstname,su.othernames,su.surname,su.gender,sc.subjectid,sub.subject
         ORDER BY sub.subject ASC,su.firstname ASC,su.othernames ASC,su.surname ASC";
@@ -1760,6 +1845,9 @@ if($scopeReady){
 
     if(isset($_GET["export"]) && $_GET["export"] === "csv"){
         $filenameParts = array("internal-exam-analysis");
+        if($academicYearName !== ""){
+            $filenameParts[] = preg_replace('/[^A-Za-z0-9]+/', '-', strtolower($academicYearName));
+        }
         if($batchName !== ""){
             $filenameParts[] = preg_replace('/[^A-Za-z0-9]+/', '-', strtolower($batchName));
         }
@@ -2270,7 +2358,7 @@ window.addEventListener("DOMContentLoaded", function(){
         <h2 class="examdash-title"><i class="fa fa-line-chart"></i> Internal Exams Analysis</h2>
         <p class="examdash-note">Analyze class score and exam score performance with a WAEC-style dashboard for internal results.</p>
         <div class="examdash-badges">
-            <span class="examdash-badge"><i class="fa fa-filter"></i> Filter by Batch, Class, Semester, Subject, Gender, and Grade</span>
+            <span class="examdash-badge"><i class="fa fa-filter"></i> Filter by Batch, Academic Year, Class, Semester, Subject, Gender, and Grade</span>
             <span class="examdash-badge"><i class="fa fa-search"></i> Search an individual student</span>
             <span class="examdash-badge"><i class="fa fa-table"></i> Compare subjects, students, and grade bands</span>
             <?php if($isTeacher){ ?>
@@ -2290,6 +2378,10 @@ window.addEventListener("DOMContentLoaded", function(){
             <select name="batchid">
                 <option value="">Select Batch</option>
                 <?php foreach($batchOptions as $opt){ $selected = ($filterBatch === $opt["batchid"]) ? "selected" : ""; echo "<option value='".examdash_esc($opt["batchid"])."' $selected>".examdash_esc($opt["batch"])."</option>"; } ?>
+            </select>
+            <select name="academic_year">
+                <option value="">Select Academic Year</option>
+                <?php foreach($yearOptions as $opt){ $selected = ($filterAcademicYear === $opt["academicyear"]) ? "selected" : ""; echo "<option value='".examdash_esc($opt["academicyear"])."' $selected>".examdash_esc($opt["academicyear"])."</option>"; } ?>
             </select>
             <select name="class_id">
                 <option value="">Select Class</option>
@@ -2333,8 +2425,8 @@ window.addEventListener("DOMContentLoaded", function(){
 
     <?php if(!$scopeReady){ ?>
     <div class="examdash-card">
-        <div class="examdash-empty">Select a batch, class, and semester to load internal exam analysis.</div>
-        <p class="examdash-small" style="margin-top:12px;">Use the filters above to open the batch, class, and semester you want to review.</p>
+        <div class="examdash-empty">Select a batch, academic year, class, and semester to load internal exam analysis.</div>
+        <p class="examdash-small" style="margin-top:12px;">Use the filters above to open the batch, academic year, class, and semester you want to review.</p>
     </div>
     <?php } else { ?>
     <div id="examdash-print-area">
@@ -2376,13 +2468,13 @@ window.addEventListener("DOMContentLoaded", function(){
                 with an average of <strong><?php echo examdash_esc($subjectPerformanceRows[0]["avg_percent"]); ?>%</strong>.
             </div>
             <?php } ?>
-            <p class="examdash-small" style="margin-top:12px;">Subject performance, gender comparison, and ranking use the current batch, class, semester, and optional subject or gender scope. The grade filter is applied to the summary cards.</p>
+            <p class="examdash-small" style="margin-top:12px;">Subject performance, gender comparison, and ranking use the current batch, academic year, class, semester, and optional subject or gender scope. The grade filter is applied to the summary cards.</p>
             <?php } ?>
         </div>
 
         <div class="examdash-card" id="examdash-results-listing-print">
             <h3 style="margin-top:0;">Internal Results Listing</h3>
-            <p class="examdash-small">This mirrors the WAEC Results Listing format using the full selected batch, class, and semester scope. It uses your internal <strong>Student ID</strong> in place of WAEC index number and ignores the optional subject, gender, and grade filters so the listing stays complete.</p>
+            <p class="examdash-small">This mirrors the WAEC Results Listing format using the full selected batch, academic year, class, and semester scope. It uses your internal <strong>Student ID</strong> in place of WAEC index number and ignores the optional subject, gender, and grade filters so the listing stays complete.</p>
             <div class="examdash-alert">
                 Total candidates in listing: <strong><?php echo count($resultsListingRows); ?></strong>.
                 Students with at least one scored subject: <strong><?php echo examdash_unique_count($allResultRows, "userid"); ?></strong>.
@@ -2412,7 +2504,7 @@ window.addEventListener("DOMContentLoaded", function(){
             <h3 style="margin-top:0;">Board-Safe Results Sheet</h3>
             <p class="examdash-small">This sheet is designed for notice-board publishing. It hides gender, raw score breakdowns, and the student drill-down details, while keeping only position, student ID, student name, overall average, overall grade, and subject-grade summary.</p>
             <div class="examdash-alert">
-                Board-safe scope always uses the full selected batch, class, and semester.
+                Board-safe scope always uses the full selected batch, academic year, class, and semester.
                 Optional dashboard filters are ignored so you do not accidentally publish a partial list.
             </div>
             <div class="examdash-board-safe-search" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px;">
@@ -2456,7 +2548,7 @@ window.addEventListener("DOMContentLoaded", function(){
 
         <div class="examdash-card" id="examdash-completeness-print">
             <h3 style="margin-top:0;">Score Completeness Checker</h3>
-            <p class="examdash-small">This audit checks whether each expected student-subject entry has both required mark components: <strong>Class Score</strong> and <strong>Exam Score</strong>. It respects the current batch, class, semester, and optional subject/gender scope, but it ignores the grade filter.</p>
+            <p class="examdash-small">This audit checks whether each expected student-subject entry has both required mark components: <strong>Class Score</strong> and <strong>Exam Score</strong>. It respects the current batch, academic year, class, semester, and optional subject/gender scope, but it ignores the grade filter.</p>
             <div class="examdash-stats" style="margin-top:14px;">
                 <div class="examdash-stat"><h4>Expected Entries</h4><strong><?php echo (int)$completenessSummary["expected_rows"]; ?></strong></div>
                 <div class="examdash-stat"><h4>Complete</h4><strong><?php echo (int)$completenessSummary["complete_rows"]; ?></strong></div>
@@ -2626,7 +2718,7 @@ window.addEventListener("DOMContentLoaded", function(){
 
         <div class="examdash-card" id="examdash-term-trend-print">
             <h3 style="margin-top:0;">Cross-Term Performance Tracking</h3>
-            <p class="examdash-small">This view follows the same batch and class across all available semesters. It respects the optional subject and gender filters, but ignores the grade filter so semester-to-semester comparisons stay stable.</p>
+            <p class="examdash-small">This view follows the same batch, academic year, and class across all available semesters. It respects the optional subject and gender filters, but ignores the grade filter so semester-to-semester comparisons stay stable.</p>
             <?php if(count($termTrendRows) > 0){ ?>
             <div class="examdash-stats" style="margin-top:14px;">
                 <div class="examdash-stat"><h4>Semesters Tracked</h4><strong><?php echo (int)$termTrendOverview["tracked_terms"]; ?></strong></div>
