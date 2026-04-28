@@ -106,11 +106,12 @@ function duty_roster_make_id($prefix = "DUTY"){
 
 if(!function_exists('ensure_duty_roster_tables')){
 function ensure_duty_roster_tables($con){
-    if(xschool_schema_cache_is_fresh('schema_duty_roster_v1')){
+    if(xschool_schema_cache_is_fresh('schema_duty_roster_v2')){
         return;
     }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbldutyroster (
         dutyid VARCHAR(40) NOT NULL PRIMARY KEY,
+        dutygroupid VARCHAR(40) NOT NULL DEFAULT '',
         userid VARCHAR(30) NOT NULL,
         dutytitle VARCHAR(120) NOT NULL,
         dutylocation VARCHAR(120) DEFAULT '',
@@ -120,6 +121,7 @@ function ensure_duty_roster_tables($con){
         status VARCHAR(20) NOT NULL DEFAULT 'active',
         datetimeentry DATETIME NOT NULL,
         recordedby VARCHAR(30) NOT NULL,
+        INDEX idx_duty_group (dutygroupid),
         INDEX idx_duty_teacher (userid),
         INDEX idx_duty_status_dates (status,startdate,enddate),
         INDEX idx_duty_start (startdate),
@@ -144,7 +146,15 @@ function ensure_duty_roster_tables($con){
         INDEX idx_dutyreminder_type_week (remindertype,targetweekstart),
         UNIQUE KEY uq_duty_week_reminder (dutyid,remindertype,targetweekstart)
     )");
-    xschool_schema_cache_mark('schema_duty_roster_v1');
+
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tbldutyroster LIKE 'dutygroupid'");
+    if(!$columnRes || mysqli_num_rows($columnRes) === 0){
+        @mysqli_query($con, "ALTER TABLE tbldutyroster ADD COLUMN dutygroupid VARCHAR(40) NOT NULL DEFAULT '' AFTER dutyid");
+    }
+    @mysqli_query($con, "UPDATE tbldutyroster SET dutygroupid=dutyid WHERE TRIM(COALESCE(dutygroupid,''))=''");
+    @mysqli_query($con, "CREATE INDEX idx_duty_group ON tbldutyroster (dutygroupid)");
+
+    xschool_schema_cache_mark('schema_duty_roster_v2');
 }
 }
 
@@ -257,18 +267,115 @@ function duty_roster_teacher_fullname($row){
 
 if(!function_exists('duty_roster_dashboard_card')){
 function duty_roster_dashboard_card($row, $label, $tone){
+    $note = isset($row['dutynote']) ? trim((string)$row['dutynote']) : "";
+    $teamSummary = isset($row['team_summary']) ? trim((string)$row['team_summary']) : "";
+    if($teamSummary !== ""){
+        $note = trim($note !== "" ? $note." Team: ".$teamSummary : "Team: ".$teamSummary);
+    }
     return array(
         "dutyid" => isset($row['dutyid']) ? (string)$row['dutyid'] : "",
+        "dutygroupid" => isset($row['dutygroupid']) ? (string)$row['dutygroupid'] : "",
         "label" => (string)$label,
         "tone" => (string)$tone,
         "title" => isset($row['dutytitle']) ? (string)$row['dutytitle'] : "Duty Assignment",
         "location" => isset($row['dutylocation']) ? trim((string)$row['dutylocation']) : "",
-        "note" => isset($row['dutynote']) ? trim((string)$row['dutynote']) : "",
+        "note" => $note,
+        "team_summary" => $teamSummary,
+        "group_size" => isset($row['group_size']) ? (int)$row['group_size'] : 1,
         "period" => duty_roster_format_period(
             isset($row['startdate']) ? $row['startdate'] : "",
             isset($row['enddate']) ? $row['enddate'] : ""
         ),
     );
+}
+}
+
+if(!function_exists('duty_roster_group_member_rows')){
+function duty_roster_group_member_rows($con, $dutyGroupId){
+    ensure_duty_roster_tables($con);
+    $dutyGroupId = trim((string)$dutyGroupId);
+    if($dutyGroupId === ""){
+        return array();
+    }
+    $dutyGroupIdEsc = mysqli_real_escape_string($con, $dutyGroupId);
+    $rows = array();
+    $sql = "SELECT dr.dutyid,dr.dutygroupid,dr.userid,dr.status,
+                   su.firstname,su.othernames,su.surname
+            FROM tbldutyroster dr
+            INNER JOIN tblsystemuser su ON su.userid=dr.userid
+            WHERE dr.dutygroupid='$dutyGroupIdEsc'
+              AND dr.status='active'
+              AND su.systemtype='Teacher'
+            ORDER BY su.firstname ASC, su.othernames ASC, su.surname ASC";
+    $res = mysqli_query($con, $sql);
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $row['teacher_name'] = duty_roster_teacher_fullname($row);
+            $rows[] = $row;
+        }
+    }
+    return $rows;
+}
+}
+
+if(!function_exists('duty_roster_group_member_ids')){
+function duty_roster_group_member_ids($con, $dutyGroupId){
+    $rows = duty_roster_group_member_rows($con, $dutyGroupId);
+    $ids = array();
+    foreach($rows as $row){
+        $userId = trim((string)$row['userid']);
+        if($userId !== ""){
+            $ids[] = $userId;
+        }
+    }
+    return $ids;
+}
+}
+
+if(!function_exists('duty_roster_team_summary_from_names')){
+function duty_roster_team_summary_from_names($names, $maxNames = 3){
+    $clean = array();
+    foreach((array)$names as $name){
+        $name = preg_replace('/\s+/', ' ', trim((string)$name));
+        if($name !== ""){
+            $clean[] = $name;
+        }
+    }
+    $clean = array_values(array_unique($clean));
+    if(count($clean) === 0){
+        return "";
+    }
+    if(count($clean) <= $maxNames){
+        return implode(", ", $clean);
+    }
+    $shown = array_slice($clean, 0, $maxNames);
+    $remaining = count($clean) - count($shown);
+    return implode(", ", $shown)." +".$remaining." other".($remaining === 1 ? "" : "s");
+}
+}
+
+if(!function_exists('duty_roster_attach_group_context')){
+function duty_roster_attach_group_context($con, &$row, $excludeUserId = ""){
+    $groupId = trim((string)(isset($row['dutygroupid']) ? $row['dutygroupid'] : ""));
+    if($groupId === ""){
+        $row['team_names'] = array();
+        $row['team_summary'] = "";
+        $row['group_size'] = 1;
+        return;
+    }
+    $members = duty_roster_group_member_rows($con, $groupId);
+    $excludeUserId = trim((string)$excludeUserId);
+    $names = array();
+    foreach($members as $member){
+        $memberUserId = trim((string)(isset($member['userid']) ? $member['userid'] : ""));
+        if($excludeUserId !== "" && $memberUserId === $excludeUserId){
+            continue;
+        }
+        $names[] = isset($member['teacher_name']) ? $member['teacher_name'] : duty_roster_teacher_fullname($member);
+    }
+    $row['team_names'] = $names;
+    $row['team_summary'] = duty_roster_team_summary_from_names($names);
+    $row['group_size'] = max(1, count($members));
 }
 }
 
@@ -295,7 +402,7 @@ function duty_roster_get_teacher_dashboard_context($con, $teacherId, $today = nu
     }
 
     $teacherIdEsc = mysqli_real_escape_string($con, $teacherId);
-    $sql = "SELECT dutyid,userid,dutytitle,dutylocation,dutynote,startdate,enddate,status
+    $sql = "SELECT dutyid,dutygroupid,userid,dutytitle,dutylocation,dutynote,startdate,enddate,status
             FROM tbldutyroster
             WHERE userid='$teacherIdEsc'
               AND status='active'
@@ -307,6 +414,7 @@ function duty_roster_get_teacher_dashboard_context($con, $teacherId, $today = nu
     }
 
     while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        duty_roster_attach_group_context($con, $row, $teacherId);
         $startDate = duty_roster_normalize_date($row['startdate']);
         $endDate = duty_roster_normalize_date($row['enddate']);
 
@@ -442,6 +550,10 @@ function duty_roster_build_sms_message($dutyRow, $targetWeek, $reminderType = "u
     } else {
         $message .= " Please prepare ahead of ".$targetWeek['start'].".";
     }
+    $teamSummary = trim((string)(isset($dutyRow['team_summary']) ? $dutyRow['team_summary'] : ""));
+    if($teamSummary !== ""){
+        $message .= " Team: ".$teamSummary.".";
+    }
     return trim($message);
 }
 }
@@ -472,7 +584,7 @@ function duty_roster_send_single_reminder($con, $dutyId, $reminderType = "upcomi
     }
 
     $dutyIdEsc = mysqli_real_escape_string($con, $dutyId);
-    $sql = "SELECT dr.dutyid,dr.userid,dr.dutytitle,dr.dutylocation,dr.dutynote,dr.startdate,dr.enddate,
+    $sql = "SELECT dr.dutyid,dr.dutygroupid,dr.userid,dr.dutytitle,dr.dutylocation,dr.dutynote,dr.startdate,dr.enddate,
                    su.mobile,su.firstname,su.othernames,su.surname
             FROM tbldutyroster dr
             INNER JOIN tblsystemuser su ON su.userid=dr.userid
@@ -487,6 +599,7 @@ function duty_roster_send_single_reminder($con, $dutyId, $reminderType = "upcomi
     }
 
     $row['teacher_name'] = duty_roster_teacher_fullname($row);
+    duty_roster_attach_group_context($con, $row, $row['userid']);
     $result['teacher'] = $row['teacher_name'];
     $result['duty'] = (string)$row['dutytitle'];
 
@@ -554,7 +667,7 @@ function duty_roster_run_weekly_reminders($con, $referenceDate = null, $recorded
         "items" => array(),
     );
 
-    $sql = "SELECT dr.dutyid,dr.userid,dr.dutytitle,dr.dutylocation,dr.dutynote,dr.startdate,dr.enddate,
+    $sql = "SELECT dr.dutyid,dr.dutygroupid,dr.userid,dr.dutytitle,dr.dutylocation,dr.dutynote,dr.startdate,dr.enddate,
                    su.mobile,su.firstname,su.othernames,su.surname
             FROM tbldutyroster dr
             INNER JOIN tblsystemuser su ON su.userid=dr.userid
@@ -572,6 +685,7 @@ function duty_roster_run_weekly_reminders($con, $referenceDate = null, $recorded
     while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
         $summary['total_due']++;
         $row['teacher_name'] = duty_roster_teacher_fullname($row);
+        duty_roster_attach_group_context($con, $row, $row['userid']);
         $dutyId = (string)$row['dutyid'];
         $teacherId = (string)$row['userid'];
         $teacherPhone = trim((string)$row['mobile']);

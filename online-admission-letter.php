@@ -110,7 +110,7 @@ function oa_letter_pdf_text($text){
     return preg_replace('/[^\x20-\x7E]/', '', $text);
 }
 
-function oa_letter_body_text($pdf, $text, $fontFamily = "Arial", $fontStyle = "", $fontSize = 11, $lineHeight = 7, $textColor = array(45, 58, 74)){
+function oa_letter_body_text($pdf, $text, $fontFamily = "Arial", $fontStyle = "", $fontSize = 12, $lineHeight = 7, $textColor = array(45, 58, 74)){
     $pdf->SetFont($fontFamily, $fontStyle, $fontSize);
     $pdf->SetTextColor((int)$textColor[0], (int)$textColor[1], (int)$textColor[2]);
     $pdf->MultiCell(0, $lineHeight, oa_letter_pdf_text($text), 0, "L");
@@ -162,6 +162,8 @@ $schoolNameForLetter = trim($school["name"]) !== "" ? trim($school["name"]) : "t
 $programmeText = (trim((string)$programme) !== "" && strtolower(trim((string)$programme)) !== "to be confirmed")
     ? trim((string)$programme)
     : "the programme assigned to you";
+$residenceValueLine = "Residence Status: ".$residence;
+$houseValueLine = "Assigned House: ".$assignedHouseName;
 $residenceSentence = "Your current placement is recorded as ".$residence." status.";
 if($assignedHouseName !== "" && strtolower($assignedHouseName) !== "to be announced"){
     $residenceSentence .= " Your assigned house is ".$assignedHouseName.".";
@@ -200,20 +202,21 @@ if($templatePdfPath !== "" && class_exists("\\setasign\\Fpdi\\Fpdi")){
             $firstParagraph = "I wish to inform you that following your success in the Basic Education Certificate Examination (BECE) and the placement made through the Computerised School Selection and Placement System (CSSPS), you have been offered admission to ".$schoolNameForLetter." to pursue a three-year course programme in:";
             $secondParagraph = "Please find attached the prospectus and all other admission documents for your ward. Download them from your portal, complete the required forms, and bring them when reporting to school.";
             $thirdParagraph = "Forms are to be completed and returned with a valid National Health Insurance Scheme (NHIS) card. Students are not allowed to bring phones to school.";
-            $fourthParagraph = trim($residenceSentence.$classSentence." Keep this letter safely and present it whenever the school requests it. Accept our congratulations.");
+            $fourthParagraph = trim($classSentence." Keep this letter safely and present it whenever the school requests it. Accept our congratulations.");
 
             $whiteBlock(12, 80.9, 60, 7.0);
             $whiteBlock(70, 80.9, 76, 7.0);
             $whiteBlock(147, 80.9, 50, 7.0);
             $whiteBlock(34, 91, 145, 8);
-            $whiteBlock(18, 97, 136, 7);
-            $whiteBlock(156, 97, 22, 7);
-            $whiteBlock(18, 105, 118, 7);
-            $whiteBlock(18, 110, 172, 28);
-            $whiteBlock(44, 138, 120, 8);
-            $whiteBlock(18, 149, 172, 16);
-            $whiteBlock(18, 167, 172, 16);
-            $whiteBlock(18, 185, 172, 18);
+            $whiteBlock(18, 100, 136, 7);
+            $whiteBlock(156, 100, 22, 7);
+            $whiteBlock(18, 108, 118, 7);
+            $whiteBlock(18, 113, 172, 28);
+            $whiteBlock(44, 141, 120, 8);
+            $whiteBlock(18, 152, 172, 16);
+            $whiteBlock(18, 170, 172, 16);
+            $whiteBlock(18, 188, 172, 18);
+            $whiteBlock(18, 206, 125, 13);
             $whiteBlock(136, 233, 50, 22);
 
             $pdf->SetTextColor(38, 38, 38);
@@ -230,31 +233,37 @@ if($templatePdfPath !== "" && class_exists("\\setasign\\Fpdi\\Fpdi")){
             $pdf->Cell($X(145), $Y(6), oa_letter_pdf_text("OFFER OF ADMISSION ".$academicYearLabel." ACADEMIC YEAR"), 0, 0, "C");
 
             $pdf->SetFont("Times", "B", 10);
-            $pdf->SetXY($X(18), $Y(100));
+            $pdf->SetXY($X(18), $Y(103));
             $pdf->Cell($X(136), $Y(5), oa_letter_pdf_text("CANDIDATE'S NAME: ".$candidateName), 0, 0, "L");
-            $pdf->SetXY($X(156), $Y(100));
+            $pdf->SetXY($X(156), $Y(103));
             $pdf->Cell($X(20), $Y(5), oa_letter_pdf_text("M/F: ".$genderShort), 0, 0, "L");
 
-            $pdf->SetXY($X(18), $Y(108));
+            $pdf->SetXY($X(18), $Y(111));
             $pdf->Cell($X(118), $Y(5), oa_letter_pdf_text("INDEX NUMBER: ".$beceIndexNumber), 0, 0, "L");
 
             $pdf->SetFont("Times", "", 10);
-            $pdf->SetXY($X(18), $Y(122));
+            $pdf->SetXY($X(18), $Y(125));
             $pdf->MultiCell($X(170), $Y(5.8), oa_letter_pdf_text($firstParagraph), 0, "L");
 
             $pdf->SetFont("Times", "B", 10.5);
-            $pdf->SetXY($X(44), $Y(149));
+            $pdf->SetXY($X(44), $Y(152));
             $pdf->Cell($X(120), $Y(5), oa_letter_pdf_text(strtoupper($programmeText)), 0, 0, "C");
 
             $pdf->SetFont("Times", "", 10);
-            $pdf->SetXY($X(18), $Y(161));
+            $pdf->SetXY($X(18), $Y(164));
             $pdf->MultiCell($X(170), $Y(5.8), oa_letter_pdf_text($secondParagraph), 0, "L");
 
-            $pdf->SetXY($X(18), $Y(179));
+            $pdf->SetXY($X(18), $Y(182));
             $pdf->MultiCell($X(170), $Y(5.8), oa_letter_pdf_text($thirdParagraph), 0, "L");
 
-            $pdf->SetXY($X(18), $Y(197));
+            $pdf->SetXY($X(18), $Y(200));
             $pdf->MultiCell($X(170), $Y(5.8), oa_letter_pdf_text($fourthParagraph), 0, "L");
+
+            $pdf->SetFont("Times", "B", 10);
+            $pdf->SetXY($X(18), $Y(208));
+            $pdf->Cell($X(110), $Y(5), oa_letter_pdf_text($residenceValueLine), 0, 1, "L");
+            $pdf->SetX($X(18));
+            $pdf->Cell($X(120), $Y(5), oa_letter_pdf_text($houseValueLine), 0, 1, "L");
 
             $pdf->SetFont("Times", "", 10);
             $pdf->SetXY($X(140), $Y(235));
@@ -326,7 +335,9 @@ if(!$usedTemplateLetter){
     $pdf->Ln(6);
     oa_letter_body_text($pdf, "Dear ".$candidateName.".");
     oa_letter_body_text($pdf, "Congratulations. This letter confirms your admission processing with ".$school["name"]." for the ".$admissionYear." academic year through the online admission portal.");
-    oa_letter_body_text($pdf, "You have been considered for ".$programme." with ".$residence." status. Your reporting class is currently recorded as ".$className.".");
+    oa_letter_body_text($pdf, "You have been considered for ".$programme.". Your reporting class is currently recorded as ".$className.".");
+    oa_letter_body_text($pdf, $residenceValueLine, 'Arial', 'B');
+    oa_letter_body_text($pdf, $houseValueLine, 'Arial', 'B');
     oa_letter_body_text($pdf, "Please keep this letter together with your online admission summary and any other school documents made available on your portal. You may be asked to present them during reporting or further admission checks.");
 
     $pdf->Ln(3);
@@ -342,9 +353,13 @@ if(!$usedTemplateLetter){
     $pdf->Cell(55, 8, oa_letter_pdf_text("Class"), 1, 0, 'L');
     $pdf->Cell(0, 8, oa_letter_pdf_text($className), 1, 1, 'L');
     $pdf->Cell(55, 8, oa_letter_pdf_text("Residence"), 1, 0, 'L');
+    $pdf->SetFont('Arial', 'B', 11);
     $pdf->Cell(0, 8, oa_letter_pdf_text($residence), 1, 1, 'L');
+    $pdf->SetFont('Arial', '', 11);
     $pdf->Cell(55, 8, oa_letter_pdf_text("Assigned House"), 1, 0, 'L');
+    $pdf->SetFont('Arial', 'B', 11);
     $pdf->Cell(0, 8, oa_letter_pdf_text($assignedHouseName), 1, 1, 'L');
+    $pdf->SetFont('Arial', '', 11);
     $pdf->Cell(55, 8, oa_letter_pdf_text("Application Status"), 1, 0, 'L');
     $pdf->Cell(0, 8, oa_letter_pdf_text(online_admission_status_label($application["status"])), 1, 1, 'L');
     $pdf->Cell(55, 8, oa_letter_pdf_text("Verification Token"), 1, 0, 'L');

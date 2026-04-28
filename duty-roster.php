@@ -22,6 +22,17 @@ function dr_teacher_name($row){
     return duty_roster_teacher_fullname($row);
 }
 
+function dr_normalize_teacher_ids($values){
+    $items = array();
+    foreach((array)$values as $value){
+        $value = trim((string)$value);
+        if($value !== ""){
+            $items[$value] = true;
+        }
+    }
+    return array_keys($items);
+}
+
 function dr_phase_class($phase){
     $phase = strtolower(trim((string)$phase));
     if($phase === "active"){ return "duty-roster-badge duty-roster-badge--active"; }
@@ -50,7 +61,9 @@ $nextWeek = duty_roster_next_week_window($today);
 
 $formValues = array(
     "dutyid" => "",
+    "dutygroupid" => "",
     "userid" => "",
+    "teacherids" => array(),
     "dutytitle" => "",
     "dutylocation" => "",
     "dutynote" => "",
@@ -60,24 +73,38 @@ $formValues = array(
 
 if(isset($_POST['save_duty'])){
     $formValues['dutyid'] = trim((string)(isset($_POST['dutyid']) ? $_POST['dutyid'] : ""));
+    $formValues['dutygroupid'] = trim((string)(isset($_POST['dutygroupid']) ? $_POST['dutygroupid'] : ""));
     $formValues['userid'] = trim((string)(isset($_POST['userid']) ? $_POST['userid'] : ""));
+    $formValues['teacherids'] = dr_normalize_teacher_ids(isset($_POST['teacherids']) ? $_POST['teacherids'] : array());
+    if(count($formValues['teacherids']) === 0 && $formValues['userid'] !== ""){
+        $formValues['teacherids'] = array($formValues['userid']);
+    }
     $formValues['dutytitle'] = trim((string)(isset($_POST['dutytitle']) ? $_POST['dutytitle'] : ""));
     $formValues['dutylocation'] = trim((string)(isset($_POST['dutylocation']) ? $_POST['dutylocation'] : ""));
     $formValues['dutynote'] = trim((string)(isset($_POST['dutynote']) ? $_POST['dutynote'] : ""));
     $formValues['startdate'] = trim((string)(isset($_POST['startdate']) ? $_POST['startdate'] : ""));
     $formValues['enddate'] = trim((string)(isset($_POST['enddate']) ? $_POST['enddate'] : ""));
 
-    if($formValues['userid'] === "" || $formValues['dutytitle'] === "" || $formValues['startdate'] === "" || $formValues['enddate'] === ""){
-        $flashMessage = dr_alert("warning", "Please select a teacher and complete the duty title and dates.");
+    if(count($formValues['teacherids']) === 0 || $formValues['dutytitle'] === "" || $formValues['startdate'] === "" || $formValues['enddate'] === ""){
+        $flashMessage = dr_alert("warning", "Please select one or more teachers and complete the duty title and dates.");
     } elseif(strtotime($formValues['enddate']) === false || strtotime($formValues['startdate']) === false){
         $flashMessage = dr_alert("warning", "Please enter valid duty dates.");
     } elseif($formValues['enddate'] < $formValues['startdate']){
         $flashMessage = dr_alert("warning", "Duty end date cannot be earlier than the start date.");
     } else {
-        $teacherIdEsc = mysqli_real_escape_string($con, $formValues['userid']);
-        $teacherCheck = mysqli_query($con, "SELECT userid FROM tblsystemuser WHERE userid='$teacherIdEsc' AND systemtype='Teacher' AND status='active' LIMIT 1");
-        if(!$teacherCheck || mysqli_num_rows($teacherCheck) === 0){
-            $flashMessage = dr_alert("error", "The selected teacher is no longer active.");
+        $teacherRows = array();
+        foreach($formValues['teacherids'] as $teacherIdValue){
+            $teacherIdEsc = mysqli_real_escape_string($con, $teacherIdValue);
+            $teacherCheck = mysqli_query($con, "SELECT userid,firstname,surname,othernames FROM tblsystemuser WHERE userid='$teacherIdEsc' AND systemtype='Teacher' AND status='active' LIMIT 1");
+            if(!$teacherCheck || !($teacherRow = mysqli_fetch_array($teacherCheck, MYSQLI_ASSOC))){
+                $teacherRows = array();
+                break;
+            }
+            $teacherRows[$teacherIdValue] = $teacherRow;
+        }
+
+        if(count($teacherRows) !== count($formValues['teacherids'])){
+            $flashMessage = dr_alert("error", "One or more selected teachers are no longer active.");
         } else {
             $dutyTitleEsc = mysqli_real_escape_string($con, $formValues['dutytitle']);
             $locationEsc = mysqli_real_escape_string($con, $formValues['dutylocation']);
@@ -88,44 +115,123 @@ if(isset($_POST['save_duty'])){
 
             if($formValues['dutyid'] !== ""){
                 $dutyIdEsc = mysqli_real_escape_string($con, $formValues['dutyid']);
-                $exists = mysqli_query($con, "SELECT dutyid FROM tbldutyroster WHERE dutyid='$dutyIdEsc' LIMIT 1");
-                if($exists && mysqli_num_rows($exists) > 0){
-                    $ok = mysqli_query($con, "UPDATE tbldutyroster
-                        SET userid='$teacherIdEsc',
-                            dutytitle='$dutyTitleEsc',
-                            dutylocation='$locationEsc',
-                            dutynote='$noteEsc',
-                            startdate='$startEsc',
-                            enddate='$endEsc',
-                            status='active',
-                            recordedby='$recordedByEsc',
-                            datetimeentry=NOW()
-                        WHERE dutyid='$dutyIdEsc'
-                        LIMIT 1");
-                    $_SESSION['Message'] = $ok
-                        ? dr_alert("success", "Duty roster assignment updated successfully.")
-                        : dr_alert("error", "Failed to update the duty roster assignment.");
-                    header("location:duty-roster.php");
-                    exit();
-                }
-                $flashMessage = dr_alert("error", "The duty assignment you tried to edit could not be found.");
-            } else {
-                $duplicate = mysqli_query($con, "SELECT dutyid FROM tbldutyroster
-                    WHERE userid='$teacherIdEsc'
-                      AND dutytitle='$dutyTitleEsc'
-                      AND startdate='$startEsc'
-                      AND enddate='$endEsc'
-                      AND status='active'
-                    LIMIT 1");
-                if($duplicate && mysqli_num_rows($duplicate) > 0){
-                    $flashMessage = dr_alert("warning", "That duty roster entry already exists for the selected teacher and date range.");
+                $exists = mysqli_query($con, "SELECT dutyid,dutygroupid,userid FROM tbldutyroster WHERE dutyid='$dutyIdEsc' LIMIT 1");
+                if($exists && ($existingDuty = mysqli_fetch_array($exists, MYSQLI_ASSOC))){
+                    $groupId = trim((string)$existingDuty['dutygroupid']) !== "" ? trim((string)$existingDuty['dutygroupid']) : (string)$existingDuty['dutyid'];
+                    $groupIdEsc = mysqli_real_escape_string($con, $groupId);
+                    $groupRows = array();
+                    $groupRes = mysqli_query($con, "SELECT dutyid,userid FROM tbldutyroster WHERE dutygroupid='$groupIdEsc' AND status='active' ORDER BY datetimeentry ASC");
+                    if($groupRes){
+                        while($groupRow = mysqli_fetch_array($groupRes, MYSQLI_ASSOC)){
+                            $groupRows[(string)$groupRow['userid']] = (string)$groupRow['dutyid'];
+                        }
+                    }
+                    if(count($groupRows) === 0){
+                        $groupRows[(string)$existingDuty['userid']] = (string)$existingDuty['dutyid'];
+                    }
+
+                    $duplicateFound = false;
+                    foreach($formValues['teacherids'] as $teacherIdValue){
+                        if(isset($groupRows[$teacherIdValue])){
+                            continue;
+                        }
+                        $teacherIdEsc = mysqli_real_escape_string($con, $teacherIdValue);
+                        $duplicate = mysqli_query($con, "SELECT dutyid FROM tbldutyroster
+                            WHERE userid='$teacherIdEsc'
+                              AND dutytitle='$dutyTitleEsc'
+                              AND startdate='$startEsc'
+                              AND enddate='$endEsc'
+                              AND status='active'
+                            LIMIT 1");
+                        if($duplicate && mysqli_num_rows($duplicate) > 0){
+                            $duplicateFound = true;
+                            break;
+                        }
+                    }
+
+                    if($duplicateFound){
+                        $flashMessage = dr_alert("warning", "One of the selected teachers already has that duty entry for the same date range.");
+                    } else {
+                        $selectedMap = array();
+                        foreach($formValues['teacherids'] as $teacherIdValue){
+                            $selectedMap[$teacherIdValue] = true;
+                        }
+
+                        foreach($groupRows as $teacherIdValue => $rowDutyId){
+                            $rowDutyIdEsc = mysqli_real_escape_string($con, $rowDutyId);
+                            if(isset($selectedMap[$teacherIdValue])){
+                                mysqli_query($con, "UPDATE tbldutyroster
+                                    SET dutygroupid='$groupIdEsc',
+                                        dutytitle='$dutyTitleEsc',
+                                        dutylocation='$locationEsc',
+                                        dutynote='$noteEsc',
+                                        startdate='$startEsc',
+                                        enddate='$endEsc',
+                                        status='active',
+                                        recordedby='$recordedByEsc',
+                                        datetimeentry=NOW()
+                                    WHERE dutyid='$rowDutyIdEsc'
+                                    LIMIT 1");
+                            } else {
+                                mysqli_query($con, "DELETE FROM tbldutyreminderlog WHERE dutyid='$rowDutyIdEsc'");
+                                mysqli_query($con, "DELETE FROM tbldutyroster WHERE dutyid='$rowDutyIdEsc' LIMIT 1");
+                            }
+                        }
+
+                        foreach($formValues['teacherids'] as $teacherIdValue){
+                            if(isset($groupRows[$teacherIdValue])){
+                                continue;
+                            }
+                            $teacherIdEsc = mysqli_real_escape_string($con, $teacherIdValue);
+                            $newDutyId = duty_roster_make_id("DUTY");
+                            mysqli_query($con, "INSERT INTO tbldutyroster
+                                (dutyid,dutygroupid,userid,dutytitle,dutylocation,dutynote,startdate,enddate,status,datetimeentry,recordedby)
+                                VALUES('$newDutyId','$groupIdEsc','$teacherIdEsc','$dutyTitleEsc','$locationEsc','$noteEsc','$startEsc','$endEsc','active',NOW(),'$recordedByEsc')");
+                        }
+
+                        $_SESSION['Message'] = dr_alert("success", count($formValues['teacherids']) > 1
+                            ? "Duty team updated successfully."
+                            : "Duty roster assignment updated successfully.");
+                        header("location:duty-roster.php");
+                        exit();
+                    }
                 } else {
-                    $dutyId = duty_roster_make_id("DUTY");
-                    $ok = mysqli_query($con, "INSERT INTO tbldutyroster
-                        (dutyid,userid,dutytitle,dutylocation,dutynote,startdate,enddate,status,datetimeentry,recordedby)
-                        VALUES('$dutyId','$teacherIdEsc','$dutyTitleEsc','$locationEsc','$noteEsc','$startEsc','$endEsc','active',NOW(),'$recordedByEsc')");
+                    $flashMessage = dr_alert("error", "The duty assignment you tried to edit could not be found.");
+                }
+            } else {
+                $duplicateFound = false;
+                foreach($formValues['teacherids'] as $teacherIdValue){
+                    $teacherIdEsc = mysqli_real_escape_string($con, $teacherIdValue);
+                    $duplicate = mysqli_query($con, "SELECT dutyid FROM tbldutyroster
+                        WHERE userid='$teacherIdEsc'
+                          AND dutytitle='$dutyTitleEsc'
+                          AND startdate='$startEsc'
+                          AND enddate='$endEsc'
+                          AND status='active'
+                        LIMIT 1");
+                    if($duplicate && mysqli_num_rows($duplicate) > 0){
+                        $duplicateFound = true;
+                        break;
+                    }
+                }
+                if($duplicateFound){
+                    $flashMessage = dr_alert("warning", "One of the selected teachers already has that duty entry for the same date range.");
+                } else {
+                    $groupId = duty_roster_make_id("DGRP");
+                    $groupIdEsc = mysqli_real_escape_string($con, $groupId);
+                    $ok = true;
+                    foreach($formValues['teacherids'] as $teacherIdValue){
+                        $teacherIdEsc = mysqli_real_escape_string($con, $teacherIdValue);
+                        $dutyId = duty_roster_make_id("DUTY");
+                        $insertOk = mysqli_query($con, "INSERT INTO tbldutyroster
+                            (dutyid,dutygroupid,userid,dutytitle,dutylocation,dutynote,startdate,enddate,status,datetimeentry,recordedby)
+                            VALUES('$dutyId','$groupIdEsc','$teacherIdEsc','$dutyTitleEsc','$locationEsc','$noteEsc','$startEsc','$endEsc','active',NOW(),'$recordedByEsc')");
+                        if(!$insertOk){
+                            $ok = false;
+                        }
+                    }
                     $_SESSION['Message'] = $ok
-                        ? dr_alert("success", "Duty roster assignment saved successfully.")
+                        ? dr_alert("success", count($formValues['teacherids']) > 1 ? "Duty team saved successfully." : "Duty roster assignment saved successfully.")
                         : dr_alert("error", "Failed to save the duty roster assignment.");
                     header("location:duty-roster.php");
                     exit();
@@ -190,14 +296,21 @@ if(isset($_GET['edit_duty'])){
     $editDutyId = trim((string)$_GET['edit_duty']);
     if($editDutyId !== ""){
         $editDutyIdEsc = mysqli_real_escape_string($con, $editDutyId);
-        $editRes = mysqli_query($con, "SELECT dutyid,userid,dutytitle,dutylocation,dutynote,startdate,enddate
+        $editRes = mysqli_query($con, "SELECT dutyid,dutygroupid,userid,dutytitle,dutylocation,dutynote,startdate,enddate
             FROM tbldutyroster
             WHERE dutyid='$editDutyIdEsc'
             LIMIT 1");
         if($editRes && $editRow = mysqli_fetch_array($editRes, MYSQLI_ASSOC)){
+            $editGroupId = trim((string)$editRow['dutygroupid']) !== "" ? trim((string)$editRow['dutygroupid']) : (string)$editRow['dutyid'];
+            $editTeacherIds = duty_roster_group_member_ids($con, $editGroupId);
+            if(count($editTeacherIds) === 0){
+                $editTeacherIds = array((string)$editRow['userid']);
+            }
             $formValues = array(
                 "dutyid" => (string)$editRow['dutyid'],
+                "dutygroupid" => $editGroupId,
                 "userid" => (string)$editRow['userid'],
+                "teacherids" => $editTeacherIds,
                 "dutytitle" => (string)$editRow['dutytitle'],
                 "dutylocation" => (string)$editRow['dutylocation'],
                 "dutynote" => (string)$editRow['dutynote'],
@@ -250,7 +363,7 @@ if($teacherCountRes && $row = mysqli_fetch_array($teacherCountRes, MYSQLI_ASSOC)
 }
 
 $dutyRows = array();
-$listSql = "SELECT dr.dutyid,dr.userid,dr.dutytitle,dr.dutylocation,dr.dutynote,dr.startdate,dr.enddate,dr.status,dr.datetimeentry,
+$listSql = "SELECT dr.dutyid,dr.dutygroupid,dr.userid,dr.dutytitle,dr.dutylocation,dr.dutynote,dr.startdate,dr.enddate,dr.status,dr.datetimeentry,
                    su.firstname,su.othernames,su.surname,su.mobile,
                    (
                      SELECT rl.sms_status FROM tbldutyreminderlog rl
@@ -284,6 +397,7 @@ $listSql = "SELECT dr.dutyid,dr.userid,dr.dutytitle,dr.dutylocation,dr.dutynote,
 $listRes = mysqli_query($con, $listSql);
 if($listRes){
     while($row = mysqli_fetch_array($listRes, MYSQLI_ASSOC)){
+        duty_roster_attach_group_context($con, $row, isset($row['userid']) ? $row['userid'] : "");
         $dutyRows[] = $row;
     }
 }
@@ -326,24 +440,30 @@ if($listRes){
             <div class="duty-roster-panel__head">
                 <div>
                     <span class="duty-roster-panel__eyebrow"><?php echo ($formValues['dutyid'] !== "" ? "Edit Assignment" : "New Assignment"); ?></span>
-                    <h2><?php echo ($formValues['dutyid'] !== "" ? "Update a duty entry" : "Create a teacher duty entry"); ?></h2>
+                    <h2><?php echo ($formValues['dutyid'] !== "" ? "Update a duty entry or team" : "Create a teacher duty entry or team"); ?></h2>
                 </div>
             </div>
-            <p class="duty-roster-helper">Use one duty row per teacher assignment window. If a teacher has multiple duties in a week, add each one separately so dashboard reminders and SMS stay clear.</p>
+            <p class="duty-roster-helper">Select one teacher for a single duty or choose several teachers to create a duty team. Each teacher still keeps an individual roster row, but the reminder SMS will include the names of the other teachers on duty with them.</p>
 
             <form method="post" action="duty-roster.php">
                 <input type="hidden" name="dutyid" value="<?php echo duty_roster_escape($formValues['dutyid']); ?>">
+                <input type="hidden" name="dutygroupid" value="<?php echo duty_roster_escape($formValues['dutygroupid']); ?>">
                 <div class="duty-roster-form-grid">
-                    <div class="duty-roster-field">
-                        <label for="userid">Teacher</label>
-                        <select id="userid" name="userid">
-                            <option value="">Select Teacher</option>
+                    <div class="duty-roster-field duty-roster-field--full">
+                        <label>Teachers On Duty</label>
+                        <div class="duty-roster-teacher-picker">
                             <?php foreach($teacherOptions as $teacher){ ?>
-                            <option value="<?php echo duty_roster_escape($teacher['userid']); ?>"<?php echo ($formValues['userid'] === (string)$teacher['userid'] ? " selected" : ""); ?>>
-                                <?php echo duty_roster_escape(dr_teacher_name($teacher)." (".$teacher['userid'].")"); ?>
-                            </option>
+                            <?php $teacherUserId = (string)$teacher['userid']; ?>
+                            <label class="duty-roster-teacher-option">
+                                <input type="checkbox" name="teacherids[]" value="<?php echo duty_roster_escape($teacherUserId); ?>"<?php echo (in_array($teacherUserId, $formValues['teacherids'], true) ? " checked" : ""); ?>>
+                                <span class="duty-roster-teacher-option__body">
+                                    <strong><?php echo duty_roster_escape(dr_teacher_name($teacher)); ?></strong>
+                                    <small><?php echo duty_roster_escape($teacherUserId.(trim((string)$teacher['mobile']) !== "" ? " · ".$teacher['mobile'] : "")); ?></small>
+                                </span>
+                            </label>
                             <?php } ?>
-                        </select>
+                        </div>
+                        <small class="duty-roster-picker-note">Pick one teacher for a normal duty or several teachers for a shared duty team.</small>
                     </div>
                     <div class="duty-roster-field">
                         <label for="dutytitle">Duty Title</label>
@@ -362,8 +482,8 @@ if($listRes){
                         <input type="text" id="dutylocation" name="dutylocation" value="<?php echo duty_roster_escape($formValues['dutylocation']); ?>" placeholder="Main Gate, Dining Hall, JHS Block">
                     </div>
                     <div class="duty-roster-field duty-roster-field--full">
-                        <label for="dutynote">Dashboard / SMS Note</label>
-                        <textarea id="dutynote" name="dutynote" placeholder="Add any short instruction the teacher should see on the dashboard and in the reminder SMS."><?php echo duty_roster_escape($formValues['dutynote']); ?></textarea>
+                        <label for="dutynote">Shared Dashboard / SMS Message</label>
+                        <textarea id="dutynote" name="dutynote" placeholder="Add one shared instruction for the selected teachers. Their SMS will also include the names of the other teachers on duty with them."><?php echo duty_roster_escape($formValues['dutynote']); ?></textarea>
                     </div>
                 </div>
                 <div class="duty-roster-form-actions">
@@ -453,6 +573,9 @@ if($listRes){
                                 <strong><?php echo duty_roster_escape(dr_teacher_name($row)); ?></strong>
                                 <small><?php echo duty_roster_escape($row['userid']); ?></small>
                                 <small><?php echo duty_roster_escape(trim((string)$row['mobile']) !== "" ? $row['mobile'] : "No mobile number"); ?></small>
+                                <?php if((int)(isset($row['group_size']) ? $row['group_size'] : 1) > 1){ ?>
+                                <small><?php echo duty_roster_escape("Duty team of ".(int)$row['group_size']." teachers"); ?></small>
+                                <?php } ?>
                             </div>
                         </td>
                         <td>
@@ -460,6 +583,9 @@ if($listRes){
                                 <strong><?php echo duty_roster_escape($row['dutytitle']); ?></strong>
                                 <small><?php echo duty_roster_escape(trim((string)$row['dutylocation']) !== "" ? $row['dutylocation'] : "Location not set"); ?></small>
                                 <small><?php echo duty_roster_escape(trim((string)$row['dutynote']) !== "" ? $row['dutynote'] : "No note added"); ?></small>
+                                <?php if(trim((string)(isset($row['team_summary']) ? $row['team_summary'] : "")) !== ""){ ?>
+                                <small><?php echo duty_roster_escape("On duty with: ".$row['team_summary']); ?></small>
+                                <?php } ?>
                             </div>
                         </td>
                         <td>
