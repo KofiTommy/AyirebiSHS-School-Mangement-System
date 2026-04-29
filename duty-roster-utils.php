@@ -106,7 +106,7 @@ function duty_roster_make_id($prefix = "DUTY"){
 
 if(!function_exists('ensure_duty_roster_tables')){
 function ensure_duty_roster_tables($con){
-    if(xschool_schema_cache_is_fresh('schema_duty_roster_v2')){
+    if(xschool_schema_cache_is_fresh('schema_duty_roster_v3')){
         return;
     }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbldutyroster (
@@ -152,9 +152,12 @@ function ensure_duty_roster_tables($con){
         @mysqli_query($con, "ALTER TABLE tbldutyroster ADD COLUMN dutygroupid VARCHAR(40) NOT NULL DEFAULT '' AFTER dutyid");
     }
     @mysqli_query($con, "UPDATE tbldutyroster SET dutygroupid=dutyid WHERE TRIM(COALESCE(dutygroupid,''))=''");
-    @mysqli_query($con, "CREATE INDEX idx_duty_group ON tbldutyroster (dutygroupid)");
+    $indexRes = mysqli_query($con, "SHOW INDEX FROM tbldutyroster WHERE Key_name='idx_duty_group'");
+    if(!$indexRes || mysqli_num_rows($indexRes) === 0){
+        @mysqli_query($con, "CREATE INDEX idx_duty_group ON tbldutyroster (dutygroupid)");
+    }
 
-    xschool_schema_cache_mark('schema_duty_roster_v2');
+    xschool_schema_cache_mark('schema_duty_roster_v3');
 }
 }
 
