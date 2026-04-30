@@ -70,6 +70,7 @@ $scoreType = "Class Score";
 $scoreLabel = "Class Score";
 $saveLabel = "Save Class Scores";
 $uploadPage = "upload-class-score-entry.php";
+$scoreLimit = 30;
 
 $teacherId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : "";
 $teacherIdSafe = mysqli_real_escape_string($con, $teacherId);
@@ -80,6 +81,9 @@ $selectedBatchId = trim((string)(isset($_GET['batch_ID']) ? $_GET['batch_ID'] : 
 $selectedSubjectId = trim((string)(isset($_GET['subject_ID']) ? $_GET['subject_ID'] : (isset($_POST['subject_ID']) ? $_POST['subject_ID'] : '')));
 $selectedYearId = semester_registry_normalize_year(isset($_GET['year_ID']) ? $_GET['year_ID'] : (isset($_POST['year_ID']) ? $_POST['year_ID'] : ''));
 $prefillTotal = trim((string)(isset($_GET['prefill_total']) ? $_GET['prefill_total'] : ''));
+if($prefillTotal === ''){
+    $prefillTotal = (string)$scoreLimit;
+}
 
 if(isset($_POST['save_all_mark'])){
     $selectedClassId = trim((string)(isset($_POST['class_ID']) ? $_POST['class_ID'] : $selectedClassId));
@@ -105,8 +109,8 @@ if(isset($_POST['save_all_mark'])){
         $messages[] = score_entry_alert("error", "Your teacher session could not be confirmed. Please log in again.");
     }elseif($assignmentId === "" || $selectedClassId === "" || $selectedBatchId === "" || $selectedTermId === "" || $selectedSubjectId === ""){
         $messages[] = score_entry_alert("error", "Choose a class, batch, semester, and subject before saving scores.");
-    }elseif($totalMark === "" || !is_numeric($totalMark) || (float)$totalMark <= 0){
-        $messages[] = score_entry_alert("warning", "Enter a valid total score greater than zero before saving.");
+    }elseif($totalMark === "" || !is_numeric($totalMark) || (float)$totalMark <= 0 || (float)$totalMark > (float)$scoreLimit){
+        $messages[] = score_entry_alert("warning", "Enter a valid total class score between 0 and ".$scoreLimit." before saving.");
     }elseif(count($selectedUsers) === 0){
         $messages[] = score_entry_alert("warning", "Select at least one student. Typing a mark will auto-select that student row.");
     }else{
@@ -129,7 +133,7 @@ if(isset($_POST['save_all_mark'])){
                     continue;
                 }
 
-                if((float)$selectedMark < 0 || (float)$selectedMark > (float)$totalMark){
+                if((float)$selectedMark < 0 || (float)$selectedMark > (float)$totalMark || (float)$selectedMark > (float)$scoreLimit){
                     $invalidCount++;
                     continue;
                 }
@@ -171,7 +175,7 @@ if(isset($_POST['save_all_mark'])){
                 $messages[] = score_entry_alert("info", $skippedCount." selected student(s) were skipped because no valid mark was entered.");
             }
             if($invalidCount > 0){
-                $messages[] = score_entry_alert("warning", $invalidCount." selected student(s) were skipped because the mark was negative or greater than the total score.");
+        $messages[] = score_entry_alert("warning", $invalidCount." selected student(s) were skipped because the mark was negative, above ".$scoreLimit.", or greater than the total score.");
             }
             if($errorCount > 0){
                 $messages[] = score_entry_alert("error", $errorCount." score record(s) could not be saved due to a server error.");
@@ -356,6 +360,7 @@ if($selectedAssignment){
                 <ul>
                     <li>Search your assignments first, then stay inside the same score sheet after saving.</li>
                     <li>Type a mark and the student row auto-selects itself for saving.</li>
+                    <li>Class score cannot be more than <?php echo (int)$scoreLimit; ?> marks for any student.</li>
                     <li>Only students who still need <?php echo score_entry_esc(strtolower($scoreLabel)); ?> are shown below.</li>
                     <li>Use the Scores Report link when you need to review or edit saved marks.</li>
                 </ul>
@@ -499,14 +504,15 @@ if($selectedAssignment){
                                 <input
                                     type="number"
                                     min="0"
+                                    max="<?php echo score_entry_esc((string)$scoreLimit); ?>"
                                     step="0.01"
                                     id="totalscore"
                                     name="totalscore"
                                     class="score-entry-total-input"
                                     data-role="total-score"
                                     value="<?php echo score_entry_esc($prefillTotal); ?>"
-                                    placeholder="Enter total score">
-                                <small>Use one total score value for the whole sheet.</small>
+                                    placeholder="Maximum <?php echo (int)$scoreLimit; ?>">
+                                <small>Use one total score value for the whole sheet. Class score cannot be more than <?php echo (int)$scoreLimit; ?>.</small>
                             </div>
                             <div class="score-entry-field">
                                 <label for="studentSearch">Search Students</label>
@@ -526,7 +532,7 @@ if($selectedAssignment){
                                 <button type="button" class="score-entry-button-secondary" data-role="select-visible"><i class="fa fa-check-square-o"></i> Select Visible</button>
                                 <button type="button" class="score-entry-button-secondary" data-role="clear-visible"><i class="fa fa-square-o"></i> Clear Visible</button>
                             </div>
-                            <span class="score-entry-validation-note" data-role="validation-note">Typing in a mark auto-selects the student row for saving.</span>
+                            <span class="score-entry-validation-note" data-role="validation-note">Typing in a mark auto-selects the student row for saving. Do not enter more than <?php echo (int)$scoreLimit; ?> for class score.</span>
                         </div>
                     </div>
 
@@ -563,6 +569,7 @@ if($selectedAssignment){
                                         <input
                                             type="number"
                                             min="0"
+                                            max="<?php echo score_entry_esc((string)$scoreLimit); ?>"
                                             step="0.01"
                                             id="marks_<?php echo score_entry_esc((string)$student['userid']); ?>"
                                             name="marks[<?php echo score_entry_esc((string)$student['userid']); ?>]"
