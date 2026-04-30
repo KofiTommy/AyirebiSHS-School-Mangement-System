@@ -337,7 +337,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
                         <label for="username">User Name</label>
                         <div class="landing-field">
                             <span class="landing-field__icon"><i class="fa fa-user"></i></span>
-                            <input type="text" id="username" name="username" placeholder="Type Username" class="validate[required]" autocomplete="username">
+                            <input type="text" id="username" name="username" placeholder="Type Username" class="validate[required]" autocomplete="username" style="text-align:left !important; direction:ltr; padding-left:16px;">
                         </div>
                     </div>
 
@@ -345,7 +345,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
                         <label for="password">Password</label>
                         <div class="landing-field">
                             <span class="landing-field__icon"><i class="fa fa-lock"></i></span>
-                            <input type="password" id="password" name="password" placeholder="Type Password" class="validate[required]" autocomplete="current-password">
+                            <input type="password" id="password" name="password" placeholder="Type Password" class="validate[required]" autocomplete="current-password" style="text-align:left !important; direction:ltr; padding-left:16px;">
                         </div>
                     </div>
 

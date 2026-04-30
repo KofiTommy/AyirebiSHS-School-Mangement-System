@@ -1,5 +1,14 @@
 <?php
 session_start();
+
+if(isset($_POST['mark_changes_read'])){
+    include("dbstring.php");
+    include("audit_notifications.php");
+    ensureSystemChangeLogTable($con);
+    mysqli_query($con, "UPDATE tblsystemchangelog SET status='read' WHERE status='unread' AND actor_type IN ('Teacher','Student')");
+    header("Location: admin.php#system-change-notifications");
+    exit();
+}
 ?>
 
 <html>
@@ -614,12 +623,6 @@ include("links.php");
                         include("audit_notifications.php");
                         ensureSystemChangeLogTable($con);
                         mysqli_query($con, "DELETE FROM tblsystemchangelog WHERE status='read' AND datetimeentry < (NOW() - INTERVAL 48 HOUR)");
-
-                        if(isset($_POST['mark_changes_read'])){
-                            mysqli_query($con, "UPDATE tblsystemchangelog SET status='read' WHERE status='unread' AND actor_type IN ('Teacher','Student')");
-                            header("Location: admin.php#system-change-notifications");
-                            exit();
-                        }
 
                         /* 1) Query: counts by (gender x residence) */
                         $sql = "
@@ -1444,7 +1447,6 @@ include("links.php");
     </script>
 </body>
 </html>
-
 
 
 

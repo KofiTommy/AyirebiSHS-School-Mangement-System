@@ -815,6 +815,16 @@ body.landing-page::after {
     background: transparent;
     color: var(--landing-ink);
     font-size: 0.98rem;
+    text-align: left !important;
+    direction: ltr;
+    box-sizing: border-box;
+}
+
+.landing-field input[type="password"],
+.landing-field input[type="text"] {
+    text-align: left !important;
+    direction: ltr;
+    padding-left: 16px !important;
 }
 
 .landing-submit {
