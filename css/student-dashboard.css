@@ -372,6 +372,196 @@ body.student-dashboard-page {
     color: #17324d;
 }
 
+.student-performance-toolbar {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: minmax(180px, 240px) auto;
+    gap: 14px;
+    align-items: end;
+}
+
+.student-performance-toolbar__field {
+    display: grid;
+    gap: 8px;
+}
+
+.student-performance-toolbar__field label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #617991;
+}
+
+.student-performance-toolbar__field select {
+    min-height: 48px;
+    border-radius: 16px;
+    border: 1px solid rgba(17, 43, 69, 0.14);
+    background: #fff;
+    color: #17324d;
+    padding: 0 14px;
+    font-weight: 700;
+}
+
+.student-performance-toolbar__actions {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.student-performance-scope {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(28, 126, 214, 0.08);
+    color: #17324d;
+}
+
+.student-performance-scope span {
+    color: #5d748d;
+    font-weight: 600;
+}
+
+.student-performance-kpis {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.student-performance-kpi {
+    padding: 18px 16px;
+    border-radius: 22px;
+    border: 1px solid rgba(17, 43, 69, 0.08);
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.98), rgba(241, 247, 250, 0.96));
+    display: grid;
+    gap: 8px;
+}
+
+.student-performance-kpi span,
+.student-performance-kpi small {
+    color: #5d748d;
+}
+
+.student-performance-kpi span {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.student-performance-kpi strong {
+    color: #112b45;
+    font-size: clamp(1.2rem, 2vw, 1.6rem);
+    line-height: 1.2;
+}
+
+.student-performance-kpi small {
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.student-performance-grid {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.student-performance-card,
+.student-performance-table-wrap {
+    padding: 20px;
+    border-radius: 24px;
+    border: 1px solid rgba(17, 43, 69, 0.08);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(241, 247, 250, 0.96));
+}
+
+.student-performance-card__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.student-performance-card__head h3 {
+    margin: 0;
+    color: #112b45;
+    font-size: 1.12rem;
+}
+
+.student-performance-card__head span {
+    color: #5d748d;
+    line-height: 1.55;
+    max-width: 340px;
+}
+
+.student-performance-chart-wrap {
+    margin-top: 18px;
+    position: relative;
+    min-height: 300px;
+}
+
+.student-performance-table-wrap {
+    margin-top: 20px;
+}
+
+.student-performance-table-scroll {
+    margin-top: 16px;
+    overflow-x: auto;
+}
+
+.student-performance-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 620px;
+}
+
+.student-performance-table th,
+.student-performance-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid rgba(17, 43, 69, 0.08);
+    text-align: left;
+}
+
+.student-performance-table th {
+    font-size: 0.82rem;
+    color: #617991;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.student-performance-table td {
+    color: #17324d;
+    font-weight: 600;
+}
+
+.student-perf-delta {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 0.85rem;
+}
+
+.student-perf-delta--up {
+    background: rgba(14, 163, 140, 0.14);
+    color: #0b7d6d;
+}
+
+.student-perf-delta--down {
+    background: rgba(192, 57, 43, 0.12);
+    color: #a9382d;
+}
+
+.student-perf-delta--neutral {
+    background: rgba(17, 43, 69, 0.08);
+    color: #5d748d;
+}
+
 .student-summary-grid,
 .student-report-grid,
 .student-list-grid,
@@ -999,7 +1189,9 @@ body.student-dashboard-page {
     }
 
     .student-quick-grid,
-    .student-report-grid {
+    .student-report-grid,
+    .student-performance-kpis,
+    .student-performance-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -1018,6 +1210,12 @@ body.student-dashboard-page {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .student-performance-toolbar,
+    .student-performance-kpis,
+    .student-performance-grid {
+        grid-template-columns: 1fr;
+    }
+
     .student-engagement-grid {
         grid-template-columns: 1fr;
     }
@@ -1027,7 +1225,9 @@ body.student-dashboard-page {
 
     .student-section__heading,
     .student-panel__header,
-    .student-message-card__meta {
+    .student-message-card__meta,
+    .student-performance-card__head,
+    .student-performance-scope {
         flex-direction: column;
         align-items: flex-start;
     }
@@ -1088,6 +1288,15 @@ body.student-dashboard-page {
 
     .student-message-form__actions {
         align-items: stretch;
+    }
+
+    .student-performance-card,
+    .student-performance-table-wrap {
+        padding: 18px;
+    }
+
+    .student-performance-chart-wrap {
+        min-height: 260px;
     }
 
     .student-primary-btn,

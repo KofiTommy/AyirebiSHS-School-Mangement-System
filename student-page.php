@@ -5,6 +5,7 @@ include("check-login.php");
 include("class-teacher-utils.php");
 include("house-master-utils.php");
 include("company.php");
+include_once("semester-registry-utils.php");
 ensure_class_teacher_table($con);
 ensure_house_tables($con);
 
@@ -37,6 +38,33 @@ function sd_term($term){
 function sd_date($value){
     $time = strtotime((string)$value);
     return $time ? date("d M Y, H:i", $time) : (string)$value;
+}
+
+function sd_perf_delta_class($delta){
+    if($delta === null){
+        return "student-perf-delta student-perf-delta--neutral";
+    }
+    if((float)$delta > 0){
+        return "student-perf-delta student-perf-delta--up";
+    }
+    if((float)$delta < 0){
+        return "student-perf-delta student-perf-delta--down";
+    }
+    return "student-perf-delta student-perf-delta--neutral";
+}
+
+function sd_perf_delta_text($delta){
+    if($delta === null){
+        return "No previous year";
+    }
+    $delta = round((float)$delta, 2);
+    if($delta > 0){
+        return "+".number_format($delta, 2)."%";
+    }
+    if($delta < 0){
+        return number_format($delta, 2)."%";
+    }
+    return "0.00%";
 }
 
 function sd_money($amount){
@@ -389,6 +417,170 @@ if($messageRes){
 $engagementSummary = engagement_get_summary($con, $studentId);
 $engagementRecent = engagement_get_recent_activity($con, $studentId, 5);
 
+$studentPerformanceYearOptions = array();
+$studentPerformanceYear = "";
+$studentPerformancePreviousYear = null;
+$studentPerfRows = array();
+$studentPerfLabels = array();
+$studentPerfAvg = array();
+$studentPerfPass = array();
+$studentPerfTrendLabels = array();
+$studentPerfTrendAvg = array();
+$studentPerfTrendPass = array();
+$studentPerfComparisonRows = array();
+$studentPerfOverallByYear = array();
+$studentPerfCurrentAvg = 0;
+$studentPerfCurrentPass = 0;
+$studentPerfSubjectCount = 0;
+$studentPerfBestSubject = "N/A";
+$studentPerfBestScore = 0;
+$studentPerfYearDelta = null;
+$studentPerfYearSql = semester_registry_assignment_year_sql("sa");
+
+$studentYearOptionsSql = "SELECT DISTINCT academic_year FROM (
+        SELECT $studentPerfYearSql AS academic_year
+        FROM tblmark mk
+        INNER JOIN tblsubjectassignment sa ON sa.assignmentid=mk.assignmentid
+        WHERE mk.userid='$studentIdEsc' AND mk.status='active'
+        UNION
+        SELECT COALESCE(NULLIF(tr.academicyear,''), DATE_FORMAT(tr.datetimeentry, '%Y')) AS academic_year
+        FROM tbltermregistry tr
+        WHERE tr.userid='$studentIdEsc'
+    ) perf_years
+    WHERE academic_year IS NOT NULL AND academic_year<>''
+    ORDER BY academic_year DESC";
+$studentYearOptionsRes = mysqli_query($con, $studentYearOptionsSql);
+if($studentYearOptionsRes){
+    while($studentYearRow = mysqli_fetch_array($studentYearOptionsRes, MYSQLI_ASSOC)){
+        $yearValue = trim((string)$studentYearRow['academic_year']);
+        if($yearValue !== ""){
+            $studentPerformanceYearOptions[] = $yearValue;
+        }
+    }
+}
+if(count($studentPerformanceYearOptions) === 0){
+    $studentPerformanceYearOptions[] = date("Y");
+}
+$studentRequestedYear = isset($_GET['student_perf_year']) ? semester_registry_normalize_year($_GET['student_perf_year']) : "";
+$studentPerformanceYear = in_array($studentRequestedYear, $studentPerformanceYearOptions, true) ? $studentRequestedYear : $studentPerformanceYearOptions[0];
+foreach($studentPerformanceYearOptions as $studentYearOption){
+    if((int)$studentYearOption < (int)$studentPerformanceYear){
+        $studentPerformancePreviousYear = $studentYearOption;
+        break;
+    }
+}
+
+$studentPerfWhere = "WHERE mk.userid='$studentIdEsc' AND mk.status='active' AND $studentPerfYearSql='".mysqli_real_escape_string($con, $studentPerformanceYear)."'";
+$studentPerfSql = "SELECT
+        sub.subjectid,
+        sub.subject,
+        COUNT(*) AS entries_count,
+        ROUND(AVG(CASE WHEN mk.totalmark > 0 THEN (mk.mark / mk.totalmark) * 100 ELSE 0 END),2) AS avg_percent,
+        ROUND(AVG(CASE WHEN mk.totalmark > 0 AND ((mk.mark / mk.totalmark) * 100) >= 50 THEN 100 ELSE 0 END),2) AS pass_rate
+    FROM tblmark mk
+    INNER JOIN tblsubjectassignment sa ON sa.assignmentid=mk.assignmentid
+    INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
+    INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid
+    $studentPerfWhere
+    GROUP BY sub.subjectid, sub.subject
+    ORDER BY avg_percent DESC, sub.subject ASC";
+$studentPerfRes = mysqli_query($con, $studentPerfSql);
+if($studentPerfRes){
+    while($studentPerfRow = mysqli_fetch_array($studentPerfRes, MYSQLI_ASSOC)){
+        $studentPerfRows[] = $studentPerfRow;
+        $studentPerfLabels[] = $studentPerfRow['subject'];
+        $studentPerfAvg[] = (float)$studentPerfRow['avg_percent'];
+        $studentPerfPass[] = (float)$studentPerfRow['pass_rate'];
+        $studentPerfCurrentAvg += (float)$studentPerfRow['avg_percent'];
+        $studentPerfCurrentPass += (float)$studentPerfRow['pass_rate'];
+        $studentPerfSubjectCount++;
+        if((float)$studentPerfRow['avg_percent'] >= $studentPerfBestScore){
+            $studentPerfBestScore = (float)$studentPerfRow['avg_percent'];
+            $studentPerfBestSubject = (string)$studentPerfRow['subject'];
+        }
+    }
+}
+if($studentPerfSubjectCount > 0){
+    $studentPerfCurrentAvg = round($studentPerfCurrentAvg / $studentPerfSubjectCount, 2);
+    $studentPerfCurrentPass = round($studentPerfCurrentPass / $studentPerfSubjectCount, 2);
+}
+
+$studentTrendSql = "SELECT
+        $studentPerfYearSql AS academic_year,
+        ROUND(AVG(CASE WHEN mk.totalmark > 0 THEN (mk.mark / mk.totalmark) * 100 ELSE 0 END),2) AS avg_percent,
+        ROUND(AVG(CASE WHEN mk.totalmark > 0 AND ((mk.mark / mk.totalmark) * 100) >= 50 THEN 100 ELSE 0 END),2) AS pass_rate
+    FROM tblmark mk
+    INNER JOIN tblsubjectassignment sa ON sa.assignmentid=mk.assignmentid
+    WHERE mk.userid='$studentIdEsc' AND mk.status='active'
+    GROUP BY academic_year
+    ORDER BY academic_year ASC";
+$studentTrendRes = mysqli_query($con, $studentTrendSql);
+if($studentTrendRes){
+    while($studentTrendRow = mysqli_fetch_array($studentTrendRes, MYSQLI_ASSOC)){
+        $trendYear = trim((string)$studentTrendRow['academic_year']);
+        if($trendYear === ""){
+            continue;
+        }
+        $studentPerfTrendLabels[] = $trendYear;
+        $studentPerfTrendAvg[] = (float)$studentTrendRow['avg_percent'];
+        $studentPerfTrendPass[] = (float)$studentTrendRow['pass_rate'];
+        $studentPerfOverallByYear[$trendYear] = (float)$studentTrendRow['avg_percent'];
+    }
+}
+if($studentPerformancePreviousYear !== null && isset($studentPerfOverallByYear[$studentPerformancePreviousYear])){
+    $studentPerfYearDelta = $studentPerfCurrentAvg - (float)$studentPerfOverallByYear[$studentPerformancePreviousYear];
+}
+
+$studentSubjectHistory = array();
+$studentHistorySql = "SELECT
+        sub.subject,
+        $studentPerfYearSql AS academic_year,
+        ROUND(AVG(CASE WHEN mk.totalmark > 0 THEN (mk.mark / mk.totalmark) * 100 ELSE 0 END),2) AS avg_percent
+    FROM tblmark mk
+    INNER JOIN tblsubjectassignment sa ON sa.assignmentid=mk.assignmentid
+    INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
+    INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid
+    WHERE mk.userid='$studentIdEsc' AND mk.status='active'
+    GROUP BY sub.subject, academic_year
+    ORDER BY sub.subject ASC, academic_year DESC";
+$studentHistoryRes = mysqli_query($con, $studentHistorySql);
+if($studentHistoryRes){
+    while($studentHistoryRow = mysqli_fetch_array($studentHistoryRes, MYSQLI_ASSOC)){
+        $historySubject = trim((string)$studentHistoryRow['subject']);
+        $historyYear = trim((string)$studentHistoryRow['academic_year']);
+        if($historySubject === "" || $historyYear === ""){
+            continue;
+        }
+        if(!isset($studentSubjectHistory[$historySubject])){
+            $studentSubjectHistory[$historySubject] = array();
+        }
+        $studentSubjectHistory[$historySubject][$historyYear] = (float)$studentHistoryRow['avg_percent'];
+    }
+}
+foreach($studentPerfRows as $studentPerfRow){
+    $subjectLabel = (string)$studentPerfRow['subject'];
+    $previousYear = null;
+    $previousAvg = null;
+    if(isset($studentSubjectHistory[$subjectLabel])){
+        $subjectYears = array_keys($studentSubjectHistory[$subjectLabel]);
+        rsort($subjectYears, SORT_NUMERIC);
+        foreach($subjectYears as $subjectYear){
+            if((int)$subjectYear < (int)$studentPerformanceYear){
+                $previousYear = (string)$subjectYear;
+                $previousAvg = (float)$studentSubjectHistory[$subjectLabel][$subjectYear];
+                break;
+            }
+        }
+    }
+    $studentPerfComparisonRows[] = array(
+        'subject' => $subjectLabel,
+        'current_avg' => (float)$studentPerfRow['avg_percent'],
+        'previous_year' => $previousYear,
+        'previous_avg' => $previousAvg,
+        'delta' => ($previousAvg !== null ? ((float)$studentPerfRow['avg_percent'] - (float)$previousAvg) : null)
+    );
+}
+
 $reportPreview = array_slice($reportOptions, 0, 6);
 ?>
 <!DOCTYPE html>
@@ -396,6 +588,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" type="text/css" href="css/student-dashboard.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="student-dashboard-page">
 <div class="header"><?php include("menu.php"); ?></div>
@@ -454,6 +647,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
 </section>
 
 <div class="student-layout">
+    <div class="student-panel-stack student-panel-stack--main">
     <section class="student-panel student-panel--wide">
         <div class="student-panel__header">
             <div><span class="student-panel__eyebrow">Academic Snapshot</span><h2>Report-ready semesters and current learning context</h2></div>
@@ -488,6 +682,117 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <div class="student-empty-state"><h3>No report options yet</h3></div>
         <?php } ?>
     </section>
+
+    <section class="student-panel student-panel--wide">
+        <div class="student-panel__header">
+            <div><span class="student-panel__eyebrow">Subject Performance</span><h2>Track how your subjects are going</h2></div>
+            <a class="student-panel__link" href="individual-terminal-report.php">Open Terminal Report</a>
+        </div>
+        <form method="get" action="student-page.php" class="student-performance-toolbar">
+            <div class="student-performance-toolbar__field">
+                <label for="student_perf_year">Academic Year</label>
+                <select id="student_perf_year" name="student_perf_year">
+                    <?php foreach($studentPerformanceYearOptions as $yearOption){ ?>
+                    <option value="<?php echo sd_esc($yearOption); ?>"<?php echo ($studentPerformanceYear === $yearOption ? " selected" : ""); ?>><?php echo sd_esc($yearOption); ?></option>
+                    <?php } ?>
+                </select>
+            </div>
+            <div class="student-performance-toolbar__actions">
+                <button type="submit" class="student-primary-btn"><i class="fa fa-filter"></i> View Year</button>
+            </div>
+        </form>
+
+        <div class="student-performance-scope">
+            <strong>Current Scope:</strong> <?php echo sd_esc($studentPerformanceYear); ?> Academic Year
+            <?php if($studentPerformancePreviousYear !== null){ ?>
+            <span>Compared with <?php echo sd_esc($studentPerformancePreviousYear); ?></span>
+            <?php } ?>
+        </div>
+
+        <div class="student-performance-kpis">
+            <article class="student-performance-kpi">
+                <span>Subjects With Scores</span>
+                <strong><?php echo number_format((int)$studentPerfSubjectCount); ?></strong>
+            </article>
+            <article class="student-performance-kpi">
+                <span>Average Score</span>
+                <strong><?php echo number_format((float)$studentPerfCurrentAvg, 2); ?>%</strong>
+            </article>
+            <article class="student-performance-kpi">
+                <span>Pass Rate</span>
+                <strong><?php echo number_format((float)$studentPerfCurrentPass, 2); ?>%</strong>
+            </article>
+            <article class="student-performance-kpi">
+                <span>Strongest Subject</span>
+                <strong><?php echo sd_esc($studentPerfBestSubject); ?></strong>
+                <small><?php echo number_format((float)$studentPerfBestScore, 2); ?>%</small>
+            </article>
+            <article class="student-performance-kpi">
+                <span>Year Comparison</span>
+                <strong><?php echo ($studentPerformancePreviousYear !== null ? sd_esc($studentPerformancePreviousYear) : "No prior year"); ?></strong>
+                <small class="<?php echo sd_esc(sd_perf_delta_class($studentPerfYearDelta)); ?>"><?php echo sd_esc(sd_perf_delta_text($studentPerfYearDelta)); ?></small>
+            </article>
+        </div>
+
+        <?php if(count($studentPerfRows) > 0 || count($studentPerfTrendLabels) > 0){ ?>
+        <div class="student-performance-grid">
+            <article class="student-performance-card">
+                <div class="student-performance-card__head">
+                    <h3><?php echo sd_esc($studentPerformanceYear); ?> Subject Snapshot</h3>
+                    <span>See your average score and pass rate by subject.</span>
+                </div>
+                <div class="student-performance-chart-wrap">
+                    <canvas id="studentSubjectPerformanceChart" height="280" aria-label="Student subject performance chart"></canvas>
+                </div>
+            </article>
+            <article class="student-performance-card">
+                <div class="student-performance-card__head">
+                    <h3>Previous Years Trend</h3>
+                    <span>Compare your overall performance across academic years.</span>
+                </div>
+                <div class="student-performance-chart-wrap">
+                    <canvas id="studentSubjectTrendChart" height="280" aria-label="Student subject trend chart"></canvas>
+                </div>
+            </article>
+        </div>
+
+        <div class="student-performance-table-wrap">
+            <div class="student-performance-card__head">
+                <h3>Subject-by-Subject Comparison</h3>
+                <span>See how each subject compares with your most recent earlier year.</span>
+            </div>
+            <div class="student-performance-table-scroll">
+                <table class="student-performance-table">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th><?php echo sd_esc($studentPerformanceYear); ?> Avg %</th>
+                            <th>Previous Year</th>
+                            <th>Previous Avg %</th>
+                            <th>Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($studentPerfComparisonRows as $comparisonRow){ ?>
+                        <tr>
+                            <td><?php echo sd_esc($comparisonRow['subject']); ?></td>
+                            <td><?php echo number_format((float)$comparisonRow['current_avg'], 2); ?></td>
+                            <td><?php echo sd_esc($comparisonRow['previous_year'] !== null ? $comparisonRow['previous_year'] : 'N/A'); ?></td>
+                            <td><?php echo ($comparisonRow['previous_avg'] !== null ? number_format((float)$comparisonRow['previous_avg'], 2) : 'N/A'); ?></td>
+                            <td><span class="<?php echo sd_esc(sd_perf_delta_class($comparisonRow['delta'])); ?>"><?php echo sd_esc(sd_perf_delta_text($comparisonRow['delta'])); ?></span></td>
+                        </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php } else { ?>
+        <div class="student-empty-state student-empty-state--compact">
+            <p>No score data was found for the selected academic year yet.</p>
+        </div>
+        <?php } ?>
+    </section>
+    </div>
 
     <div class="student-panel-stack">
         <section class="student-panel">
@@ -661,6 +966,168 @@ $reportPreview = array_slice($reportOptions, 0, 6);
 </div>
 </main>
 <script>
+(function(){
+    if(typeof Chart !== 'function'){
+        return;
+    }
+    var subjectCanvas = document.getElementById('studentSubjectPerformanceChart');
+    var trendCanvas = document.getElementById('studentSubjectTrendChart');
+    var subjectLabels = <?php echo json_encode(array_values($studentPerfLabels)); ?>;
+    var subjectAverageScores = <?php echo json_encode(array_values($studentPerfAvg)); ?>;
+    var subjectPassRates = <?php echo json_encode(array_values($studentPerfPass)); ?>;
+    var trendLabels = <?php echo json_encode(array_values($studentPerfTrendLabels)); ?>;
+    var trendAverageScores = <?php echo json_encode(array_values($studentPerfTrendAvg)); ?>;
+    var trendPassRates = <?php echo json_encode(array_values($studentPerfTrendPass)); ?>;
+
+    if(subjectCanvas && subjectLabels.length > 0){
+        new Chart(subjectCanvas, {
+            type: 'bar',
+            data: {
+                labels: subjectLabels,
+                datasets: [
+                    {
+                        label: 'Average Score',
+                        data: subjectAverageScores,
+                        backgroundColor: 'rgba(28, 126, 214, 0.72)',
+                        borderColor: '#1c7ed6',
+                        borderWidth: 1.2,
+                        borderRadius: 10,
+                        maxBarThickness: 42
+                    },
+                    {
+                        label: 'Pass Rate',
+                        data: subjectPassRates,
+                        backgroundColor: 'rgba(14, 163, 140, 0.68)',
+                        borderColor: '#0ea38c',
+                        borderWidth: 1.2,
+                        borderRadius: 10,
+                        maxBarThickness: 42
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context){
+                                return context.dataset.label + ': ' + Number(context.raw).toFixed(2) + '%';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#17324d'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value){
+                                return value + '%';
+                            },
+                            color: '#5d748d'
+                        },
+                        grid: {
+                            color: 'rgba(17, 43, 69, 0.08)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    if(trendCanvas && trendLabels.length > 0){
+        new Chart(trendCanvas, {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [
+                    {
+                        label: 'Average Score',
+                        data: trendAverageScores,
+                        borderColor: '#1c7ed6',
+                        backgroundColor: 'rgba(28, 126, 214, 0.14)',
+                        fill: true,
+                        tension: 0.28,
+                        borderWidth: 2.5,
+                        pointRadius: 4,
+                        pointHoverRadius: 5
+                    },
+                    {
+                        label: 'Pass Rate',
+                        data: trendPassRates,
+                        borderColor: '#0ea38c',
+                        backgroundColor: 'rgba(14, 163, 140, 0.1)',
+                        fill: true,
+                        tension: 0.28,
+                        borderWidth: 2.5,
+                        pointRadius: 4,
+                        pointHoverRadius: 5
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context){
+                                return context.dataset.label + ': ' + Number(context.raw).toFixed(2) + '%';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#17324d'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value){
+                                return value + '%';
+                            },
+                            color: '#5d748d'
+                        },
+                        grid: {
+                            color: 'rgba(17, 43, 69, 0.08)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+})();
+
 (function(){
     var select = document.getElementById('message_target');
     var preview = document.querySelector('[data-student-target-preview]');
