@@ -657,14 +657,14 @@ function student_attendance_assignment_student_summary($con, $assignment, $dateF
             FROM tbltermregistry tr
             INNER JOIN tblsystemuser su ON su.userid=tr.userid
             LEFT JOIN tblstudentattendancesession ats
-                   ON ats.classid=tr.classid
+                   ON ats.classid=tr.class_entryid
                   AND ats.batchid=tr.batchid
                   AND ats.termname=tr.termname".
                   student_attendance_date_range_clause($con, 'ats.attendancedate', $dateFrom, $dateTo)."
             LEFT JOIN tblstudentattendanceentry ate
                    ON ate.sessionid=ats.sessionid
                   AND ate.userid=tr.userid
-            WHERE tr.classid='$classIdEsc'
+            WHERE tr.class_entryid='$classIdEsc'
               AND tr.batchid='$batchIdEsc'
               AND tr.termname='$termName'
               AND tr.status='active'
