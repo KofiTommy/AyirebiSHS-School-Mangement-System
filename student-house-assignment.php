@@ -1,6 +1,5 @@
 <?php
 session_start();
-$_SESSION['Message']="";
 include("check-login.php");
 include("dbstring.php");
 include("house-master-utils.php");
@@ -11,27 +10,101 @@ if(!house_master_can_manage_module($con, 'house_management')){
     exit();
 }
 
-if(isset($_POST['save_student_house'])){
-    @$_UserId = $_POST['userid'];
-    @$_HouseId = $_POST['houseid'];
-    if(!$_UserId || !$_HouseId){
-        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Please select student and house.</div>";
+if(!function_exists('sha_esc')){
+function sha_esc($value){
+    return htmlspecialchars((string)$value, ENT_QUOTES, "UTF-8");
+}
+}
+
+if(!function_exists('sha_alert')){
+function sha_alert($type, $message){
+    $class = "sha-alert";
+    if($type === "success"){
+        $class .= " sha-alert--success";
+    }elseif($type === "warning"){
+        $class .= " sha-alert--warning";
     }else{
-        if(assign_student_to_house($con, $_UserId, $_HouseId, $_SESSION['USERID'])){
-            $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white'>Student assigned to house successfully.</div>";
-        }else{
-            $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Failed to assign student: ".mysqli_error($con)."</div>";
+        $class .= " sha-alert--error";
+    }
+    return "<div class=\"".$class."\">".sha_esc($message)."</div>";
+}
+}
+
+if(!function_exists('sha_flash_set')){
+function sha_flash_set($message){
+    $_SESSION["STUDENT_HOUSE_ASSIGNMENT_MESSAGE"] = (string)$message;
+}
+}
+
+if(!function_exists('sha_flash_take')){
+function sha_flash_take(){
+    if(!isset($_SESSION["STUDENT_HOUSE_ASSIGNMENT_MESSAGE"])){
+        return "";
+    }
+    $message = (string)$_SESSION["STUDENT_HOUSE_ASSIGNMENT_MESSAGE"];
+    unset($_SESSION["STUDENT_HOUSE_ASSIGNMENT_MESSAGE"]);
+    return $message;
+}
+}
+
+if(!function_exists('sha_request_value')){
+function sha_request_value($key){
+    if(isset($_POST[$key])){
+        return trim((string)$_POST[$key]);
+    }
+    if(isset($_GET[$key])){
+        return trim((string)$_GET[$key]);
+    }
+    return "";
+}
+}
+
+if(!function_exists('sha_url')){
+function sha_url($params = array(), $hash = ""){
+    $clean = array();
+    foreach((array)$params as $key => $value){
+        $value = trim((string)$value);
+        if($value !== ""){
+            $clean[$key] = $value;
         }
     }
+    $query = http_build_query($clean);
+    return "student-house-assignment.php".($query !== "" ? "?".$query : "").$hash;
+}
+}
+
+@$_FilterClassId = sha_request_value('filter_classid');
+@$_FilterBatchId = sha_request_value('filter_batchid');
+@$_FilterSearch = sha_request_value('filter_search');
+$_RedirectContext = array(
+    "filter_classid" => $_FilterClassId,
+    "filter_batchid" => $_FilterBatchId,
+    "filter_search" => $_FilterSearch
+);
+
+if(isset($_POST['save_student_house'])){
+    @$_UserId = trim((string)($_POST['userid'] ?? ''));
+    @$_HouseId = trim((string)($_POST['houseid'] ?? ''));
+    if(!$_UserId || !$_HouseId){
+        sha_flash_set(sha_alert("error", "Please select both student and house."));
+    }else{
+        if(assign_student_to_house($con, $_UserId, $_HouseId, $_SESSION['USERID'])){
+            sha_flash_set(sha_alert("success", "Student assigned to house successfully."));
+        }else{
+            sha_flash_set(sha_alert("error", "Failed to assign student: ".mysqli_error($con)));
+        }
+    }
+    header("location:".sha_url($_RedirectContext, "#single-assignment"));
+    exit();
 }
 
 if(isset($_POST['bulk_assign_students'])){
-    @$_BulkHouseId = $_POST['bulk_houseid'];
-    @$_StudentIds = $_POST['studentids'];
+    @$_BulkHouseId = trim((string)($_POST['bulk_houseid'] ?? ''));
+    @$_StudentIds = isset($_POST['studentids']) && is_array($_POST['studentids']) ? $_POST['studentids'] : array();
     if(!$_BulkHouseId){
-        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Please select a house for bulk assignment.</div>";
+        sha_flash_set(sha_alert("error", "Please select a house for bulk assignment."));
     }elseif(!is_array($_StudentIds) || count($_StudentIds) === 0){
-        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Select at least one student for bulk assignment.</div>";
+        sha_flash_set(sha_alert("error", "Select at least one student for bulk assignment."));
     }else{
         $_Success = 0;
         $_Failed = 0;
@@ -48,27 +121,36 @@ if(isset($_POST['bulk_assign_students'])){
                 $_Failed++;
             }
         }
-        $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white'>Bulk assignment complete. Success: $_Success, Failed: $_Failed.</div>";
+        if($_Success > 0 && $_Failed === 0){
+            sha_flash_set(sha_alert("success", "Bulk assignment complete. Success: $_Success, Failed: $_Failed."));
+        }elseif($_Success > 0){
+            sha_flash_set(sha_alert("warning", "Bulk assignment completed with some issues. Success: $_Success, Failed: $_Failed."));
+        }else{
+            sha_flash_set(sha_alert("error", "Bulk assignment failed. No selected student could be assigned."));
+        }
     }
+    header("location:".sha_url($_RedirectContext, "#bulk-assignment"));
+    exit();
 }
 
-if(isset($_GET['remove_student_house'])){
-    $_AssignmentId = mysqli_real_escape_string($con, $_GET['remove_student_house']);
+if(isset($_POST['remove_student_house'])){
+    $_AssignmentId = mysqli_real_escape_string($con, trim((string)($_POST['assignmentid'] ?? '')));
     $_SQL_R = mysqli_query($con, "UPDATE tblstudenthouse SET status='inactive' WHERE assignmentid='$_AssignmentId' AND status='active'");
-    if($_SQL_R){
+    if($_AssignmentId === ""){
+        sha_flash_set(sha_alert("error", "Select a valid assignment to remove."));
+    }elseif($_SQL_R){
         if(mysqli_affected_rows($con) > 0){
-            $_SESSION['Message'] = "<div style='color:maroon;text-align:center;background-color:white'>Student removed from house successfully.</div>";
+            sha_flash_set(sha_alert("success", "Student removed from house successfully."));
         }else{
-            $_SESSION['Message'] = "<div style='color:#b45309;text-align:center;background-color:white'>No active student-house assignment found to remove.</div>";
+            sha_flash_set(sha_alert("warning", "No active student-house assignment found to remove."));
         }
     }else{
-        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Failed to remove student from house: ".mysqli_error($con)."</div>";
+        sha_flash_set(sha_alert("error", "Failed to remove student from house: ".mysqli_error($con)));
     }
+    header("location:".sha_url($_RedirectContext, "#active-student-houses"));
+    exit();
 }
-
-@$_FilterClassId = trim($_GET['filter_classid'] ?? '');
-@$_FilterBatchId = trim($_GET['filter_batchid'] ?? '');
-@$_FilterSearch = trim($_GET['filter_search'] ?? '');
+$_FlashMessage = sha_flash_take();
 
 $_Where = " WHERE su.systemtype='Student' AND su.status='active' ";
 if($_FilterClassId !== ''){
@@ -77,7 +159,7 @@ if($_FilterClassId !== ''){
 }
 if($_FilterBatchId !== ''){
     $_FilterBatchIdEsc = mysqli_real_escape_string($con, $_FilterBatchId);
-    $_Where .= " AND EXISTS (SELECT 1 FROM tbltermregistry tr WHERE tr.userid=su.userid AND tr.batchid='$_FilterBatchIdEsc') ";
+    $_Where .= " AND EXISTS (SELECT 1 FROM tbltermregistry tr WHERE tr.userid=su.userid AND tr.batchid='$_FilterBatchIdEsc' AND tr.status='active') ";
 }
 if($_FilterSearch !== ''){
     $_FilterSearchEsc = mysqli_real_escape_string($con, $_FilterSearch);
@@ -87,13 +169,15 @@ if($_FilterSearch !== ''){
 <html>
 <head>
 <?php include("links.php"); ?>
+<link rel="stylesheet" href="css/student-house-assignment.css">
 <style>
 @media print {
-    .header, .print-hide, h4, form { display: none !important; }
+    .header, .print-hide, .sha-page-header, .sha-card__title, form, .sha-empty-note { display: none !important; }
     .print-area { display: block !important; }
-    .main-platform, .form-entry { margin: 0 !important; padding: 0 !important; border: 0 !important; }
+    .main-platform, .form-entry, .sha-card { margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; }
     table { width: 100% !important; }
     .selection-col { display: none !important; }
+    .sha-table-wrap { overflow: visible !important; }
 }
 </style>
 <script>
@@ -105,20 +189,30 @@ function toggleAllStudents(source){
 }
 </script>
 </head>
-<body>
+<body class="student-house-assignment-page">
 <div class="header">
 <?php include("menu.php"); ?>
 </div>
 <div class="main-platform">
-<table width="100%">
-<tr>
-<td width="30%" valign="top">
-<div class="form-entry" align="left">
+<div class="sha-page-header">
+<p class="sha-page-header__eyebrow">House Management</p>
 <h3>Student House Assignment</h3>
-<?php echo $_SESSION['Message']; ?>
+<p class="sha-page-header__copy">Assign students to houses safely, load students by class or batch, and review active house placements in one cleaner workspace.</p>
+</div>
+<?php if($_FlashMessage !== ""){ echo $_FlashMessage; } ?>
 
-<h4 style="margin-bottom:8px;">Single Assignment</h4>
+<div class="sha-layout">
+<div class="sha-column sha-column--side">
+<div class="form-entry sha-card" align="left" id="single-assignment">
+<div class="sha-card__title">
+<h4>Single Assignment</h4>
+<p>Assign one student quickly when you already know the house.</p>
+</div>
+
 <form method="post" action="student-house-assignment.php" id="formID" name="formID">
+<input type="hidden" name="filter_classid" value="<?php echo sha_esc($_FilterClassId); ?>">
+<input type="hidden" name="filter_batchid" value="<?php echo sha_esc($_FilterBatchId); ?>">
+<input type="hidden" name="filter_search" value="<?php echo sha_esc($_FilterSearch); ?>">
 <?php
 $_SQL_S = mysqli_query($con,"SELECT userid,firstname,surname,othernames FROM tblsystemuser WHERE systemtype='Student' AND status='active' ORDER BY firstname ASC");
 echo "<label>Student</label><br/>";
@@ -141,12 +235,23 @@ echo "</select><br/><br/>";
 <div align="center"><button class="button-save" id="save_student_house" name="save_student_house"><i class="fa fa-save"></i> Save Assignment</button></div>
 </form>
 </div>
-</td>
-<td width="70%" valign="top">
-<div class="form-entry">
-<h4 style="margin-top:0;">Bulk Assignment</h4>
 
-<form method="get" action="student-house-assignment.php" style="margin-bottom:12px;">
+<div class="form-entry sha-card sha-card--note">
+<div class="sha-card__title">
+<h4>Helpful Tip</h4>
+<p>Use the batch filter when you want to load a whole intake quickly. Use class and search when you want a smaller list on mobile.</p>
+</div>
+</div>
+</div>
+
+<div class="sha-column sha-column--main">
+<div class="form-entry sha-card" id="bulk-assignment">
+<div class="sha-card__title">
+<h4>Bulk Assignment</h4>
+<p>Load a filtered student list, select the students you want, and assign them to one house in a single action.</p>
+</div>
+
+<form method="get" action="student-house-assignment.php" class="sha-filter-form print-hide">
 <?php
 $_SQL_CLS = mysqli_query($con,"SELECT class_entryid,class_name FROM tblclassentry ORDER BY class_name ASC");
 echo "<label>Filter by Class</label><br/>";
@@ -170,7 +275,7 @@ echo "</select><br/><br/>";
 ?>
 <label>Search (Name or ID)</label><br/>
 <input type="text" name="filter_search" value="<?php echo htmlspecialchars($_FilterSearch); ?>" />
-<div class="print-hide" style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+<div class="sha-filter-actions">
 <button type="submit" name="load_mode" value="all" title="Load using current filters"><i class="fa fa-filter"></i> Load Students</button>
 <button type="submit" name="load_mode" value="batch" title="Load all students in selected batch" onclick="return loadByBatchOnly();"><i class="fa fa-users"></i> Load By Batch</button>
 <button type="button" title="Clear filters" onclick="clearFilters();"><i class="fa fa-eraser"></i> Clear Filters</button>
@@ -178,6 +283,9 @@ echo "</select><br/><br/>";
 </form>
 
 <form method="post" action="student-house-assignment.php">
+<input type="hidden" name="filter_classid" value="<?php echo sha_esc($_FilterClassId); ?>">
+<input type="hidden" name="filter_batchid" value="<?php echo sha_esc($_FilterBatchId); ?>">
+<input type="hidden" name="filter_search" value="<?php echo sha_esc($_FilterSearch); ?>">
 <?php
 $_SQL_H2 = mysqli_query($con,"SELECT houseid,housename FROM tblhouse WHERE status='active' ORDER BY housename ASC");
 echo "<label>Assign Selected To House</label><br/>";
@@ -207,7 +315,7 @@ LEFT JOIN tblhouse h ON h.houseid=sh.houseid
 $_Where
 ORDER BY su.firstname ASC,su.surname ASC");
 
-echo "<div class='print-hide' style='margin-bottom:8px;display:flex;justify-content:flex-end;gap:8px;align-items:center;flex-wrap:wrap;'>";
+echo "<div class='sha-inline-tools print-hide'>";
 echo "<label for='print_houseid' style='margin:0;'>Print House</label>";
 echo "<select id='print_houseid'>";
 echo "<option value=''>All Loaded Students</option>";
@@ -216,12 +324,14 @@ foreach($_HousePrintOptions as $_PHouseId => $_PHouseName){
 }
 echo "<option value='__unassigned__'>Not Assigned</option>";
 echo "</select>";
+echo "<button type='button' onclick='loadStudentsBySelectedHouse();'><i class='fa fa-refresh'></i> Load House</button>";
 echo "<button type='button' onclick='printStudentListByHouse();'><i class='fa fa-print'></i> Print Student List</button>";
 echo "</div>";
 
 echo "<div class='print-area'>";
-echo "<h4 style='margin:4px 0;'>Students List</h4>";
-echo "<div style='margin-bottom:8px;'><input type='checkbox' onclick='toggleAllStudents(this)' /> Select All Loaded Students</div>";
+echo "<h4 class='sha-subheading'>Students List</h4>";
+echo "<div class='sha-select-all'><input type='checkbox' onclick='toggleAllStudents(this)' /> Select All Loaded Students</div>";
+echo "<div class='sha-table-wrap'>";
 echo "<table id='loaded-students-table' width='100%' style='background-color:white'>";
 echo "<thead><th class='selection-col'></th><th>Student</th><th>Current House</th></thead>";
 echo "<tbody>";
@@ -240,16 +350,21 @@ if($_CountLoaded === 0){
 }
 echo "</tbody>";
 echo "</table>";
-echo "<div style='margin-top:8px;'>Loaded: ".(int)$_CountLoaded." student(s)</div>";
+echo "</div>";
+echo "<div class='sha-count-note' id='loaded-students-summary'>Loaded: ".(int)$_CountLoaded." student(s)</div>";
 echo "</div>";
 ?>
-<div style="margin-top:10px;" align="right">
+<div class="sha-form-actions" align="right">
 <button class="button-save" type="submit" name="bulk_assign_students"><i class="fa fa-save"></i> Assign Selected Students</button>
 </div>
 </form>
 </div>
 
-<div class="form-entry" style="margin-top:10px;">
+<div class="form-entry sha-card" style="margin-top:10px;" id="active-student-houses">
+<div class="sha-card__title">
+<h4>Active Student House Assignments</h4>
+<p>Review current house placements and remove an assignment safely when a student needs to be moved.</p>
+</div>
 <?php
 $_SQL_A = mysqli_query($con,"SELECT sh.*,h.housename,su.firstname,su.surname,su.othernames
 FROM tblstudenthouse sh
@@ -257,27 +372,39 @@ INNER JOIN tblhouse h ON h.houseid=sh.houseid
 INNER JOIN tblsystemuser su ON su.userid=sh.userid
 WHERE sh.status='active'
 ORDER BY sh.datetimeentry DESC");
+echo "<div class='sha-table-wrap'>";
 echo "<table width='100%' style='background-color:white'>";
-echo "<caption>Active Student House Assignment</caption>";
 echo "<thead><th>Task</th><th>Student</th><th>House</th><th>Date/Time</th></thead>";
 echo "<tbody>";
+$_AssignmentCount = 0;
 while($row=mysqli_fetch_array($_SQL_A,MYSQLI_ASSOC)){
+    $_AssignmentCount++;
     echo "<tr>";
     echo "<td align='center'>";
-    echo "<a title='Remove student from house' onclick=\"javascript:return confirm('Remove this student from house assignment?');\" href='student-house-assignment.php?remove_student_house=$row[assignmentid]'><i class='fa fa-trash' style='color:#b91c1c'></i></a>";
+    echo "<form method='post' action='student-house-assignment.php' class='sha-inline-form' onsubmit=\"return confirm('Remove this student from house assignment?');\">";
+    echo "<input type='hidden' name='assignmentid' value='".sha_esc($row['assignmentid'])."'>";
+    echo "<input type='hidden' name='filter_classid' value='".sha_esc($_FilterClassId)."'>";
+    echo "<input type='hidden' name='filter_batchid' value='".sha_esc($_FilterBatchId)."'>";
+    echo "<input type='hidden' name='filter_search' value='".sha_esc($_FilterSearch)."'>";
+    echo "<button type='submit' name='remove_student_house' class='sha-icon-button' title='Remove student from house'><i class='fa fa-trash'></i></button>";
+    echo "</form>";
     echo "</td>";
     echo "<td>".htmlspecialchars($row['firstname']." ".$row['othernames']." ".$row['surname'])." (".htmlspecialchars($row['userid']).")</td>";
     echo "<td align='center'>".htmlspecialchars($row['housename'])."</td>";
     echo "<td align='center'>".htmlspecialchars($row['datetimeentry'])."</td>";
     echo "</tr>";
 }
+if($_AssignmentCount === 0){
+    echo "<tr><td colspan='4' align='center'>No active student-house assignments found yet.</td></tr>";
+}
 echo "</tbody>";
 echo "</table>";
+echo "</div>";
+echo "<div class='sha-count-note sha-empty-note'>Active assignments: ".(int)$_AssignmentCount."</div>";
 ?>
 </div>
-</td>
-</tr>
-</table>
+</div>
+</div>
 </div>
 <script>
 function loadByBatchOnly(){
@@ -294,35 +421,80 @@ function loadByBatchOnly(){
 }
 
 function clearFilters(){
-    var classSel = document.querySelector("select[name='filter_classid']");
-    var batch = document.querySelector("select[name='filter_batchid']");
-    var search = document.querySelector("input[name='filter_search']");
-    if(classSel){ classSel.value = ""; }
-    if(batch){ batch.value = ""; }
-    if(search){ search.value = ""; }
+    window.location = "student-house-assignment.php";
 }
 
 function printStudentListByHouse(){
+    var selectedHouse = "";
+    var houseSel = document.getElementById("print_houseid");
+    if(houseSel){
+        selectedHouse = houseSel.value || "";
+    }
+    filterLoadedStudentsByHouse(selectedHouse, true);
+    window.print();
+    filterLoadedStudentsByHouse(selectedHouse, false);
+}
+
+function loadStudentsBySelectedHouse(){
+    var houseSel = document.getElementById("print_houseid");
+    var selectedHouse = houseSel ? (houseSel.value || "") : "";
+    filterLoadedStudentsByHouse(selectedHouse, false);
+}
+
+function filterLoadedStudentsByHouse(selectedHouse, forPrint){
     var table = document.getElementById("loaded-students-table");
     if(!table){
-        window.print();
-        return;
+        return 0;
     }
-    var houseSel = document.getElementById("print_houseid");
-    var selectedHouse = houseSel ? houseSel.value : "";
     var rows = table.querySelectorAll("tbody tr");
+    var actualRowCount = 0;
+    var visibleCount = 0;
+    var emptyRow = document.getElementById("loaded-students-empty-row");
+
+    if(!emptyRow){
+        emptyRow = document.createElement("tr");
+        emptyRow.id = "loaded-students-empty-row";
+        emptyRow.style.display = "none";
+        emptyRow.innerHTML = "<td colspan='3' align='center'>No loaded students are currently in the selected house.</td>";
+        table.querySelector("tbody").appendChild(emptyRow);
+    }
+
     for(var i=0;i<rows.length;i++){
+        if(rows[i].id === "loaded-students-empty-row"){
+            continue;
+        }
         var houseId = rows[i].getAttribute("data-houseid") || "";
-        if(selectedHouse === "" || houseId === selectedHouse){
+        if(rows[i].hasAttribute("data-houseid")){
+            actualRowCount++;
+        }
+        if(!rows[i].hasAttribute("data-houseid")){
+            rows[i].style.display = (actualRowCount === 0) ? "" : "none";
+        }else if(selectedHouse === "" || houseId === selectedHouse){
             rows[i].style.display = "";
+            visibleCount++;
         }else{
             rows[i].style.display = "none";
         }
     }
-    window.print();
-    for(var j=0;j<rows.length;j++){
-        rows[j].style.display = "";
+
+    if(actualRowCount > 0 && visibleCount === 0){
+        emptyRow.style.display = "";
+    }else{
+        emptyRow.style.display = "none";
     }
+
+    if(!forPrint){
+        var summary = document.getElementById("loaded-students-summary");
+        if(summary){
+            if(selectedHouse === ""){
+                summary.textContent = "Loaded: " + actualRowCount + " student(s)";
+            }else{
+                summary.textContent = "Showing: " + visibleCount + " of " + actualRowCount + " loaded student(s)";
+            }
+        }
+    }
+
+    return visibleCount;
 }
 </script>
 </body>

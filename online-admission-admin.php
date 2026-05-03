@@ -1198,12 +1198,13 @@ if(isset($_POST["save_application_changes"])){
                 $reviewedByToStore = (string)(isset($_SESSION["USERID"]) ? $_SESSION["USERID"] : "");
                 $reviewedAtToStore = date("Y-m-d H:i:s");
             }
+            $reviewedAtSqlValue = ($reviewedAtToStore !== "") ? $reviewedAtToStore : null;
 
             $stmt = mysqli_prepare($con, "UPDATE tblonlineadmissionapplication SET
                 firstname=?, surname=?, othernames=?, gender=?, birthdate=?,
                 email=?, mobile=?, residencetype=?, hometown=?, postaladdress=?, homeaddress=?, religion=?,
                 guardianname=?, guardianrelationship=?, guardiancontact=?, medicalnotes=?, studentnote=?,
-                filename=?, status=?, reviewnote=?, reviewedby=?, revieweddatetime=NULLIF(?, ''), updatedat=NOW()
+                filename=?, status=?, reviewnote=?, reviewedby=?, revieweddatetime=?, updatedat=NOW()
                 WHERE applicationid=? AND branchid=?
                 LIMIT 1");
 
@@ -1214,7 +1215,7 @@ if(isset($_POST["save_application_changes"])){
                     $editableApplicationForm["firstname"], $editableApplicationForm["surname"], $editableApplicationForm["othernames"], $editableApplicationForm["gender"], $editableApplicationForm["birthdate"],
                     $editableApplicationForm["email"], $editableApplicationForm["mobile"], $editableApplicationForm["residencetype"], $editableApplicationForm["hometown"], $editableApplicationForm["postaladdress"], $editableApplicationForm["homeaddress"], $editableApplicationForm["religion"],
                     $editableApplicationForm["guardianname"], $editableApplicationForm["guardianrelationship"], $editableApplicationForm["guardiancontact"], $editableApplicationForm["medicalnotes"], $editableApplicationForm["studentnote"],
-                    $imageName, $editableApplicationForm["status"], $editableApplicationForm["reviewnote"], $reviewedByToStore, $reviewedAtToStore,
+                    $imageName, $editableApplicationForm["status"], $editableApplicationForm["reviewnote"], $reviewedByToStore, $reviewedAtSqlValue,
                     $editableApplication["applicationid"], $branchId
                 );
                 if(mysqli_stmt_execute($stmt)){
