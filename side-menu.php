@@ -88,7 +88,7 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher")
     </div>
   </li>
 
-  </ul>
+</ul>
 
 <?php
 }
@@ -405,3 +405,23 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
 <?php
 }
 ?>
+
+<script>
+(function () {
+  function heartbeat() {
+    fetch('user-activity-heartbeat.php', {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    }).catch(function () {
+      // Silent heartbeat to keep activity fresh.
+    });
+  }
+
+  heartbeat();
+  window.setInterval(heartbeat, 60000);
+})();
+</script>

@@ -225,8 +225,8 @@ button{
       <i class="fa fa-home"></i> Home
     </a>
     <?php if($_ShowLiveUsersIndicator){ ?>
-    <span class="top-action-link top-action-indicator" title="Users active in the last 5 minutes">
-      <i class="fa fa-signal"></i> Live Users: <?php echo number_format((int)$_LiveUsersCount); ?>
+    <span class="top-action-link top-action-indicator" id="top-live-users-indicator" title="Users active in the last 5 minutes">
+      <i class="fa fa-signal"></i> Live Users: <strong id="top-live-users-count"><?php echo number_format((int)$_LiveUsersCount); ?></strong>
     </span>
     <?php } ?>
     <a class="top-action-link logout-link" href="logout.php" title="Click To Log Out">
@@ -423,6 +423,45 @@ document.addEventListener('DOMContentLoaded', function () {
             closeDropdown();
         }
     });
+
+    function startActivityHeartbeat() {
+        var liveUsersNode = document.getElementById('top-live-users-count');
+        var endpoint = 'user-activity-heartbeat.php';
+        var isRunning = false;
+
+        function heartbeat() {
+            if (isRunning) {
+                return;
+            }
+            isRunning = true;
+            fetch(endpoint, {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('heartbeat failed');
+                }
+                return response.json();
+            }).then(function (payload) {
+                if (liveUsersNode && payload && typeof payload.live_users !== 'undefined') {
+                    liveUsersNode.textContent = payload.live_users;
+                }
+            }).catch(function () {
+                // Keep the menu quiet if the heartbeat cannot complete.
+            }).finally(function () {
+                isRunning = false;
+            });
+        }
+
+        heartbeat();
+        window.setInterval(heartbeat, 60000);
+    }
+
+    startActivityHeartbeat();
 });
 </script>
 </body>
