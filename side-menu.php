@@ -82,6 +82,7 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher")
      <a href="scores-report.php"><i class="fa fa-book" ></i> Scores Report</a>
      <a href="terminal-report.php"> <i class="fa fa-plus" ></i> Terminal Report</a>
      <a href="lesson-timetable-report.php"><i class="fa fa-calendar" ></i> Lesson Timetable</a>
+     <a href="online-voting.php"><i class="fa fa-trophy" ></i> Online Voting</a>
      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
      
     </div>
@@ -104,8 +105,9 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student")
   <li class="dropdown">
     <a href="#" class="dropbtn"><i class="fa fa-file" ></i> Examination</a>
     <div class="dropdown-content">
-      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
+     <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
      <a href="lesson-timetable-report.php"><i class="fa fa-clock-o" ></i> Lesson Timetable</a>
+     <a href="online-voting.php"><i class="fa fa-trophy" ></i> Online Voting</a>
      <a href="individual-terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>
      <a href="student-attendance-report.php"><i class="fa fa-bar-chart" ></i> My Attendance</a>
      <a href="student-exeat-request.php"><i class="fa fa-file" ></i> Request Exeat</a>
@@ -116,6 +118,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student")
     <a href="#" class="dropbtn"><i class="fa fa-comments" ></i> Communication</a>
     <div class="dropdown-content">
       <a href="messages.php"><i class="fa fa-comments" ></i> Message Box</a>
+      <a href="online-voting.php"><i class="fa fa-trophy" ></i> Online Voting</a>
       <a href="account-statements.php"><i class="fa fa-money" ></i> Account Statement</a>
     </div>
   </li>
@@ -178,7 +181,9 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
     <a href="duty-roster.php"><i class="fa fa-calendar-check-o" ></i> Duty Roster</a>
     <a href="lesson-timetable.php"><i class="fa fa-calendar" ></i> Lesson Timetable Entry</a>
     <a href="lesson-timetable-report.php"><i class="fa fa-book" ></i> Lesson Timetable Report</a>
+    <a href="online-voting.php"><i class="fa fa-trophy" ></i> Online Voting</a>
     <a href="online-admission-admin.php"><i class="fa fa-globe" ></i> Online Admission</a>
+    <a href="online-voting-admin.php"><i class="fa fa-trophy" ></i> Online Voting</a>
     <a href="user-management.php"><i class="fa fa-users" ></i> User Management</a>
     <a href="house-entry.php"><i class="fa fa-home" ></i> House Entry</a>
     <a href="house-master-assignment.php"><i class="fa fa-plus" ></i> House Master Assignment</a>
@@ -205,6 +210,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
      <a href="terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>
      <a href="lesson-timetable.php"><i class="fa fa-calendar" ></i> Lesson Timetable Entry</a>
      <a href="lesson-timetable-report.php"><i class="fa fa-book" ></i> Lesson Timetable Report</a>
+     <a href="online-voting-admin.php"><i class="fa fa-trophy" ></i> Online Voting</a>
      <a href="examinationtimetable.php"><i class="fa fa-plus" ></i> Exam Time Table Entry</a>
      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
      
@@ -276,7 +282,9 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
     <a href="duty-roster.php"><i class="fa fa-calendar-check-o" ></i> Duty Roster</a>
     <a href="lesson-timetable.php"><i class="fa fa-calendar" ></i> Lesson Timetable Entry</a>
     <a href="lesson-timetable-report.php"><i class="fa fa-book" ></i> Lesson Timetable Report</a>
+    <a href="online-voting.php"><i class="fa fa-trophy" ></i> Online Voting</a>
     <a href="online-admission-admin.php"><i class="fa fa-globe" ></i> Online Admission</a>
+    <a href="online-voting-admin.php"><i class="fa fa-trophy" ></i> Online Voting</a>
     <a href="user-management.php"><i class="fa fa-users" ></i> User Management</a>
     <a href="house-entry.php"><i class="fa fa-home" ></i> House Entry</a>
     <a href="house-master-assignment.php"><i class="fa fa-plus" ></i> House Master Assignment</a>
@@ -376,7 +384,8 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
      <a href="lesson-timetable.php"><i class="fa fa-calendar" ></i> Lesson Timetable Entry</a>
      <a href="lesson-timetable-report.php"><i class="fa fa-book" ></i> Lesson Timetable Report</a>
-           
+     <a href="online-voting-admin.php"><i class="fa fa-trophy" ></i> Online Voting</a>
+            
      <a href="student-terminal-data.php"><i class="fa fa-plus" ></i> Student Terminal Data</a>
      <a href="terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>
     <a href="scores-report.php"><i class="fa fa-book" ></i> Scores Report</a>

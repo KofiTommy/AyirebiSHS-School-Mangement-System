@@ -1310,3 +1310,85 @@ body.teacher-dashboard-page {
         justify-content: center;
     }
 }
+
+.teacher-voting-card,
+.teacher-voting-card__summary {
+    display: grid;
+    gap: 14px;
+}
+
+.teacher-voting-card__summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-bottom: 16px;
+}
+
+.teacher-voting-card__summary article,
+.teacher-voting-leader {
+    padding: 16px 18px;
+    border-radius: 20px;
+    border: 1px solid rgba(23, 49, 75, 0.08);
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.teacher-voting-card__summary span {
+    display: block;
+    color: #6a7e91;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.teacher-voting-card__summary strong {
+    display: block;
+    margin-top: 8px;
+    color: #17314b;
+    font-size: 1.1rem;
+}
+
+.teacher-voting-card__leaders {
+    display: grid;
+    gap: 12px;
+}
+
+.teacher-voting-leader {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    text-decoration: none;
+}
+
+.teacher-voting-leader img {
+    width: 58px;
+    height: 58px;
+    border-radius: 18px;
+    object-fit: cover;
+}
+
+.teacher-voting-leader strong,
+.teacher-voting-leader span {
+    display: block;
+}
+
+.teacher-voting-leader strong {
+    color: #17314b;
+}
+
+.teacher-voting-leader span {
+    margin-top: 4px;
+    color: #6a7e91;
+    font-size: 0.88rem;
+}
+
+@media (max-width: 900px) {
+    .teacher-voting-card__summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .teacher-voting-card__summary {
+        grid-template-columns: 1fr;
+    }
+}

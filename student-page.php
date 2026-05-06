@@ -6,8 +6,10 @@ include("class-teacher-utils.php");
 include("house-master-utils.php");
 include("company.php");
 include_once("semester-registry-utils.php");
+include_once("voting-utils.php");
 ensure_class_teacher_table($con);
 ensure_house_tables($con);
+ensure_voting_tables($con);
 
 if(!house_master_is_student()){
     header("location:".house_master_landing_page());
@@ -376,6 +378,7 @@ if($paidRes && $row = mysqli_fetch_array($paidRes, MYSQLI_ASSOC)){
 }
 $financeBalance = $financeBilled - $financePaid;
 $messageUnreadCount = um_message_unread_count($con, $studentId, 'Student');
+$studentVotingSnapshot = voting_dashboard_snapshot($con, voting_default_branch_id($con), 'Student');
 
 $exeatTotal = 0;
 $exeatPending = 0;
@@ -639,12 +642,41 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <a class="student-action-card" href="examinationtimetablereport.php"><span class="student-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Exam Timetable</h3></a>
         <a class="student-action-card" href="lesson-timetable-report.php"><span class="student-action-card__icon"><i class="fa fa-clock-o"></i></span><h3>Lesson Timetable</h3></a>
         <a class="student-action-card" href="student-attendance-report.php"><span class="student-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>My Attendance</h3></a>
+        <a class="student-action-card" href="online-voting.php"><?php if($studentVotingSnapshot && !empty($studentVotingSnapshot["contest"])){ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo sd_esc($studentVotingSnapshot["contest"]["title"]); ?> is <?php echo sd_esc(strtolower(voting_status_label($studentVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Open the contest board when the next school voting event goes live.</p><?php } ?></a>
         <a class="student-action-card" href="messages.php"><span class="student-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the full message board when you need your full conversation view."; ?></p></a>
         <a class="student-action-card" href="edit-account.php"><span class="student-action-card__icon"><i class="fa fa-id-card"></i></span><h3>Profile Settings</h3></a>
         <a class="student-action-card" href="uploaduser-image.php"><span class="student-action-card__icon"><i class="fa fa-image"></i></span><h3>Profile Image</h3></a>
         <a class="student-action-card" href="logout.php"><span class="student-action-card__icon"><i class="fa fa-power-off"></i></span><h3>Sign Out</h3></a>
     </div>
 </section>
+
+<?php if($studentVotingSnapshot && !empty($studentVotingSnapshot["contest"])){ ?>
+<section class="student-section student-voting-section">
+    <div class="student-section__heading">
+        <div><span class="student-section__eyebrow">Live Voting</span><h2>Current contest snapshot</h2></div>
+        <a class="student-panel__link" href="online-voting.php">Open Voting Board</a>
+    </div>
+    <div class="student-voting-card">
+        <div class="student-voting-card__summary">
+            <article><span>Contest</span><strong><?php echo sd_esc($studentVotingSnapshot["contest"]["title"]); ?></strong></article>
+            <article><span>Status</span><strong><?php echo sd_esc(voting_status_label($studentVotingSnapshot["contest"]["resolved_status"])); ?></strong></article>
+            <article><span>Total Votes</span><strong><?php echo number_format((int)$studentVotingSnapshot["summary"]["total_votes"]); ?></strong></article>
+            <article><span>Leader</span><strong><?php echo sd_esc($studentVotingSnapshot["summary"]["leader_name"]); ?></strong></article>
+        </div>
+        <div class="student-voting-card__leaders">
+            <?php foreach($studentVotingSnapshot["top_candidates"] as $voteCandidate){ ?>
+            <a class="student-voting-leader" href="online-voting.php?contest=<?php echo rawurlencode((string)$studentVotingSnapshot["contest"]["contestid"]); ?>&candidate=<?php echo rawurlencode((string)$voteCandidate["candidateid"]); ?>">
+                <img src="<?php echo sd_esc(voting_candidate_photo($voteCandidate)); ?>" alt="<?php echo sd_esc($voteCandidate["candidatename"]); ?>">
+                <div>
+                    <strong><?php echo sd_esc($voteCandidate["candidatename"]); ?></strong>
+                    <span><?php echo number_format((int)$voteCandidate["totalvotes"]); ?> votes</span>
+                </div>
+            </a>
+            <?php } ?>
+        </div>
+    </div>
+</section>
+<?php } ?>
 
 <div class="student-layout">
     <div class="student-panel-stack student-panel-stack--main">

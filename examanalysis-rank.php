@@ -1,5 +1,297 @@
 <?php
 session_start();
+if(file_exists(__DIR__.DIRECTORY_SEPARATOR."semester-registry-utils.php")){
+include_once("semester-registry-utils.php");
+}
+
+if(!function_exists('examanalysis_rank_registry_year_sql')){
+function examanalysis_rank_registry_year_sql($alias='tr'){
+	if(function_exists('semester_registry_resolved_year_sql')){
+		return semester_registry_resolved_year_sql($alias);
+	}
+	$alias=trim((string)$alias);
+	if($alias===""){
+		$alias='tr';
+	}
+	return "DATE_FORMAT(".$alias.".datetimeentry, '%Y')";
+}
+}
+
+if(!function_exists('examanalysis_rank_assignment_year_sql')){
+function examanalysis_rank_assignment_year_sql($alias='sa'){
+	if(function_exists('semester_registry_assignment_year_sql')){
+		return semester_registry_assignment_year_sql($alias);
+	}
+	$alias=trim((string)$alias);
+	if($alias===""){
+		$alias='sa';
+	}
+	return "DATE_FORMAT(".$alias.".datetimeentry, '%Y')";
+}
+}
+
+if(!function_exists('examanalysis_rank_esc')){
+function examanalysis_rank_esc($value){
+	return htmlspecialchars((string)$value,ENT_QUOTES,'UTF-8');
+}
+}
+
+if(!function_exists('examanalysis_rank_column_exists')){
+function examanalysis_rank_column_exists($con,$tableName,$columnName){
+	$tableSafe=mysqli_real_escape_string($con,(string)$tableName);
+	$columnSafe=mysqli_real_escape_string($con,(string)$columnName);
+	$_SQL_COLUMN=mysqli_query($con,"SHOW COLUMNS FROM `".$tableSafe."` LIKE '".$columnSafe."'");
+	return ($_SQL_COLUMN && mysqli_num_rows($_SQL_COLUMN)>0);
+}
+}
+
+if(!function_exists('examanalysis_rank_compare_classes')){
+function examanalysis_rank_compare_classes($firstRow,$secondRow){
+	$firstName=strtolower(trim((string)$firstRow['class_name']));
+	$secondName=strtolower(trim((string)$secondRow['class_name']));
+	if($firstName===$secondName){
+		return 0;
+	}
+	return ($firstName<$secondName) ? -1 : 1;
+}
+}
+
+if(!function_exists('examanalysis_rank_compare_students')){
+function examanalysis_rank_compare_students($firstRow,$secondRow){
+	$firstTotal=(float)$firstRow['total'];
+	$secondTotal=(float)$secondRow['total'];
+	if($firstTotal==$secondTotal){
+		$firstName=strtolower(trim((string)$firstRow['name']));
+		$secondName=strtolower(trim((string)$secondRow['name']));
+		if($firstName===$secondName){
+			return 0;
+		}
+		return ($firstName<$secondName) ? -1 : 1;
+	}
+	return ($firstTotal>$secondTotal) ? -1 : 1;
+}
+}
+
+if(!function_exists('examanalysis_rank_batch_label')){
+function examanalysis_rank_batch_label($con,$batchId){
+	$batchId=trim((string)$batchId);
+	if($batchId===""){
+		return "";
+	}
+	$batchIdSafe=mysqli_real_escape_string($con,$batchId);
+	$_SQL_BA=mysqli_query($con,"SELECT batch FROM tblbatch WHERE batchid='$batchIdSafe' LIMIT 1");
+	if($_SQL_BA && $rowb=mysqli_fetch_array($_SQL_BA,MYSQLI_ASSOC)){
+		return trim((string)$rowb["batch"]);
+	}
+	return "";
+}
+}
+
+if(!function_exists('examanalysis_rank_student_name')){
+function examanalysis_rank_student_name($studentRow){
+	$_NameParts=array();
+	foreach(array('firstname','othernames','surname') as $_NameKey){
+		$_NameValue=trim((string)(isset($studentRow[$_NameKey]) ? $studentRow[$_NameKey] : ""));
+		if($_NameValue!==""){
+			$_NameParts[]=$_NameValue;
+		}
+	}
+	$_FullName=trim(preg_replace('/\s+/',' ',implode(" ",$_NameParts)));
+	$_UserId=trim((string)(isset($studentRow['userid']) ? $studentRow['userid'] : ""));
+	if($_UserId!==""){
+		$_FullName=$_FullName."(".$_UserId.")";
+	}
+	return trim($_FullName);
+}
+}
+
+if(!function_exists('examanalysis_rank_latest_term_context')){
+function examanalysis_rank_latest_term_context($con,$userId,$classId,$batchId){
+	$_Context=array(
+		'termname'=>'',
+		'academicyear'=>''
+	);
+
+	$userId=trim((string)$userId);
+	$classId=trim((string)$classId);
+	$batchId=trim((string)$batchId);
+	if($userId==="" || $classId==="" || $batchId===""){
+		return $_Context;
+	}
+
+	$userIdSafe=mysqli_real_escape_string($con,$userId);
+	$classIdSafe=mysqli_real_escape_string($con,$classId);
+	$batchIdSafe=mysqli_real_escape_string($con,$batchId);
+	$_RegistryYearSql=examanalysis_rank_registry_year_sql("tr");
+	$_SQL_CONTEXT=mysqli_query($con,"SELECT tr.termname,$_RegistryYearSql AS academicyear
+		FROM tbltermregistry tr
+		WHERE tr.userid='$userIdSafe' AND tr.class_entryid='$classIdSafe' AND tr.batchid='$batchIdSafe'
+		ORDER BY academicyear DESC,tr.termname DESC,tr.datetimeentry DESC
+		LIMIT 1");
+
+	if($_SQL_CONTEXT && $row_context=mysqli_fetch_array($_SQL_CONTEXT,MYSQLI_ASSOC)){
+		$_Context['termname']=trim((string)$row_context['termname']);
+		$_Context['academicyear']=trim((string)$row_context['academicyear']);
+	}
+	return $_Context;
+}
+}
+
+if(!function_exists('examanalysis_rank_student_total')){
+function examanalysis_rank_student_total($con,$studentRow){
+	$_UserId=trim((string)(isset($studentRow['userid']) ? $studentRow['userid'] : ""));
+	$_ClassId=trim((string)(isset($studentRow['class_entryid']) ? $studentRow['class_entryid'] : ""));
+	$_BatchId=trim((string)(isset($studentRow['batchid']) ? $studentRow['batchid'] : ""));
+	$_TermName=trim((string)(isset($studentRow['termname']) ? $studentRow['termname'] : ""));
+	$_AcademicYear=trim((string)(isset($studentRow['academicyear']) ? $studentRow['academicyear'] : ""));
+
+	if($_UserId==="" || $_ClassId==="" || $_BatchId==="" || $_TermName===""){
+		return 0;
+	}
+
+	$_UserIdSafe=mysqli_real_escape_string($con,$_UserId);
+	$_ClassIdSafe=mysqli_real_escape_string($con,$_ClassId);
+	$_BatchIdSafe=mysqli_real_escape_string($con,$_BatchId);
+	$_TermNameSafe=mysqli_real_escape_string($con,$_TermName);
+	$_TermNameSql = ($_TermName!=="") ? " AND sa.termname='$_TermNameSafe'" : "";
+	$_AcademicYearSql = "";
+	if($_AcademicYear!==""){
+		$_AcademicYearSafe=mysqli_real_escape_string($con,$_AcademicYear);
+		$_AcademicYearSql = " AND ".examanalysis_rank_assignment_year_sql("sa")."='$_AcademicYearSafe'";
+	}
+
+	$_SQL_TOTAL=mysqli_query($con,"SELECT COALESCE(SUM(mk.mark+0),0) AS total_score
+		FROM tblmark mk
+		INNER JOIN tblsubjectassignment sa ON mk.assignmentid=sa.assignmentid
+		WHERE mk.userid='$_UserIdSafe'
+		AND mk.status='active'
+		AND sa.status='active'
+		AND sa.classid='$_ClassIdSafe'
+		AND sa.batchid='$_BatchIdSafe'
+		$_TermNameSql $_AcademicYearSql");
+
+	if($_SQL_TOTAL && $row_total=mysqli_fetch_array($_SQL_TOTAL,MYSQLI_ASSOC)){
+		return round((float)$row_total['total_score'],2);
+	}
+	return 0;
+}
+}
+
+if(!function_exists('examanalysis_rank_class_rows')){
+function examanalysis_rank_class_rows($con,$batchId){
+	$batchId=trim((string)$batchId);
+	if($batchId===""){
+		return array();
+	}
+
+	if(function_exists('semester_registry_ensure_academic_year_column')){
+		semester_registry_ensure_academic_year_column($con);
+	}
+
+	$batchIdSafe=mysqli_real_escape_string($con,$batchId);
+	$_LatestStudentRows=array();
+	$_HasClassBatch=examanalysis_rank_column_exists($con,'tblclass','batchid');
+	$_HasClassStatus=examanalysis_rank_column_exists($con,'tblclass','status');
+
+	if($_HasClassBatch){
+		$_ClassWhereSql=" WHERE cl.batchid='$batchIdSafe' AND su.systemtype='Student'";
+		if($_HasClassStatus){
+			$_ClassWhereSql.=" AND cl.status='active'";
+		}
+		$_SQL_CLASS=mysqli_query($con,"SELECT cl.classid,cl.userid,cl.class_entryid,cl.batchid,cl.datetimeentry,
+			ce.class_name,su.firstname,su.othernames,su.surname
+			FROM tblclass cl
+			INNER JOIN tblclassentry ce ON cl.class_entryid=ce.class_entryid
+			INNER JOIN tblsystemuser su ON cl.userid=su.userid
+			$_ClassWhereSql
+			ORDER BY cl.userid ASC,cl.datetimeentry DESC,ce.class_name ASC");
+
+		if($_SQL_CLASS){
+			while($row_class=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
+				$_ClassUserId=trim((string)$row_class['userid']);
+				if($_ClassUserId==="" || isset($_LatestStudentRows[$_ClassUserId])){
+					continue;
+				}
+				$_LatestStudentRows[$_ClassUserId]=$row_class;
+			}
+		}
+	}
+
+	if(empty($_LatestStudentRows)){
+		$_RegistryYearSql=examanalysis_rank_registry_year_sql("tr");
+		$_SQL_REGISTRY=mysqli_query($con,"SELECT tr.termid,tr.userid,tr.class_entryid,tr.termname,tr.batchid,tr.datetimeentry,
+			$_RegistryYearSql AS academicyear,ce.class_name,su.firstname,su.othernames,su.surname
+			FROM tbltermregistry tr
+			INNER JOIN tblclassentry ce ON tr.class_entryid=ce.class_entryid
+			INNER JOIN tblsystemuser su ON tr.userid=su.userid
+			WHERE tr.batchid='$batchIdSafe' AND su.systemtype='Student'
+			ORDER BY tr.userid ASC,tr.datetimeentry DESC,tr.termname DESC,ce.class_name ASC");
+
+		if(!$_SQL_REGISTRY){
+			return array();
+		}
+
+		while($row_registry=mysqli_fetch_array($_SQL_REGISTRY,MYSQLI_ASSOC)){
+			$_RegistryUserId=trim((string)$row_registry['userid']);
+			if($_RegistryUserId==="" || isset($_LatestStudentRows[$_RegistryUserId])){
+				continue;
+			}
+			$_LatestStudentRows[$_RegistryUserId]=$row_registry;
+		}
+	}
+
+	$_ClassRowsById=array();
+	foreach($_LatestStudentRows as $row_registry){
+		$_ClassId=trim((string)$row_registry['class_entryid']);
+		if($_ClassId===""){
+			continue;
+		}
+		$_TermContext=examanalysis_rank_latest_term_context($con,$row_registry['userid'],$_ClassId,$batchId);
+		if(!isset($_ClassRowsById[$_ClassId])){
+			$_ClassRowsById[$_ClassId]=array(
+				'class_entryid'=>$_ClassId,
+				'class_name'=>trim((string)$row_registry['class_name']),
+				'students'=>array()
+			);
+		}
+		$_ClassRowsById[$_ClassId]['students'][]=array(
+			'userid'=>$row_registry['userid'],
+			'firstname'=>$row_registry['firstname'],
+			'othernames'=>$row_registry['othernames'],
+			'surname'=>$row_registry['surname'],
+			'class_entryid'=>$row_registry['class_entryid'],
+			'class_name'=>$row_registry['class_name'],
+			'batchid'=>$batchId,
+			'termname'=>$_TermContext['termname'],
+			'academicyear'=>$_TermContext['academicyear']
+		);
+	}
+
+	$_ClassRows=array_values($_ClassRowsById);
+	if(!empty($_ClassRows)){
+		usort($_ClassRows,'examanalysis_rank_compare_classes');
+	}
+
+	foreach($_ClassRows as $classIndex=>$classRow){
+		$_RankedStudents=array();
+		foreach($classRow['students'] as $studentRow){
+			$_RankedStudents[]=array(
+				'userid'=>$studentRow['userid'],
+				'name'=>examanalysis_rank_student_name($studentRow),
+				'total'=>examanalysis_rank_student_total($con,$studentRow),
+				'termname'=>$studentRow['termname'],
+				'academicyear'=>$studentRow['academicyear']
+			);
+		}
+		if(!empty($_RankedStudents)){
+			usort($_RankedStudents,'examanalysis_rank_compare_students');
+		}
+		$_ClassRows[$classIndex]['students']=$_RankedStudents;
+	}
+
+	return $_ClassRows;
+}
+}
 //Declare the variables
 @$_Batch_ID=$_POST["batchid"];
 
@@ -79,72 +371,16 @@ $fill =false;
 include("dbstring.php");
 //echo "<input type='hidden' name='batchid' value='$_Batch_ID' />";
 
-$_SQL_ALLCLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
-ON ce.class_entryid=tr.class_entryid GROUP BY tr.class_entryid ORDER BY ce.class_name ASC");
+$_RankedClasses=examanalysis_rank_class_rows($con,$_Batch_ID);
+$_BatchLabel=examanalysis_rank_batch_label($con,$_Batch_ID);
 
-while($row_acl=mysqli_fetch_array($_SQL_ALLCLASS,MYSQLI_ASSOC))
+foreach($_RankedClasses as $row_acl)
 {
 @$_ClassName=$row_acl["class_name"];
-
-$k=0;
-$_SQL_SU=mysqli_query($con,"SELECT * FROM tblsystemuser");
-while($row_us=mysqli_fetch_array($_SQL_SU,MYSQLI_ASSOC)){
-$_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
-ON ce.class_entryid=tr.class_entryid WHERE tr.class_entryid='$row_acl[class_entryid]' AND tr.userid='$row_us[userid]' AND tr.batchid='$_Batch_ID'");
-
-while($row_ce=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC))
-{
-$names[$k]=$row_us['firstname']." ".$row_us['othernames']." ".$row_us['surname']."(".$row_us['userid'].")";
-@$_TotalMark=0;		
-@$serial=0;
-
-$_SQL_EXECUTE=mysqli_query($con,"SELECT *,su.userid FROM tblmark mk 
-INNER JOIN tblsystemuser su ON mk.userid=su.userid
-INNER JOIN tblsubjectassignment sa ON mk.assignmentid=sa.assignmentid
-INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
-INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
-INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
-WHERE su.userid='$row_ce[userid]' AND ce.class_entryid='$row_ce[class_entryid]' AND
-sa.batchid='$_Batch_ID'
-ORDER BY su.userid ASC");
-
-@$_TotalGrade=0;
-
-while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
-
-	$_TotalMark=$_TotalMark+$row['mark'];
-
-}
-//Store scores for sorting
-$scores[$k]=round($_TotalMark);
-$k++;
-}	
-}
-//Sorting in Ascending order
-		@$_Temps=0;
-		@$_TempName="";
-		$count=count($scores);
-		for($j=0;$j<$count;$j++)
-		{
-			for($i=0;$i<$count;$i++)
-			{
-				if($scores[$j]>$scores[$i])
-				{
-				$_Temps=$scores[$j];
-				$_TempName=$names[$j];
-
-				$scores[$j]=$scores[$i];
-				$names[$j]=$names[$i];
-
-				$scores[$i]=$_Temps;
-				$names[$i]=$_TempName;
-				}
-		  }
-		}
+$count=count($row_acl['students']);
 $pdf->Ln(10);
-$_SQL_BA=mysqli_query($con,"SELECT * FROM tblbatch WHERE batchid='$_Batch_ID'");
-if($rowb=mysqli_fetch_array($_SQL_BA,MYSQLI_ASSOC)){
-$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2],10,$rowb["batch"]." Class Ranked",1,0,'L',$fill); 
+if($_BatchLabel!==""){
+$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2],10,$_BatchLabel." Class Ranked",1,0,'L',$fill); 
 }
 $pdf->Ln(10);
 $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2],10,$_ClassName,1,0,'L',$fill); 
@@ -154,8 +390,8 @@ for($g=0;$g<$count;$g++)
 {
 $pdf->Ln(10);
 $pdf->Cell($width_cell[0],10,$serial=$serial+1,1,0,'C',$fill); 
-$pdf->Cell($width_cell[1],10,$names[$g],1,0,'L',$fill); 
-$pdf->Cell($width_cell[2],10,$scores[$g],1,0,'C',$fill); 
+$pdf->Cell($width_cell[1],10,$row_acl['students'][$g]['name'],1,0,'L',$fill); 
+$pdf->Cell($width_cell[2],10,$row_acl['students'][$g]['total'],1,0,'C',$fill); 
 }
 
 }
@@ -309,6 +545,7 @@ if($_SQLUM){
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" type="text/css" href="css/examanalysis-rank.css">
 <script type="text/javascript">
 function checkMark(){
 	var total=document.getElementById("totalmark").value;
@@ -320,7 +557,32 @@ function checkMark(){
 	}
 
 }
+
+function examanalysisRankPrintClass(sectionId, titleText){
+	var source=document.getElementById(sectionId);
+	var styleTag=document.getElementById('rankdash-print-style');
+	if(!source){
+		return;
+	}
+	var printWindow=window.open('', '_blank', 'width=1000,height=720');
+	if(!printWindow){
+		return;
+	}
+	var printTitle=(titleText || 'Class Ranking');
+	printWindow.document.open();
+	printWindow.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+printTitle.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</title>');
+	if(styleTag){
+		printWindow.document.write('<style>'+styleTag.innerHTML+'</style>');
+	}
+	printWindow.document.write('</head><body><div class="rankdash-shell"><h2 class="rankdash-print-title">'+printTitle.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</h2>'+source.outerHTML+'</div></body></html>');
+	printWindow.document.close();
+	printWindow.focus();
+	printWindow.onload=function(){
+		printWindow.print();
+	};
+}
 </script>
+<style id="rankdash-print-style"><?php @readfile(__DIR__.DIRECTORY_SEPARATOR."css".DIRECTORY_SEPARATOR."examanalysis-rank.css"); ?></style>
 </head>
 <body>
 	<div class="header">
@@ -329,231 +591,203 @@ function checkMark(){
 	?>		
 	</div>
 <div class="main-platform" style="background-color:white">
-	<br/>
-<table width="100%">
-<tr>
-<td width="30%">
-<div class="form-entry">
-<form id="formID" name="formID" method="post" action="examanalysis-rank.php">
-	<h3>EXAMS ANALYSIS:Rank</h3>
-<?php	
-include("dbstring.php");
-/*$_SQL_2=mysqli_query($con,"SELECT * FROM tbltermregistry tr 
-	INNER JOIN tblsubjectassignment sa ON tr.batchid=sa.batchid AND tr.termname=sa.termname
-	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
-	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
-	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
-	WHERE tr.userid='$_SESSION[USERID]' ORDER BY tr.termname ASC");
+<div class="rankdash-shell">
+	<div class="rankdash-hero">
+		<h1>Exams Analysis Ranking</h1>
+		<p>Load a batch, review each current class ranking, and print one class at a time when you need a cleaner handout.</p>
+		<div class="rankdash-badges">
+			<span class="rankdash-badge"><i class="fa fa-filter"></i> Batch-based ranking</span>
+			<span class="rankdash-badge"><i class="fa fa-users"></i> Current class placement first</span>
+			<span class="rankdash-badge"><i class="fa fa-print"></i> Print all or print one class</span>
+		</div>
+	</div>
 
-echo "<select id='classid' name='classid' class='validate[required]'>";
-	echo "<option value=''>Select Subject</option>";
-	while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-	echo "<option value='$row[class_entryid]'>$row[class_name]:Term: $row[termname] : $row[subject]</option>";
-	}
-echo "</select><br/><br/>";
-*/
-echo "<fieldset><legend>BATCH</legend>";		
-$_SQL_2=mysqli_query($con,"SELECT * FROM tbltermregistry tr INNER JOIN tblbatch bch ON tr.batchid=bch.batchid
-			GROUP BY tr.batchid");
+	<div class="rankdash-layout">
+		<aside class="rankdash-sidebar">
+			<div class="rankdash-card rankdash-print-hide">
+				<h3>Load Ranking</h3>
+				<form id="formID" name="formID" method="post" action="examanalysis-rank.php" class="rankdash-filter-form">
+				<?php
+				include("dbstring.php");
+				echo "<fieldset><legend>Batch Filter</legend>";
+				$_SelectedBatchId = isset($_POST['batchid']) ? trim((string)$_POST['batchid']) : '';
+				$_SQL_2=mysqli_query($con,"SELECT batchid,batch FROM tblbatch ORDER BY datetimeentry DESC");
+				?>
+				<div class="rankdash-field">
+					<label for="batchid">Batch</label>
+					<select id="batchid" name="batchid" class="validate[required]">
+						<option value="">Select Batch</option>
+						<?php
+						while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
+							$_Selected = ($_SelectedBatchId==trim((string)$row['batchid'])) ? "selected" : "";
+							echo "<option value='".examanalysis_rank_esc($row['batchid'])."' $_Selected>".examanalysis_rank_esc($row['batch'])."</option>";
+						}
+						?>
+					</select>
+				</div>
+				<div class="rankdash-actions">
+					<button class="rankdash-btn" id="show_terminal_report" name="show_terminal_report" type="submit"><i class="fa fa-search"></i> Show Report</button>
+					<a class="rankdash-btn rankdash-btn--ghost" href="examanalysis-rank.php"><i class="fa fa-refresh"></i> Reset</a>
+				</div>
+				<?php
+				echo "</fieldset>";
+				?>
+				</form>
+			</div>
 
-echo "<select id='batchid' name='batchid' class='validate[required]'>";
-echo "<option value=''>Select Batch</option>";
-while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-echo "<option value='$row[batchid]'>$row[batch]</option>";
-}
-echo "</select><br/><br/>";
-echo "<button class='button-show' id='show_terminal_report' name='show_terminal_report'><i class='fa fa-search' style='color:white'></i> SHOW REPORT</button> ";
-echo "</fieldset>";
-?>
-
-<!--<label>* Total Score</label>
-<input type="number" id="totalscore" name="totalscore" value="" placeholder="Total Score" class="validate[required,custom[number]]"/><br/><br/>
--->
-
-</form>
-</div>
-</td>
-<td width="70%">
-<div class="form-entry">
-
-<form id="formID3" name="formID3" method="post" action="examanalysis-rank.php">
-<?php
-if(isset($_GET["edit_mark"]))
-{
-	echo "<h3>UPDATE STUDENT'S MARK</h3>";
-$_SQL_ED=mysqli_query($con,"SELECT * FROM tblmark mk INNER JOIN 
-	tblsystemuser su ON mk.userid=su.userid WHERE mk.markid='$_GET[edit_mark]'");
-echo "<table>";
-echo "<caption>Mark of Student</caption>";
-echo "<thead><th>STUDENT</th><th>BATCH</th><th>SUBJECT</th><th>MARK</th><th>TOTAL</th></thead>";
-echo "<tbody>";
-if($rows_m=mysqli_fetch_array($_SQL_ED,MYSQLI_ASSOC))
-{
-echo "<tr>";
-echo "<td width='30%'>";
-echo "<input type='hidden' id='newmarkid' name='newmarkid' value='$_GET[edit_mark]'readonly/>";
-
-echo "<input type='hidden' id='userid' name='userid' value='$rows_m[userid]'readonly/>";
-
-echo "$rows_m[firstname] $rows_m[othernames] $rows_m[surname] ($rows_m[userid])";
-echo "</td>";
-
-echo "<td>";
-@$_BATCH="";
-$_SQLBh=mysqli_query($con,"SELECT * FROM tblbatch WHERE batchid='$_GET[edit_batch]'");
-if($rowb=mysqli_fetch_array($_SQLBh,MYSQLI_ASSOC)){
-$_BATCH=$rowb["batch"];
-}
-echo "<input type='hidden' id='batchid' name='batchid' value='$_GET[edit_batch]'/>";
-echo "$_BATCH";
-echo "</td>";
-
-echo "<td>";
-//echo "<input type='hidden' id='userid' name='userid' value='$rows_m[userid]'readonly/>";
-echo "$_GET[edit_subject]";
-echo "</td>";
-
-echo "<td>";
-echo "<input type='text' id='newmark' name='newmark' value='$rows_m[mark]' onchange='checkMark()' class='validate[required]'/>";
-echo "</td>";
-
-echo "<td>";
-echo "<input type='text' id='totalmark' name='totalmark' value='$rows_m[totalmark]'readonly/>";
-echo "</td>";
-
-echo "</tr>";
-}
-echo "<tr>";
-echo "<td>";
-echo "<button class='button-edit' id='updatemark' name='updatemark'><i class='fa fa-edit'></i> UPDATE MARK</button>";
-echo "</td>";
-echo "</tr>";
-
-echo "</tbody>";
-echo "</table>";
-}
-?>
-</form>
-	<form id="formID2" name="formID2" method="post" action="examanalysis-rank.php">
-		<h3>CLASS RANKING</h3>
-<?php
-include("gradingsystem.php");
-	$_grade_obj=new GradingSystem();
-echo $_SESSION['Message'];
-if(isset($_POST["show_terminal_report"])){
-echo "<button class='button-pay' id='print_examanalysis_report' name='print_examanalysis_report'><i class='fa fa-print'></i> Print Report</button><br/><br/>";		
-	
-@$_Batch_ID=$_POST["batchid"];
-include("dbstring.php");
-echo "<input type='hidden' name='batchid' value='$_Batch_ID' />";
-
-$_SQL_ALLCLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
-ON ce.class_entryid=tr.class_entryid WHERE tr.batchid = '$_Batch_ID' GROUP BY tr.class_entryid ORDER BY ce.class_name ASC");
-
-while($row_acl=mysqli_fetch_array($_SQL_ALLCLASS,MYSQLI_ASSOC))
-{
-@$_ClassName=$row_acl["class_name"];
-
-$k=0;
-$_SQL_SU=mysqli_query($con,"SELECT * FROM tblsystemuser");
-while($row_us=mysqli_fetch_array($_SQL_SU,MYSQLI_ASSOC)){
-$_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
-ON ce.class_entryid=tr.class_entryid WHERE tr.class_entryid='$row_acl[class_entryid]' AND tr.userid='$row_us[userid]' AND tr.batchid='$_Batch_ID'");
-
-while($row_ce=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC))
-{
-$names[$k]=$row_us['firstname']." ".$row_us['othernames']." ".$row_us['surname']."(".$row_us['userid'].")";
-@$_TotalMark=0;		
-@$serial=0;
-
-$_SQL_EXECUTE=mysqli_query($con,"SELECT *,su.userid FROM tblmark mk 
-INNER JOIN tblsystemuser su ON mk.userid=su.userid
-INNER JOIN tblsubjectassignment sa ON mk.assignmentid=sa.assignmentid
-INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
-INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
-INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
-WHERE su.userid='$row_ce[userid]' AND ce.class_entryid='$row_ce[class_entryid]' AND
-sa.batchid='$_Batch_ID'
-ORDER BY su.userid ASC");
-
-@$_TotalGrade=0;
-while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
-	
-		$_TotalMark=$_TotalMark+$row['mark'];
-	
-}
-//Store scores for sorting
-$scores[$k]=$_TotalMark;
-$k++;
-}	
-}
-?>
-
-<?php
-//Sorting in Ascending order
-		@$_Temps=0;
-		@$_TempName="";
-		$count=count($scores);
-		for($j=0;$j<$count;$j++)
-		{
-			for($i=0;$i<$count;$i++)
+			<?php
+			if(isset($_GET["edit_mark"]))
 			{
-				if($scores[$j]>$scores[$i])
+			?>
+			<div class="rankdash-card">
+				<h3>Update Student Mark</h3>
+				<form id="formID3" name="formID3" method="post" action="examanalysis-rank.php">
+				<?php
+				$_SQL_ED=mysqli_query($con,"SELECT * FROM tblmark mk INNER JOIN tblsystemuser su ON mk.userid=su.userid WHERE mk.markid='$_GET[edit_mark]'");
+				if($rows_m=mysqli_fetch_array($_SQL_ED,MYSQLI_ASSOC))
 				{
-				$_Temps=$scores[$j];
-				$_TempName=$names[$j];
-
-				$scores[$j]=$scores[$i];
-				$names[$j]=$names[$i];
-
-				$scores[$i]=$_Temps;
-				$names[$i]=$_TempName;
+					@$_BATCH="";
+					$_SQLBh=mysqli_query($con,"SELECT * FROM tblbatch WHERE batchid='$_GET[edit_batch]'");
+					if($rowb=mysqli_fetch_array($_SQLBh,MYSQLI_ASSOC)){
+						$_BATCH=$rowb["batch"];
+					}
+					echo "<table class='rankdash-update-table'>";
+					echo "<thead><tr><th>Student</th><th>Batch</th><th>Subject</th><th>Mark</th><th>Total</th></tr></thead>";
+					echo "<tbody>";
+					echo "<tr>";
+					echo "<td data-label='Student'>";
+					echo "<input type='hidden' id='newmarkid' name='newmarkid' value='".examanalysis_rank_esc($_GET['edit_mark'])."' readonly/>";
+					echo "<input type='hidden' id='userid' name='userid' value='".examanalysis_rank_esc($rows_m['userid'])."' readonly/>";
+					echo examanalysis_rank_esc($rows_m['firstname']." ".$rows_m['othernames']." ".$rows_m['surname']." (".$rows_m['userid'].")");
+					echo "</td>";
+					echo "<td data-label='Batch'>";
+					echo "<input type='hidden' id='batchid' name='batchid' value='".examanalysis_rank_esc($_GET['edit_batch'])."'/>";
+					echo examanalysis_rank_esc($_BATCH);
+					echo "</td>";
+					echo "<td data-label='Subject'>".examanalysis_rank_esc($_GET['edit_subject'])."</td>";
+					echo "<td data-label='Mark'><input type='text' id='newmark' name='newmark' value='".examanalysis_rank_esc($rows_m['mark'])."' onchange='checkMark()' class='validate[required]'/></td>";
+					echo "<td data-label='Total'><input type='text' id='totalmark' name='totalmark' value='".examanalysis_rank_esc($rows_m['totalmark'])."' readonly/></td>";
+					echo "</tr>";
+					echo "</tbody>";
+					echo "</table>";
+					echo "<div class='rankdash-actions'><button class='rankdash-btn' id='updatemark' name='updatemark' type='submit'><i class='fa fa-edit'></i> Update Mark</button></div>";
+				}else{
+					echo "<div class='rankdash-empty'>The selected mark could not be loaded for editing.</div>";
 				}
-		  }
-		}
+				?>
+				</form>
+			</div>
+			<?php
+			}
+			?>
+		</aside>
 
-		
-echo "<table>";
-echo "<caption>";
-echo $_ClassName."<br/><br/>";
-$_SQL_BA=mysqli_query($con,"SELECT * FROM tblbatch WHERE batchid='$_Batch_ID'");
-if($rowb=mysqli_fetch_array($_SQL_BA,MYSQLI_ASSOC)){
-	echo  $rowb["batch"];
-}
-echo " Ranked Class";
-echo"</caption>";
-echo "<thead><th>*</th><th>STUDENT</th><th>TOTAL</th></thead>";
-echo "<tbody>";
-@$serial=0;
-for($g=0;$g<$count;$g++)
-{
-echo "<tr>";
-echo "<td>";
-echo $serial=$serial+1;
-echo "</td>";
+		<section class="rankdash-main">
+			<div class="rankdash-card">
+				<h3>Class Ranking</h3>
+				<?php
+				include("gradingsystem.php");
+				$_grade_obj=new GradingSystem();
+				if(isset($_SESSION['Message']) && trim((string)$_SESSION['Message'])!==""){
+					echo "<div class='rankdash-message'>".$_SESSION['Message']."</div>";
+					$_SESSION['Message']="";
+				}
+				?>
+				<form id="formID2" name="formID2" method="post" action="examanalysis-rank.php">
+				<?php
+				if(isset($_POST["show_terminal_report"])){
+					@$_Batch_ID=$_POST["batchid"];
+					include("dbstring.php");
+					echo "<input type='hidden' name='batchid' value='".examanalysis_rank_esc($_Batch_ID)."' />";
 
-echo "<td>";
-echo $names[$g];
-echo "</td>";
-echo "<td align='center'>";
-echo $scores[$g];
-echo "</td>";
-echo "</tr>";
-}
-echo "</tbody>";
-echo "</table>";
-?>
+					$_RankedClasses=examanalysis_rank_class_rows($con,$_Batch_ID);
+					$_BatchLabel=examanalysis_rank_batch_label($con,$_Batch_ID);
+					$_TotalStudentsAcrossClasses=0;
+					foreach($_RankedClasses as $_RankedClassSummary){
+						$_TotalStudentsAcrossClasses += count($_RankedClassSummary['students']);
+					}
+					?>
+					<div class="rankdash-summary">
+						<div class="rankdash-stat">
+							<h4>Batch</h4>
+							<strong><?php echo examanalysis_rank_esc($_BatchLabel!=="" ? $_BatchLabel : $_Batch_ID); ?></strong>
+							<span>Ranking is now built from the current active class placement for this batch where available.</span>
+						</div>
+						<div class="rankdash-stat">
+							<h4>Classes</h4>
+							<strong><?php echo (int)count($_RankedClasses); ?></strong>
+							<span>Each class card can now be printed separately.</span>
+						</div>
+						<div class="rankdash-stat">
+							<h4>Students Ranked</h4>
+							<strong><?php echo (int)$_TotalStudentsAcrossClasses; ?></strong>
+							<span>Totals are tied to the student's current class and latest term context in that batch.</span>
+						</div>
+					</div>
+					<div class="rankdash-actions rankdash-print-hide" style="margin-top:16px;">
+						<button class="rankdash-btn" id="print_examanalysis_report" name="print_examanalysis_report" type="submit"><i class="fa fa-print"></i> Print All Classes</button>
+					</div>
+					<?php
 
-<?php
-}
-}
-?>
-
-</form>
+					if(empty($_RankedClasses)){
+						echo "<div class='rankdash-empty' style='margin-top:16px;'>No active class ranking data was found for this batch yet. Check class registry and semester registration for the selected batch.</div>";
+					}else{
+						echo "<div class='rankdash-class-grid'>";
+						foreach($_RankedClasses as $classIndex=>$row_acl)
+						{
+							@$_ClassName=$row_acl["class_name"];
+							$count=count($row_acl['students']);
+							$_ClassPrintId="rank-class-".($classIndex+1);
+							?>
+							<article class="rankdash-class-card" id="<?php echo examanalysis_rank_esc($_ClassPrintId); ?>">
+								<div class="rankdash-class-card__header">
+									<div>
+										<h4 class="rankdash-class-card__title"><?php echo examanalysis_rank_esc($_ClassName); ?></h4>
+										<div class="rankdash-class-card__meta">
+											<span><i class="fa fa-graduation-cap"></i> <?php echo examanalysis_rank_esc($_BatchLabel); ?></span>
+											<span><i class="fa fa-users"></i> <?php echo (int)$count; ?> Student(s)</span>
+										</div>
+									</div>
+									<div class="rankdash-class-card__actions rankdash-print-hide">
+										<button type="button" class="rankdash-btn rankdash-btn--ghost" onclick="examanalysisRankPrintClass('<?php echo examanalysis_rank_esc($_ClassPrintId); ?>', <?php echo htmlspecialchars(json_encode($_ClassName.' - '.$_BatchLabel.' Ranked Class'), ENT_QUOTES, 'UTF-8'); ?>)"><i class="fa fa-print"></i> Print This Class</button>
+									</div>
+								</div>
+								<div class="rankdash-class-card__body">
+									<div class="rankdash-table-wrap">
+										<table class="rankdash-table">
+											<thead>
+												<tr><th>Rank</th><th>Student</th><th>Total</th></tr>
+											</thead>
+											<tbody>
+											<?php
+											@$serial=0;
+											for($g=0;$g<$count;$g++)
+											{
+												echo "<tr>";
+												echo "<td data-label='Rank'><span class='rankdash-rank-pill'>".(++$serial)."</span></td>";
+												echo "<td data-label='Student'>".examanalysis_rank_esc($row_acl['students'][$g]['name'])."</td>";
+												echo "<td data-label='Total'><span class='rankdash-total'>".examanalysis_rank_esc($row_acl['students'][$g]['total'])."</span></td>";
+												echo "</tr>";
+											}
+											?>
+											</tbody>
+										</table>
+									</div>
+								</div>
+							</article>
+							<?php
+						}
+						echo "</div>";
+					}
+				}else{
+					echo "<div class='rankdash-empty'>Select a batch on the left to load the ranked classes here.</div>";
+				}
+				?>
+				</form>
+			</div>
+		</section>
+	</div>
 </div>
-</td>
-</tr>
-</table>
 
 <br/><br/>
 <button onclick="topFunction()" id="myBtn" title="Go to top">Top</button> 

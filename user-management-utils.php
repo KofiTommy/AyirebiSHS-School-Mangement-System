@@ -32,6 +32,12 @@ function ensure_user_management_columns($con){
     if(!um_column_exists($con, 'tblsystemuser', 'module_permission_mode')){
         @mysqli_query($con, "ALTER TABLE tblsystemuser ADD COLUMN module_permission_mode VARCHAR(20) NOT NULL DEFAULT 'legacy' AFTER password_last_reset_at");
     }
+    if(!um_column_exists($con, 'tblsystemuser', 'lastactivityat')){
+        @mysqli_query($con, "ALTER TABLE tblsystemuser ADD COLUMN lastactivityat DATETIME NULL DEFAULT NULL AFTER module_permission_mode");
+    }
+    if(!um_column_exists($con, 'tblsystemuser', 'lastactivityscript')){
+        @mysqli_query($con, "ALTER TABLE tblsystemuser ADD COLUMN lastactivityscript VARCHAR(120) NOT NULL DEFAULT '' AFTER lastactivityat");
+    }
 
     @mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblusermodulepermission (
         permissionid BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -77,6 +83,53 @@ function ensure_user_management_columns($con){
         lastupdatedat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (userid)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+}
+
+if(!function_exists('um_touch_current_user_activity')){
+function um_touch_current_user_activity($con, $scriptName = ''){
+    ensure_user_management_columns($con);
+    $userId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+    if($userId === ''){
+        return false;
+    }
+
+    $now = time();
+    $lastTouch = isset($_SESSION['__um_last_activity_touch']) ? (int)$_SESSION['__um_last_activity_touch'] : 0;
+    if($lastTouch > 0 && ($now - $lastTouch) < 60){
+        return true;
+    }
+
+    if($scriptName === ''){
+        $scriptName = isset($_SERVER['PHP_SELF']) ? basename((string)$_SERVER['PHP_SELF']) : '';
+    }
+    $userIdEsc = mysqli_real_escape_string($con, $userId);
+    $scriptEsc = mysqli_real_escape_string($con, trim((string)$scriptName));
+    $updated = @mysqli_query($con, "UPDATE tblsystemuser
+        SET lastactivityat=NOW(), lastactivityscript='$scriptEsc'
+        WHERE userid='$userIdEsc'
+        LIMIT 1");
+    if($updated){
+        $_SESSION['__um_last_activity_touch'] = $now;
+    }
+    return (bool)$updated;
+}
+}
+
+if(!function_exists('um_count_live_users')){
+function um_count_live_users($con, $windowMinutes = 5){
+    ensure_user_management_columns($con);
+    $windowMinutes = max(1, min(60, (int)$windowMinutes));
+    $sql = "SELECT COUNT(*) AS live_total
+        FROM tblsystemuser
+        WHERE lastactivityat IS NOT NULL
+          AND lastactivityat >= (NOW() - INTERVAL $windowMinutes MINUTE)
+          AND COALESCE(status, 'active') <> 'block'";
+    $res = @mysqli_query($con, $sql);
+    if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))){
+        return (int)$row['live_total'];
+    }
+    return 0;
 }
 }
 
@@ -358,6 +411,12 @@ function um_module_catalog(){
             'description' => 'Assign teacher lessons and review the weekly class timetable.',
             'scripts' => array('lesson-timetable.php','lesson-timetable-report.php')
         ),
+        'online_voting' => array(
+            'label' => 'Online Voting',
+            'group' => 'Engagement',
+            'description' => 'Run pageantry contests, campaign profiles, and live paid voting.',
+            'scripts' => array('online-voting-admin.php','online-voting.php','online-voting-paystack-init.php')
+        ),
         'notice_communication' => array(
             'label' => 'Notice And Communication',
             'group' => 'Communication',
@@ -411,6 +470,7 @@ function um_assignable_module_keys_for_role($roleKey){
             'house_management',
             'notice_communication',
             'online_admission',
+            'online_voting',
             'student_teacher_registration',
             'examination_timetable',
             'lesson_timetable'
@@ -644,6 +704,8 @@ function um_baseline_scripts_for_role($roleKey){
             'download-examscore-template.php',
             'download-classexamscore-template.php',
             'lesson-timetable-report.php',
+            'online-voting.php',
+            'online-voting-paystack-init.php',
             'class-score-entry.php',
             'exam-score-entry.php',
             'upload-class-score-entry.php',
@@ -666,7 +728,9 @@ function um_baseline_scripts_for_role($roleKey){
             'examinationtimetablereport.php',
             'messages.php',
             'student-attendance-report.php',
-            'lesson-timetable-report.php'
+            'lesson-timetable-report.php',
+            'online-voting.php',
+            'online-voting-paystack-init.php'
         );
     }
     return array();

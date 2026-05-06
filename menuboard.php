@@ -259,6 +259,7 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher"){
 <a href="upload-student-remark-data.php"><i class="fa fa-arrow-circle-up"></i> Upload Students Remark Data</a>
 <a href="terminal-report.php"><i class="fa fa-book"></i> Examination Report</a>
 <a href="lesson-timetable-report.php"><i class="fa fa-calendar"></i> Lesson Timetable</a>
+<a href="online-voting.php"><i class="fa fa-trophy"></i> Online Voting</a>
 <a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
 <?php menuboard_section_end(); ?>
 
@@ -284,6 +285,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 
 <?php menuboard_section_start('Communication', 'fa-comments'); ?>
 <a href="messages.php"><i class="fa fa-comments"></i> Message Box</a>
+<a href="online-voting.php"><i class="fa fa-trophy"></i> Online Voting</a>
 <?php menuboard_section_end(); ?>
 
 <?php menuboard_section_start('Records', 'fa-folder-o'); ?>
@@ -294,6 +296,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 <?php menuboard_section_start('Examination', 'fa-graduation-cap'); ?>
 <a href="examinationtimetablereport.php"><i class="fa fa-folder-o"></i> Exam Time Table Report</a>
 <a href="lesson-timetable-report.php"><i class="fa fa-clock-o"></i> Lesson Timetable</a>
+<a href="online-voting.php"><i class="fa fa-trophy"></i> Online Voting</a>
 <a href="individual-terminal-report.php"><i class="fa fa-folder-o"></i> Examination Report</a>
 <a href="student-attendance-report.php"><i class="fa fa-bar-chart"></i> My Attendance</a>
 <?php menuboard_section_end(); ?>
@@ -354,6 +357,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a href="lesson-timetable.php"><i class="fa fa-calendar"></i> Lesson Timetable Entry</a>
 <a href="lesson-timetable-report.php"><i class="fa fa-book"></i> Lesson Timetable Report</a>
 <a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
+<a href="online-voting-admin.php"><i class="fa fa-trophy"></i> Online Voting</a>
 <a href="view-all-subject-assigned.php"><i class="fa fa-plus"></i> View Subject(s) Assigned</a>
 <?php menuboard_section_end(); ?>
 
@@ -444,6 +448,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <a href="lesson-timetable.php"><i class="fa fa-calendar"></i> Lesson Timetable Entry</a>
 <a href="lesson-timetable-report.php"><i class="fa fa-book"></i> Lesson Timetable Report</a>
 <a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
+<a href="online-voting-admin.php"><i class="fa fa-trophy"></i> Online Voting</a>
 <a href="view-all-subject-assigned.php"><i class="fa fa-book"></i> View Subject(s) Assigned</a>
 <?php menuboard_section_end(); ?>
 

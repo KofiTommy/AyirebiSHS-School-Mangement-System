@@ -45,6 +45,14 @@ if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE'])){
         $_HomeLink = "super.php";
     }
 }
+$_ShowLiveUsersIndicator = false;
+$_LiveUsersCount = 0;
+if(isset($_SESSION['ACCESSLEVEL']) && $_SESSION['ACCESSLEVEL'] === "administrator"){
+    $_ShowLiveUsersIndicator = true;
+    if(function_exists('um_count_live_users')){
+        $_LiveUsersCount = um_count_live_users($con, 5);
+    }
+}
 ?>
 <html>
 
@@ -94,6 +102,24 @@ button{
 
 .logout-link i {
     color: red;
+}
+
+.top-action-indicator{
+    cursor: default;
+    background: linear-gradient(135deg, #edf7ff, #f7fbff);
+    border-color: #c8dced;
+    color: #163a5c;
+    font-weight: 700;
+}
+
+.top-action-indicator i{
+    color: #0b63ce;
+}
+
+.top-action-indicator small{
+    color: #607b95;
+    font-size: 11px;
+    font-weight: 700;
 }
 
 .dropdownNew {
@@ -198,6 +224,11 @@ button{
     <a class="top-action-link" href="<?php echo $_HomeLink; ?>" title="Click To Home Page">
       <i class="fa fa-home"></i> Home
     </a>
+    <?php if($_ShowLiveUsersIndicator){ ?>
+    <span class="top-action-link top-action-indicator" title="Users active in the last 5 minutes">
+      <i class="fa fa-signal"></i> Live Users: <?php echo number_format((int)$_LiveUsersCount); ?>
+    </span>
+    <?php } ?>
     <a class="top-action-link logout-link" href="logout.php" title="Click To Log Out">
       <i class="fa fa-power-off"></i> Logout
     </a>
@@ -247,6 +278,7 @@ if($_ShowSeniorHouseLinks){
 }
 ?>
 <a href="lesson-timetable-report.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable</button></a>
+<a href="online-voting.php"><button><i class="fa fa-trophy" style="color:#d97706"></i> Online Voting</button></a>
 <?php if($_ShowTeacherAttendanceLinks){ ?>
 <a href="student-attendance.php"><button><i class="fa fa-check-square-o" style="color:#0f766e"></i> Student Attendance</button></a>
 <a href="student-attendance-report.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> Attendance Summary</button></a>
@@ -274,6 +306,7 @@ elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 <a href="examinationtimetablereport.php"><button><i class="fa fa-calendar" style="color:#7c3aed"></i> Exam Timetable</button></a>
 <a href="lesson-timetable-report.php"><button><i class="fa fa-clock-o" style="color:#0f766e"></i> Lesson Timetable</button></a>
 <a href="student-attendance-report.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> My Attendance</button></a>
+<a href="online-voting.php"><button><i class="fa fa-trophy" style="color:#d97706"></i> Online Voting</button></a>
 <a href="messages.php"><button><i class="fa fa-comments" style="color:#ea580c"></i> Message Box</button></a>
 <a href="student-exeat-request.php"><button><i class="fa fa-file" style="color:teal"></i> Request Exeat</button></a>
 <a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
@@ -295,6 +328,7 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="no
 <a href="lesson-timetable.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable Entry</button></a>
 <a href="lesson-timetable-report.php"><button><i class="fa fa-book" style="color:#0f766e"></i> Lesson Timetable Report</button></a>
 <a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
+<a href="online-voting-admin.php"><button><i class="fa fa-trophy" style="color:#d97706"></i> Online Voting</button></a>
 <a href="house-entry.php"><button><i class="fa fa-home" style="color:teal"></i> House Entry</button></a>
 <a href="house-master-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> House Master Assignment</button></a>
 <a href="student-house-assignment.php"><button><i class="fa fa-users" style="color:teal"></i> Student House Assignment</button></a>
@@ -330,6 +364,7 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="su
 <a href="lesson-timetable.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable Entry</button></a>
 <a href="lesson-timetable-report.php"><button><i class="fa fa-book" style="color:#0f766e"></i> Lesson Timetable Report</button></a>
 <a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
+<a href="online-voting-admin.php"><button><i class="fa fa-trophy" style="color:#d97706"></i> Online Voting</button></a>
 <a href="house-entry.php"><button><i class="fa fa-home" style="color:teal"></i> House Entry</button></a>
 <a href="house-master-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> House Master Assignment</button></a>
 <a href="student-house-assignment.php"><button><i class="fa fa-users" style="color:teal"></i> Student House Assignment</button></a>

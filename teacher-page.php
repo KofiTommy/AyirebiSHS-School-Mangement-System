@@ -7,10 +7,12 @@ include("duty-roster-utils.php");
 include("student-attendance-utils.php");
 include("house-master-utils.php");
 include_once("semester-registry-utils.php");
+include_once("voting-utils.php");
 ensure_class_teacher_table($con);
 ensure_duty_roster_tables($con);
 ensure_student_attendance_tables($con);
 ensure_house_tables($con);
+ensure_voting_tables($con);
 if(!(isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==="user" && $_SESSION['SYSTEMTYPE']==="Teacher")){
     header("location:".class_teacher_landing_page());
     exit();
@@ -262,6 +264,7 @@ $teacherCanTakeAttendance = ($classTeacherRoleCount > 0);
 $activeBatchCount = count($activeBatchIds);
 $myMessageCount = 0;
 $messageUnreadCount = um_message_unread_count($con, $teacherId, 'Teacher');
+$teacherVotingSnapshot = voting_dashboard_snapshot($con, voting_default_branch_id($con), 'Teacher');
 $countRes = mysqli_query($con,"SELECT COUNT(*) AS total_messages FROM tblmessages WHERE sentby='$teacherIdEsc' AND status='active'");
 if($countRes && $countRow=mysqli_fetch_array($countRes,MYSQLI_ASSOC)){ $myMessageCount = (int)$countRow["total_messages"]; }
 $myMessages = array();
@@ -514,9 +517,38 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <a class="teacher-action-card" href="terminal-report.php"><span class="teacher-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Reports</h3></a>
         <a class="teacher-action-card" href="lesson-timetable-report.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Lesson Timetable</h3><p>Open your weekly lesson schedule and check today’s teaching periods quickly.</p></a>
         <a class="teacher-action-card" href="scores-report.php"><span class="teacher-action-card__icon"><i class="fa fa-line-chart"></i></span><h3>Scores Report</h3><p>Check reporting summaries and score outputs for your classes.</p></a>
+        <a class="teacher-action-card" href="online-voting.php"><?php if($teacherVotingSnapshot && !empty($teacherVotingSnapshot["contest"])){ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo td_esc($teacherVotingSnapshot["contest"]["title"]); ?> is <?php echo td_esc(strtolower(voting_status_label($teacherVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Open the contest board when the next school voting event goes live.</p><?php } ?></a>
         <a class="teacher-action-card" href="messages.php"><span class="teacher-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the wider message board when you need more than the dashboard preview."; ?></p></a>
     </div>
 </section>
+
+<?php if($teacherVotingSnapshot && !empty($teacherVotingSnapshot["contest"])){ ?>
+<section class="teacher-section teacher-voting-section">
+    <div class="teacher-section__heading">
+        <div><span class="teacher-section__eyebrow">Live Voting</span><h2>Current contest snapshot</h2></div>
+        <a class="teacher-panel__link" href="online-voting.php">Open Voting Board</a>
+    </div>
+    <div class="teacher-voting-card">
+        <div class="teacher-voting-card__summary">
+            <article><span>Contest</span><strong><?php echo td_esc($teacherVotingSnapshot["contest"]["title"]); ?></strong></article>
+            <article><span>Status</span><strong><?php echo td_esc(voting_status_label($teacherVotingSnapshot["contest"]["resolved_status"])); ?></strong></article>
+            <article><span>Total Votes</span><strong><?php echo number_format((int)$teacherVotingSnapshot["summary"]["total_votes"]); ?></strong></article>
+            <article><span>Leader</span><strong><?php echo td_esc($teacherVotingSnapshot["summary"]["leader_name"]); ?></strong></article>
+        </div>
+        <div class="teacher-voting-card__leaders">
+            <?php foreach($teacherVotingSnapshot["top_candidates"] as $voteCandidate){ ?>
+            <a class="teacher-voting-leader" href="online-voting.php?contest=<?php echo rawurlencode((string)$teacherVotingSnapshot["contest"]["contestid"]); ?>&candidate=<?php echo rawurlencode((string)$voteCandidate["candidateid"]); ?>">
+                <img src="<?php echo td_esc(voting_candidate_photo($voteCandidate)); ?>" alt="<?php echo td_esc($voteCandidate["candidatename"]); ?>">
+                <div>
+                    <strong><?php echo td_esc($voteCandidate["candidatename"]); ?></strong>
+                    <span><?php echo number_format((int)$voteCandidate["totalvotes"]); ?> votes</span>
+                </div>
+            </a>
+            <?php } ?>
+        </div>
+    </div>
+</section>
+<?php } ?>
 
 <div class="teacher-layout">
     <div class="teacher-panel-stack teacher-panel-stack--main">
