@@ -331,20 +331,21 @@ $classCount = count($classGroups);
 $reportOptionLookup = array();
 $semesterLookup = array();
 $reportOptions = array();
-$termRes = mysqli_query($con, "SELECT tr.class_entryid,tr.batchid,tr.termname,ce.class_name,bh.batch
+$termRes = mysqli_query($con, "SELECT tr.class_entryid,tr.batchid,tr.termname,ce.class_name,bh.batch,
+    ".semester_registry_resolved_year_sql("tr")." AS academic_year
     FROM tbltermregistry tr
     INNER JOIN tblclassentry ce ON ce.class_entryid=tr.class_entryid
     LEFT JOIN tblbatch bh ON bh.batchid=tr.batchid
     WHERE tr.userid='$studentIdEsc'
-    ORDER BY bh.datetimeentry DESC, tr.termname DESC, ce.class_name ASC");
+    ORDER BY ".semester_registry_resolved_year_sql("tr")." DESC, bh.datetimeentry DESC, tr.termname DESC, ce.class_name ASC");
 if($termRes){
     while($row = mysqli_fetch_array($termRes, MYSQLI_ASSOC)){
-        $key = $row['batchid']."|".$row['class_entryid']."|".$row['termname'];
+        $key = $row['batchid']."|".$row['class_entryid']."|".$row['termname']."|".trim((string)$row['academic_year']);
         if(isset($reportOptionLookup[$key])){
             continue;
         }
         $reportOptionLookup[$key] = true;
-        $semesterLookup[$row['batchid']."|".$row['termname']] = true;
+        $semesterLookup[$row['batchid']."|".$row['termname']."|".trim((string)$row['academic_year'])] = true;
         $reportOptions[] = $row;
     }
 }
@@ -708,6 +709,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
                 <h3><?php echo sd_esc($report['class_name']); ?></h3>
                 <form method="post" action="individual-terminal-report.php" class="student-inline-form">
                     <input type="hidden" name="batchid" value="<?php echo sd_esc((string)$report['batchid']); ?>">
+                    <input type="hidden" name="academicyear" value="<?php echo sd_esc((string)(isset($report['academic_year']) ? $report['academic_year'] : '')); ?>">
                     <input type="hidden" name="termid" value="<?php echo sd_esc((string)$report['termname']); ?>">
                     <input type="hidden" name="classid" value="<?php echo sd_esc((string)$report['class_entryid']); ?>">
                     <button class="student-inline-btn" type="submit" name="print_terminal_report"><i class="fa fa-print"></i> Print Report</button>
