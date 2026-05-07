@@ -49,6 +49,15 @@ function um_redirect($params = array(), $anchor = '#user-directory'){
     exit();
 }
 
+function um_user_image_src($userRow){
+    $defaultImage = "uploads/comm.gif";
+    $filename = trim((string)(isset($userRow["filename"]) ? $userRow["filename"] : ""));
+    if($filename !== "" && file_exists(__DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR.$filename)){
+        return "uploads/".rawurlencode($filename);
+    }
+    return $defaultImage;
+}
+
 function um_directory_should_open($isSuperAdmin, $search, $roleFilter, $statusFilter, $branchFilter){
     if(isset($_GET["directory"]) && trim((string)$_GET["directory"]) === "1"){
         return true;
@@ -583,12 +592,18 @@ ob_start();
                         $branchLabel = $branchLabels[$userRow["branchid"]];
                     }
                     $fullName = trim($userRow["firstname"]." ".$userRow["othernames"]." ".$userRow["surname"]);
+                    $userImage = um_user_image_src($userRow);
                     ?>
                     <article class="um-user-card">
                         <div class="um-user-card__head">
-                            <div>
-                                <h3><?php echo umh($fullName !== "" ? $fullName : $userRow["userid"]); ?></h3>
-                                <p><?php echo umh($userRow["userid"]); ?></p>
+                            <div class="um-user-card__identity">
+                                <div class="um-user-card__avatar">
+                                    <img src="<?php echo umh($userImage); ?>" alt="<?php echo umh($fullName !== "" ? $fullName : $userRow["userid"]); ?>">
+                                </div>
+                                <div class="um-user-card__title">
+                                    <h3><?php echo umh($fullName !== "" ? $fullName : $userRow["userid"]); ?></h3>
+                                    <p><?php echo umh($userRow["userid"]); ?></p>
+                                </div>
                             </div>
                             <span class="um-status <?php echo trim((string)$userRow["status"]) === "active" ? "is-active" : "is-blocked"; ?>">
                                 <?php echo trim((string)$userRow["status"]) === "active" ? "Active" : "Blocked"; ?>

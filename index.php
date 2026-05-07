@@ -61,9 +61,20 @@ if(isset($_POST["login"])){
 @$_User =strtolower($_POST["user"]);
 
 $_SQL_EXECUTE=false;
-$stmt_login=mysqli_prepare($con,"SELECT * FROM tblsystemuser su INNER JOIN tblbranch br ON su.branchid=br.branchid WHERE su.username=? AND su.password=? LIMIT 1");
+$stmt_login=mysqli_prepare($con,"SELECT *
+FROM tblsystemuser su
+INNER JOIN tblbranch br ON su.branchid=br.branchid
+WHERE (su.userid=? OR su.username=?)
+  AND su.password=?
+ORDER BY CASE
+    WHEN su.userid=? THEN 0
+    WHEN su.username=? THEN 1
+    ELSE 2
+END,
+su.registereddatetime DESC
+LIMIT 1");
 if($stmt_login){
-mysqli_stmt_bind_param($stmt_login,"ss",$_Username,$_Password);
+mysqli_stmt_bind_param($stmt_login,"sssss",$_Username,$_Username,$_Password,$_Username,$_Username);
 mysqli_stmt_execute($stmt_login);
 $_SQL_EXECUTE=mysqli_stmt_get_result($stmt_login);
 }

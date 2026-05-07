@@ -305,14 +305,19 @@ $houseName = ($houseInfo && !empty($houseInfo['housename'])) ? trim((string)$hou
 
 $classLookup = array();
 $classGroups = array();
-$classRes = mysqli_query($con, "SELECT cl.class_entryid,cl.batchid,ce.class_name,bh.batch
+$latestClassRow = null;
+$classRes = mysqli_query($con, "SELECT cl.class_entryid,cl.batchid,cl.datetimeentry,ce.class_name,bh.batch
     FROM tblclass cl
     INNER JOIN tblclassentry ce ON ce.class_entryid=cl.class_entryid
     LEFT JOIN tblbatch bh ON bh.batchid=cl.batchid
     WHERE cl.userid='$studentIdEsc'
-    ORDER BY bh.datetimeentry DESC, ce.class_name ASC");
+      AND cl.status='active'
+    ORDER BY cl.datetimeentry DESC, bh.datetimeentry DESC, ce.class_name ASC");
 if($classRes){
     while($row = mysqli_fetch_array($classRes, MYSQLI_ASSOC)){
+        if($latestClassRow === null){
+            $latestClassRow = $row;
+        }
         $key = $row['batchid']."|".$row['class_entryid'];
         if(isset($classLookup[$key])){
             continue;
@@ -346,8 +351,8 @@ if($termRes){
 $availableReportCount = count($reportOptions);
 $semesterCount = count($semesterLookup);
 $latestReportOption = $availableReportCount > 0 ? $reportOptions[0] : null;
-$currentClassLabel = $classCount > 0 ? trim((string)$classGroups[0]['class_name']) : "";
-$currentBatchLabel = $classCount > 0 ? trim((string)$classGroups[0]['batch']) : "";
+$currentClassLabel = $latestClassRow ? trim((string)$latestClassRow['class_name']) : "";
+$currentBatchLabel = $latestClassRow ? trim((string)$latestClassRow['batch']) : "";
 if(($currentClassLabel === "" || $currentBatchLabel === "") && $latestReportOption){
     if($currentClassLabel === ""){
         $currentClassLabel = trim((string)$latestReportOption['class_name']);

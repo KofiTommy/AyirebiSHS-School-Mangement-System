@@ -402,17 +402,48 @@
     align-items:flex-start;
 }
 
+.um-user-card__identity{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    min-width:0;
+}
+
+.um-user-card__avatar{
+    width:64px;
+    height:64px;
+    flex:0 0 64px;
+    border-radius:20px;
+    overflow:hidden;
+    border:1px solid #dbe5f0;
+    background:#eef4fa;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.55);
+}
+
+.um-user-card__avatar img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+}
+
+.um-user-card__title{
+    min-width:0;
+}
+
 .um-user-card__head h3{
     margin:0;
     color:#0f172a;
     font-size:20px;
     line-height:1.2;
+    word-break:break-word;
 }
 
 .um-user-card__head p{
     margin:6px 0 0;
     color:#64748b;
     font-size:13px;
+    word-break:break-word;
 }
 
 .um-status{
@@ -626,6 +657,17 @@
 
     .um-user-card__head{
         flex-direction:column;
+        align-items:stretch;
+    }
+
+    .um-user-card__identity{
+        align-items:flex-start;
+    }
+
+    .um-user-card__avatar{
+        width:58px;
+        height:58px;
+        flex-basis:58px;
     }
 
     .um-user-actions{
