@@ -163,15 +163,71 @@ $pdf->Ln($p);
 $_OverallScore=$row_om['OverallScore'];
 }
 
-
  $_class_position_obj->setClassPosition($_BatchId,$_OverallScore,$_TermId);
  $_Get_Class_Position = $_class_position_obj->getClassPosition();
 
-      $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4]+$width_cell[5],10,"Position:". $_Get_Class_Position,0,0,'R',true);
-      //$pdf->SetTextColor(0);
-     $pdf->SetFont('Arial','B',10);
+  $_Result=mysqli_query($con,$_SQL_EXECUTE_SP);
+  @$_ClassPositionLabel="N/A";
+  @$_ClassCount=0;
+  @$_ClassEntryId="";
+  @$_TermName="";
+  if($row_ctx=mysqli_fetch_array($_Result,MYSQLI_ASSOC))
+  {
+    $_ClassEntryId=$row_ctx['class_entryid'];
+    $_TermName=$row_ctx['termname'];
 
+    $_SQL_CLASS_TOTALS=mysqli_query($con,"SELECT mk.userid, SUM(mk.mark) AS totalscore
+      FROM tblmark mk
+      INNER JOIN tblsubjectassignment sa ON mk.assignmentid=sa.assignmentid
+      INNER JOIN tblsystemuser su ON su.userid=mk.userid
+      WHERE su.systemtype='Student'
+        AND sa.batchid='$_BatchId'
+        AND sa.classid='$_ClassEntryId'
+        AND sa.termname='$_TermName'
+      GROUP BY mk.userid
+      ORDER BY totalscore DESC");
+
+    if($_SQL_CLASS_TOTALS){
+      $_ClassCount=mysqli_num_rows($_SQL_CLASS_TOTALS);
+      @$_TargetRank=0;
+      @$_CurrentRank=0;
+      @$_Index=0;
+      @$_PrevScore=null;
+      while($row_rank=mysqli_fetch_array($_SQL_CLASS_TOTALS,MYSQLI_ASSOC)){
+        $_Index=$_Index+1;
+        $_Score=floatval($row_rank['totalscore']);
+        if($_PrevScore===null || $_Score < $_PrevScore){
+          $_CurrentRank=$_Index;
+        }
+        if($row_rank['userid']==$_UserID){
+          $_TargetRank=$_CurrentRank;
+          break;
+        }
+        $_PrevScore=$_Score;
+      }
+      if($_TargetRank>0){
+        if($_TargetRank % 100 >= 11 && $_TargetRank % 100 <= 13){
+          $_ClassPositionLabel=$_TargetRank."th";
+        } else {
+          switch($_TargetRank % 10){
+            case 1: $_ClassPositionLabel=$_TargetRank."st"; break;
+            case 2: $_ClassPositionLabel=$_TargetRank."nd"; break;
+            case 3: $_ClassPositionLabel=$_TargetRank."rd"; break;
+            default: $_ClassPositionLabel=$_TargetRank."th"; break;
+          }
+        }
+      }
+    }
+  }
+
+      $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4]+$width_cell[5],10,"Group Year Position: ". $_Get_Class_Position,0,0,'R',true);
+      $pdf->SetFont('Arial','B',10);
       $pdf->Ln($n);
+      $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4]+$width_cell[5],10,"Class Position: ". $_ClassPositionLabel." / ".$_ClassCount,0,0,'R',true);
+      $pdf->SetFont('Arial','B',10);
+      $pdf->Ln($n);
+
+      // Re-query because the context fetch above consumed the first row
  	$_Result=mysqli_query($con,$_SQL_EXECUTE_SP);
 
       if($row_ps=mysqli_fetch_array($_Result,MYSQLI_ASSOC))
