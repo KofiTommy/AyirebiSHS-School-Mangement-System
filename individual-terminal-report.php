@@ -6,6 +6,7 @@ include("class-position.php");
 include_once("dbstring.php");
 include_once("semester-registry-utils.php");
 include_once("report-approval-utils.php");
+include_once("school-data-utils.php");
 semester_registry_ensure_academic_year_column($con);
 
 @$_position_obj=new Position;
@@ -52,24 +53,19 @@ $_TermFilter = (isset($_TermId) && trim((string)$_TermId)!=="") ? (int)$_TermId 
 $_AcademicYearFilter = trim((string)$_AcademicYear);
 @$_AcademicYearLabel=$_AcademicYearFilter;
 @$_SemesterLabel=($_TermFilter>0 ? (string)$_TermFilter : '');
-if($_TermFilter>0 && $_AcademicYearFilter!==""){
-$_AcademicYearFilterEsc=mysqli_real_escape_string($con,$_AcademicYearFilter);
-$_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' AND termname='$_TermFilter' AND academicyear='$_AcademicYearFilterEsc' ORDER BY datetimeentry DESC LIMIT 1");
-}elseif($_TermFilter>0){
-$_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' AND termname='$_TermFilter' ORDER BY datetimeentry DESC LIMIT 1");
-}else{
-$_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' ORDER BY termname DESC, datetimeentry DESC LIMIT 1");
-}
-if((!$_SQL_IN || mysqli_num_rows($_SQL_IN)===0) && $_TermFilter>0 && $_AcademicYearFilter===""){
-$_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' ORDER BY termname DESC, datetimeentry DESC LIMIT 1");
-}
-if($row_in=mysqli_fetch_array($_SQL_IN,MYSQLI_ASSOC))
-{
-$_SchoolCloses=$row_in['schoolcloses'];
-$_NextTermBegins=$row_in['schoolresumes'];
-$_AcademicYearLabel=trim((string)(isset($row_in['academicyear']) ? $row_in['academicyear'] : ''));
+$_SchoolInfoRow = school_data_fetch_scope($con, $_BatchId, $_AcademicYearFilter, $_TermFilter);
+if(is_array($_SchoolInfoRow)){
+$_SchoolCloses=school_data_display_date(isset($_SchoolInfoRow['schoolcloses']) ? $_SchoolInfoRow['schoolcloses'] : '');
+$_NextTermBegins=school_data_display_date(isset($_SchoolInfoRow['schoolresumes']) ? $_SchoolInfoRow['schoolresumes'] : '');
+$_AcademicYearLabel=trim((string)(isset($_SchoolInfoRow['academicyear']) ? $_SchoolInfoRow['academicyear'] : ''));
 if($_AcademicYearLabel===""){
-    $_AcademicYearLabel=(trim((string)$row_in['datetimeentry'])!=="" ? date("Y",strtotime((string)$row_in['datetimeentry'])) : "");
+    $_AcademicYearLabel=(trim((string)(isset($_SchoolInfoRow['datetimeentry']) ? $_SchoolInfoRow['datetimeentry'] : ''))!=="" ? date("Y",strtotime((string)$_SchoolInfoRow['datetimeentry'])) : "");
+}
+if($_SemesterLabel==="" && isset($_SchoolInfoRow['termname'])){
+    $_SemesterCandidate = trim((string)$_SchoolInfoRow['termname']);
+    if($_SemesterCandidate !== "" && $_SemesterCandidate !== "0"){
+        $_SemesterLabel = $_SemesterCandidate;
+    }
 }
 }
 
