@@ -103,6 +103,7 @@ if(isset($_POST['save_all_mark'])){
     $duplicateCount = 0;
     $skippedCount = 0;
     $invalidCount = 0;
+    $unregisteredCount = 0;
     $errorCount = 0;
 
     if($teacherId === ""){
@@ -121,47 +122,59 @@ if(isset($_POST['save_all_mark'])){
         if(!$assignmentAuth || mysqli_num_rows($assignmentAuth) === 0){
             $messages[] = score_entry_alert("error", "That score sheet no longer belongs to your account. Please re-open the assignment and try again.");
         }else{
-            foreach($selectedUsers as $selectedUserRaw){
-                $selectedUser = trim((string)$selectedUserRaw);
-                if($selectedUser === ""){
-                    continue;
-                }
+            $assignmentStudentContext = score_entry_assignment_student_context($con, $assignmentId, $selectedClassId, $selectedBatchId, $selectedYearId, $selectedTermId);
+            $allowedStudentIds = array_flip($assignmentStudentContext['userids']);
 
-                $selectedMark = trim((string)(isset($marks[$selectedUser]) ? $marks[$selectedUser] : ''));
-                if($selectedMark === '' || !is_numeric($selectedMark)){
-                    $skippedCount++;
-                    continue;
-                }
+            if(count($allowedStudentIds) === 0){
+                $messages[] = score_entry_alert("warning", "No students have registered this course for the selected semester yet.");
+            }else{
+                foreach($selectedUsers as $selectedUserRaw){
+                    $selectedUser = trim((string)$selectedUserRaw);
+                    if($selectedUser === ""){
+                        continue;
+                    }
 
-                if((float)$selectedMark < 0 || (float)$selectedMark > (float)$totalMark || (float)$selectedMark > (float)$scoreLimit){
-                    $invalidCount++;
-                    continue;
-                }
+                    if(!isset($allowedStudentIds[$selectedUser])){
+                        $unregisteredCount++;
+                        continue;
+                    }
 
-                include("code.php");
-                $markId = mysqli_real_escape_string($con, (string)$code);
-                $selectedUserSafe = mysqli_real_escape_string($con, $selectedUser);
-                $selectedMarkSafe = mysqli_real_escape_string($con, $selectedMark);
-                $totalMarkSafe = mysqli_real_escape_string($con, $totalMark);
-                $recordedBySafe = mysqli_real_escape_string($con, $teacherId);
+                    $selectedMark = trim((string)(isset($marks[$selectedUser]) ? $marks[$selectedUser] : ''));
+                    if($selectedMark === '' || !is_numeric($selectedMark)){
+                        $skippedCount++;
+                        continue;
+                    }
 
-                $duplicateRes = mysqli_query($con, "SELECT 1 FROM tblmark
-                    WHERE assignmentid='$assignmentSafe'
-                      AND userid='$selectedUserSafe'
-                      AND testtype='$scoreType'
-                    LIMIT 1");
-                if($duplicateRes && mysqli_num_rows($duplicateRes) > 0){
-                    $duplicateCount++;
-                    continue;
-                }
+                    if((float)$selectedMark < 0 || (float)$selectedMark > (float)$totalMark || (float)$selectedMark > (float)$scoreLimit){
+                        $invalidCount++;
+                        continue;
+                    }
 
-                $insertRes = mysqli_query($con, "INSERT INTO tblmark(markid,assignmentid,userid,testtype,mark,totalmark,datetimeentry,status,recordedby)
-                    VALUES('$markId','$assignmentSafe','$selectedUserSafe','$scoreType','$selectedMarkSafe','$totalMarkSafe',NOW(),'active','$recordedBySafe')");
+                    include("code.php");
+                    $markId = mysqli_real_escape_string($con, (string)$code);
+                    $selectedUserSafe = mysqli_real_escape_string($con, $selectedUser);
+                    $selectedMarkSafe = mysqli_real_escape_string($con, $selectedMark);
+                    $totalMarkSafe = mysqli_real_escape_string($con, $totalMark);
+                    $recordedBySafe = mysqli_real_escape_string($con, $teacherId);
 
-                if($insertRes){
-                    $savedCount++;
-                }else{
-                    $errorCount++;
+                    $duplicateRes = mysqli_query($con, "SELECT 1 FROM tblmark
+                        WHERE assignmentid='$assignmentSafe'
+                          AND userid='$selectedUserSafe'
+                          AND testtype='$scoreType'
+                        LIMIT 1");
+                    if($duplicateRes && mysqli_num_rows($duplicateRes) > 0){
+                        $duplicateCount++;
+                        continue;
+                    }
+
+                    $insertRes = mysqli_query($con, "INSERT INTO tblmark(markid,assignmentid,userid,testtype,mark,totalmark,datetimeentry,status,recordedby)
+                        VALUES('$markId','$assignmentSafe','$selectedUserSafe','$scoreType','$selectedMarkSafe','$totalMarkSafe',NOW(),'active','$recordedBySafe')");
+
+                    if($insertRes){
+                        $savedCount++;
+                    }else{
+                        $errorCount++;
+                    }
                 }
             }
 
@@ -176,6 +189,9 @@ if(isset($_POST['save_all_mark'])){
             }
             if($invalidCount > 0){
         $messages[] = score_entry_alert("warning", $invalidCount." selected student(s) were skipped because the mark was negative, above ".$scoreLimit.", or greater than the total score.");
+            }
+            if($unregisteredCount > 0){
+                $messages[] = score_entry_alert("warning", $unregisteredCount." selected student(s) were skipped because they did not register this course for the semester.");
             }
             if($errorCount > 0){
                 $messages[] = score_entry_alert("error", $errorCount." score record(s) could not be saved due to a server error.");
@@ -241,8 +257,18 @@ $assignmentSql = "SELECT
 $assignmentRes = mysqli_query($con, $assignmentSql);
 if($assignmentRes){
     while($row = mysqli_fetch_array($assignmentRes, MYSQLI_ASSOC)){
-        $row['total_students'] = (int)$row['total_students'];
-        $row['saved_students'] = (int)$row['saved_students'];
+        $studentContext = score_entry_assignment_student_context(
+            $con,
+            $row['assignmentid'],
+            $row['class_entryid'],
+            $row['batchid'],
+            $row['assignment_year'],
+            $row['termname']
+        );
+        $row['uses_course_registration'] = !empty($studentContext['uses_course_registration']);
+        $row['roster_source'] = $row['uses_course_registration'] ? 'Course Registration' : 'Semester Registry';
+        $row['total_students'] = count($studentContext['userids']);
+        $row['saved_students'] = score_entry_saved_mark_count($con, $row['assignmentid'], $scoreType, $studentContext['userids']);
         $row['pending_students'] = max($row['total_students'] - $row['saved_students'], 0);
         $row['status_meta'] = score_entry_status_meta($row['total_students'], $row['saved_students']);
         $row['session_label'] = score_entry_session_label($row['assignment_datetimeentry'], $row['batch'], $row['termname'], $row['assignment_year']);
@@ -277,44 +303,40 @@ $pendingStudents = array();
 
 if($selectedAssignment){
     $assignmentIdSafe = mysqli_real_escape_string($con, (string)$selectedAssignment['assignmentid']);
-    $selectedClassSafe = mysqli_real_escape_string($con, (string)$selectedAssignment['class_entryid']);
-    $selectedBatchSafe = mysqli_real_escape_string($con, (string)$selectedAssignment['batchid']);
-    $selectedTermSafe = mysqli_real_escape_string($con, (string)$selectedAssignment['termname']);
-    $selectedSubjectSafe = mysqli_real_escape_string($con, (string)$selectedAssignment['subjectid']);
-    $selectedYearSafe = mysqli_real_escape_string($con, (string)$selectedAssignment['assignment_year']);
+    $assignmentStudentContext = score_entry_assignment_student_context(
+        $con,
+        $selectedAssignment['assignmentid'],
+        $selectedAssignment['class_entryid'],
+        $selectedAssignment['batchid'],
+        $selectedAssignment['assignment_year'],
+        $selectedAssignment['termname']
+    );
 
-    $studentSql = "SELECT DISTINCT
-            su.userid,
-            su.firstname,
-            su.othernames,
-            su.surname,
-            mk.markid AS existing_mark_id,
-            mk.mark AS existing_mark
-        FROM tblsystemuser su
-        INNER JOIN tbltermregistry tr ON su.userid=tr.userid
-        INNER JOIN tblsubjectassignment sa ON sa.assignmentid='$assignmentIdSafe'
-            AND sa.classid=tr.class_entryid
-            AND sa.batchid=tr.batchid
-            AND sa.termname=tr.termname
-            AND ".semester_registry_resolved_year_sql("tr")."=".semester_registry_assignment_year_sql("sa")."
-        INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
-        LEFT JOIN tblmark mk ON mk.assignmentid=sa.assignmentid
-            AND mk.userid=su.userid
-            AND mk.testtype='$scoreType'
-        WHERE su.systemtype='Student'
-          AND sa.userid='$teacherIdSafe'
-          AND tr.class_entryid='$selectedClassSafe'
-          AND tr.batchid='$selectedBatchSafe'
-          AND tr.termname='$selectedTermSafe'
-          AND ".semester_registry_resolved_year_sql("tr")."='$selectedYearSafe'
-          AND sc.subjectid='$selectedSubjectSafe'
-        ORDER BY su.firstname ASC, su.othernames ASC, su.surname ASC, su.userid ASC";
+    if(count($assignmentStudentContext['userids']) > 0){
+        $userIdParts = array();
+        foreach($assignmentStudentContext['userids'] as $studentId){
+            $userIdParts[] = "'".mysqli_real_escape_string($con, (string)$studentId)."'";
+        }
+        $studentSql = "SELECT
+                su.userid,
+                su.firstname,
+                su.othernames,
+                su.surname,
+                mk.markid AS existing_mark_id,
+                mk.mark AS existing_mark
+            FROM tblsystemuser su
+            LEFT JOIN tblmark mk ON mk.assignmentid='$assignmentIdSafe'
+                AND mk.userid=su.userid
+                AND mk.testtype='$scoreType'
+            WHERE su.userid IN (".implode(',', $userIdParts).")
+            ORDER BY su.firstname ASC, su.othernames ASC, su.surname ASC, su.userid ASC";
 
-    $studentRes = mysqli_query($con, $studentSql);
-    if($studentRes){
-        while($row = mysqli_fetch_array($studentRes, MYSQLI_ASSOC)){
-            if(trim((string)$row['existing_mark_id']) === ""){
-                $pendingStudents[] = $row;
+        $studentRes = mysqli_query($con, $studentSql);
+        if($studentRes){
+            while($row = mysqli_fetch_array($studentRes, MYSQLI_ASSOC)){
+                if(trim((string)$row['existing_mark_id']) === ""){
+                    $pendingStudents[] = $row;
+                }
             }
         }
     }
@@ -464,6 +486,7 @@ if($selectedAssignment){
                         <article class="score-entry-summary-card"><span>Class</span><strong><?php echo score_entry_esc($selectedAssignment['class_name']); ?></strong></article>
                         <article class="score-entry-summary-card"><span>Subject</span><strong><?php echo score_entry_esc($selectedAssignment['subject']); ?></strong></article>
                         <article class="score-entry-summary-card"><span>Session</span><strong><?php echo score_entry_esc($selectedAssignment['session_label']); ?></strong></article>
+                        <article class="score-entry-summary-card"><span>Roster Source</span><strong><?php echo score_entry_esc($selectedAssignment['roster_source']); ?></strong></article>
                         <article class="score-entry-summary-card"><span>Total Students</span><strong><?php echo (int)$selectedAssignment['total_students']; ?></strong></article>
                         <article class="score-entry-summary-card"><span>Already Saved</span><strong><?php echo (int)$selectedAssignment['saved_students']; ?></strong></article>
                         <article class="score-entry-summary-card"><span>Still Pending</span><strong><?php echo (int)$selectedAssignment['pending_students']; ?></strong></article>

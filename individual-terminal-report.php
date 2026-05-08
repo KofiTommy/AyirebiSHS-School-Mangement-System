@@ -5,6 +5,7 @@ include("positions.php");
 include("class-position.php");
 include_once("dbstring.php");
 include_once("semester-registry-utils.php");
+include_once("report-approval-utils.php");
 semester_registry_ensure_academic_year_column($con);
 
 @$_position_obj=new Position;
@@ -21,6 +22,7 @@ semester_registry_ensure_academic_year_column($con);
 @$_AcademicYear=trim((string)$_POST['academicyear']);
 @$_TermId=$_POST['termid'];
 @$_ClassId=$_POST['classid'];
+@$_ReportApprovalMessage="";
 
 if(isset($_POST["print_terminal_report"]))
 {
@@ -31,6 +33,10 @@ if(isset($_POST["print_terminal_report"]))
       if(function_exists('ensure_house_tables')){
           ensure_house_tables($con);
       }
+      $_ReportApprovalMeta = report_approval_scope_meta($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
+      if(report_approval_is_student_user() && $_ReportApprovalMeta['required'] && !$_ReportApprovalMeta['allowed']){
+          $_ReportApprovalMessage = "<div style='margin:12px 0;padding:12px 14px;border-radius:14px;background:#fff7ed;border:1px solid rgba(194,65,12,0.14);color:#c2410c;font-weight:600;'>This class report is waiting for admin approval. Students can only view it after approval.</div>";
+      }else{
       include("config.php");
       include("company.php");
       include("remark.php");
@@ -379,6 +385,7 @@ $pdf->SetFont('Arial','B',8);
 $pdf->Output();
  //ob_end_flush(); 
 }
+}
 ?>
 
 
@@ -625,9 +632,20 @@ echo "<fieldset><legend>BATCH</legend>";
 				}
 			}
 			echo "</select><br/><br/>";
-			echo "<button class='button-print' id='print_terminal_report' name='print_terminal_report'><i class='fa fa-print'></i> Print Report</button>";
+			$_SelectedScopeApprovalMeta = report_approval_scope_meta($con, $_SelectedBatchId, $_SelectedAcademicYear, $_SelectedTermId, $_SelectedClassId);
+			if($_SelectedClassId!=='' && $_SelectedTermId!=='' && $_SelectedAcademicYear!=='' && $_SelectedScopeApprovalMeta['required']){
+				$_ApprovalBg = $_SelectedScopeApprovalMeta['allowed'] ? "#ecfdf3" : "#fff7ed";
+				$_ApprovalBorder = $_SelectedScopeApprovalMeta['allowed'] ? "rgba(22,101,52,0.14)" : "rgba(194,65,12,0.14)";
+				$_ApprovalColor = $_SelectedScopeApprovalMeta['allowed'] ? "#166534" : "#c2410c";
+				echo "<div style='margin:0 0 10px;padding:10px 12px;border-radius:14px;background:".$_ApprovalBg.";border:1px solid ".$_ApprovalBorder.";color:".$_ApprovalColor.";font-weight:600;'>".$_SelectedScopeApprovalMeta['status_label']."</div>";
+			}
+			$_DisableStudentPrint = report_approval_is_student_user() && $_SelectedScopeApprovalMeta['required'] && !$_SelectedScopeApprovalMeta['allowed'];
+			echo "<button class='button-print' id='print_terminal_report' name='print_terminal_report' ".($_DisableStudentPrint ? "disabled style='opacity:0.6;cursor:not-allowed;'" : "")."><i class='fa fa-print'></i> ".($_DisableStudentPrint ? "Awaiting Approval" : "Print Report")."</button>";
 			if($_SelectedTermLabel!=""){
 				echo "<div style='margin-top:8px;padding:6px 8px;background:#eef6ff;border:1px solid #bcd;color:#0b63ce;font-weight:600;'>Selected: ".$_SelectedTermLabel.(($_SelectedClassLabel!="" ? " | Class: ".$_SelectedClassLabel : ""))."</div>";
+			}
+			if($_ReportApprovalMessage!=""){
+				echo $_ReportApprovalMessage;
 			}
 			echo "</fieldset>";
 ?>

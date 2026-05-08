@@ -7,6 +7,7 @@ $_SESSION['Message']="";
 include("dbstring.php");
 include("check-login.php");
 include("class-teacher-utils.php");
+include_once("score-entry-utils.php");
 include_once("semester-registry-utils.php");
 semester_registry_ensure_academic_year_column($con);
 if(!(class_teacher_is_teacher() || class_teacher_is_admin())){
@@ -235,6 +236,7 @@ if(isset($_GET['class_ID']))
 @$_ClassName="";
 @$_BatchName="";
 $_AcademicYearWhere = "";
+$_AllowedStudentWhere = " AND 1=0";
 if($_AcademicYear!==""){
 $_AcademicYearWhere = " AND ".semester_registry_resolved_year_sql("tr")."='".mysqli_real_escape_string($con,$_AcademicYear)."'";
 }
@@ -245,6 +247,33 @@ $_SESSION["termid"]=$_Term;
 $_SESSION["subjectid"]=$_SubjectId;
 $_SESSION["academicyear"]=$_AcademicYear;
 
+$_AssignmentScopeSql=mysqli_query($con,"SELECT sa.assignmentid, sa.classid, sa.batchid, sa.termname, ".semester_registry_assignment_year_sql("sa")." AS assignment_year
+FROM tblsubjectassignment sa
+INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
+WHERE sa.classid='$_ClassId'
+AND sa.batchid='$_BatchId'
+AND sa.termname='$_Term'
+AND sc.subjectid='$_SubjectId'
+AND sa.userid='$_SESSION[USERID]'
+AND ".semester_registry_assignment_year_sql("sa")."='".mysqli_real_escape_string($con,$_AcademicYear)."'
+LIMIT 1");
+if($_AssignmentScopeSql && ($_AssignmentScopeRow=mysqli_fetch_array($_AssignmentScopeSql,MYSQLI_ASSOC))){
+$_AssignmentStudentContext = score_entry_assignment_student_context(
+    $con,
+    $_AssignmentScopeRow['assignmentid'],
+    $_AssignmentScopeRow['classid'],
+    $_AssignmentScopeRow['batchid'],
+    $_AssignmentScopeRow['assignment_year'],
+    $_AssignmentScopeRow['termname']
+);
+if(count($_AssignmentStudentContext['userids'])>0){
+    $_AllowedIds=array();
+    foreach($_AssignmentStudentContext['userids'] as $_AllowedStudentId){
+        $_AllowedIds[]="'".mysqli_real_escape_string($con,trim((string)$_AllowedStudentId))."'";
+    }
+    $_AllowedStudentWhere = " AND su.userid IN (".implode(",",$_AllowedIds).")";
+}
+}
 
 $_SQL_EXECUTE_VIEW=mysqli_query($con,"SELECT *,su.userid FROM tblsystemuser su 
 INNER JOIN tbltermregistry tr ON su.userid=tr.userid
@@ -253,7 +282,7 @@ INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationi
 INNER JOIN tblsubject sub ON sub.subjectid=sc.subjectid
  WHERE tr.class_entryid='$_ClassId' AND tr.batchid='$_BatchId' AND tr.termname='$_Term' 
  $_AcademicYearWhere
- AND su.systemtype='Student' AND sc.subjectid='$_SubjectId' AND sa.userid='$_SESSION[USERID]'");
+ AND su.systemtype='Student' AND sc.subjectid='$_SubjectId' AND sa.userid='$_SESSION[USERID]' $_AllowedStudentWhere");
 
 
 $_SQL_EXE=mysqli_query($con,"SELECT *,su.userid FROM tblsystemuser su 
@@ -263,7 +292,7 @@ INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationi
 INNER JOIN tblsubject sub ON sub.subjectid=sc.subjectid
  WHERE tr.class_entryid='$_ClassId' AND tr.batchid='$_BatchId' AND tr.termname='$_Term' 
  $_AcademicYearWhere
- AND su.systemtype='Student' AND sc.subjectid='$_SubjectId' AND sa.userid='$_SESSION[USERID]'");
+ AND su.systemtype='Student' AND sc.subjectid='$_SubjectId' AND sa.userid='$_SESSION[USERID]' $_AllowedStudentWhere");
 
 /*
 $_SubjectName="";

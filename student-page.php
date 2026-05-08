@@ -7,6 +7,7 @@ include("house-master-utils.php");
 include("company.php");
 include_once("semester-registry-utils.php");
 include_once("voting-utils.php");
+include_once("report-approval-utils.php");
 ensure_class_teacher_table($con);
 ensure_house_tables($con);
 ensure_voting_tables($con);
@@ -331,6 +332,7 @@ $classCount = count($classGroups);
 $reportOptionLookup = array();
 $semesterLookup = array();
 $reportOptions = array();
+$reportApprovalPendingCount = 0;
 $termRes = mysqli_query($con, "SELECT tr.class_entryid,tr.batchid,tr.termname,ce.class_name,bh.batch,
     ".semester_registry_resolved_year_sql("tr")." AS academic_year
     FROM tbltermregistry tr
@@ -347,6 +349,22 @@ if($termRes){
         $reportOptionLookup[$key] = true;
         $semesterLookup[$row['batchid']."|".$row['termname']."|".trim((string)$row['academic_year'])] = true;
         $reportOptions[] = $row;
+    }
+}
+foreach($reportOptions as $reportIndex => $reportRow){
+    $approvalMeta = report_approval_scope_meta(
+        $con,
+        isset($reportRow['batchid']) ? $reportRow['batchid'] : '',
+        isset($reportRow['academic_year']) ? $reportRow['academic_year'] : '',
+        isset($reportRow['termname']) ? $reportRow['termname'] : '',
+        isset($reportRow['class_entryid']) ? $reportRow['class_entryid'] : ''
+    );
+    $reportOptions[$reportIndex]['report_required'] = $approvalMeta['required'] ? '1' : '0';
+    $reportOptions[$reportIndex]['report_allowed'] = $approvalMeta['allowed'] ? '1' : '0';
+    $reportOptions[$reportIndex]['report_status'] = $approvalMeta['status'];
+    $reportOptions[$reportIndex]['report_status_label'] = $approvalMeta['status_label'];
+    if($approvalMeta['required'] && !$approvalMeta['allowed']){
+        $reportApprovalPendingCount++;
     }
 }
 $availableReportCount = count($reportOptions);
@@ -647,6 +665,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <a class="student-action-card" href="student-exeat-request.php"><span class="student-action-card__icon"><i class="fa fa-file"></i></span><h3>Request Exeat</h3></a>
         <a class="student-action-card" href="examinationtimetablereport.php"><span class="student-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Exam Timetable</h3></a>
         <a class="student-action-card" href="lesson-timetable-report.php"><span class="student-action-card__icon"><i class="fa fa-clock-o"></i></span><h3>Lesson Timetable</h3></a>
+        <a class="student-action-card" href="student-course-registration.php"><span class="student-action-card__icon"><i class="fa fa-list-alt"></i></span><h3>Course Registration</h3><p>Choose your semester courses from the class list when the school opens registration.</p></a>
         <a class="student-action-card" href="student-attendance-report.php"><span class="student-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>My Attendance</h3></a>
         <a class="student-action-card" href="online-voting.php"><?php if($studentVotingSnapshot && !empty($studentVotingSnapshot["contest"])){ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo sd_esc($studentVotingSnapshot["contest"]["title"]); ?> is <?php echo sd_esc(strtolower(voting_status_label($studentVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Open the contest board when the next school voting event goes live.</p><?php } ?></a>
         <a class="student-action-card" href="messages.php"><span class="student-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the full message board when you need your full conversation view."; ?></p></a>
@@ -698,21 +717,26 @@ $reportPreview = array_slice($reportOptions, 0, 6);
             <article class="student-summary-card"><span>Available Semesters</span><strong><?php echo (int)$semesterCount; ?></strong></article>
         </div>
 
+        <?php if($reportApprovalPendingCount > 0){ ?>
+        <div class="student-inline-note"><?php echo sd_esc($reportApprovalPendingCount); ?> semester report(s) are waiting for admin approval before students can print them.</div>
+        <?php } ?>
+
         <?php if(count($reportPreview) > 0){ ?>
         <div class="student-report-grid">
             <?php foreach($reportPreview as $report){ ?>
             <article class="student-report-card">
                 <div class="student-report-card__meta">
-                    <span class="student-status-pill student-status-pill--info"><?php echo sd_esc(sd_term($report['termname'])); ?></span>
-                    <span class="student-report-card__year"><?php echo sd_esc($report['batch']); ?></span>
+                    <span class="<?php echo sd_esc(sd_status_class(isset($report['report_status']) ? $report['report_status'] : 'neutral')); ?>"><?php echo sd_esc(isset($report['report_status_label']) ? $report['report_status_label'] : sd_term($report['termname'])); ?></span>
+                    <span class="student-report-card__year"><?php echo sd_esc(trim((string)(isset($report['academic_year']) && trim((string)$report['academic_year']) !== '' ? $report['academic_year'] : $report['batch']))); ?></span>
                 </div>
                 <h3><?php echo sd_esc($report['class_name']); ?></h3>
+                <p><?php echo sd_esc(sd_term($report['termname']).' · '.trim((string)$report['batch'])); ?></p>
                 <form method="post" action="individual-terminal-report.php" class="student-inline-form">
                     <input type="hidden" name="batchid" value="<?php echo sd_esc((string)$report['batchid']); ?>">
                     <input type="hidden" name="academicyear" value="<?php echo sd_esc((string)(isset($report['academic_year']) ? $report['academic_year'] : '')); ?>">
                     <input type="hidden" name="termid" value="<?php echo sd_esc((string)$report['termname']); ?>">
                     <input type="hidden" name="classid" value="<?php echo sd_esc((string)$report['class_entryid']); ?>">
-                    <button class="student-inline-btn" type="submit" name="print_terminal_report"><i class="fa fa-print"></i> Print Report</button>
+                    <button class="student-inline-btn<?php echo (!empty($report['report_allowed']) && $report['report_allowed'] === '1') ? '' : ' is-disabled'; ?>" type="submit" name="print_terminal_report" <?php echo (!empty($report['report_allowed']) && $report['report_allowed'] === '1') ? '' : 'disabled'; ?>><i class="fa fa-print"></i> <?php echo (!empty($report['report_allowed']) && $report['report_allowed'] === '1') ? 'Print Report' : 'Awaiting Approval'; ?></button>
                 </form>
             </article>
             <?php } ?>

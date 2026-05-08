@@ -504,6 +504,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
     </div>
     <div class="teacher-quick-grid">
         <a class="teacher-action-card" href="view-teacher-subject.php"><span class="teacher-action-card__icon"><i class="fa fa-search"></i></span><h3>Assigned Subjects</h3></a>
+        <a class="teacher-action-card" href="teacher-course-registration.php"><span class="teacher-action-card__icon"><i class="fa fa-list-alt"></i></span><h3>Course Registration</h3><p>See the exact students who registered for each course you teach this semester.</p></a>
         <?php if($teacherCanTakeAttendance){ ?>
         <a class="teacher-action-card" href="student-attendance.php"><span class="teacher-action-card__icon"><i class="fa fa-check-square-o"></i></span><h3>Student Attendance</h3></a>
         <a class="teacher-action-card" href="student-attendance-report.php"><span class="teacher-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>Attendance Summary</h3></a>

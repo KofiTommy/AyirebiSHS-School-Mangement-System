@@ -5,6 +5,7 @@ include("positions.php");
 include("class-position.php");
 include_once("dbstring.php");
 include_once("semester-registry-utils.php");
+include_once("report-approval-utils.php");
 semester_registry_ensure_academic_year_column($con);
 
 @$_position_obj=new Position;
@@ -21,6 +22,26 @@ semester_registry_ensure_academic_year_column($con);
 @$_AcademicYear=trim((string)$_POST['academicyear']);
 @$_TermId=$_POST['termid'];
 @$_ClassId=$_POST['classid'];
+@$_ReportApprovalAdminMessage="";
+
+if(isset($_POST['approve_class_report']) || isset($_POST['hold_class_report'])){
+      include("dbstring.php");
+      $_ApprovalStatus = isset($_POST['approve_class_report']) ? 'approved' : 'pending';
+      if(report_approval_is_admin_user()){
+          if(report_approval_scope_requires_release($_AcademicYear, $_TermId)){
+              $_ApprovalSaved = report_approval_set_scope_status($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId, $_ApprovalStatus, isset($_SESSION['USERID']) ? $_SESSION['USERID'] : '');
+              if($_ApprovalSaved){
+                  $_ReportApprovalAdminMessage = ($_ApprovalStatus === 'approved')
+                      ? "<div style='color:green;text-align:center;background-color:white;padding:10px;'>Class report approved for student viewing.</div>"
+                      : "<div style='color:maroon;text-align:center;background-color:white;padding:10px;'>Student access to this class report has been held.</div>";
+              }else{
+                  $_ReportApprovalAdminMessage = "<div style='color:red;text-align:center;background-color:white;padding:10px;'>Class report approval could not be updated.</div>";
+              }
+          }else{
+              $_ReportApprovalAdminMessage = "<div style='color:#0b63ce;text-align:center;background-color:white;padding:10px;'>This report scope does not require student approval yet.</div>";
+          }
+      }
+}
 
 if(isset($_POST["print_terminal_report"]))
 {
@@ -677,6 +698,25 @@ while($row_cls=mysqli_fetch_array($_SQL_CLASS_OPT,MYSQLI_ASSOC)){
     }
 }
 echo "</select><br/><br/>";
+
+$_SelectedScopeApprovalMeta = report_approval_scope_meta($con, $_SelectedBatchId, $_SelectedAcademicYear, $_SelectedTermId, $_SelectedClassId);
+if($_ReportApprovalAdminMessage!==""){
+echo $_ReportApprovalAdminMessage;
+}
+if($_SelectedClassId!=='' && $_SelectedTermId!=='' && $_SelectedAcademicYear!=='' && report_approval_is_admin_user()){
+    if($_SelectedScopeApprovalMeta['required']){
+        $_ApprovalBg = $_SelectedScopeApprovalMeta['allowed'] ? "#ecfdf3" : "#fff7ed";
+        $_ApprovalBorder = $_SelectedScopeApprovalMeta['allowed'] ? "rgba(22,101,52,0.14)" : "rgba(194,65,12,0.14)";
+        $_ApprovalColor = $_SelectedScopeApprovalMeta['allowed'] ? "#166534" : "#c2410c";
+        echo "<div style='margin:0 0 10px;padding:10px 12px;border-radius:14px;background:".$_ApprovalBg.";border:1px solid ".$_ApprovalBorder.";color:".$_ApprovalColor.";font-weight:600;'>Student Portal Status: ".$_SelectedScopeApprovalMeta['status_label']."</div>";
+        echo "<div style='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;'>";
+        echo "<button class='button-pay' type='submit' name='approve_class_report'><i class='fa fa-check' style='color:white'></i> Approve Student View</button>";
+        echo "<button class='button-show' type='submit' name='hold_class_report'><i class='fa fa-pause' style='color:white'></i> Hold Student View</button>";
+        echo "</div>";
+    }else{
+        echo "<div style='margin:0 0 10px;padding:10px 12px;border-radius:14px;background:#eff6ff;border:1px solid rgba(29,78,216,0.12);color:#1d4ed8;font-weight:600;'>Student approval is not required for this semester scope.</div>";
+    }
+}
 
 echo "<button class='button-show' id='show_terminal_report' name='show_terminal_report'><i class='fa fa-search' style='color:white'></i> SHOW REPORT</button> ";
 echo "<a href='terminal-report.php' class='button-show' style='margin-left:6px;display:inline-block;'><i class='fa fa-undo' style='color:white'></i> RESET</a>";

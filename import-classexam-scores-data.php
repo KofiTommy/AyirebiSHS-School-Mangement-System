@@ -4,10 +4,13 @@
 session_start();
 include("dbstring.php");
 include("audit_notifications.php");
+include_once("score-entry-utils.php");
+$_AllowedCourseStudentMap = array();
 function insertExamClassScoresData($_UserId,$_Class_Name,$_Semester,$_Batch,$_SubjectId,$_ClassMark,$_ExamMark,$_TotalMark,$_AssignmentId)	
 {
 include("dbstring.php");
 include("links.php");
+global $_AllowedCourseStudentMap;
 //Declaration of variables
 @$_Class_EntryId="";
 @$_BatchId="";
@@ -16,6 +19,11 @@ if($_UserId=="userid")
 {}
 else
 {
+if(count($_AllowedCourseStudentMap) > 0 && !isset($_AllowedCourseStudentMap[$_UserId]))
+{
+$_SESSION['Message']=$_SESSION['Message']."<div style='color:orange;text-align:left;background-color:white'><i class='fa fa-exclamation-triangle' style='color:orange'></i> ".$_UserId." skipped because the student did not register this course for the semester</div>";
+return;
+}
 $sql=mysqli_query($con,"SELECT * FROM tblclassentry WHERE class_name='$_Class_Name'");
 if($rowc=mysqli_fetch_array($sql,MYSQLI_ASSOC))
 {
@@ -84,6 +92,27 @@ require_once 'simplexlsx.class.php';
 
 @$_TotalMark=$_POST["totalscore"];
 @$_AssignmentId=trim($_POST["assignment-id"]);
+
+if(trim((string)$_AssignmentId)!==""){
+$_AssignmentIdSafe = mysqli_real_escape_string($con, trim((string)$_AssignmentId));
+$_AssignmentScopeSql = mysqli_query($con, "SELECT sa.assignmentid, sa.classid, sa.batchid, sa.termname, ".semester_registry_assignment_year_sql("sa")." AS assignment_year
+FROM tblsubjectassignment sa
+WHERE sa.assignmentid='$_AssignmentIdSafe'
+LIMIT 1");
+if($_AssignmentScopeSql && ($_AssignmentScopeRow = mysqli_fetch_array($_AssignmentScopeSql, MYSQLI_ASSOC))){
+$_AssignmentStudentContext = score_entry_assignment_student_context(
+    $con,
+    $_AssignmentScopeRow['assignmentid'],
+    $_AssignmentScopeRow['classid'],
+    $_AssignmentScopeRow['batchid'],
+    $_AssignmentScopeRow['assignment_year'],
+    $_AssignmentScopeRow['termname']
+);
+foreach($_AssignmentStudentContext['userids'] as $_AllowedStudentId){
+    $_AllowedCourseStudentMap[trim((string)$_AllowedStudentId)] = true;
+}
+}
+}
 
 if(isset($_POST['submit_group_data']))
 {

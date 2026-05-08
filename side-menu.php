@@ -41,6 +41,7 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher")
     <a href="#" class="dropbtn"><i class="fa fa-globe" ></i> Tools</a>
     <div class="dropdown-content">
     <a href="view-subject-assigned.php"><i class="fa fa-book" ></i> View Subject(s) Assigned</a>
+    <a href="teacher-course-registration.php"><i class="fa fa-list-alt" ></i> Course Registration</a>
     <?php if($_ShowTeacherAttendanceLinks){ ?>
     <a href="student-attendance.php"><i class="fa fa-check-square-o" ></i> Student Attendance</a>
     <a href="student-attendance-report.php"><i class="fa fa-bar-chart" ></i> Attendance Summary</a>
@@ -107,6 +108,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student")
     <div class="dropdown-content">
      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
      <a href="lesson-timetable-report.php"><i class="fa fa-clock-o" ></i> Lesson Timetable</a>
+     <a href="student-course-registration.php"><i class="fa fa-list-alt" ></i> Course Registration</a>
      <a href="online-voting.php"><i class="fa fa-trophy" ></i> Online Voting</a>
      <a href="individual-terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>
      <a href="student-attendance-report.php"><i class="fa fa-bar-chart" ></i> My Attendance</a>
@@ -175,6 +177,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
      <a href="subject-classification.php"><i class="fa fa-plus" ></i> Subject Classification</a>
       <a href="view-subject-classified.php"><i class="fa fa-plus" ></i> View Subject Classified</a>
     <a href="subject-assignment.php"><i class="fa fa-plus" ></i> Subject Assignment</a>
+    <a href="course-registration-admin.php"><i class="fa fa-list-alt" ></i> Course Registration</a>
     <a href="class-teacher-assignment.php"><i class="fa fa-plus" ></i> Class Teacher Assignment</a>
     <a href="student-attendance.php"><i class="fa fa-check-square-o" ></i> Student Attendance</a>
     <a href="student-attendance-report.php"><i class="fa fa-bar-chart" ></i> Attendance Summary</a>
@@ -276,6 +279,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
     <a href="subject-classification.php"><i class="fa fa-plus" ></i> Subject Classification</a>
       <a href="view-subject-classified.php"><i class="fa fa-book" ></i> View Subject Classified</a>
      <a href="subject-assignment.php"><i class="fa fa-plus" ></i> Subject Assignment</a>
+    <a href="course-registration-admin.php"><i class="fa fa-list-alt" ></i> Course Registration</a>
     <a href="class-teacher-assignment.php"><i class="fa fa-plus" ></i> Class Teacher Assignment</a>
     <a href="student-attendance.php"><i class="fa fa-check-square-o" ></i> Student Attendance</a>
     <a href="student-attendance-report.php"><i class="fa fa-bar-chart" ></i> Attendance Summary</a>
@@ -304,6 +308,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
    -->
      <a href="student-terminal-data.php"><i class="fa fa-plus" ></i> Student Terminal Data</a>
      <a href="terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>
+     <a href="report-approval-board.php"><i class="fa fa-check-circle" ></i> Report Approval</a>
      <a href="scores-report.php"><i class="fa fa-book" ></i> Scores Report</a>
      <a href="waec-analysis.php"><i class="fa fa-line-chart" ></i> WAEC Analysis</a>
      <a href="internal-exam-analysis.php"><i class="fa fa-bar-chart" ></i> Internal Exams Analysis</a>
@@ -368,6 +373,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
     <a href="subject-classification.php"><i class="fa fa-plus" ></i> Subject Classification</a>
       <a href="view-subject-classified.php"><i class="fa fa-plus" ></i> View Subject Classified</a>
      <a href="subject-assignment.php"><i class="fa fa-plus" ></i> Subject Assignment</a>
+    <a href="course-registration-admin.php"><i class="fa fa-list-alt" ></i> Course Registration</a>
     <a href="view-all-subject-assigned.php"><i class="fa fa-plus" ></i> View Subject(s) Assigned</a>
     
     </div>
@@ -388,6 +394,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
             
      <a href="student-terminal-data.php"><i class="fa fa-plus" ></i> Student Terminal Data</a>
      <a href="terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>
+     <a href="report-approval-board.php"><i class="fa fa-check-circle" ></i> Report Approval</a>
     <a href="scores-report.php"><i class="fa fa-book" ></i> Scores Report</a>
     
     </div>

@@ -1,4 +1,8 @@
 <?php
+if(file_exists(__DIR__.DIRECTORY_SEPARATOR."course-registration-utils.php")){
+    include_once("course-registration-utils.php");
+}
+
 if(!function_exists('semester_registry_column_exists')){
 function semester_registry_column_exists($con, $tableName, $columnName){
     $tableSafe = mysqli_real_escape_string($con, (string)$tableName);
@@ -6,6 +10,159 @@ function semester_registry_column_exists($con, $tableName, $columnName){
     $sql = "SHOW COLUMNS FROM `".$tableSafe."` LIKE '".$columnSafe."'";
     $result = mysqli_query($con, $sql);
     return ($result && mysqli_num_rows($result) > 0);
+}
+}
+
+if(!function_exists('score_entry_assignment_window')){
+function score_entry_assignment_window($con, $classId, $batchId, $assignmentYear, $termName){
+    static $cache = array();
+    $cacheKey = trim((string)$classId).'|'.trim((string)$batchId).'|'.trim((string)$assignmentYear).'|'.trim((string)$termName);
+    if(isset($cache[$cacheKey])){
+        return $cache[$cacheKey];
+    }
+    if(function_exists('course_registration_fetch_window_by_scope')){
+        $cache[$cacheKey] = course_registration_fetch_window_by_scope($con, $classId, $batchId, $assignmentYear, $termName);
+        return $cache[$cacheKey];
+    }
+    $cache[$cacheKey] = null;
+    return null;
+}
+}
+
+if(!function_exists('score_entry_registered_student_ids_from_window')){
+function score_entry_registered_student_ids_from_window($con, $windowId, $assignmentId){
+    $userIds = array();
+    $windowEsc = mysqli_real_escape_string($con, trim((string)$windowId));
+    $assignmentEsc = mysqli_real_escape_string($con, trim((string)$assignmentId));
+    $classificationEsc = '';
+    $subjectEsc = '';
+    $classEsc = '';
+    $batchEsc = '';
+    $yearEsc = '';
+    $termEsc = '';
+
+    $assignmentScopeSql = "SELECT
+            sa.classid,
+            sa.batchid,
+            sa.termname,
+            ".semester_registry_assignment_year_sql("sa")." AS assignment_year,
+            sa.classificationid,
+            sc.subjectid
+        FROM tblsubjectassignment sa
+        LEFT JOIN tblsubjectclassification sc ON sc.classificationid=sa.classificationid
+        WHERE sa.assignmentid='$assignmentEsc'
+        LIMIT 1";
+    $assignmentScopeResult = mysqli_query($con, $assignmentScopeSql);
+    if($assignmentScopeResult && ($assignmentScopeRow = mysqli_fetch_array($assignmentScopeResult, MYSQLI_ASSOC))){
+        $classificationEsc = mysqli_real_escape_string($con, trim((string)$assignmentScopeRow['classificationid']));
+        $subjectEsc = mysqli_real_escape_string($con, trim((string)$assignmentScopeRow['subjectid']));
+        $classEsc = mysqli_real_escape_string($con, trim((string)$assignmentScopeRow['classid']));
+        $batchEsc = mysqli_real_escape_string($con, trim((string)$assignmentScopeRow['batchid']));
+        $yearEsc = mysqli_real_escape_string($con, trim((string)$assignmentScopeRow['assignment_year']));
+        $termEsc = mysqli_real_escape_string($con, trim((string)$assignmentScopeRow['termname']));
+    }
+
+    $conditions = array("assignmentid='$assignmentEsc'");
+    if($classificationEsc !== ''){
+        $conditions[] = "classificationid='$classificationEsc'";
+    }
+    if($subjectEsc !== '' && $classEsc !== '' && $batchEsc !== '' && $yearEsc !== '' && $termEsc !== ''){
+        $conditions[] = "(subjectid='$subjectEsc' AND classid='$classEsc' AND batchid='$batchEsc' AND academicyear='$yearEsc' AND termname='$termEsc')";
+    }
+
+    $sql = "SELECT DISTINCT userid
+        FROM tblstudentcourseregistration
+        WHERE windowid='$windowEsc'
+          AND status='active'
+          AND (".implode(' OR ', $conditions).")
+        ORDER BY userid ASC";
+    $result = mysqli_query($con, $sql);
+    if($result){
+        while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){
+            $userId = trim((string)$row['userid']);
+            if($userId !== ''){
+                $userIds[$userId] = $userId;
+            }
+        }
+    }
+    return array_values($userIds);
+}
+}
+
+if(!function_exists('score_entry_term_registry_student_ids')){
+function score_entry_term_registry_student_ids($con, $classId, $batchId, $assignmentYear, $termName){
+    $userIds = array();
+    $classEsc = mysqli_real_escape_string($con, trim((string)$classId));
+    $batchEsc = mysqli_real_escape_string($con, trim((string)$batchId));
+    $yearEsc = mysqli_real_escape_string($con, trim((string)$assignmentYear));
+    $termEsc = mysqli_real_escape_string($con, trim((string)$termName));
+    $sql = "SELECT DISTINCT tr.userid
+        FROM tbltermregistry tr
+        INNER JOIN tblsystemuser su
+            ON su.userid=tr.userid
+           AND su.systemtype='Student'
+           AND su.status='active'
+        WHERE tr.status='active'
+          AND tr.class_entryid='$classEsc'
+          AND tr.batchid='$batchEsc'
+          AND ".semester_registry_resolved_year_sql("tr")."='$yearEsc'
+          AND tr.termname='$termEsc'
+        ORDER BY tr.userid ASC";
+    $result = mysqli_query($con, $sql);
+    if($result){
+        while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){
+            $userId = trim((string)$row['userid']);
+            if($userId !== ''){
+                $userIds[$userId] = $userId;
+            }
+        }
+    }
+    return array_values($userIds);
+}
+}
+
+if(!function_exists('score_entry_assignment_student_context')){
+function score_entry_assignment_student_context($con, $assignmentId, $classId, $batchId, $assignmentYear, $termName){
+    $windowRow = score_entry_assignment_window($con, $classId, $batchId, $assignmentYear, $termName);
+    if($windowRow){
+        return array(
+            'uses_course_registration' => true,
+            'window' => $windowRow,
+            'userids' => score_entry_registered_student_ids_from_window($con, $windowRow['windowid'], $assignmentId)
+        );
+    }
+    return array(
+        'uses_course_registration' => false,
+        'window' => null,
+        'userids' => score_entry_term_registry_student_ids($con, $classId, $batchId, $assignmentYear, $termName)
+    );
+}
+}
+
+if(!function_exists('score_entry_saved_mark_count')){
+function score_entry_saved_mark_count($con, $assignmentId, $scoreType, $userIds){
+    $userIds = is_array($userIds) ? array_values(array_filter($userIds, function($value){
+        return trim((string)$value) !== '';
+    })) : array();
+    if(count($userIds) === 0){
+        return 0;
+    }
+    $assignmentEsc = mysqli_real_escape_string($con, trim((string)$assignmentId));
+    $scoreTypeEsc = mysqli_real_escape_string($con, trim((string)$scoreType));
+    $userIdParts = array();
+    foreach($userIds as $userId){
+        $userIdParts[] = "'".mysqli_real_escape_string($con, trim((string)$userId))."'";
+    }
+    $sql = "SELECT COUNT(DISTINCT userid) AS total_saved
+        FROM tblmark
+        WHERE assignmentid='$assignmentEsc'
+          AND testtype='$scoreTypeEsc'
+          AND userid IN (".implode(',', $userIdParts).")";
+    $result = mysqli_query($con, $sql);
+    if($result && ($row = mysqli_fetch_array($result, MYSQLI_ASSOC))){
+        return (int)$row['total_saved'];
+    }
+    return 0;
 }
 }
 

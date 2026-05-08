@@ -411,6 +411,12 @@ function um_module_catalog(){
             'description' => 'Assign teacher lessons and review the weekly class timetable.',
             'scripts' => array('lesson-timetable.php','lesson-timetable-report.php')
         ),
+        'course_registration' => array(
+            'label' => 'Course Registration',
+            'group' => 'Academics',
+            'description' => 'Open semester course registration and review teacher and student course selections.',
+            'scripts' => array('course-registration-admin.php','student-course-registration.php','teacher-course-registration.php')
+        ),
         'online_voting' => array(
             'label' => 'Online Voting',
             'group' => 'Engagement',
@@ -473,7 +479,8 @@ function um_assignable_module_keys_for_role($roleKey){
             'online_voting',
             'student_teacher_registration',
             'examination_timetable',
-            'lesson_timetable'
+            'lesson_timetable',
+            'course_registration'
         );
     }
     if($roleKey === 'student'){
@@ -615,6 +622,9 @@ function um_teacher_extra_nav_links($con, $userId = ''){
         ),
         'lesson_timetable' => array(
             array('href' => 'lesson-timetable.php', 'label' => 'Lesson Timetable Entry', 'icon' => 'fa-calendar')
+        ),
+        'course_registration' => array(
+            array('href' => 'course-registration-admin.php', 'label' => 'Course Registration', 'icon' => 'fa-list-alt')
         )
     );
 
@@ -704,6 +714,7 @@ function um_baseline_scripts_for_role($roleKey){
             'download-examscore-template.php',
             'download-classexamscore-template.php',
             'lesson-timetable-report.php',
+            'teacher-course-registration.php',
             'online-voting.php',
             'online-voting-paystack-init.php',
             'class-score-entry.php',
@@ -729,6 +740,7 @@ function um_baseline_scripts_for_role($roleKey){
             'messages.php',
             'student-attendance-report.php',
             'lesson-timetable-report.php',
+            'student-course-registration.php',
             'online-voting.php',
             'online-voting-paystack-init.php'
         );
