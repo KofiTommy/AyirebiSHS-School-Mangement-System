@@ -51,6 +51,7 @@ if(isset($_POST["print_terminal_report"]))
 $_TermFilter = (isset($_TermId) && trim((string)$_TermId)!=="") ? (int)$_TermId : 0;
 $_AcademicYearFilter = trim((string)$_AcademicYear);
 @$_AcademicYearLabel=$_AcademicYearFilter;
+@$_SemesterLabel=($_TermFilter>0 ? (string)$_TermFilter : '');
 if($_TermFilter>0 && $_AcademicYearFilter!==""){
 $_AcademicYearFilterEsc=mysqli_real_escape_string($con,$_AcademicYearFilter);
 $_SQL_IN=mysqli_query($con,"SELECT * FROM tblschoolinfo WHERE batchid='$_BatchId' AND termname='$_TermFilter' AND academicyear='$_AcademicYearFilterEsc' ORDER BY datetimeentry DESC LIMIT 1");
@@ -104,6 +105,12 @@ if($row_ter=mysqli_fetch_array($_SQL_Terminal,MYSQLI_ASSOC)){
 	$_Interest=$row_ter['interest'];
 	$_Class_Teacher_Remark=$row_ter['class_teacher_remark'];
 	$_Head_Teacher_Remark=$row_ter['head_teacher_remark'];
+    if($_SemesterLabel==="" && isset($row_ter['termname'])){
+        $_SemesterCandidate = trim((string)$row_ter['termname']);
+        if($_SemesterCandidate !== "" && $_SemesterCandidate !== "0"){
+            $_SemesterLabel = $_SemesterCandidate;
+        }
+    }
 }
       //Get all the ordered items
 
@@ -163,68 +170,18 @@ $pdf->Ln($p);
 
   //Get the summation of all the marks
   @$_OverallScore=0;
+  $_AcademicYearAssignmentSql = ($_AcademicYear!=="" ? " AND ".semester_registry_assignment_year_sql("sa")."='".mysqli_real_escape_string($con,$_AcademicYear)."'" : "");
   $_SQL_OM=mysqli_query($con,"SELECT SUM(mk.mark) AS OverallScore FROM tblmark mk INNER JOIN tblsubjectassignment sa ON mk.assignmentid=sa.assignmentid
- WHERE sa.batchid='$_BatchId' AND mk.userid='$_SESSION[USERID]' ".($_TermId!=="" ? " AND sa.termname='".mysqli_real_escape_string($con,$_TermId)."'" : "")." ".($_ClassId!=="" ? " AND sa.classid='".mysqli_real_escape_string($con,$_ClassId)."'" : ""));
+ WHERE sa.batchid='$_BatchId' AND mk.userid='$_UserID' ".($_TermId!=="" ? " AND sa.termname='".mysqli_real_escape_string($con,$_TermId)."'" : "")." ".($_ClassId!=="" ? " AND sa.classid='".mysqli_real_escape_string($con,$_ClassId)."'" : "")." $_AcademicYearAssignmentSql");
  if($row_om=mysqli_fetch_array($_SQL_OM,MYSQLI_ASSOC)){
 $_OverallScore=$row_om['OverallScore'];
 }
 
- $_class_position_obj->setClassPosition($_BatchId,$_OverallScore,$_TermId);
+ $_class_position_obj->setClassPosition($_BatchId,$_OverallScore,$_TermId,"",$_AcademicYear,$_UserID);
  $_Get_Class_Position = $_class_position_obj->getClassPosition();
-
-  $_Result=mysqli_query($con,$_SQL_EXECUTE_SP);
-  @$_ClassPositionLabel="N/A";
-  @$_ClassCount=0;
-  @$_ClassEntryId="";
-  @$_TermName="";
-  if($row_ctx=mysqli_fetch_array($_Result,MYSQLI_ASSOC))
-  {
-    $_ClassEntryId=$row_ctx['class_entryid'];
-    $_TermName=$row_ctx['termname'];
-
-    $_SQL_CLASS_TOTALS=mysqli_query($con,"SELECT mk.userid, SUM(mk.mark) AS totalscore
-      FROM tblmark mk
-      INNER JOIN tblsubjectassignment sa ON mk.assignmentid=sa.assignmentid
-      INNER JOIN tblsystemuser su ON su.userid=mk.userid
-      WHERE su.systemtype='Student'
-        AND sa.batchid='$_BatchId'
-        AND sa.classid='$_ClassEntryId'
-        AND sa.termname='$_TermName'
-      GROUP BY mk.userid
-      ORDER BY totalscore DESC");
-
-    if($_SQL_CLASS_TOTALS){
-      $_ClassCount=mysqli_num_rows($_SQL_CLASS_TOTALS);
-      @$_TargetRank=0;
-      @$_CurrentRank=0;
-      @$_Index=0;
-      @$_PrevScore=null;
-      while($row_rank=mysqli_fetch_array($_SQL_CLASS_TOTALS,MYSQLI_ASSOC)){
-        $_Index=$_Index+1;
-        $_Score=floatval($row_rank['totalscore']);
-        if($_PrevScore===null || $_Score < $_PrevScore){
-          $_CurrentRank=$_Index;
-        }
-        if($row_rank['userid']==$_UserID){
-          $_TargetRank=$_CurrentRank;
-          break;
-        }
-        $_PrevScore=$_Score;
-      }
-      if($_TargetRank>0){
-        if($_TargetRank % 100 >= 11 && $_TargetRank % 100 <= 13){
-          $_ClassPositionLabel=$_TargetRank."th";
-        } else {
-          switch($_TargetRank % 10){
-            case 1: $_ClassPositionLabel=$_TargetRank."st"; break;
-            case 2: $_ClassPositionLabel=$_TargetRank."nd"; break;
-            case 3: $_ClassPositionLabel=$_TargetRank."rd"; break;
-            default: $_ClassPositionLabel=$_TargetRank."th"; break;
-          }
-        }
-      }
-    }
-  }
+ $_class_position_obj->setClassPosition($_BatchId,$_OverallScore,$_TermId,$_ClassId,$_AcademicYear,$_UserID);
+ $_ClassPositionLabel = $_class_position_obj->getClassPosition();
+ $_ClassCount = $_class_position_obj->getClassCount();
 
       $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4]+$width_cell[5],10,"Group Year Position: ". $_Get_Class_Position,0,0,'R',true);
       $pdf->SetFont('Arial','B',10);
@@ -238,6 +195,12 @@ $_OverallScore=$row_om['OverallScore'];
 
       if($row_ps=mysqli_fetch_array($_Result,MYSQLI_ASSOC))
       {
+        if($_SemesterLabel==="" && isset($row_ps['termname'])){
+            $_SemesterCandidate = trim((string)$row_ps['termname']);
+            if($_SemesterCandidate !== "" && $_SemesterCandidate !== "0"){
+                $_SemesterLabel = $_SemesterCandidate;
+            }
+        }
       	@$_StudentName=$row_ps['firstname']." ".$row_ps['othernames']." ".$row_ps['surname']." (".$row_ps['userid'].")";
       $pdf->Cell($text_length,$text_height,'Name: '.$_StudentName,0,0,'L',true);
       $pdf->Ln($n);
@@ -250,7 +213,7 @@ $_OverallScore=$row_om['OverallScore'];
        $pdf->Ln($n);
 
        $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2],10,'School Closes: '.$_SchoolCloses,0,0,'L',true);
-       $pdf->Cell($width_cell[3]+$width_cell[4]+$width_cell[5],10,'Academic Year: '.($_AcademicYearLabel!=="" ? $_AcademicYearLabel : $row_ps['batch']).' | Semester: '.$row_ps['termname'],0,0,'L',true);
+       $pdf->Cell($width_cell[3]+$width_cell[4]+$width_cell[5],10,'Academic Year: '.($_AcademicYearLabel!=="" ? $_AcademicYearLabel : $row_ps['batch']).' | Semester: '.($_SemesterLabel!=="" ? $_SemesterLabel : 'N/A'),0,0,'L',true);
        $pdf->Ln($n);
 
        $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4]+$width_cell[5],10,'Next Term Begins: '.$_NextTermBegins,0,0,'L',true);
