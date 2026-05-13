@@ -233,7 +233,7 @@ if(isset($_POST["register_update"])){
     }else{
         $form = array(
             "userid" => $editUserId,
-            "username" => re_row($currentRow, "username"),
+            "username" => trim((string)(isset($_POST["username"]) ? $_POST["username"] : re_row($currentRow, "username"))),
             "firstname" => trim((string)(isset($_POST["firstname"]) ? $_POST["firstname"] : "")),
             "surname" => trim((string)(isset($_POST["surname"]) ? $_POST["surname"] : "")),
             "othernames" => trim((string)(isset($_POST["othernames"]) ? $_POST["othernames"] : "")),
@@ -269,6 +269,7 @@ if(isset($_POST["register_update"])){
         }
 
         foreach(array(
+            "username" => "Username",
             "firstname" => "First name",
             "surname" => "Surname",
             "gender" => "Gender",
@@ -289,17 +290,25 @@ if(isset($_POST["register_update"])){
         if($form["email"] !== "" && !filter_var($form["email"], FILTER_VALIDATE_EMAIL)){
             $errors[] = "Please enter a valid email address.";
         }
+        if($form["username"] !== ""){
+            $usernameEsc = mysqli_real_escape_string($con, $form["username"]);
+            $userIdEsc = mysqli_real_escape_string($con, $form["userid"]);
+            $dupResult = mysqli_query($con, "SELECT userid FROM tblsystemuser WHERE username='$usernameEsc' AND userid<>'$userIdEsc' LIMIT 1");
+            if($dupResult && mysqli_num_rows($dupResult) > 0){
+                $errors[] = "That username is already in use by another account.";
+            }
+        }
 
         if(empty($errors)){
             $stmt = mysqli_prepare($con, "UPDATE tblsystemuser SET
-                firstname=?, surname=?, othernames=?, gender=?, residencetype=?, birthday=?, age=?, postaladdress=?, homeaddress=?, hometown=?, email=?, mobile=?, religion=?, relationship=?, BECEIndexNumber=?, nextofkin_fullname=?, nextofkin_contact=?, staffstatus=?, branchid=?
+                username=?, firstname=?, surname=?, othernames=?, gender=?, residencetype=?, birthday=?, age=?, postaladdress=?, homeaddress=?, hometown=?, email=?, mobile=?, religion=?, relationship=?, BECEIndexNumber=?, nextofkin_fullname=?, nextofkin_contact=?, staffstatus=?, branchid=?
                 WHERE userid=?
                 LIMIT 1");
             if($stmt){
                 mysqli_stmt_bind_param(
                     $stmt,
-                    str_repeat("s", 20),
-                    $form["firstname"], $form["surname"], $form["othernames"], $form["gender"], $form["residencetype"], $form["birthday"], $form["age"], $form["postaladdress"], $form["homeaddress"], $form["hometown"], $form["email"], $form["mobile"], $form["religion"], $form["relationship"], $form["beceindexnumber"], $form["nextoffullname"], $form["nextofkincontact"], $form["staffstatus"], $form["branchid"], $form["userid"]
+                    str_repeat("s", 21),
+                    $form["username"], $form["firstname"], $form["surname"], $form["othernames"], $form["gender"], $form["residencetype"], $form["birthday"], $form["age"], $form["postaladdress"], $form["homeaddress"], $form["hometown"], $form["email"], $form["mobile"], $form["religion"], $form["relationship"], $form["beceindexnumber"], $form["nextoffullname"], $form["nextofkincontact"], $form["staffstatus"], $form["branchid"], $form["userid"]
                 );
                 if(mysqli_stmt_execute($stmt)){
                     $type = "success";
@@ -333,6 +342,7 @@ $currentFilename = $currentRow ? trim((string)re_row($currentRow, "filename")) :
 if($currentFilename !== "" && file_exists(__DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR.$currentFilename)){
     $currentImage = "uploads/".rawurlencode($currentFilename);
 }
+$isStudentEdit = $currentRow ? (strcasecmp(trim((string)re_row($currentRow, "systemtype")), "Student") === 0) : false;
 $backPage = "user-management.php";
 $backLabel = "Back to User Management";
 if($currentRow){
@@ -429,12 +439,14 @@ if($currentRow){
                     <div class="rs-section-head"><h3>Identity</h3><p>Core personal and account identity details.</p></div>
                     <div class="rs-grid rs-grid--3">
                         <div class="rs-field"><label for="userid_view">User ID</label><input type="text" id="userid_view" value="<?php echo re_safe($form["userid"]); ?>" readonly></div>
-                        <div class="rs-field"><label for="username_view">Username</label><input type="text" id="username_view" value="<?php echo re_safe($form["username"]); ?>" readonly></div>
+                        <div class="rs-field"><label for="username">Username</label><input type="text" id="username" name="username" value="<?php echo re_safe($form["username"]); ?>" required></div>
                         <div class="rs-field"><label for="systemtype_view">System Type</label><input type="text" id="systemtype_view" value="<?php echo re_safe($form["systemtype"] !== "" ? $form["systemtype"] : "User"); ?>" readonly></div>
                         <div class="rs-field"><label for="firstname">First Name</label><input type="text" id="firstname" name="firstname" value="<?php echo re_safe($form["firstname"]); ?>" required></div>
                         <div class="rs-field"><label for="surname">Surname</label><input type="text" id="surname" name="surname" value="<?php echo re_safe($form["surname"]); ?>" required></div>
                         <div class="rs-field"><label for="othernames">Other Names</label><input type="text" id="othernames" name="othernames" value="<?php echo re_safe($form["othernames"]); ?>"></div>
+                        <?php if($isStudentEdit){ ?>
                         <div class="rs-field"><label for="beceindexnumber">BECE Index Number</label><input type="text" id="beceindexnumber" name="beceindexnumber" value="<?php echo re_safe($form["beceindexnumber"]); ?>"></div>
+                        <?php } ?>
                     </div>
                 </section>
 
@@ -448,6 +460,7 @@ if($currentRow){
                                 <label class="rs-choice"><input type="radio" name="gender" value="Female"<?php echo re_checked_attr($form["gender"], "Female"); ?>><span>Female</span></label>
                             </div>
                         </div>
+                        <?php if($isStudentEdit){ ?>
                         <div class="rs-field">
                             <label>Residence Type</label>
                             <div class="rs-choices">
@@ -455,6 +468,7 @@ if($currentRow){
                                 <label class="rs-choice"><input type="radio" name="residencetype" value="Boarding"<?php echo re_checked_attr($form["residencetype"], "Boarding"); ?>><span>Boarding</span></label>
                             </div>
                         </div>
+                        <?php } ?>
                         <div class="rs-field">
                             <label for="religion">Religion</label>
                             <select id="religion" name="religion" required>
@@ -501,12 +515,15 @@ if($currentRow){
                 </section>
 
                 <section class="rs-section">
-                    <div class="rs-section-head"><h3>Guardian</h3><p>Emergency and next of kin details.</p></div>
+                    <div class="rs-section-head">
+                        <h3><?php echo $isStudentEdit ? "Guardian" : "Emergency Contact"; ?></h3>
+                        <p><?php echo $isStudentEdit ? "Emergency and next of kin details." : "Emergency contact details for this staff record."; ?></p>
+                    </div>
                     <div class="rs-grid rs-grid--3">
                         <div class="rs-field">
-                            <label for="relationship">Relationship</label>
+                            <label for="relationship"><?php echo $isStudentEdit ? "Relationship" : "Contact Relationship"; ?></label>
                             <select id="relationship" name="relationship" required>
-                                <option value="">Select relationship</option>
+                                <option value=""><?php echo $isStudentEdit ? "Select relationship" : "Select contact relationship"; ?></option>
                                 <option value="Father"<?php echo re_selected($form["relationship"], "Father"); ?>>Father</option>
                                 <option value="Mother"<?php echo re_selected($form["relationship"], "Mother"); ?>>Mother</option>
                                 <option value="Uncle"<?php echo re_selected($form["relationship"], "Uncle"); ?>>Uncle</option>
@@ -516,8 +533,8 @@ if($currentRow){
                                 <option value="Others"<?php echo re_selected($form["relationship"], "Others"); ?>>Others</option>
                             </select>
                         </div>
-                        <div class="rs-field rs-span-2"><label for="nextoffullname">Next of Kin Full Name</label><input type="text" id="nextoffullname" name="nextoffullname" value="<?php echo re_safe($form["nextoffullname"]); ?>" required></div>
-                        <div class="rs-field"><label for="nextofkincontact">Next of Kin Contact</label><input type="tel" id="nextofkincontact" name="nextofkincontact" value="<?php echo re_safe($form["nextofkincontact"]); ?>" required></div>
+                        <div class="rs-field rs-span-2"><label for="nextoffullname"><?php echo $isStudentEdit ? "Next of Kin Full Name" : "Emergency Contact Full Name"; ?></label><input type="text" id="nextoffullname" name="nextoffullname" value="<?php echo re_safe($form["nextoffullname"]); ?>" required></div>
+                        <div class="rs-field"><label for="nextofkincontact"><?php echo $isStudentEdit ? "Next of Kin Contact" : "Emergency Contact Number"; ?></label><input type="tel" id="nextofkincontact" name="nextofkincontact" value="<?php echo re_safe($form["nextofkincontact"]); ?>" required></div>
                     </div>
                 </section>
 
@@ -548,12 +565,20 @@ if($currentRow){
                 <div class="rs-tags">
                     <span><?php echo re_safe($form["systemtype"] !== "" ? $form["systemtype"] : "User"); ?></span>
                     <span><?php echo re_safe($form["staffstatus"] !== "" ? $form["staffstatus"] : "Status pending"); ?></span>
+                    <?php if($isStudentEdit){ ?>
                     <span><?php echo re_safe($form["residencetype"] !== "" ? $form["residencetype"] : "Residence pending"); ?></span>
+                    <?php } ?>
                 </div>
                 <ul class="rs-list">
-                    <li>Username stays read-only here so the account identity remains stable.</li>
-                    <li>BECE index, residence type, and birthday now stay visible properly while editing.</li>
-                    <li>The form stays much easier to work with on phones and tablets.</li>
+                    <?php if($isStudentEdit){ ?>
+                    <li>Username can be updated here if the student login name needs correction.</li>
+                    <li>Student-specific fields like BECE index and residence type stay available in the edit flow.</li>
+                    <li>The form stays easier to work with on phones and tablets.</li>
+                    <?php } else { ?>
+                    <li>Username can be updated here if the staff login name needs correction.</li>
+                    <li>Emergency contact details are separated from the teacher's own contact information.</li>
+                    <li>The form stays easier to work with on phones and tablets.</li>
+                    <?php } ?>
                 </ul>
             </section>
 

@@ -324,7 +324,7 @@ include("dbstring.php");
 
 if($_ReportClassId!="" && $_ReportSubjectId!="" && $_ReportBatchId!="")
 {
-$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.* FROM tblsubjectassignment sa 
+$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.termname AS assignment_termname, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.* FROM tblsubjectassignment sa 
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
@@ -345,7 +345,7 @@ $_SQL_Batch=mysqli_query($con,"SELECT * FROM tblbatch WHERE batchid='$row_sub[ba
 if($rowb=mysqli_fetch_array($_SQL_Batch,MYSQLI_ASSOC)){
 $_BatchName=$rowb["batch"];	
 }
-$_SessionHeading = score_report_session_label($row_sub['assignment_datetimeentry'], $_BatchName, $row_sub['termname']);
+$_SessionHeading = score_report_session_label($row_sub['assignment_datetimeentry'], $_BatchName, $row_sub['assignment_termname']);
 echo "<tr class='scores-report-row scores-report-row--section'><td align='left' colspan='10'>".strtoupper($row_sub['subject']).": ".strtoupper($_SessionHeading) ."</td></tr>";
 
 
@@ -373,8 +373,8 @@ echo strtoupper($row_rsu['firstname']." ".$row_rsu['othernames']." ".$row_rsu['s
 echo "(".$row_rsu['userid'].")";
 echo "</td></tr>";
 
-$_StartTerm = ($_FilterTermSafe!="" ? intval($_FilterTermSafe) : 1);
-$_EndTerm = ($_FilterTermSafe!="" ? intval($_FilterTermSafe) : 2);
+$_StartTerm = ($_FilterTermSafe!="" ? intval($_FilterTermSafe) : intval($row_sub['assignment_termname']));
+$_EndTerm = ($_FilterTermSafe!="" ? intval($_FilterTermSafe) : intval($row_sub['assignment_termname']));
 for($k=$_StartTerm;$k<=$_EndTerm;$k++){
 $_SQL_EXECUTE=mysqli_query($con,"SELECT *,su.userid FROM tblmark mk 
 		INNER JOIN tblsystemuser su ON mk.userid=su.userid

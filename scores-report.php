@@ -8,14 +8,19 @@ $_SESSION['Message']="";
 include("dbstring.php");
 include("audit_notifications.php");
 include_once("semester-registry-utils.php");
+if(file_exists(__DIR__.DIRECTORY_SEPARATOR."score-entry-utils.php")){
+include_once("score-entry-utils.php");
+}
 semester_registry_ensure_academic_year_column($con);
 if(!function_exists('score_report_session_label')){
-function score_report_session_label($dateTimeValue, $batchLabel, $termValue){
-    $yearValue = "";
+function score_report_session_label($dateTimeValue, $batchLabel, $termValue, $yearOverride = ""){
+    $yearValue = semester_registry_normalize_year($yearOverride);
     if(trim((string)$dateTimeValue) !== ""){
-        $time = strtotime((string)$dateTimeValue);
-        if($time){
-            $yearValue = date("Y", $time);
+        if($yearValue === ""){
+            $time = strtotime((string)$dateTimeValue);
+            if($time){
+                $yearValue = date("Y", $time);
+            }
         }
     }
     if($yearValue === ""){
@@ -51,27 +56,156 @@ function score_report_is_admin_viewer(){
 }
 if(!function_exists('score_report_link_is_active')){
 function score_report_link_is_active($row, $classId, $termId, $subjectId, $batchId, $yearBatch){
-    $rowYear = semester_registry_normalize_year(date("Y", strtotime((string)$row["assignment_datetimeentry"])));
+    $rowTerm = '';
+    if(isset($row["assignment_termname"])){
+        $rowTerm = trim((string)$row["assignment_termname"]);
+    }
+    if($rowTerm === '' && isset($row["termname"])){
+        $rowTerm = trim((string)$row["termname"]);
+    }
+    $rowYear = "";
+    if(isset($row["assignment_year"])){
+        $rowYear = semester_registry_normalize_year($row["assignment_year"]);
+    }
+    if($rowYear === ""){
+        $rowYear = semester_registry_normalize_year(date("Y", strtotime((string)$row["assignment_datetimeentry"])));
+    }
     return (
         trim((string)$row["class_entryid"]) === trim((string)$classId) &&
-        trim((string)$row["termname"]) === trim((string)$termId) &&
+        $rowTerm === trim((string)$termId) &&
         trim((string)$row["subjectid"]) === trim((string)$subjectId) &&
         trim((string)$row["batchid"]) === trim((string)$batchId) &&
         trim((string)$rowYear) === trim((string)$yearBatch)
     );
 }
 }
+if(!function_exists('score_report_assignment_student_ids')){
+function score_report_assignment_student_ids($con, $assignmentRow){
+    $studentIds = array();
+    if(function_exists('score_entry_assignment_student_context')){
+        $context = score_entry_assignment_student_context(
+            $con,
+            isset($assignmentRow['assignmentid']) ? $assignmentRow['assignmentid'] : '',
+            isset($assignmentRow['class_entryid']) ? $assignmentRow['class_entryid'] : '',
+            isset($assignmentRow['batchid']) ? $assignmentRow['batchid'] : '',
+            isset($assignmentRow['assignment_year']) ? $assignmentRow['assignment_year'] : '',
+            isset($assignmentRow['termname']) ? $assignmentRow['termname'] : ''
+        );
+        if(isset($context['userids']) && is_array($context['userids'])){
+            foreach($context['userids'] as $userId){
+                $userId = trim((string)$userId);
+                if($userId !== ''){
+                    $studentIds[$userId] = $userId;
+                }
+            }
+        }
+    }
+
+    if(empty($studentIds) && isset($assignmentRow['assignmentid'])){
+        $assignmentIdEsc = mysqli_real_escape_string($con, trim((string)$assignmentRow['assignmentid']));
+        $fallbackSql = mysqli_query($con, "SELECT DISTINCT userid FROM tblmark WHERE assignmentid='$assignmentIdEsc' AND status='active' ORDER BY userid ASC");
+        if($fallbackSql){
+            while($fallbackRow = mysqli_fetch_array($fallbackSql, MYSQLI_ASSOC)){
+                $userId = trim((string)$fallbackRow['userid']);
+                if($userId !== ''){
+                    $studentIds[$userId] = $userId;
+                }
+            }
+        }
+    }
+
+    return array_values($studentIds);
+}
+}
+if(!function_exists('score_report_student_rows')){
+function score_report_student_rows($con, $studentIds){
+    $rows = array();
+    if(!is_array($studentIds) || count($studentIds) === 0){
+        return $rows;
+    }
+    $parts = array();
+    foreach($studentIds as $studentId){
+        $studentId = trim((string)$studentId);
+        if($studentId !== ''){
+            $parts[] = "'".mysqli_real_escape_string($con, $studentId)."'";
+        }
+    }
+    if(count($parts) === 0){
+        return $rows;
+    }
+    $sql = mysqli_query($con, "SELECT userid, firstname, othernames, surname, systemtype, status
+        FROM tblsystemuser
+        WHERE userid IN (".implode(",", $parts).")
+          AND systemtype='Student'
+        ORDER BY userid ASC");
+    if($sql){
+        while($row = mysqli_fetch_array($sql, MYSQLI_ASSOC)){
+            $rows[trim((string)$row['userid'])] = $row;
+        }
+    }
+    return $rows;
+}
+}
 @$_YearBatchFilter = semester_registry_normalize_year($_GET["year_batch"] ?? "");
 @$_YearBatchFilterSafe = mysqli_real_escape_string($con, $_YearBatchFilter);
+@$_TermFilter = isset($_GET["term_filter"]) ? trim((string)$_GET["term_filter"]) : "";
+if($_TermFilter !== "1" && $_TermFilter !== "2"){
+    $_TermFilter = "";
+}
+@$_TermFilterSafe = mysqli_real_escape_string($con, $_TermFilter);
 @$_CurrentClassId = isset($_GET["class_id"]) ? trim($_GET["class_id"]) : "";
 @$_CurrentTermId = isset($_GET["term_id"]) ? trim($_GET["term_id"]) : "";
 @$_CurrentSubjectId = isset($_GET["subject_id"]) ? trim($_GET["subject_id"]) : "";
 @$_CurrentBatchId = isset($_GET["batchid"]) ? trim($_GET["batchid"]) : "";
+@$_CurrentClassIdSafe = mysqli_real_escape_string($con, $_CurrentClassId);
+@$_CurrentTermIdSafe = mysqli_real_escape_string($con, $_CurrentTermId);
+@$_CurrentSubjectIdSafe = mysqli_real_escape_string($con, $_CurrentSubjectId);
+@$_CurrentBatchIdSafe = mysqli_real_escape_string($con, $_CurrentBatchId);
 @$_Mark=$_POST['marks'];
 @$_AssignmentId=$_POST['assignmentid'];
 @$_UserId=$_POST['userid'];
 @$_TotalMark=$_POST['totalscore'];
 @$_Recordedby=$_SESSION['USERID'];
+
+if(
+    $_SERVER['REQUEST_METHOD'] === 'GET' &&
+    $_CurrentClassId === '' &&
+    $_CurrentSubjectId === '' &&
+    !isset($_GET['edit_mark']) &&
+    !isset($_GET['delete_mark'])
+){
+    $_AutoWhere = array("sa.status='active'");
+    if($_YearBatchFilterSafe !== ""){
+        $_AutoWhere[] = semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe'";
+    }
+    if($_TermFilterSafe !== ""){
+        $_AutoWhere[] = "sa.termname='$_TermFilterSafe'";
+    }
+    if(score_report_is_admin_viewer()){
+        // no extra teacher scope
+    }elseif(isset($_SESSION["ACCESSLEVEL"], $_SESSION["SYSTEMTYPE"]) && $_SESSION["ACCESSLEVEL"]=="user" && $_SESSION["SYSTEMTYPE"]=="Teacher"){
+        $_AutoWhere[] = "sa.userid='".mysqli_real_escape_string($con, $_SESSION['USERID'])."'";
+    }
+
+    $_AutoSql = "SELECT sc.classid, sa.termname, sc.subjectid, sa.batchid
+        FROM tblsubjectassignment sa
+        INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
+        WHERE ".implode(" AND ", $_AutoWhere)."
+        ORDER BY sa.datetimeentry DESC, sa.termname ASC
+        LIMIT 1";
+    $_AutoRes = mysqli_query($con, $_AutoSql);
+    if($_AutoRes && ($_AutoRow = mysqli_fetch_array($_AutoRes, MYSQLI_ASSOC))){
+        header(
+            "Location: scores-report.php?class_id=".urlencode((string)$_AutoRow['classid']).
+            "&term_id=".urlencode((string)$_AutoRow['termname']).
+            "&subject_id=".urlencode((string)$_AutoRow['subjectid']).
+            "&batchid=".urlencode((string)$_AutoRow['batchid']).
+            "&year_batch=".urlencode((string)$_YearBatchFilter).
+            "&term_filter=".urlencode((string)$_TermFilter)
+        );
+        exit();
+    }
+}
 
 if(isset($_POST['save_all_mark']))
 {
@@ -429,7 +563,8 @@ include("menu.php");
 $_ViewerLabel = score_report_is_admin_viewer() ? "Admin Score Workspace" : "Teacher Score Workspace";
 $_SelectionLabel = $_CurrentClassId !== "" ? "Report loaded" : "Choose a subject";
 $_YearLabel = $_YearBatchFilter !== "" ? $_YearBatchFilter : "All Years";
-$_SemesterLabel = $_CurrentTermId !== "" ? "Semester ".$_CurrentTermId : "Not selected";
+$_SemesterScope = $_CurrentTermId !== "" ? $_CurrentTermId : $_TermFilter;
+$_SemesterLabel = $_SemesterScope !== "" ? "Semester ".$_SemesterScope : "All Semesters";
 ?>
 
 <div class="main-platform scores-report-shell"><br/>
@@ -492,66 +627,59 @@ while($row_bf=mysqli_fetch_array($_SQL_BF,MYSQLI_ASSOC)){
     echo "<option value='$_YearOption' $_sel>$_YearOption</option>";
 }
 echo "</select>";
-if($_CurrentClassId !== ""){
-echo "<input type='hidden' name='class_id' value='".score_report_safe($_CurrentClassId)."' />";
-}
-if($_CurrentTermId !== ""){
-echo "<input type='hidden' name='term_id' value='".score_report_safe($_CurrentTermId)."' />";
-}
-if($_CurrentSubjectId !== ""){
-echo "<input type='hidden' name='subject_id' value='".score_report_safe($_CurrentSubjectId)."' />";
-}
-if($_CurrentBatchId !== ""){
-echo "<input type='hidden' name='batchid' value='".score_report_safe($_CurrentBatchId)."' />";
-}
+echo "</div>";
+echo "<div class='scores-report-field-group'>";
+echo "<label for='term_filter'>Semester</label>";
+echo "<select id='term_filter' name='term_filter' onchange='this.form.submit()'>";
+echo "<option value=''>All Semesters</option>";
+echo "<option value='1'".($_TermFilter==="1" ? " selected" : "").">Semester 1</option>";
+echo "<option value='2'".($_TermFilter==="2" ? " selected" : "").">Semester 2</option>";
+echo "</select>";
 echo "</div>";
 ?>
 <?php	
 if(($_SESSION["ACCESSLEVEL"]=="administrator"||$_SESSION["ACCESSLEVEL"]=="user") && ($_SESSION["SYSTEMTYPE"]=="super_user" ||$_SESSION["SYSTEMTYPE"]=="normal_user"||$_SESSION["SYSTEMTYPE"]=="User"))
 {
 include("dbstring.php");
-$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.*, bch.batch FROM tblsubjectassignment sa 
+$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.termname AS assignment_termname, ".semester_registry_assignment_year_sql("sa")." AS assignment_year, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.*, bch.batch FROM tblsubjectassignment sa 
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
 	INNER JOIN tblbatch bch ON bch.batchid=sa.batchid
-	".($_YearBatchFilterSafe!="" ? " WHERE ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe' " : "")."
+	WHERE sa.status='active' ".($_YearBatchFilterSafe!="" ? " AND ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe' " : "")."
+	".($_TermFilterSafe!="" ? " AND sa.termname='$_TermFilterSafe' " : "")."
 	ORDER BY ce.class_name,sa.termname ASC");
 
-//echo "<select id='classid' name='classid' class='validate[required]'>";
-	//echo "<option value=''>Select Subject</option>";
+	$_HasSubjectLinks = false;
 	while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-		$_SessionLabel = score_report_session_label($row['assignment_datetimeentry'], $row['batch'], $row['termname']);
-		$_IsActiveLink = ($_CurrentClassId==$row['class_entryid'] && $_CurrentTermId==$row['termname'] && $_CurrentSubjectId==$row['subjectid'] && $_CurrentBatchId==$row['batchid']);
-		echo "<a class='scores-report-subject-link".($_IsActiveLink ? " scores-report-subject-link--active" : "")."' href='scores-report.php?class_id=$row[class_entryid]&term_id=$row[termname]&subject_id=$row[subjectid]&batchid=$row[batchid]&year_batch=".urlencode($_YearBatchFilter)."'><span class='scores-report-subject-link__class'>$row[class_name]</span><strong class='scores-report-subject-link__subject'>$row[subject]</strong><span class='scores-report-subject-link__session'>$_SessionLabel</span></a>";
+		$_HasSubjectLinks = true;
+		$_SessionLabel = score_report_session_label($row['assignment_datetimeentry'], $row['batch'], $row['assignment_termname'], isset($row['assignment_year']) ? $row['assignment_year'] : "");
+		$_IsActiveLink = ($_CurrentClassId==$row['class_entryid'] && $_CurrentTermId==$row['assignment_termname'] && $_CurrentSubjectId==$row['subjectid'] && $_CurrentBatchId==$row['batchid']);
+		echo "<a class='scores-report-subject-link".($_IsActiveLink ? " scores-report-subject-link--active" : "")."' href='scores-report.php?class_id=$row[class_entryid]&term_id=$row[assignment_termname]&subject_id=$row[subjectid]&batchid=$row[batchid]&year_batch=".urlencode($_YearBatchFilter)."&term_filter=".urlencode($_TermFilter)."'><span class='scores-report-subject-link__class'>$row[class_name]</span><strong class='scores-report-subject-link__subject'>$row[subject]</strong><span class='scores-report-subject-link__session'>$_SessionLabel</span></a>";
 	}
-//echo "</select><br/><br/>";
-/*
-	$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
-
-			echo "<select id='batchid' name='batchid' class='validate[required]'>";
-			echo "<option value=''>Select Batch</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[batchid]'>$row[batch]</option>";
-				}
-				
-			echo "</select><br/><br/>";
-			*/
+	if(!$_HasSubjectLinks){
+		echo "<div class='scores-report-empty-state'><h3>No subject reports found</h3><p>No active score-report subjects matched the current year and semester filter.</p></div>";
+	}
 }
 elseif($_SESSION["ACCESSLEVEL"]=="user" && $_SESSION["SYSTEMTYPE"]=="Teacher")
 {
 include("dbstring.php");
-$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.*, bch.batch FROM tblsubjectassignment sa 
+$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.termname AS assignment_termname, ".semester_registry_assignment_year_sql("sa")." AS assignment_year, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.*, bch.batch FROM tblsubjectassignment sa 
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
 	INNER JOIN tblbatch bch ON bch.batchid=sa.batchid
-	WHERE sa.userid='$_SESSION[USERID]' ".($_YearBatchFilterSafe!="" ? " AND ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe' " : "")." ORDER BY ce.class_name,sa.termname ASC");
+	WHERE sa.userid='$_SESSION[USERID]' AND sa.status='active' ".($_YearBatchFilterSafe!="" ? " AND ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe' " : "")." ".($_TermFilterSafe!="" ? " AND sa.termname='$_TermFilterSafe' " : "")." ORDER BY ce.class_name,sa.termname ASC");
 
+	$_HasSubjectLinks = false;
 	while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-		$_SessionLabel = score_report_session_label($row['assignment_datetimeentry'], $row['batch'], $row['termname']);
-		$_IsActiveLink = ($_CurrentClassId==$row['class_entryid'] && $_CurrentTermId==$row['termname'] && $_CurrentSubjectId==$row['subjectid'] && $_CurrentBatchId==$row['batchid']);
-		echo "<a class='scores-report-subject-link".($_IsActiveLink ? " scores-report-subject-link--active" : "")."' href='scores-report.php?class_id=$row[class_entryid]&term_id=$row[termname]&subject_id=$row[subjectid]&batchid=$row[batchid]&year_batch=".urlencode($_YearBatchFilter)."'><span class='scores-report-subject-link__class'>$row[class_name]</span><strong class='scores-report-subject-link__subject'>$row[subject]</strong><span class='scores-report-subject-link__session'>$_SessionLabel</span></a>";
+		$_HasSubjectLinks = true;
+		$_SessionLabel = score_report_session_label($row['assignment_datetimeentry'], $row['batch'], $row['assignment_termname'], isset($row['assignment_year']) ? $row['assignment_year'] : "");
+		$_IsActiveLink = ($_CurrentClassId==$row['class_entryid'] && $_CurrentTermId==$row['assignment_termname'] && $_CurrentSubjectId==$row['subjectid'] && $_CurrentBatchId==$row['batchid']);
+		echo "<a class='scores-report-subject-link".($_IsActiveLink ? " scores-report-subject-link--active" : "")."' href='scores-report.php?class_id=$row[class_entryid]&term_id=$row[assignment_termname]&subject_id=$row[subjectid]&batchid=$row[batchid]&year_batch=".urlencode($_YearBatchFilter)."&term_filter=".urlencode($_TermFilter)."'><span class='scores-report-subject-link__class'>$row[class_name]</span><strong class='scores-report-subject-link__subject'>$row[subject]</strong><span class='scores-report-subject-link__session'>$_SessionLabel</span></a>";
+	}
+	if(!$_HasSubjectLinks){
+		echo "<div class='scores-report-empty-state'><h3>No subject reports found</h3><p>No active score-report subjects matched this teacher, academic-year, and semester filter.</p></div>";
 	}
 }
 ?>
@@ -573,6 +701,11 @@ $_SQL_2=mysqli_query($con,"SELECT sa.*, sa.datetimeentry AS assignment_datetimee
 <input type="hidden" name="return_batchid" value="<?php echo htmlspecialchars($_CurrentBatchId,ENT_QUOTES); ?>" />
 <input type="hidden" name="return_year_batch" value="<?php echo htmlspecialchars($_YearBatchFilter,ENT_QUOTES); ?>" />
 <?php
+include("positions.php");
+include("gradingsystem.php");
+@$_position_obj_1=new Position;
+@$_grade_obj=new GradingSystem;
+
 if(trim((string)$_SESSION['Message']) !== ""){
 echo "<div class='scores-report-flash'>".$_SESSION['Message']."</div>";
 $_SESSION['Message']="";
@@ -586,12 +719,17 @@ echo "<label class='scores-report-select-all'><input type='checkbox' id='bulk_se
 echo "<button type='submit' name='bulk_delete_students_scores' onclick='return confirmBulkDeleteStudents();' class='scores-report-button scores-report-button--danger'><i class='fa fa-trash-o'></i> Delete Selected Class + Exam Scores</button>";
 echo "</div>";
 $_ReportTeacherScope = score_report_is_admin_viewer() ? "" : " AND sa.userid='$_SESSION[USERID]'";
-$_SQL_2=mysqli_query($con,"SELECT sa.*, ".semester_registry_assignment_year_sql("sa")." AS assignment_year, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.*, bch.batch FROM tblsubjectassignment sa 
+$_SQL_2=mysqli_query($con,"SELECT sa.*, sa.termname AS assignment_termname, ".semester_registry_assignment_year_sql("sa")." AS assignment_year, sa.datetimeentry AS assignment_datetimeentry, sc.*, sub.*, ce.*, bch.batch FROM tblsubjectassignment sa 
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
 	INNER JOIN tblbatch bch ON bch.batchid=sa.batchid
-	WHERE sc.classid='$_GET[class_id]' AND sc.subjectid='$_GET[subject_id]' AND sa.batchid='$_GET[batchid]' $_ReportTeacherScope ".($_YearBatchFilterSafe!="" ? " AND ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe'" : "")." ORDER BY ce.class_name,sa.termname ASC");
+	WHERE sa.status='active'
+      AND sc.classid='$_CurrentClassIdSafe'
+      AND sc.subjectid='$_CurrentSubjectIdSafe'
+      AND sa.batchid='$_CurrentBatchIdSafe'
+      AND sa.termname='$_CurrentTermIdSafe'
+      $_ReportTeacherScope ".($_YearBatchFilterSafe!="" ? " AND ".semester_registry_assignment_year_sql("sa")."='$_YearBatchFilterSafe'" : "")." ORDER BY ce.class_name,sa.termname ASC");
 
 
 //$_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.systemtype='Student'  ORDER BY su.userid");
@@ -599,87 +737,83 @@ $_SQL_2=mysqli_query($con,"SELECT sa.*, ".semester_registry_assignment_year_sql(
 echo "<div class='scores-report-table-wrap'>";
 echo "<table width='100%' class='scores-report-table'>";
 echo "<caption>Scores Report</caption>";
-echo "<thead><th>*</th><th>SUBJECT</th><th>STUDENT</th><th>CLASS</th><th>SESSION</th><th>TYPE</th><th>MARK</th><th>TOTAL</th></thead>";
+echo "<thead><th>*</th><th>SUBJECT</th><th>STUDENT</th><th>CLASS</th><th>SESSION</th><th>TYPE</th><th>MARK</th><th>TOTAL</th><th>POSITION</th><th>GRADE</th></thead>";
 echo "<tbody>";
 @$serial=0;
+$_ReportHasRows = false;
+$_RenderedStudentRows = false;
 while($row_sub=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC))
 {
+$_ReportHasRows = true;
 @$_BatchName="";
 $_SQL_Batch=mysqli_query($con,"SELECT * FROM tblbatch WHERE batchid='$row_sub[batchid]'");
 if($rowb=mysqli_fetch_array($_SQL_Batch,MYSQLI_ASSOC)){
 $_BatchName=$rowb["batch"];	
 }
-$_SessionHeading = score_report_session_label($row_sub['assignment_datetimeentry'], $_BatchName, $row_sub['termname']);
-echo "<tr class='scores-report-row scores-report-row--section'><td align='left' colspan='8'>".strtoupper($row_sub['subject']).": ".strtoupper($_SessionHeading) ."</td></tr>";
+$_SessionHeading = score_report_session_label($row_sub['assignment_datetimeentry'], $_BatchName, $row_sub['assignment_termname'], isset($row_sub['assignment_year']) ? $row_sub['assignment_year'] : "");
+echo "<tr class='scores-report-row scores-report-row--section'><td align='left' colspan='10'>".strtoupper($row_sub['subject']).": ".strtoupper($_SessionHeading) ."</td></tr>";
 
-
-//$_SQL_SU=mysqli_query($con,"SELECT * FROM tblsubject");
-
-//SUBJECT
-/*echo "<tr style='background-color:#cff;font-weight:bold'>";
-echo "<td colspan='1'></td>";
-echo "<td align='left' colspan='7'>";
-echo strtoupper($row_rsu['subject']);
-echo "</td></tr>";
-*/
-$_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
-	ON ce.class_entryid=tr.class_entryid WHERE tr.class_entryid='$row_sub[class_entryid]' AND tr.batchid='$row_sub[batchid]' AND tr.termname='$row_sub[termname]' AND ".semester_registry_resolved_year_sql("tr")."='$row_sub[assignment_year]'");
-if(mysqli_num_rows($_SQL_CLASS)==0){
-}else{
+$_SQL_CLASS=mysqli_query($con,"SELECT DISTINCT tr.userid, ce.class_name, ce.class_entryid
+    FROM tblclassentry ce
+    INNER JOIN tbltermregistry tr ON ce.class_entryid=tr.class_entryid
+    WHERE tr.batchid='$row_sub[batchid]'
+      AND tr.class_entryid='$row_sub[class_entryid]'
+    ORDER BY tr.userid ASC");
+if($_SQL_CLASS && mysqli_num_rows($_SQL_CLASS)>0){
 while($row_ce=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
-$_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$row_ce[userid]' AND su.systemtype='Student'  ORDER BY su.userid");
-
-if($row_rsu=mysqli_fetch_array($_SQL_USER,MYSQLI_ASSOC)){
+$_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$row_ce[userid]' AND su.systemtype='Student' ORDER BY su.userid");
+if(!$_SQL_USER || !($row_rsu=mysqli_fetch_array($_SQL_USER,MYSQLI_ASSOC))){
+    continue;
+}
+$_RenderedStudentRows = true;
 echo "<tr class='scores-report-row scores-report-row--student'>";
 echo "<td colspan='1'>";
 echo "<input type='checkbox' class='bulk-student-checkbox' name='bulk_userid[]' value='$row_rsu[userid]' style='margin-right:6px;' />";
 echo $serial=$serial+1 .".";
 echo "</td>";
-echo "<td align='left' colspan='7'>";
+echo "<td align='left' colspan='9'>";
 echo strtoupper($row_rsu['firstname']." ".$row_rsu['othernames']." ".$row_rsu['surname']);
 echo "(".$row_rsu['userid'].")";
 echo "</td></tr>";
 
-for($k=(int)$row_sub['termname'];$k<=(int)$row_sub['termname'];$k++){
-$_SQL_EXECUTE=mysqli_query($con,"SELECT *,su.userid FROM tblmark mk 
-		INNER JOIN tblsystemuser su ON mk.userid=su.userid
-		INNER JOIN tblsubjectassignment sa ON mk.assignmentid=sa.assignmentid
-		INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
-		INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
-		INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
-		WHERE su.userid='$row_rsu[userid]' AND sa.batchid='$row_sub[batchid]' AND ".semester_registry_assignment_year_sql("sa")."='$row_sub[assignment_year]'
-		AND ce.class_entryid='$row_ce[class_entryid]' AND sa.termname='$k' 
-		AND sub.subjectid='$_GET[subject_id]'
-		ORDER BY su.userid ASC");
+for($k=(int)$row_sub['assignment_termname'];$k<=(int)$row_sub['assignment_termname'];$k++){
+$_AssignmentIdSafe = mysqli_real_escape_string($con, $row_sub['assignmentid']);
+$_StudentIdSafe = mysqli_real_escape_string($con, $row_rsu['userid']);
+$_SQL_EXECUTE=mysqli_query($con,"SELECT mk.*, su.userid
+        FROM tblmark mk
+        INNER JOIN tblsystemuser su ON mk.userid=su.userid
+        WHERE mk.assignmentid='$_AssignmentIdSafe'
+          AND mk.status='active'
+          AND su.userid='$_StudentIdSafe'
+        ORDER BY mk.datetimeentry ASC, mk.markid ASC");
 
 if(mysqli_num_rows($_SQL_EXECUTE)==0){
 
 }else{
 	echo "<tr class='scores-report-row scores-report-row--session'>";
 	echo "<td colspan='2'></td>";
-	echo "<td colspan='1'>$row_ce[class_name]</td>";
+	echo "<td colspan='3'>$row_ce[class_name]</td>";
 	echo "<td colspan='5'>";
-	echo "SESSION: ".score_report_session_label($row_sub['assignment_datetimeentry'], $_BatchName, $k);
+	echo "SESSION: ".score_report_session_label($row_sub['assignment_datetimeentry'], $_BatchName, $k, isset($row_sub['assignment_year']) ? $row_sub['assignment_year'] : "");
 	echo "</td></tr>";
 
 	@$_TotalMark=0;
+    @$_getAssignment_Id="";
+    @$serial_mark=0;
 
 	while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC))
 	{
+	$_getAssignment_Id=$row['assignmentid'];
 	echo "<tr class='scores-report-row scores-report-row--mark' id='mark-row-$row[markid]'>";
 	echo "<td colspan='4' align='right'>";
 	echo "<a class='scores-report-action scores-report-action--edit' title='Edit score: $row[mark]' href='scores-report.php?class_id=$_GET[class_id]&term_id=$_GET[term_id]&subject_id=$_GET[subject_id]&batchid=$_GET[batchid]&year_batch=".urlencode($_YearBatchFilter)."&edit_mark=$row[markid]#edit-mark-$row[markid]'><i class='fa fa-edit'></i></a> ";
 	echo "<a class='scores-report-action scores-report-action--delete' onclick=\"javascript:return confirm('Do you to delete mark?')\" title='Delete score: $row[mark]' href='scores-report.php?class_id=$_GET[class_id]&term_id=$_GET[term_id]&subject_id=$_GET[subject_id]&batchid=$_GET[batchid]&year_batch=".urlencode($_YearBatchFilter)."&delete_mark=$row[markid]'><i class='fa fa-trash-o'></i></a>";
 	echo "</td>";
 
-	//echo "<td align='center' width='5%' colspan='1'>";
-	//echo $serial=$serial+1;
-	//echo "</td>";
-
-	/*echo "<td align='left' width='20%'>";
-	echo $row['subject'];
+	echo "<td align='center' width='5%' colspan='1'>";
+	echo $serial_mark=$serial_mark+1;
 	echo "</td>";
-	*/
+
 	echo "<td align='left' width='15%'>";
 	echo $row['testtype'];
 	echo "</td>";
@@ -720,12 +854,32 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 	echo "<td align='center'>";
 	echo $_TotalMark;
 	echo "</td>";
+
+    echo "<td align='center' width='5%'>";
+    $_Final_Position=0;
+    if(trim((string)$_getAssignment_Id) !== ""){
+        $_position_obj_1->setPosition($_getAssignment_Id,$_TotalMark);
+        $_Final_Position= $_position_obj_1->getPosition();
+    }
+    echo $_Final_Position;
+    echo "</td>";
+
+    echo "<td align='center' width='5%'>";
+    $_final_grade="";
+    $_grade_obj->setMark($_TotalMark);
+    $_final_grade=$_grade_obj->getMark($_TotalMark);
+    echo $_final_grade;
+	echo "</td>";
 	echo "</tr>";
 	}
 	}
 	}
 }
 }
+if(!$_ReportHasRows){
+echo "<tr class='scores-report-row'><td colspan='10'><div class='scores-report-empty-state'><h3>No scores found for this scope</h3><p>The selected class, subject, batch, academic year, and semester did not return a teacher score report.</p></div></td></tr>";
+}elseif(!$_RenderedStudentRows){
+echo "<tr class='scores-report-row'><td colspan='10'><div class='scores-report-empty-state'><h3>No student records found</h3><p>The teacher report did not find class students for this selected score scope.</p></div></td></tr>";
 }
 echo "</tbody>";
 echo "</table>";
