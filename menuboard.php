@@ -320,20 +320,18 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a href="school-data-entry.php"><i class="fa fa-plus"></i> School Data Entry</a>
 <?php menuboard_section_end(); ?>
 
-<?php menuboard_section_start('Accounts', 'fa-money'); ?>
-<a href="item-entry.php"><i class="fa fa-plus"></i> Item Entry</a>
-<a href="item-pricing.php"><i class="fa fa-plus"></i> Item Pricing</a>
-<a href="class-billing.php"><i class="fa fa-plus"></i> Class Billing</a>
-<a href="daily-report.php"><i class="fa fa-book"></i> Daily Report</a>
-<a href="payment-analysis.php"><i class="fa fa-book"></i> Payment Report</a>
-<a href="bills-report.php"><i class="fa fa-book"></i> Bills Report</a>
-<?php menuboard_section_end(); ?>
-
 <?php menuboard_section_start('Billing', 'fa-money'); ?>
+<a href="payments.php"><i class="fa fa-credit-card"></i> Payments</a>
+<a href="class-billing.php"><i class="fa fa-cogs"></i> Billing Manager</a>
+<a href="teacher-billing-assignment.php"><i class="fa fa-users"></i> Teacher Billing Assignment</a>
 <a href="student-billing.php"><i class="fa fa-plus"></i> Bill Student</a>
 <a href="group-student-billing.php"><i class="fa fa-plus"></i> Bill Group Students</a>
 <a href="rebill-group-student.php"><i class="fa fa-plus"></i> Rebill Group Students</a>
 <a href="print-student-bills.php"><i class="fa fa-plus"></i> Print Student Bills</a>
+<a href="daily-report.php"><i class="fa fa-book"></i> Daily Report</a>
+<a href="payment-analysis.php"><i class="fa fa-book"></i> Payment Report</a>
+<a href="bills-report.php"><i class="fa fa-book"></i> Bills Report</a>
+<a href="item-bill-report.php"><i class="fa fa-book"></i> Item Bill Report</a>
 <?php menuboard_section_end(); ?>
 
 <?php menuboard_section_start('Records', 'fa-folder-o'); ?>
@@ -412,17 +410,13 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <?php menuboard_section_end(); ?>
 
 <?php menuboard_section_start('Billing', 'fa-money'); ?>
+<a href="payments.php"><i class="fa fa-credit-card"></i> Payments</a>
+<a href="class-billing.php"><i class="fa fa-cogs"></i> Billing Manager</a>
+<a href="teacher-billing-assignment.php"><i class="fa fa-users"></i> Teacher Billing Assignment</a>
 <a href="student-billing.php"><i class="fa fa-plus"></i> Bill Student</a>
 <a href="group-student-billing.php"><i class="fa fa-plus"></i> Bill Group Students</a>
 <a href="rebill-group-student.php"><i class="fa fa-plus"></i> Rebill Group Students</a>
 <a href="print-student-bills.php"><i class="fa fa-plus"></i> Print Student Bills</a>
-<?php menuboard_section_end(); ?>
-
-<?php menuboard_section_start('Accounts', 'fa-money'); ?>
-<a href="item-entry.php"><i class="fa fa-plus"></i> Item Entry</a>
-<a href="item-pricing.php"><i class="fa fa-plus"></i> Class Item Billing</a>
-<a href="class-billing.php"><i class="fa fa-plus"></i> Class Billing</a>
-<a href="class-Bills-report.php"><i class="fa fa-plus"></i> Class Bills Report</a>
 <a href="daily-report.php"><i class="fa fa-book"></i> Daily Report</a>
 <a href="payment-analysis.php"><i class="fa fa-book"></i> Payment Report</a>
 <a href="bills-report.php"><i class="fa fa-book"></i> Bills Report</a>

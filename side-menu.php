@@ -169,6 +169,23 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
           </div>
   </li>
 
+  <li class="dropdown">
+    <a href="#" class="dropbtn"><i class="fa fa-money" ></i> Billing</a>
+    <div class="dropdown-content">
+      <a href="payments.php"><i class="fa fa-credit-card" ></i> Payments</a>
+      <a href="class-billing.php"><i class="fa fa-cogs" ></i> Billing Manager</a>
+      <a href="teacher-billing-assignment.php"><i class="fa fa-users" ></i> Teacher Billing Assignment</a>
+      <a href="student-billing.php"><i class="fa fa-plus" ></i> Bill Student</a>
+      <a href="group-student-billing.php"><i class="fa fa-plus" ></i> Bill Group Students</a>
+      <a href="rebill-group-student.php"><i class="fa fa-plus" ></i> Rebill Group Students</a>
+      <a href="print-student-bills.php"><i class="fa fa-print" ></i> Print Student Bills</a>
+      <a href="daily-report.php"><i class="fa fa-book" ></i> Daily Report</a>
+      <a href="payment-analysis.php"><i class="fa fa-book" ></i> Payment Report</a>
+      <a href="bills-report.php"><i class="fa fa-book" ></i> Bills Report</a>
+      <a href="item-bill-report.php"><i class="fa fa-book" ></i> Item Bill Report</a>
+    </div>
+  </li>
+
 
 
   <li class="dropdown">
@@ -263,9 +280,26 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
            <a href="term-registry.php"><i class="fa fa-plus" ></i> Semester Registry</a>
            <a href="group-term-registry.php"><i class="fa fa-plus" ></i> Group Semester Registry</a>
            <a href="upload-semester-registry.php"><i class="fa fa-upload" ></i> Upload Semester Registry</a>
+            
            
-          
           </div>
+  </li>
+
+  <li class="dropdown">
+    <a href="#" class="dropbtn"><i class="fa fa-money" ></i> Billing</a>
+    <div class="dropdown-content">
+      <a href="payments.php"><i class="fa fa-credit-card" ></i> Payments</a>
+      <a href="class-billing.php"><i class="fa fa-cogs" ></i> Billing Manager</a>
+      <a href="teacher-billing-assignment.php"><i class="fa fa-users" ></i> Teacher Billing Assignment</a>
+      <a href="student-billing.php"><i class="fa fa-plus" ></i> Bill Student</a>
+      <a href="group-student-billing.php"><i class="fa fa-plus" ></i> Bill Group Students</a>
+      <a href="rebill-group-student.php"><i class="fa fa-plus" ></i> Rebill Group Students</a>
+      <a href="print-student-bills.php"><i class="fa fa-print" ></i> Print Student Bills</a>
+      <a href="daily-report.php"><i class="fa fa-book" ></i> Daily Report</a>
+      <a href="payment-analysis.php"><i class="fa fa-book" ></i> Payment Report</a>
+      <a href="bills-report.php"><i class="fa fa-book" ></i> Bills Report</a>
+      <a href="item-bill-report.php"><i class="fa fa-book" ></i> Item Bill Report</a>
+    </div>
   </li>
 
 

@@ -679,170 +679,364 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblsystemuser WHERE userid='$_GET[d
 }
 ?>
 
+<?php
+if(!function_exists('student_directory_safe')){
+function student_directory_safe($value){
+	return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
+}
+
+if(!function_exists('student_directory_format_date')){
+function student_directory_format_date($value, $format = "d M Y, g:i a"){
+	if(empty($value)){
+		return "--";
+	}
+	$timestamp = strtotime((string)$value);
+	if($timestamp === false){
+		return (string)$value;
+	}
+	return date($format, $timestamp);
+}
+}
+
+if(!function_exists('student_directory_full_name')){
+function student_directory_full_name($row){
+	return trim(((string)$row["firstname"])." ".((string)$row["surname"])." ".((string)$row["othernames"]));
+}
+}
+
+$_SelectedClassentryID = isset($_POST["class_entryid"]) ? trim((string)$_POST["class_entryid"]) : "";
+$_SelectedBatchID = isset($_POST["batchid"]) ? trim((string)$_POST["batchid"]) : "";
+$_ShowStudents = isset($_POST["showstudent"]);
+$_FlashMessage = isset($_SESSION['Message']) ? $_SESSION['Message'] : "";
+
+$_ClassOptions = array();
+$_BatchOptions = array();
+$_StudentRows = array();
+$_ClassName = "";
+$_BatchName = "";
+$_StudentTotal = 0;
+$_ActiveStudentTotal = 0;
+$_BlockedStudentTotal = 0;
+$_BoardingStudentTotal = 0;
+$_DayStudentTotal = 0;
+
+$_SQL_CLASS_OPTIONS = mysqli_query($con, "SELECT * FROM tblclassentry ORDER BY class_name");
+if($_SQL_CLASS_OPTIONS){
+	while($row=mysqli_fetch_array($_SQL_CLASS_OPTIONS, MYSQLI_ASSOC)){
+		$_ClassOptions[] = $row;
+	}
+}
+
+$_SQL_BATCH_OPTIONS = mysqli_query($con, "SELECT * FROM tblbatch ORDER BY batch ASC");
+if($_SQL_BATCH_OPTIONS){
+	while($row=mysqli_fetch_array($_SQL_BATCH_OPTIONS, MYSQLI_ASSOC)){
+		$_BatchOptions[] = $row;
+	}
+}
+
+if($_ShowStudents && $_SelectedClassentryID !== "" && $_SelectedBatchID !== ""){
+	$_SQLGC = mysqli_query($con, "SELECT * FROM tblclassentry WHERE class_entryid='".mysqli_real_escape_string($con, $_SelectedClassentryID)."' LIMIT 1");
+	if($_SQLGC && $rowc=mysqli_fetch_array($_SQLGC, MYSQLI_ASSOC)){
+		$_ClassName = $rowc["class_name"];
+	}
+
+	$_SQL_BATCH = mysqli_query($con, "SELECT * FROM tblbatch WHERE batchid='".mysqli_real_escape_string($con, $_SelectedBatchID)."' LIMIT 1");
+	if($_SQL_BATCH && $row_ba=mysqli_fetch_array($_SQL_BATCH, MYSQLI_ASSOC)){
+		$_BatchName = $row_ba["batch"];
+	}
+
+	$_SQL_EXECUTE2 = mysqli_query($con, "SELECT * FROM tblsystemuser su INNER JOIN tblclass cl 
+ON su.userid=cl.userid WHERE cl.class_entryid='".mysqli_real_escape_string($con, $_SelectedClassentryID)."' AND cl.batchid='".mysqli_real_escape_string($con, $_SelectedBatchID)."' AND su.systemtype='Student' ORDER BY su.firstname ASC");
+
+	if($_SQL_EXECUTE2){
+		while($row=mysqli_fetch_array($_SQL_EXECUTE2, MYSQLI_ASSOC)){
+			$_StudentTotal++;
+			$row["_fullname"] = student_directory_full_name($row);
+			$row["_bece_index"] = isset($row["BECEIndexNumber"]) && !empty($row["BECEIndexNumber"])
+				? $row["BECEIndexNumber"]
+				: (isset($row["BECEIndex"]) && !empty($row["BECEIndex"]) ? $row["BECEIndex"] : "N/A");
+			$row["_status_key"] = strtolower(trim((string)$row["status"]));
+			$row["_status_label"] = ($row["_status_key"] === "active") ? "Active" : "Blocked";
+			$row["_residence_label"] = normalize_residence_label(isset($row["residencetype"]) ? $row["residencetype"] : "");
+			if($row["_residence_label"] === ""){
+				$row["_residence_label"] = trim((string)$row["residencetype"]);
+			}
+			if($row["_residence_label"] === ""){
+				$row["_residence_label"] = "--";
+			}
+			$row["_entry_label"] = student_directory_format_date(isset($row["registereddatetime"]) ? $row["registereddatetime"] : "");
+			$row["_search_index"] = strtolower(trim(
+				$row["_fullname"]." ".
+				((string)$row["userid"])." ".
+				((string)$row["_bece_index"])." ".
+				((string)$row["mobile"])." ".
+				((string)$row["username"])." ".
+				((string)$row["_residence_label"])." ".
+				((string)$row["_status_label"])
+			));
+			if($row["_status_key"] === "active"){
+				$_ActiveStudentTotal++;
+			}else{
+				$_BlockedStudentTotal++;
+			}
+			if(strtolower($row["_residence_label"]) === "boarding"){
+				$_BoardingStudentTotal++;
+			}
+			if(strtolower($row["_residence_label"]) === "day"){
+				$_DayStudentTotal++;
+			}
+			$_StudentRows[] = $row;
+		}
+	}
+}
+?>
+
 <html>
 <head>
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/viewstudents.css?v=20260514">
 </head>
-<body>
+<body class="student-directory-page">
 <div class="header">
 <?php
 include("menu.php");
 ?>		
 </div>
-<div class="main-platform" style="">
-	<table width="200%">
-		<tr>
-			<td width="50%" align="center">
-				<div class="form-entry" style="">
-				<div width="50%">
-	<form method="post" action="viewstudents.php">
-				<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry ORDER BY class_name");
+<main class="student-directory-shell">
+	<?php if($_FlashMessage!=""){ ?>
+	<div class="student-directory-message"><?php echo $_FlashMessage; ?></div>
+	<?php } ?>
 
-			echo "<select id='class_entryid' name='class_entryid' class='validate[required]'>";
-			echo "<option value=''>Select Class</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
-				}
-				
-			echo "</select><br/><br/>";
-			?>	
-
-			<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
-
-			echo "<select id='batchid' name='batchid' class='validate[required]'>";
-			echo "<option value=''>Select Batch</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[batchid]'>$row[batch]</option>";
-				}
-				
-			echo "</select><br/><br/>";
-			?>	
+	<section class="student-directory-hero">
+		<div class="student-directory-hero__copy">
+			<span class="student-directory-eyebrow">Student Directory</span>
+			<h1>View Students</h1>
+			<p>Load a class and batch, review student records clearly, and print the exact list or programme summaries without losing the existing workflow.</p>
 		</div>
-	</td>
-<td>
-<div width="50%">
-<button class="button-show" name="showstudent"><i class="fa fa-search"></i> SHOW STUDENTS</button>	
-</div><br/>
-</div>
-</form>
-</td>
-</tr>
-	</table>
-<br/>
-<?php
-if(isset($_POST["showstudent"]))
-{
-@$_ClassentryID=$_POST["class_entryid"];
-@$_BatchID=$_POST["batchid"];
-?>
-<div class="form-entry" style="">
-				<?php
-				echo $_SESSION['Message'];
+		<div class="student-directory-hero__meta">
+			<?php if($_ShowStudents && $_ClassName !== "" && $_BatchName !== ""){ ?>
+			<div class="student-directory-hero-chip"><i class="fa fa-graduation-cap"></i> <?php echo student_directory_safe($_ClassName); ?></div>
+			<div class="student-directory-hero-chip"><i class="fa fa-calendar"></i> <?php echo student_directory_safe($_BatchName); ?> Batch</div>
+			<?php } else { ?>
+			<div class="student-directory-hero-chip"><i class="fa fa-search"></i> Select a class and batch to load students</div>
+			<?php } ?>
+		</div>
+	</section>
 
-include("dbstring.php");
-$_SQL_EXECUTE2=mysqli_query($con,"SELECT * FROM tblsystemuser su INNER JOIN tblclass cl 
-ON su.userid=cl.userid WHERE cl.class_entryid='$_ClassentryID'AND cl.batchid='$_BatchID' AND su.systemtype='Student' ORDER BY su.firstname ASC");
+	<section class="student-directory-panel">
+		<div class="student-directory-panel__top">
+			<div>
+				<span class="student-directory-eyebrow">Filters</span>
+				<h2>Class Student Register</h2>
+			</div>
+		</div>
+		<form method="post" action="viewstudents.php" class="student-directory-filter-form">
+			<label class="student-directory-field">
+				<span>Class</span>
+				<select id="class_entryid" name="class_entryid" required>
+					<option value="">Select Class</option>
+					<?php foreach($_ClassOptions as $row){ ?>
+					<option value="<?php echo student_directory_safe($row["class_entryid"]); ?>"<?php echo ((string)$row["class_entryid"] === (string)$_SelectedClassentryID ? " selected" : ""); ?>><?php echo student_directory_safe($row["class_name"]); ?></option>
+					<?php } ?>
+				</select>
+			</label>
 
-				//Registered clients
-				@$_ClassName="";
-				$_SQLGC=mysqli_query($con,"SELECT * FROM tblclassentry WHERE class_entryid='$_ClassentryID'");
-				if($rowc=mysqli_fetch_array($_SQLGC,MYSQLI_ASSOC)){
-				$_ClassName=$rowc["class_name"];
-				}
-	@$_BatchName="";
-	$_SQL_BATCH=mysqli_query($con,"SELECT * FROM tblbatch WHERE batchid='$_BatchID'");
-	if($row_ba=mysqli_fetch_array($_SQL_BATCH,MYSQLI_ASSOC)){
-		$_BatchName=$row_ba['batch'];
-	}
+			<label class="student-directory-field">
+				<span>Batch</span>
+				<select id="batchid" name="batchid" required>
+					<option value="">Select Batch</option>
+					<?php foreach($_BatchOptions as $row){ ?>
+					<option value="<?php echo student_directory_safe($row["batchid"]); ?>"<?php echo ((string)$row["batchid"] === (string)$_SelectedBatchID ? " selected" : ""); ?>><?php echo student_directory_safe($row["batch"]); ?></option>
+					<?php } ?>
+				</select>
+			</label>
 
-	echo "<form method='post'>";
-	echo "<input type='hidden' id='print_batchid_only' name='print_batchid' value='$_BatchID' />";
-	echo "<button class='button-print' id='print_batch_programme_summary_top' name='print_batch_programme_summary'><i class='fa fa-print'></i> Print Batch Course Summary</button><br/><br/>";
-	echo "</form>";
-if(mysqli_num_rows($_SQL_EXECUTE2)>0){
-	echo "<form method='post'>";
-	echo "<input type='hidden' id='print_class_id' name='print_class_id' value='$_ClassentryID'/>";
-	echo "<input type='hidden' id='print_batchid' name='print_batchid' value='$_BatchID' />";
-	echo "<button class='button-print' id='print_student' name='print_student'><i class='fa fa-print'></i> Print Student</button><br/><br/>";
-	echo "<button class='button-print' id='print_programme_summary' name='print_programme_summary' style='margin-top:4px;'><i class='fa fa-print'></i> Print Programme Summary</button><br/><br/>";
-	echo "</form>";
-				echo "<table width='100%' style='background-color:white'>";
-				echo "<caption>". mysqli_num_rows($_SQL_EXECUTE2)." ".$_ClassName ." STUDENT(S) FOUND FOR ". $_BatchName." Batch</caption>";
-				echo "<thead><th colspan=2>TASK</th><th>*</th><th>INDEX NUMBER</th><th>STUDENTS</th><th>RESIDENCE STATUS</th><th>BECE INDEX NO</th><th>MOBILE</th><th>USERNAME</th><th>TYPE</th><th>DATE/TIME</th><th>STATUS</th></thead>";
-				echo "<tbody>";
-				@$serial=0;
-				while($row=mysqli_fetch_array($_SQL_EXECUTE2,MYSQLI_ASSOC)){
-					$serial=$serial+1;
-					$bece_index = isset($row["BECEIndexNumber"]) && !empty($row["BECEIndexNumber"])
-						? $row["BECEIndexNumber"]
-						: (isset($row["BECEIndex"]) && !empty($row["BECEIndex"]) ? $row["BECEIndex"] : "N/A");
-					echo "<tr>";
-					echo "<td align='center'><a title='View $row[firstname] ($row[userid])' href='user-profile.php?view_user=$row[userid]'><i class='fa fa-book' style='color:blue'></i></a></td>";
-					echo "<td align='center'><a title='Edit $row[firstname] ($row[userid])' href='register_edit.php?edit_user=$row[userid]'><i class='fa fa-edit' style='color:green'></i></a></td>";
-					/*echo "<td>";
-					if($row['status']=="active"){
-					echo"<a title='Block $row[firstname] ($row[userid])' href='viewstudents.php?block_user=$row[userid]'><i class='fa fa-user' style='color:orange'></i></a>";
-					}else{
-					echo"<a title='Unblock $row[firstname] ($row[userid])' href='viewstudents.php?unblock_user=$row[userid]'><i class='fa fa-user' style='color:red'></i></a>";
-					}
-					echo "</td>";
-					*/
-					echo "<td align='center'>$serial.</td>";
-					echo "<td>$row[userid]</td>";
-					echo "<td>$row[firstname] $row[surname] $row[othernames]</td>";
-					echo "<td align='center'>$row[residencetype]</td>";
-					echo "<td align='center'>" . (isset($row['BECEIndexNumber']) ? $row['BECEIndexNumber'] : "N/A") . "</td>";
-					echo "<td align='center'>$row[mobile]</td>";
-					echo "<td align='center'>$row[username]</td>";
-					echo "<td align='center'>$row[systemtype]</td>";
-					echo "<td align='center'>$row[registereddatetime]</td>";
-					echo "<td align='center'>";
-					if($row['status']=="active"){
-						echo "<strong style='color:green'><i class='fa fa-check-circle' style='color:green;margin-right:4px'></i>Active</strong>";
-					}
-					else{
-						echo "<strong style='color:red'><i class='fa fa-ban' style='color:red;margin-right:4px'></i>Blocked</strong>";
-					}
-					echo "</td>";
-					echo "</tr>";
-				}
-				echo "</tbody>";
-				echo "</table>";
-			}
-	?>
-</div>
-<?php
-}
-?>
+			<div class="student-directory-filter-actions">
+				<button class="student-directory-primary-btn" name="showstudent" type="submit"><i class="fa fa-search"></i> Load Students</button>
+			</div>
+		</form>
+	</section>
 
-	<br/><br/>
-<button onclick="topFunction()" id="myBtn" title="Go to top">Top</button> 
+	<?php if($_ShowStudents){ ?>
+	<section class="student-directory-stats" aria-label="Student Summary">
+		<article class="student-directory-stat">
+			<span>Total Students</span>
+			<strong><?php echo number_format($_StudentTotal); ?></strong>
+		</article>
+		<article class="student-directory-stat">
+			<span>Active</span>
+			<strong><?php echo number_format($_ActiveStudentTotal); ?></strong>
+		</article>
+		<article class="student-directory-stat">
+			<span>Day</span>
+			<strong><?php echo number_format($_DayStudentTotal); ?></strong>
+		</article>
+		<article class="student-directory-stat">
+			<span>Boarding</span>
+			<strong><?php echo number_format($_BoardingStudentTotal); ?></strong>
+		</article>
+	</section>
 
- <script>
-//Get the button
+	<section class="student-directory-panel">
+		<div class="student-directory-panel__top">
+			<div>
+				<span class="student-directory-eyebrow">Loaded Records</span>
+				<h2><?php echo student_directory_safe($_ClassName !== "" ? $_ClassName : "Students"); ?></h2>
+				<p class="student-directory-scope"><?php echo student_directory_safe($_BatchName !== "" ? $_BatchName." Batch" : ""); ?></p>
+			</div>
+			<div class="student-directory-print-actions">
+				<form method="post">
+					<input type="hidden" name="print_batchid" value="<?php echo student_directory_safe($_SelectedBatchID); ?>">
+					<button class="student-directory-secondary-btn" id="print_batch_programme_summary_top" name="print_batch_programme_summary" type="submit"><i class="fa fa-print"></i> Print Batch Course Summary</button>
+				</form>
+				<?php if($_StudentTotal > 0){ ?>
+				<form method="post">
+					<input type="hidden" name="print_class_id" value="<?php echo student_directory_safe($_SelectedClassentryID); ?>">
+					<input type="hidden" name="print_batchid" value="<?php echo student_directory_safe($_SelectedBatchID); ?>">
+					<button class="student-directory-secondary-btn" id="print_student" name="print_student" type="submit"><i class="fa fa-print"></i> Print Students</button>
+				</form>
+				<form method="post">
+					<input type="hidden" name="print_class_id" value="<?php echo student_directory_safe($_SelectedClassentryID); ?>">
+					<input type="hidden" name="print_batchid" value="<?php echo student_directory_safe($_SelectedBatchID); ?>">
+					<button class="student-directory-secondary-btn" id="print_programme_summary" name="print_programme_summary" type="submit"><i class="fa fa-print"></i> Print Programme Summary</button>
+				</form>
+				<?php } ?>
+			</div>
+		</div>
+
+		<?php if($_StudentTotal > 0){ ?>
+		<div class="student-directory-toolbar">
+			<label class="student-directory-search">
+				<i class="fa fa-search"></i>
+				<input type="text" id="studentDirectorySearch" placeholder="Search by student name, index number, username, mobile, residence, or status">
+			</label>
+			<div class="student-directory-results" id="studentDirectoryResultCount">
+				<?php echo number_format($_StudentTotal); ?> student(s) shown
+			</div>
+		</div>
+
+		<div class="student-directory-print-head">
+			<h2>Ayirebi Senior High School</h2>
+			<p><?php echo student_directory_safe($_ClassName); ?> Students List</p>
+			<span><?php echo student_directory_safe($_BatchName); ?> Batch</span>
+		</div>
+
+		<div class="student-directory-table-wrap">
+			<table class="student-directory-table" id="studentDirectoryTable">
+				<caption><?php echo number_format($_StudentTotal)." ".student_directory_safe($_ClassName)." student(s) found for ".student_directory_safe($_BatchName)." Batch"; ?></caption>
+				<thead>
+					<tr>
+						<th>#</th>
+						<th>Student</th>
+						<th>Index Number</th>
+						<th>Residence</th>
+						<th>BECE Index No</th>
+						<th>Mobile</th>
+						<th>Username</th>
+						<th>Entry Date</th>
+						<th>Status</th>
+						<th class="student-directory-actions-col">Task</th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach($_StudentRows as $index => $row){ ?>
+					<tr class="student-directory-row" data-search="<?php echo student_directory_safe($row["_search_index"]); ?>">
+						<td data-label="#"><?php echo number_format($index + 1); ?>.</td>
+						<td data-label="Student">
+							<div class="student-directory-name">
+								<strong><?php echo student_directory_safe($row["_fullname"]); ?></strong>
+								<span><?php echo student_directory_safe($row["userid"]); ?></span>
+							</div>
+						</td>
+						<td data-label="Index Number"><?php echo student_directory_safe($row["userid"]); ?></td>
+						<td data-label="Residence"><?php echo student_directory_safe($row["_residence_label"]); ?></td>
+						<td data-label="BECE Index No"><?php echo student_directory_safe($row["_bece_index"]); ?></td>
+						<td data-label="Mobile"><?php echo student_directory_safe($row["mobile"]); ?></td>
+						<td data-label="Username"><?php echo student_directory_safe($row["username"]); ?></td>
+						<td data-label="Entry Date"><?php echo student_directory_safe($row["_entry_label"]); ?></td>
+						<td data-label="Status">
+							<span class="student-directory-badge student-directory-badge--<?php echo ($row["_status_key"] === "active" ? "active" : "blocked"); ?>">
+								<?php echo student_directory_safe($row["_status_label"]); ?>
+							</span>
+						</td>
+						<td data-label="Task" class="student-directory-actions-cell">
+							<div class="student-directory-actions">
+								<a class="student-directory-action student-directory-action--view" title="View <?php echo student_directory_safe($row["firstname"]); ?> (<?php echo student_directory_safe($row["userid"]); ?>)" href="user-profile.php?view_user=<?php echo urlencode((string)$row["userid"]); ?>">
+									<i class="fa fa-book"></i> View
+								</a>
+								<a class="student-directory-action student-directory-action--edit" title="Edit <?php echo student_directory_safe($row["firstname"]); ?> (<?php echo student_directory_safe($row["userid"]); ?>)" href="register_edit.php?edit_user=<?php echo urlencode((string)$row["userid"]); ?>">
+									<i class="fa fa-edit"></i> Edit
+								</a>
+							</div>
+						</td>
+					</tr>
+					<?php } ?>
+				</tbody>
+			</table>
+		</div>
+		<?php } else { ?>
+		<div class="student-directory-empty">
+			<i class="fa fa-users"></i>
+			<h3>No students found</h3>
+			<p>No student record matched the selected class and batch.</p>
+		</div>
+		<?php } ?>
+	</section>
+	<?php } else { ?>
+	<section class="student-directory-empty student-directory-empty--standalone">
+		<i class="fa fa-folder-open"></i>
+		<h3>Nothing loaded yet</h3>
+		<p>Select a class and batch, then load the student register.</p>
+	</section>
+	<?php } ?>
+
+	<button onclick="topFunction()" id="myBtn" class="student-directory-top-btn" title="Go to top">Top</button>
+</main>
+
+<script>
 var mybutton = document.getElementById("myBtn");
+var searchInput = document.getElementById("studentDirectorySearch");
+var resultCountNode = document.getElementById("studentDirectoryResultCount");
 
-// When the user scrolls down 20px from the top of the document, show the button
 window.onscroll = function() {scrollFunction()};
 
 function scrollFunction() {
-  if (document.body.scrollTop > 50 || document.documentElement.scrollTop > 50) {
-    mybutton.style.display = "block";
-  } else {
-    mybutton.style.display = "none";
-  }
+	if (!mybutton) {
+		return;
+	}
+	if (document.body.scrollTop > 50 || document.documentElement.scrollTop > 50) {
+		mybutton.style.display = "block";
+	} else {
+		mybutton.style.display = "none";
+	}
 }
 
-// When the user clicks on the button, scroll to the top of the document
 function topFunction() {
-  document.body.scrollTop = 0;
-  document.documentElement.scrollTop = 0;
+	document.body.scrollTop = 0;
+	document.documentElement.scrollTop = 0;
+}
+
+if (searchInput) {
+	searchInput.addEventListener("input", function () {
+		var query = (this.value || "").toLowerCase().trim();
+		var rows = document.querySelectorAll(".student-directory-row");
+		var visible = 0;
+		for (var i = 0; i < rows.length; i++) {
+			var haystack = rows[i].getAttribute("data-search") || "";
+			var match = query === "" || haystack.indexOf(query) !== -1;
+			rows[i].style.display = match ? "" : "none";
+			if (match) {
+				visible++;
+			}
+		}
+		if (resultCountNode) {
+			resultCountNode.textContent = visible.toLocaleString() + " student(s) shown";
+		}
+	});
 }
 </script>
-</div>
 </body>
 </html>

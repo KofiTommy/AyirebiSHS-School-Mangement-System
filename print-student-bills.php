@@ -1,6 +1,16 @@
 <?php
 session_start();
 $_SESSION['Message']="";
+include("check-login.php");
+include("dbstring.php");
+include("teacher-billing-utils.php");
+ensure_teacher_billing_table($con);
+teacher_billing_enforce_page_access($con);
+$__teacherBillingUserId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+$__teacherBillingIsAdmin = teacher_billing_is_admin();
+$__teacherBillingScopeClasses = teacher_billing_class_options($con);
+$__teacherBillingScopeBatches = teacher_billing_batch_options($con);
+$__teacherBillingHasScope = (count($__teacherBillingScopeClasses) > 0 && count($__teacherBillingScopeBatches) > 0);
 ?>
 
 <?php
@@ -10,7 +20,7 @@ $_SESSION['Message']="";
 @$_UserId=$_POST['user_id'];
 if(isset($_POST["print_category"]))
 {
-include("dbstring.php");
+teacher_billing_enforce_scope_or_redirect($con, trim((string)$_POST["class"]), trim((string)$_POST["batch"]), (int)$_POST["term"]);
 include("config.php");
 include("company.php");
       //Get all the ordered items
@@ -199,7 +209,7 @@ $pdf->Output();
 @$_UserId=$_GET['user_id'];
 if(isset($_GET["user_id"]))
 {
-include("dbstring.php");
+teacher_billing_enforce_scope_or_redirect($con, trim((string)$_GET["class_entryid"]), trim((string)$_GET["batch_id"]), (int)$_GET["term_id"]);
 include("config.php");
 include("company.php");
       //Get all the ordered items
@@ -480,6 +490,11 @@ function getStudentBill(str)
 			
 			<h3>Print Student Bills 
 				</h3>
+			<?php if(!$__teacherBillingIsAdmin && !$__teacherBillingHasScope){ ?>
+			<div style="margin-bottom:12px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;padding:10px;">
+			No billing class has been assigned yet. Ask admin to open <strong>Teacher Billing Assignment</strong> under Billing and assign your class, batch, and semester.
+			</div>
+			<?php } ?>
 			<br/>
 		<!--
 
@@ -539,23 +554,21 @@ function getStudentBill(str)
 <form form="formID2" method="post" action="print-student-bills.php">
 <fieldset><legend>CATEGORY</legend>
 			<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
-
+			$_ClassOptions = $__teacherBillingScopeClasses;
 			echo "<select id='class' name='class' class='validate[required]'>";
 			echo "<option value=''>Select Class</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
+				foreach($_ClassOptions as $row){
+					echo "<option value='".$row['class_entryid']."'>".$row['class_name']."</option>";
 				}
 				
 			echo "</select><br/><br/>";
 			?>
 			<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
-
+			$_BatchOptions = $__teacherBillingScopeBatches;
 			echo "<select id='batch' name='batch' class='validate[required]'>";
 			echo "<option value=''>Select Batch</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[batchid]'>$row[batch]</option>";
+				foreach($_BatchOptions as $row){
+					echo "<option value='".$row['batchid']."'>".$row['batch']."</option>";
 				}
 				
 			echo "</select><br/><br/>";
@@ -590,22 +603,20 @@ echo "<fieldset><legend>FIND STUDENTS</legend>";
 echo "<table>";
 echo "<tr>";
 echo "<td>";
-$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
-
+$_ClassOptions = $__teacherBillingScopeClasses;
 echo "<select id='class_entryid' name='class_entryid' class='validate[required]'>";
 echo "<option value=''>Select Class</option>";
-while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
+foreach($_ClassOptions as $row){
+echo "<option value='".$row['class_entryid']."'>".$row['class_name']."</option>";
 }
 echo "</select>";
 echo "</td>";
 echo "<td>";
-$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
-
+$_BatchOptions = $__teacherBillingScopeBatches;
 echo "<select id='batchid' name='batchid' class='validate[required]'>";
 echo "<option value=''>Select Batch</option>";
-while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-echo "<option value='$row[batchid]'>$row[batch]</option>";
+foreach($_BatchOptions as $row){
+echo "<option value='".$row['batchid']."'>".$row['batch']."</option>";
 }
 echo "</select>";
 echo "</td>";
@@ -623,6 +634,11 @@ echo "</fieldset>";
 				@$_Batch_Id=$_POST["batchid"];
 				if(isset($_POST["show_semester"]))
 				{
+				if(!$__teacherBillingIsAdmin && !teacher_billing_is_assigned_pair($con, $__teacherBillingUserId, trim((string)$_Class_EntryId), trim((string)$_Batch_Id))){
+				echo "<div style='color:red;text-align:center;background-color:white;padding:8px;'>You are not assigned billing access for that class and batch.</div>";
+				}
+				else{
+				$_AllowedTerms = $__teacherBillingIsAdmin ? array(1,2) : teacher_billing_terms_for_pair($con, $__teacherBillingUserId, trim((string)$_Class_EntryId), trim((string)$_Batch_Id));
 				@$_Overall_Total=0;
 				//$_SQL_EXECUTE_1=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.systemtype='Student' ORDER BY su.firstname");
 				$_SQL_EXECUTE_1=mysqli_query($con,"SELECT * FROM tblsystemuser su INNER JOIN tblclass cl ON su.userid=cl.userid 
@@ -663,6 +679,9 @@ echo "</fieldset>";
 		AND tr.userid='$row_1[userid]' ORDER BY tr.termname ASC");
 			while($row_tr=mysqli_fetch_array($_SQL_TERM,MYSQLI_ASSOC))
 			{
+			if(!$__teacherBillingIsAdmin && !in_array((int)$row_tr['termname'], $_AllowedTerms, true)){
+				continue;
+			}
 			@$_Bactch_Inner="";
 			$_SQL_BATCH=mysqli_query($con,"SELECT * FROM tblbatch bch WHERE bch.batchid='$row_tr[batchid]'");
 			echo "<form method='post' action='print-student-bills.php'>";
@@ -773,7 +792,12 @@ echo "</fieldset>";
 					echo "</td>";
 
 					echo "<td align='center'>";
-					echo "<a title='Print student Bills' onclick=\"javascript:return confirm('Do you want to print?');\"  href='print-student-bills.php?user_id=$row_1[userid]&batch_id=$row_batch[batchid]&class_entryid=$row_class[class_entryid]&term_id=$row_tr[termname]'><i class='fa fa-print'></i></a>";
+					$_PrintBatchId = isset($row_tr['batchid']) ? $row_tr['batchid'] : $_Batch_Id;
+					if($__teacherBillingIsAdmin || teacher_billing_is_assigned($con, $__teacherBillingUserId, $row_class['class_entryid'], $_PrintBatchId, $row_tr['termname'])){
+						echo "<a title='Print student Bills' onclick=\"javascript:return confirm('Do you want to print?');\"  href='print-student-bills.php?user_id=".urlencode((string)$row_1['userid'])."&batch_id=".urlencode((string)$_PrintBatchId)."&class_entryid=".urlencode((string)$row_class['class_entryid'])."&term_id=".urlencode((string)$row_tr['termname'])."'><i class='fa fa-print'></i></a>";
+					}else{
+						echo "<i class='fa fa-lock' style='color:#9ca3af'></i>";
+					}
 					echo "</td>";
 
 					echo "</tr>";
@@ -795,6 +819,7 @@ echo "</fieldset>";
 		}	
 echo "</tbody>";
 echo "</table>";
+}
 }
 ?>
 </div>

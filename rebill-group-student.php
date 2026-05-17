@@ -2,11 +2,19 @@
 session_start();
 $_SESSION['Message']="";
 include("check-login.php");
+include("dbstring.php");
+include("teacher-billing-utils.php");
+ensure_teacher_billing_table($con);
+teacher_billing_enforce_page_access($con);
+$__teacherBillingUserId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+$__teacherBillingIsAdmin = teacher_billing_is_admin();
+$__teacherBillingScopeClasses = teacher_billing_class_options($con);
+$__teacherBillingScopeBatches = teacher_billing_batch_options($con);
+$__teacherBillingHasScope = (count($__teacherBillingScopeClasses) > 0 && count($__teacherBillingScopeBatches) > 0);
 ?>
 
 
 <?php
-include("dbstring.php");
 //@$_ClassId=$_POST['classid'];
 @$_UserId=$_POST['userid'];
 @$_Class=$_POST['class'];
@@ -16,6 +24,7 @@ include("dbstring.php");
 //echo $_SESSION['USERID'];
 
 if(isset($_POST['bill_student'])){
+teacher_billing_enforce_scope_or_redirect($con, trim((string)$_Class), trim((string)$_Batch), (int)$_Term);
 
 foreach($_UserId as $selecteduser){
 //Get individual student id
@@ -213,24 +222,28 @@ var inputs = document.getElementsByName("userid[]");
 
 			<td valign="top" width="40%" align="center">
 				
-			<div class="form-entry" align="left">
-				<fieldset><legend>SEARCH STUDENTS</legend>
+				<div class="form-entry" align="left">
+				<?php if(!$__teacherBillingIsAdmin && !$__teacherBillingHasScope){ ?>
+				<div style="margin-bottom:12px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;padding:10px;">
+				No billing class has been assigned yet. Ask admin to open <strong>Teacher Billing Assignment</strong> under Billing and assign your class, batch, and semester.
+				</div>
+				<?php } ?>
+			<fieldset><legend>SEARCH STUDENTS</legend>
 			<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
+			$_ClassOptions = $__teacherBillingScopeClasses;
 			echo "<select id='classentryid' name='classentryid' >";
 			echo "<option value=''>Select Class</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
+				foreach($_ClassOptions as $row){
+					echo "<option value='".$row['class_entryid']."'>".$row['class_name']."</option>";
 				}
 			echo "</select><br/><br/>";
 			?>		
 				<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
-
+			$_BatchOptions = $__teacherBillingScopeBatches;
 			echo "<select id='batchid' name='batchid'>";
 			echo "<option value=''>Select Batch</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[batchid]'>$row[batch]</option>";
+				foreach($_BatchOptions as $row){
+					echo "<option value='".$row['batchid']."'>".$row['batch']."</option>";
 				}
 				
 			echo "</select>";
@@ -242,6 +255,10 @@ var inputs = document.getElementsByName("userid[]");
 if(isset($_POST["searchstudent"])){
 @$_ClassentryID=$_POST["classentryid"];
 @$_BatchID=$_POST["batchid"];
+if(!$__teacherBillingIsAdmin && !teacher_billing_is_assigned_pair($con, $__teacherBillingUserId, trim((string)$_ClassentryID), trim((string)$_BatchID))){
+	echo "<div style='color:red;text-align:center;background-color:white;padding:8px;'>You are not assigned billing access for that class and batch.</div>";
+}
+else{
 
 @$_Batch="";
 @$_ClassName="";
@@ -287,6 +304,7 @@ AND su.systemtype='Student' ORDER BY su.userid ASC");
 			echo "</tbody>";
 			echo "</table>";
 		}
+		}
 			?>
 			</div>
 			</td>
@@ -295,24 +313,22 @@ AND su.systemtype='Student' ORDER BY su.userid ASC");
 				
 				<div class="form-entry" align="left">
 			<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
-
+			$_ClassOptions = $__teacherBillingScopeClasses;
 			echo "<select id='class' name='class'>";
 			echo "<option value=''>Select Class</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
+				foreach($_ClassOptions as $row){
+					echo "<option value='".$row['class_entryid']."'>".$row['class_name']."</option>";
 				}
 				
 			echo "</select><br/><br/>";
 			?>
 
 			<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
-
+			$_BatchOptions = $__teacherBillingScopeBatches;
 			echo "<select id='batch' name='batch' >";
 			echo "<option value=''>Select Batch</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[batchid]'>$row[batch]</option>";
+				foreach($_BatchOptions as $row){
+					echo "<option value='".$row['batchid']."'>".$row['batch']."</option>";
 				}
 				
 			echo "</select><br/><br/>";

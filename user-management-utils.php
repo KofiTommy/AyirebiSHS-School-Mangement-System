@@ -378,14 +378,14 @@ function um_module_catalog(){
         'billing' => array(
             'label' => 'Billing',
             'group' => 'Finance',
-            'description' => 'Bill students and manage billing runs.',
-            'scripts' => array('student-billing.php','group-student-billing.php','rebill-group-student.php','print-student-bills.php')
+            'description' => 'Class fee collection and payment access.',
+            'scripts' => array('payments.php','class-billing.php','teacher-billing-assignment.php','student-billing.php','group-student-billing.php','rebill-group-student.php','print-student-bills.php','display-class-bill.php')
         ),
         'accounts_finance' => array(
             'label' => 'Accounts And Finance',
             'group' => 'Finance',
             'description' => 'Items, pricing, class billing, and finance reports.',
-            'scripts' => array('item-entry.php','item-pricing.php','class-billing.php','class-Bills-report.php','daily-report.php','payment-analysis.php','bills-report.php','item-bill-report.php','bills.php','account-statements.php')
+            'scripts' => array('item-entry.php','item-pricing.php','class-Bills-report.php','daily-report.php','payment-analysis.php','bills-report.php','item-bill-report.php','bills.php','account-statements.php')
         ),
         'examination_scores' => array(
             'label' => 'Examination And Scores',
@@ -474,6 +474,7 @@ function um_assignable_module_keys_for_role($roleKey){
             'student_attendance',
             'duty_roster',
             'house_management',
+            'billing',
             'notice_communication',
             'online_admission',
             'online_voting',
@@ -604,6 +605,9 @@ function um_teacher_extra_nav_links($con, $userId = ''){
         'house_management' => array(
             array('href' => 'house-entry.php', 'label' => 'House Entry', 'icon' => 'fa-home'),
             array('href' => 'student-house-assignment.php', 'label' => 'Student House Assignment', 'icon' => 'fa-users')
+        ),
+        'billing' => array(
+            array('href' => 'payments.php', 'label' => 'Class Payments', 'icon' => 'fa-credit-card')
         ),
         'notice_communication' => array(
             array('href' => 'notification.php', 'label' => 'Send Notification', 'icon' => 'fa-bullhorn')

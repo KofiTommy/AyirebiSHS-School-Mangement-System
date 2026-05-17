@@ -2,12 +2,20 @@
 session_start();
 $_SESSION['Message']="";
 include("check-login.php");
+include("dbstring.php");
+include("teacher-billing-utils.php");
+ensure_teacher_billing_table($con);
+teacher_billing_enforce_page_access($con);
+$__teacherBillingUserId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+$__teacherBillingIsAdmin = teacher_billing_is_admin();
+$__teacherBillingScopeClasses = teacher_billing_class_options($con);
+$__teacherBillingScopeBatches = teacher_billing_batch_options($con);
+$__teacherBillingHasScope = (count($__teacherBillingScopeClasses) > 0 && count($__teacherBillingScopeBatches) > 0);
 
 ?>
 
 
 <?php
-include("dbstring.php");
 @$_TransId="";
 //@$_ClassId=$_POST['classid'];
 @$_UserId=$_POST['userid'];
@@ -18,6 +26,7 @@ include("dbstring.php");
 //echo $_SESSION['USERID'];
 
 if(isset($_POST['bill_student'])){
+teacher_billing_enforce_scope_or_redirect($con, trim((string)$_Class), trim((string)$_Batch), (int)$_Term);
 
 foreach($_UserId as $selecteduser){
 //Get individual student id
@@ -43,7 +52,7 @@ $_SQL_EXECUTE_2=mysqli_query($con,"SELECT * FROM tbltermregistry tr
 				INNER JOIN tblitemprice ip ON tr.class_entryid=ip.class_entryid AND tr.termname=ip.term
 				INNER JOIN tblitem itm ON ip.itemid=itm.itemid
 				INNER JOIN tblclassentry ce ON ce.class_entryid=tr.class_entryid
-				WHERE tr.userid='$_UserId' AND ip.class_entryid='$_Class' AND ip.term='$_Term' AND ip.batch='$_Batch'");
+				WHERE tr.userid='$_UserId' AND ip.class_entryid='$_Class' AND ip.term='$_Term' AND ip.batch='$_Batch' AND ip.status='active' AND itm.status='active'");
 
 while($row_b=mysqli_fetch_array($_SQL_EXECUTE_2,MYSQLI_ASSOC))
 {
@@ -194,26 +203,29 @@ var inputs = document.getElementsByName("userid[]");
 			<td valign="top" width="40%" align="center">
 				
 			<div class="form-entry" align="left">
+<?php if(!$__teacherBillingIsAdmin && !$__teacherBillingHasScope){ ?>
+<div style="margin-bottom:12px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;padding:10px;">
+No billing class has been assigned yet. Ask admin to open <strong>Teacher Billing Assignment</strong> under Billing and assign your class, batch, and semester.
+</div>
+<?php } ?>
 <form method="post" id="formID" name="formID" action="group-student-billing.php">
 	<fieldset><legend>SEARCH STUDENTS</legend>
 	<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
-
+			$_ClassOptions = $__teacherBillingScopeClasses;
 			echo "<select id='classentryid' name='classentryid' >";
 			echo "<option value=''>Select Class</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
+				foreach($_ClassOptions as $row){
+					echo "<option value='".$row['class_entryid']."'>".$row['class_name']."</option>";
 				}
 				
 			echo "</select><br/><br/>";
 			?>		
 				<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
-
+			$_BatchOptions = $__teacherBillingScopeBatches;
 			echo "<select id='batchid' name='batchid'>";
 			echo "<option value=''>Select Batch</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[batchid]'>$row[batch]</option>";
+				foreach($_BatchOptions as $row){
+					echo "<option value='".$row['batchid']."'>".$row['batch']."</option>";
 				}
 				
 			echo "</select>";
@@ -226,6 +238,10 @@ var inputs = document.getElementsByName("userid[]");
 			if(isset($_POST["searchstudent"])){
 				@$_ClassentryID=$_POST["classentryid"];
 				@$_BatchID=$_POST["batchid"];
+				if(!$__teacherBillingIsAdmin && !teacher_billing_is_assigned_pair($con, $__teacherBillingUserId, trim((string)$_ClassentryID), trim((string)$_BatchID))){
+					echo "<div style='color:red;text-align:center;background-color:white;padding:8px;'>You are not assigned billing access for that class and batch.</div>";
+				}
+				else{
 
 				@$_Batch="";
 				@$_ClassName="";
@@ -266,6 +282,7 @@ var inputs = document.getElementsByName("userid[]");
 			echo "</tbody>";
 			echo "</table>";
 		}
+		}
 		?>
 		</div>
 		</td>
@@ -274,24 +291,22 @@ var inputs = document.getElementsByName("userid[]");
 				
 				<div class="form-entry" align="left">
 			<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
-
+			$_ClassOptions = $__teacherBillingScopeClasses;
 			echo "<select id='class' name='class' >";
 			echo "<option value=''>Select Class</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
+				foreach($_ClassOptions as $row){
+					echo "<option value='".$row['class_entryid']."'>".$row['class_name']."</option>";
 				}
 				
 			echo "</select><br/><br/>";
 			?>
 
 			<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
-
+			$_BatchOptions = $__teacherBillingScopeBatches;
 			echo "<select id='batch' name='batch'>";
 			echo "<option value=''>Select Batch</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[batchid]'>$row[batch]</option>";
+				foreach($_BatchOptions as $row){
+					echo "<option value='".$row['batchid']."'>".$row['batch']."</option>";
 				}
 				
 			echo "</select><br/><br/>";
@@ -394,7 +409,7 @@ var inputs = document.getElementsByName("userid[]");
 				INNER JOIN tblitem itm ON ip.itemid=itm.itemid
 				INNER JOIN tblclassentry ce ON ce.class_entryid=tr.class_entryid
 				INNER JOIN tblbatch b ON ip.batch=b.batchid
-				WHERE tr.userid='$_UserID' AND ip.class_entryid='$row_class[class_entryid]' AND ip.term='$row_tr[termname]' AND ip.batch='$row_tr[batchid]' ");
+				WHERE tr.userid='$_UserID' AND ip.class_entryid='$row_class[class_entryid]' AND ip.term='$row_tr[termname]' AND ip.batch='$row_tr[batchid]' AND ip.status='active' AND itm.status='active' ");
 
 				@$_Total_Amount=0;
 				

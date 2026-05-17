@@ -8,11 +8,13 @@ include("student-attendance-utils.php");
 include("house-master-utils.php");
 include_once("semester-registry-utils.php");
 include_once("voting-utils.php");
+include_once("teacher-billing-utils.php");
 ensure_class_teacher_table($con);
 ensure_duty_roster_tables($con);
 ensure_student_attendance_tables($con);
 ensure_house_tables($con);
 ensure_voting_tables($con);
+ensure_teacher_billing_table($con);
 if(!(isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==="user" && $_SESSION['SYSTEMTYPE']==="Teacher")){
     header("location:".class_teacher_landing_page());
     exit();
@@ -192,6 +194,9 @@ if($teacherFilename !== "" && file_exists(__DIR__.DIRECTORY_SEPARATOR."uploads".
 }
 $dutyDashboard = duty_roster_get_teacher_dashboard_context($con, $teacherId);
 $attendanceSummary = student_attendance_teacher_dashboard_summary($con, $teacherId);
+$teacherHasBillingModule = teacher_billing_teacher_has_module($con, $teacherId);
+$teacherBillingAssignments = $teacherHasBillingModule ? teacher_billing_fetch_assignments($con, $teacherId) : array();
+$teacherBillingScopeCount = count($teacherBillingAssignments);
 
 $classTeacherRoles = array();
 $classTeacherLookup = array();
@@ -518,6 +523,9 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <a class="teacher-action-card" href="terminal-report.php"><span class="teacher-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Reports</h3></a>
         <a class="teacher-action-card" href="lesson-timetable-report.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Lesson Timetable</h3><p>Open your weekly lesson schedule and check today’s teaching periods quickly.</p></a>
         <a class="teacher-action-card" href="scores-report.php"><span class="teacher-action-card__icon"><i class="fa fa-line-chart"></i></span><h3>Scores Report</h3><p>Check reporting summaries and score outputs for your classes.</p></a>
+        <?php if($teacherHasBillingModule){ ?>
+        <a class="teacher-action-card" href="payments.php"><span class="teacher-action-card__icon"><i class="fa fa-credit-card"></i></span><h3>Class Payments<?php if($teacherBillingScopeCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherBillingScopeCount; ?> Scope<?php echo ((int)$teacherBillingScopeCount === 1 ? "" : "s"); ?></span><?php } ?></h3><p><?php echo $teacherBillingScopeCount > 0 ? "Open the payment view for the class fee-collection scopes assigned to you." : "Open class payments. Admin still needs to assign your fee-collection class scope."; ?></p></a>
+        <?php } ?>
         <a class="teacher-action-card" href="online-voting.php"><?php if($teacherVotingSnapshot && !empty($teacherVotingSnapshot["contest"])){ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo td_esc($teacherVotingSnapshot["contest"]["title"]); ?> is <?php echo td_esc(strtolower(voting_status_label($teacherVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Open the contest board when the next school voting event goes live.</p><?php } ?></a>
         <a class="teacher-action-card" href="messages.php"><span class="teacher-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the wider message board when you need more than the dashboard preview."; ?></p></a>
     </div>
@@ -754,7 +762,6 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
                 <?php } ?>
             </div>
         </section>
-
         <section class="teacher-panel">
             <div class="teacher-panel__header">
                 <div><span class="teacher-panel__eyebrow">Duty Roster</span><h2>Duty reminders on your dashboard</h2></div>

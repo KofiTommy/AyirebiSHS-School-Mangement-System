@@ -455,7 +455,7 @@ $_SQL_EXECUTE_2=mysqli_query($con,"SELECT * FROM tbltermregistry tr
 				INNER JOIN tblitemprice ip ON tr.class_entryid=ip.class_entryid AND tr.termname=ip.term
 				INNER JOIN tblitem itm ON ip.itemid=itm.itemid
 				INNER JOIN tblclassentry ce ON ce.class_entryid=tr.class_entryid
-				WHERE tr.userid='$_UserId' AND ip.class_entryid='$_Class' AND ip.term='$_Term' AND ip.batch='$_Batch'");
+				WHERE tr.userid='$_UserId' AND ip.class_entryid='$_Class' AND ip.term='$_Term' AND ip.batch='$_Batch' AND ip.status='active' AND itm.status='active'");
 
 while($row_b=mysqli_fetch_array($_SQL_EXECUTE_2,MYSQLI_ASSOC))
 {
