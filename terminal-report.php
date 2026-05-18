@@ -537,6 +537,7 @@ if(isset($_GET["delete_mark"]))
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/terminal-report.css">
 
 </head>
 
@@ -546,14 +547,29 @@ include("links.php");
 	include("menu.php");
 	?>		
 	</div>
-<div class="main-platform" style="background-color:white">
-	<br/>
-<table width="100%">
-<tr>
-<td width="30%">
-<div class="form-entry">
+<div class="main-platform tr-page">
+	<section class="tr-hero">
+		<div>
+			<span class="tr-kicker">Academic Reports</span>
+			<h1>Terminal Report</h1>
+			<p>Generate, review, approve, and print student terminal reports from one clean workspace.</p>
+		</div>
+		<div class="tr-hero-card">
+			<i class="fa fa-file-text-o"></i>
+			<span>Report Generator</span>
+		</div>
+	</section>
+
+<div class="tr-layout">
+<aside class="tr-panel tr-filter-panel">
 <form id="formID" name="formID" method="post" action="terminal-report.php">
-	<h4>EXAMINATION REPORT GENERATION</h4>
+	<div class="tr-panel-heading">
+		<span class="tr-icon"><i class="fa fa-filter"></i></span>
+		<div>
+			<h2>Report Filters</h2>
+			<p>Select the student and academic scope.</p>
+		</div>
+	</div>
 <?php	
 include("dbstring.php");
 /*$_SQL_2=mysqli_query($con,"SELECT * FROM tbltermregistry tr 
@@ -570,29 +586,34 @@ echo "<select id='classid' name='classid' class='validate[required]'>";
 	}
 echo "</select><br/><br/>";
 */
-echo "<fieldset><legend>BATCH EXAMINATION REPORT</legend>";
+echo "<fieldset class='tr-fieldset'><legend>Report Details</legend>";
 $_SelectedTermLabel = "";
+$_SelectedUserId = isset($_POST['userid']) ? $_POST['userid'] : '';
 
 $_SQL_2=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.systemtype='Student' ORDER BY su.firstname");
+echo "<label for='userid'>Student</label>";
 echo "<select id='userid' name='userid' class='validate[required]'>";
 echo "<option value=''>Select Student</option>";
 while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-echo "<option value='$row[userid]'>$row[firstname] $row[othernames] $row[surname]($row[userid]) </option>";
+$_SelUser = ($_SelectedUserId==$row['userid']) ? "selected" : "";
+echo "<option value='$row[userid]' $_SelUser>$row[firstname] $row[othernames] $row[surname]($row[userid]) </option>";
 }
-echo "</select><br/><br/>";
+echo "</select>";
 			
 $_SelectedBatchId = isset($_POST['batchid']) ? $_POST['batchid'] : '';
 $_SQL_2=mysqli_query($con,"SELECT batchid,batch FROM tblbatch ORDER BY datetimeentry DESC");
 
+echo "<label for='batchid'>Academic Year Batch</label>";
 echo "<select id='batchid' name='batchid' class='validate[required]'>";
 echo "<option value=''>Select Academic Year (Batch)</option>";
 while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
 $_Sel = ($_SelectedBatchId==$row['batchid']) ? "selected" : "";
 echo "<option value='$row[batchid]' $_Sel>$row[batch]</option>";
 }
-echo "</select><br/><br/>";
+echo "</select>";
 
 $_SelectedAcademicYear = isset($_POST['academicyear']) ? trim((string)$_POST['academicyear']) : '';
+echo "<label for='academicyear'>Academic Year</label>";
 echo "<select id='academicyear' name='academicyear' class='validate[required]'>";
 echo "<option value=''>Select Academic Year</option>";
 $_YearWhereSql = "";
@@ -621,20 +642,20 @@ $_SelYear = ($_SelectedAcademicYear===(string)$row_year['academic_year']) ? "sel
 echo "<option value='$row_year[academic_year]' $_SelYear>$row_year[academic_year]</option>";
 }
 }
-echo "</select><br/><br/>";
+echo "</select>";
 
 $_SelectedTermId = isset($_POST['termid']) ? $_POST['termid'] : '';
 if($_SelectedTermId!==""){
     $_SelectedTermLabel = ($_SelectedAcademicYear!=="" ? $_SelectedAcademicYear." | " : "")."Semester ".$_SelectedTermId;
 }
+echo "<label for='termid'>Semester</label>";
 echo "<select id='termid' name='termid' class='validate[required]'>";
 echo "<option value=''>Select Semester</option>";
 echo "<option value='1' ".($_SelectedTermId==='1' ? "selected" : "").">1</option>";
 echo "<option value='2' ".($_SelectedTermId==='2' ? "selected" : "").">2</option>";
 echo "<option value='3' ".($_SelectedTermId==='3' ? "selected" : "").">3</option>";
-echo "</select><br/><br/>";
+echo "</select>";
 
-$_SelectedUserId = isset($_POST['userid']) ? $_POST['userid'] : '';
 $_SelectedClassId = isset($_POST['classid']) ? $_POST['classid'] : '';
 $_SelectedClassLabel = "";
 if($_SelectedUserId!="" && $_SelectedBatchId!=""){
@@ -648,6 +669,7 @@ if($_SelectedUserId!="" && $_SelectedBatchId!=""){
 } else {
     $_SQL_CLASS_OPT=mysqli_query($con,"SELECT class_entryid,class_name FROM tblclassentry ORDER BY class_name ASC");
 }
+echo "<label for='classid'>Class</label>";
 echo "<select id='classid' name='classid' class='validate[required]'>";
 echo "<option value=''>Select Class</option>";
 while($row_cls=mysqli_fetch_array($_SQL_CLASS_OPT,MYSQLI_ASSOC)){
@@ -657,7 +679,7 @@ while($row_cls=mysqli_fetch_array($_SQL_CLASS_OPT,MYSQLI_ASSOC)){
         $_SelectedClassLabel = $row_cls['class_name'];
     }
 }
-echo "</select><br/><br/>";
+echo "</select>";
 
 $_SelectedScopeApprovalMeta = report_approval_scope_meta($con, $_SelectedBatchId, $_SelectedAcademicYear, $_SelectedTermId, $_SelectedClassId);
 if($_ReportApprovalAdminMessage!==""){
@@ -668,20 +690,23 @@ if($_SelectedClassId!=='' && $_SelectedTermId!=='' && $_SelectedAcademicYear!=='
         $_ApprovalBg = $_SelectedScopeApprovalMeta['allowed'] ? "#ecfdf3" : "#fff7ed";
         $_ApprovalBorder = $_SelectedScopeApprovalMeta['allowed'] ? "rgba(22,101,52,0.14)" : "rgba(194,65,12,0.14)";
         $_ApprovalColor = $_SelectedScopeApprovalMeta['allowed'] ? "#166534" : "#c2410c";
-        echo "<div style='margin:0 0 10px;padding:10px 12px;border-radius:14px;background:".$_ApprovalBg.";border:1px solid ".$_ApprovalBorder.";color:".$_ApprovalColor.";font-weight:600;'>Student Portal Status: ".$_SelectedScopeApprovalMeta['status_label']."</div>";
-        echo "<div style='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;'>";
-        echo "<button class='button-pay' type='submit' name='approve_class_report'><i class='fa fa-check' style='color:white'></i> Approve Student View</button>";
-        echo "<button class='button-show' type='submit' name='hold_class_report'><i class='fa fa-pause' style='color:white'></i> Hold Student View</button>";
+        $_ApprovalTone = $_SelectedScopeApprovalMeta['allowed'] ? "tr-status-approved" : "tr-status-pending";
+        echo "<div class='tr-status-card ".$_ApprovalTone."'><i class='fa fa-shield'></i> Student Portal Status: ".$_SelectedScopeApprovalMeta['status_label']."</div>";
+        echo "<div class='tr-actions tr-approval-actions'>";
+        echo "<button class='button-pay tr-btn tr-btn-primary' type='submit' name='approve_class_report'><i class='fa fa-check'></i> Approve Student View</button>";
+        echo "<button class='button-show tr-btn tr-btn-warning' type='submit' name='hold_class_report'><i class='fa fa-pause'></i> Hold Student View</button>";
         echo "</div>";
     }else{
-        echo "<div style='margin:0 0 10px;padding:10px 12px;border-radius:14px;background:#eff6ff;border:1px solid rgba(29,78,216,0.12);color:#1d4ed8;font-weight:600;'>Student approval is not required for this semester scope.</div>";
+        echo "<div class='tr-status-card tr-status-info'><i class='fa fa-info-circle'></i> Student approval is not required for this semester scope.</div>";
     }
 }
 
-echo "<button class='button-show' id='show_terminal_report' name='show_terminal_report'><i class='fa fa-search' style='color:white'></i> SHOW REPORT</button> ";
-echo "<a href='terminal-report.php' class='button-show' style='margin-left:6px;display:inline-block;'><i class='fa fa-undo' style='color:white'></i> RESET</a>";
+echo "<div class='tr-actions'>";
+echo "<button class='button-show tr-btn tr-btn-primary' id='show_terminal_report' name='show_terminal_report'><i class='fa fa-search'></i> Show Report</button> ";
+echo "<a href='terminal-report.php' class='button-show tr-btn tr-btn-light'><i class='fa fa-undo'></i> Reset</a>";
+echo "</div>";
 if($_SelectedTermLabel!=""){
-echo "<div style='margin-top:8px;padding:6px 8px;background:#eef6ff;border:1px solid #bcd;color:#0b63ce;font-weight:600;'>Selected: $_SelectedTermLabel".($_SelectedClassLabel!="" ? " | Class: ".$_SelectedClassLabel : "")."</div>";
+echo "<div class='tr-selected'><i class='fa fa-check-circle'></i> Selected: $_SelectedTermLabel".($_SelectedClassLabel!="" ? " | Class: ".$_SelectedClassLabel : "")."</div>";
 }
 echo "</fieldset>";
 ?>
@@ -691,11 +716,16 @@ echo "</fieldset>";
 -->
 
 </form>
-</div>
-</td>
-<td width="70%">
-	<div class="form-entry">
+</aside>
+<main class="tr-panel tr-results-panel">
 	<form id="formID2" name="formID2" method="post" action="terminal-report.php">
+	<div class="tr-panel-heading">
+		<span class="tr-icon"><i class="fa fa-table"></i></span>
+		<div>
+			<h2>Report Preview</h2>
+			<p>View the selected student marks before printing the terminal report.</p>
+		</div>
+	</div>
 <?php
 echo $_SESSION['Message'];
 if(isset($_POST["show_terminal_report"]))
@@ -715,9 +745,10 @@ echo "<input type='hidden' name='batchid' value='$_Batch_ID' />";
 echo "<input type='hidden' name='academicyear' value='$_Academic_Year' />";
 echo "<input type='hidden' name='termid' value='$_Term_ID' />";
 echo "<input type='hidden' name='classid' value='$_Class_ID' />";
-echo "<button class='button-pay' id='print_terminal_report' name='print_terminal_report'><i class='fa fa-print' style='color:white'></i> Print Report</button><br/><br/>";		
+echo "<button class='button-pay tr-btn tr-btn-print' id='print_terminal_report' name='print_terminal_report'><i class='fa fa-print'></i> Print Report</button>";		
 }
-echo "<table width='100%' style='background-color:white'>";
+echo "<div class='tr-table-wrap'>";
+echo "<table class='tr-table tr-results-table'>";
 echo "<caption>";
 $_SQL_USER_2=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$_User_ID' AND su.systemtype='Student'");
 if($rowst=mysqli_fetch_array($_SQL_USER_2,MYSQLI_ASSOC)){
@@ -734,7 +765,7 @@ $_SQL_SU=mysqli_query($con,"SELECT * FROM tblsubject sub INNER JOIN tblsubjectcl
 while($row_rsu=mysqli_fetch_array($_SQL_SU,MYSQLI_ASSOC)){
 
 //SUBJECT
-echo "<tr style='background-color:#fff;'>";
+echo "<tr class='tr-subject-row'>";
 //echo "<td colspan='1'></td>";
 echo "<td align='left' colspan='7'>";
 echo strtoupper($row_rsu['subject']);
@@ -750,7 +781,7 @@ if(mysqli_num_rows($_SQL_CLASS)==0){
 
 }else{
 while($row_ce=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
-echo "<tr style='background-color:#fff;font-weight:bold'>";
+echo "<tr class='tr-class-row'>";
 echo "<td colspan='1'></td>";
 echo "<td align='left' colspan='6'>";
 echo strtoupper($row_ce['class_name']);
@@ -786,7 +817,7 @@ for($k=$_StartTerm;$k<=$_EndTerm;$k++)
 if(mysqli_num_rows($_SQL_EXECUTE)==0){
 
 }else{
-	echo "<tr style='background-color:#fff;font-weight:bold'>";
+	echo "<tr class='tr-semester-row'>";
 	echo "<td colspan='2'></td>";
 	echo "<td colspan='5'>";
 	echo "Semester: ".$k;
@@ -826,7 +857,7 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 
 	echo "</tr>";
 	}	
-	echo "<tr style='background-color:#fed;font-weight:bold'>";
+	echo "<tr class='tr-total-row'>";
 	echo "<td colspan='4'>";
 	echo "</td>";
 
@@ -856,13 +887,12 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 }
 echo "</tbody>";
 echo "</table>";
+echo "</div>";
 }
 ?>
 </form>
+</main>
 </div>
-</td>
-</tr>
-</table>
 
 <br/><br/>
 <button onclick="topFunction()" id="myBtn" title="Go to top">Top</button> 

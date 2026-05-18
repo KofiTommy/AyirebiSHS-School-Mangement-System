@@ -58,6 +58,7 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblclassentry WHERE class_entryid='
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/class-entry.css">
 
 </head>
 
@@ -74,11 +75,21 @@ include("links.php");
 	?>
 	</div>
 
-<div class="main-platform" style="">
-	<table width="100%">
-		<tr>
-			<td valign="top" width="30%" align="center">
-				<div class="form-entry" align="left">
+<div class="main-platform class-page">
+	<section class="class-hero">
+		<div>
+			<span class="class-kicker">Academic Setup</span>
+			<h1>Class Entry</h1>
+			<p>Create and manage the classes/forms used for registration, reports, subjects, and billing.</p>
+		</div>
+		<div class="class-hero-card">
+			<i class="fa fa-university"></i>
+			<span>Class Manager</span>
+		</div>
+	</section>
+
+	<div class="class-layout">
+		<aside class="class-side">
 			
 		<?php
 		include("dbstring.php");
@@ -90,37 +101,52 @@ include("links.php");
 		{
 			if($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC))
 			{
-			echo "<h3>class Update</h3>";
+			echo "<section class='class-panel class-edit-panel'>";
+			echo "<div class='class-panel-heading'><span class='class-icon'><i class='fa fa-edit'></i></span><div><h2>Update Class</h2><p>Edit the selected class name.</p></div></div>";
 			echo "<form method='post' id='formID' name='formID' action='class-entry.php'>";
-			echo "<label>class Id</label>";
-			echo "<input type='text' id='update_class_entryid' name='update_class_entryid' value='$row[class_entryid]' readonly><br/>";
+			echo "<label>Class Id</label>";
+			echo "<input type='text' id='update_class_entryid' name='update_class_entryid' value='$row[class_entryid]' readonly>";
 
-			echo "<label>class </label>";
-			echo "<input type='text' id='update_class' name='update_class' value='$row[class_name]'><br/><br/>";
-			echo "<div align='center'><button class='button-edit' id='update_class_entry' name='update_class_entry'><i class='fa fa-edit'></i> UPDATE CLASS</button></div>";
+			echo "<label>Class</label>";
+			echo "<input type='text' id='update_class' name='update_class' value='$row[class_name]' class='validate[required]'>";
+			echo "<div class='class-actions'><button class='button-edit class-btn class-btn-primary' id='update_class_entry' name='update_class_entry'><i class='fa fa-edit'></i> Update Class</button></div>";
+			echo "<div class='class-actions class-cancel-row'><a class='class-btn class-btn-light' href='class-entry.php'><i class='fa fa-times'></i> Cancel Edit</a></div>";
 
 			echo "</form>";
+			echo "</section>";
 			}
 		}
 		}
 		?>
-			<h3>Class Entry 
-				</h3>
-			<br/>
+			<section class="class-panel class-create-panel">
+			<div class="class-panel-heading">
+				<span class="class-icon"><i class="fa fa-plus"></i></span>
+				<div>
+					<h2>Create Class</h2>
+					<p>Add a new class or form to the system.</p>
+				</div>
+			</div>
 		
 			<form method="post" id="formID" name="formID" action="class-entry.php">
-			<label>Class Id</label><br/>
-			<input type="text" id="class_entryid" name="class_entryid" value="<?php include("shortcode.php");echo $shortcode;?>" class="validate[required]" readonly/><br/><br/>
-			<fieldset><legend>Class</legend>
-			<input type="text" id="class" name="class" value="" class="validate[required]"/><br/><br/>
-			</fieldset><br/>
-			<div align="center"><button class="button-save" id="register_class" name="register_class"><i class="fa fa-save"></i> SAVE CLASS</button></div>
+			<label>Class Id</label>
+			<input type="text" id="class_entryid" name="class_entryid" value="<?php include("shortcode.php");echo $shortcode;?>" class="validate[required]" readonly/>
+			<fieldset class="class-fieldset"><legend>Class Details</legend>
+			<label for="class">Class Name</label>
+			<input type="text" id="class" name="class" value="" class="validate[required]"/>
+			</fieldset>
+			<div class="class-actions"><button class="button-save class-btn class-btn-primary" id="register_class" name="register_class"><i class="fa fa-save"></i> Save Class</button></div>
 		</form>
 
-		</div>
-			</td>
-			<td width="70%">
-				<div class="form-entry" align="left">
+		</section>
+		</aside>
+			<main class="class-panel class-list-panel">
+				<div class="class-panel-heading">
+					<span class="class-icon"><i class="fa fa-list"></i></span>
+					<div>
+						<h2>Class List</h2>
+						<p>Review existing classes or make updates.</p>
+					</div>
+				</div>
 				<?php
 				echo $_SESSION['Message'];
 
@@ -128,7 +154,8 @@ include("links.php");
 				$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblclassentry ORDER BY class_name ASC");
 
 				//Registered clients
-				echo "<table width='100%' style='background-color:white'>";
+				echo "<div class='class-table-wrap'>";
+				echo "<table class='class-table'>";
 				echo "<caption>List Of Classes</caption>";
 				echo "<thead><th colspan=2>TASK</th><th>CLASS ID</th><th>CLASS</th><th>ENTRY DATE/TIME</th><th>STATUS</th></thead>";
 				echo "<tbody>";
@@ -136,8 +163,8 @@ include("links.php");
 				while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
 				echo "<tr>";
 				//echo "<td align='center'><a title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'<i class='fa fa-book' style='color:blue'></i></a></td>";
-				echo "<td align='center'><a title='Delete $row[class_name] ($row[class_entryid])' onclick=\"javascript:return confirm('Do you want to delete?');\" href='class-entry.php?delete_class=$row[class_entryid]'<i class='fa fa-trash-o' style='color:red'></i></a></td>";
-				echo "<td align='center'><a title='Edit $row[class_name] ($row[class_entryid])'  href='class-entry.php?edit_class=$row[class_entryid]'<i class='fa fa-edit' style='color:olive'></i></a></td>";
+				echo "<td align='center'><a class='class-row-action class-action-danger' title='Delete $row[class_name] ($row[class_entryid])' onclick=\"javascript:return confirm('Do you want to delete?');\" href='class-entry.php?delete_class=$row[class_entryid]'><i class='fa fa-trash-o'></i></a></td>";
+				echo "<td align='center'><a class='class-row-action' title='Edit $row[class_name] ($row[class_entryid])'  href='class-entry.php?edit_class=$row[class_entryid]'><i class='fa fa-edit'></i></a></td>";
 				
 				echo "<td>$row[class_entryid]</td>";
 				echo "<td>$row[class_name]</td>";
@@ -148,10 +175,10 @@ include("links.php");
 				}
 				echo "</tbody>";
 				echo "</table>";
+				echo "</div>";
 				?>
-			</td>
-		</tr>
-	</table>
+			</main>
+	</div>
 </div>
 </body>
 </html>

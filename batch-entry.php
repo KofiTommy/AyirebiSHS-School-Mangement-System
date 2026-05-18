@@ -70,6 +70,7 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblbatch WHERE batchid='$_GET[delet
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/batch-entry.css">
 
 </head>
 
@@ -87,11 +88,21 @@ include("links.php");
 	?>
 	</div>
 
-<div class="main-platform" style="">
-	<table width="100%">
-		<tr>
-			<td valign="top" width="30%" align="center">
-				<div class="form-entry" align="left">
+<div class="main-platform batch-page">
+	<section class="batch-hero">
+		<div>
+			<span class="batch-kicker">Academic Setup</span>
+			<h1>Batch Entry</h1>
+			<p>Create and manage student intake batches such as September 2026 for reports, registration, and billing.</p>
+		</div>
+		<div class="batch-hero-card">
+			<i class="fa fa-calendar-plus-o"></i>
+			<span>Batch Manager</span>
+		</div>
+	</section>
+
+	<div class="batch-layout">
+		<aside class="batch-side">
 			
 		<?php
 		include("dbstring.php");
@@ -103,17 +114,19 @@ include("links.php");
 		{
 			if($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC))
 			{
-			echo "<h3>Batch Update</h3>";
+			echo "<section class='batch-panel batch-edit-panel'>";
+			echo "<div class='batch-panel-heading'><span class='batch-icon'><i class='fa fa-edit'></i></span><div><h2>Update Batch</h2><p>Change the month and year for this existing batch.</p></div></div>";
 			echo "<form method='post' id='formID' name='formID' action='batch-entry.php'>";
 			echo "<label>Batch Id</label>";
-			echo "<input type='text' id='update_batch_entryid' name='update_batch_entryid' value='$row[batchid]'><br/>";
+			echo "<input type='text' id='update_batch_entryid' name='update_batch_entryid' value='$row[batchid]' readonly>";
 
-			echo "<input type='text' id='update_batch' name='update_batch' value='$row[batch]' readonly><br/><br/>";
+			echo "<label>Current Batch</label>";
+			echo "<input type='text' id='update_batch' name='update_batch' value='$row[batch]' readonly>";
 
-			echo "<fieldset><legend>BATCH</legend>";
-			echo "<table>";
-			echo "<tr>";
-			echo "<td>";
+			echo "<fieldset class='batch-fieldset'><legend>New Batch Details</legend>";
+			echo "<div class='batch-grid'>";
+			echo "<div>";
+			echo "<label for='update_batch_month'>Month</label>";
 			echo "<select id='update_batch_month' name='update_batch_month' class='validate[required]'>";
 			echo "<option value=''>Select Month</option>";
 			echo "<option value='January'>January</option>";
@@ -129,9 +142,10 @@ include("links.php");
 			echo "<option value='November'>November</option>";
 			echo "<option value='December'>December</option>";
 			echo "</select>";
-			echo "</td>";
+			echo "</div>";
 
-			echo "<td>";
+			echo "<div>";
+			echo "<label for='update_batch_year'>Year</label>";
 			$k=date("Y");
 			$k=$k-5;
 			$L=$k+15;
@@ -142,37 +156,38 @@ include("links.php");
 			$k++;
 			}
 			echo "</select>";
-			echo "</td>";
-			echo "</tr>";
-			echo "</table>";
+			echo "</div>";
+			echo "</div>";
 			echo "</fieldset>";
-			echo "<br/>";
 
-			echo "<div align='center'><button class='button-edit' id='update_batch_entry' name='update_batch_entry'><i class='fa fa-edit' style='color:white'></i> UPDATE BATCH</button></div>";
-			echo "<br/>";
+			echo "<div class='batch-actions'><button class='button-edit batch-btn batch-btn-primary' id='update_batch_entry' name='update_batch_entry'><i class='fa fa-edit'></i> Update Batch</button></div>";
 
 			echo "</form>";
+			echo "</section>";
 			}
 		}
 		}
 		?>
-	</div>
 
-			<div class="form-entry" align="left">
-			<h3>Batch Entry 
-				</h3>
-			<br/>
+			<section class="batch-panel batch-create-panel">
+			<div class="batch-panel-heading">
+				<span class="batch-icon"><i class="fa fa-plus"></i></span>
+				<div>
+					<h2>Create Batch</h2>
+					<p>Add a new month and year intake group.</p>
+				</div>
+			</div>
 		
 			<form method="post" id="formID" name="formID" action="batch-entry.php">
 
-			<label>Batch Id</label><br/>
-			<input type="text" id="batchid" name="batchid" value="<?php include("shortcode.php");echo $shortcode;?>" class="validate[required]" readonly/><br/><br/>
+			<label>Batch Id</label>
+			<input type="text" id="batchid" name="batchid" value="<?php include("shortcode.php");echo $shortcode;?>" class="validate[required]" readonly/>
 
 			<?php
-			echo "<fieldset><legend>BATCH</legend>";
-			echo "<table>";
-			echo "<tr>";
-			echo "<td>";
+			echo "<fieldset class='batch-fieldset'><legend>Batch Details</legend>";
+			echo "<div class='batch-grid'>";
+			echo "<div>";
+			echo "<label for='batch_month'>Month</label>";
 			echo "<select id='batch_month' name='batch_month' class='validate[required]'>";
 			echo "<option value=''>Select Month</option>";
 			echo "<option value='January'>January</option>";
@@ -188,9 +203,10 @@ include("links.php");
 			echo "<option value='November'>November</option>";
 			echo "<option value='December'>December</option>";
 			echo "</select>";
-			echo "</td>";
+			echo "</div>";
 
-			echo "<td>";
+			echo "<div>";
+			echo "<label for='batch_year'>Year</label>";
 			$k=date("Y");
 			$k=$k-5;
 			$L=$k+15;
@@ -201,19 +217,23 @@ include("links.php");
 			$k++;
 			}
 			echo "</select>";
-			echo "</td>";
-			echo "</tr>";
-			echo "</table>";
+			echo "</div>";
+			echo "</div>";
 			echo "</fieldset>";
 			?>
-			<br/><br/>
-			<div align="center"><button class="button-save" id="register_batch" name="register_batch"><i class="fa fa-save"></i> SAVE BATCH</button></div>
+			<div class="batch-actions"><button class="button-save batch-btn batch-btn-primary" id="register_batch" name="register_batch"><i class="fa fa-save"></i> Save Batch</button></div>
 		</form>
 
-		</div>
-			</td>
-			<td width="70%">
-				<div class="form-entry" align="left">
+		</section>
+		</aside>
+			<main class="batch-panel batch-list-panel">
+				<div class="batch-panel-heading">
+					<span class="batch-icon"><i class="fa fa-list"></i></span>
+					<div>
+						<h2>Existing Batches</h2>
+						<p>Review, edit, or remove batch records.</p>
+					</div>
+				</div>
 				<?php
 				echo $_SESSION['Message'];
 
@@ -221,7 +241,8 @@ include("links.php");
 				$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblbatch ORDER BY batch ASC");
 
 				//Registered clients
-				echo "<table width='100%' style='background-color:white'>";
+				echo "<div class='batch-table-wrap'>";
+				echo "<table class='batch-table'>";
 				echo "<caption>BATCH</caption>";
 				echo "<thead><th colspan=2>TASK</th><th>BATCH ID</th><th>BATCH</th><th>DATE/TIME</th><th>STATUS</th></thead>";
 				echo "<tbody>";
@@ -229,8 +250,8 @@ include("links.php");
 				while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
 				echo "<tr>";
 				//echo "<td align='center'><a title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'<i class='fa fa-book' style='color:blue'></i></a></td>";
-				echo "<td align='center'><a title='Delete $row[batch] ($row[batchid])' onclick=\"javascript:return confirm('Do you want to delete?');\" href='batch-entry.php?delete_batch=$row[batchid]'<i class='fa fa-trash-o' style='color:red'></i></a></td>";
-				echo "<td align='center'><a title='Edit $row[batch] ($row[batchid])'  href='batch-entry.php?edit_batch=$row[batchid]'<i class='fa fa-edit' style='color:olive'></i></a></td>";
+				echo "<td align='center'><a class='batch-row-action batch-action-danger' title='Delete $row[batch] ($row[batchid])' onclick=\"javascript:return confirm('Do you want to delete?');\" href='batch-entry.php?delete_batch=$row[batchid]'><i class='fa fa-trash-o'></i></a></td>";
+				echo "<td align='center'><a class='batch-row-action' title='Edit $row[batch] ($row[batchid])'  href='batch-entry.php?edit_batch=$row[batchid]'><i class='fa fa-edit'></i></a></td>";
 				
 				echo "<td align='center'>$row[batchid]</td>";
 				echo "<td align='center'>$row[batch]</td>";
@@ -241,13 +262,11 @@ include("links.php");
 				}
 				echo "</tbody>";
 				echo "</table>";
+				echo "</div>";
 				?>
 
-			</div>
-			</td>
-		</tr>
-
-	</table>
+			</main>
+		</div>
 		
 </div>
 

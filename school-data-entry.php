@@ -135,6 +135,7 @@ if(isset($_GET["edit_school"])){
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/school-data-entry.css">
 
 </head>
 <body>
@@ -144,21 +145,37 @@ include("links.php");
 	include("menu.php");
 	?>		
 	</div>
-<div class="main-platform" style="">
-	<table width="100%">
-		<tr>
-			<td valign="top" width="30%" align="center">
-				<div class="form-entry" align="left">
-			
-			<h3>School Data Entry</h3>
-			<p style="margin-top:-4px;color:#555;">Save one record per batch and semester, so each semester can carry its own closing and reopening dates.</p>
+<div class="main-platform school-data-page">
+	<section class="school-data-hero">
+		<div>
+			<span class="school-data-kicker">Academic Setup</span>
+			<h1>School Data Entry</h1>
+			<p>Save one record per batch, academic year, and semester so reports show the correct closing and reopening dates.</p>
+		</div>
+		<div class="school-data-hero-card">
+			<i class="fa fa-calendar-check-o"></i>
+			<span>Semester Calendar</span>
+		</div>
+	</section>
+
+	<div class="school-data-layout">
+		<aside class="school-data-panel school-data-form-panel">
+			<div class="school-data-panel-heading">
+				<span class="school-data-icon"><i class="fa fa-pencil-square-o"></i></span>
+				<div>
+					<h2><?php echo $_IsEditMode ? "Update School Data" : "Create School Data"; ?></h2>
+					<p><?php echo $_IsEditMode ? "You are editing an existing semester setup." : "Add school dates for a new reporting period."; ?></p>
+				</div>
+			</div>
 		
 			<form method="post" id="formID" name="formID" action="school-data-entry.php">
 
-			<label>School Data Id</label><br/>
-			<input type="text" id="infoid" name="infoid" value="<?php echo htmlspecialchars($_FormInfoId, ENT_QUOTES, 'UTF-8'); ?>" class="validate[required]" readonly/><br/><br/>
+			<label>School Data Id</label>
+			<input type="text" id="infoid" name="infoid" value="<?php echo htmlspecialchars($_FormInfoId, ENT_QUOTES, 'UTF-8'); ?>" class="validate[required]" readonly/>
 
-                <label>Academic Year</label><br/>
+			<div class="school-data-grid">
+                <div>
+                <label>Academic Year</label>
                 <?php
                 echo "<select id='academicyear' name='academicyear' class='validate[required]'>";
                 echo "<option value=''>Select Year</option>";
@@ -166,15 +183,19 @@ include("links.php");
                     $_SelectedYear = ((string)$_YearOption === (string)$_FormAcademicYear) ? "selected" : "";
                     echo "<option value='$_YearOption' $_SelectedYear>$_YearOption</option>";
                 }
-                echo "</select><br/><br/>";
+                echo "</select>";
                 ?>
+                </div>
 
+				<div>
+				<label>Semester</label>
 				<select id="term" name="term">
 					<option value="" class="validate[required]">Select Semester</option>
 					<option value="1" <?php echo ($_FormTerm === "1" ? "selected" : ""); ?>>1</option>
 					<option value="2" <?php echo ($_FormTerm === "2" ? "selected" : ""); ?>>2</option>
 				</select>
-				<br/><br/>
+				</div>
+			</div>
 
 <script type="text/javascript">
 function show_alert(){
@@ -189,16 +210,19 @@ function show_alert(){
          ?>
       <input type="hidden" name="todate" id="todate" value="<?php echo $tdate; ?>">
 
-
-				<label>School Closes</label><br/>
+			<div class="school-data-grid">
+				<div>
+				<label>School Closes</label>
 				<input type="text" maxlength="25" size="25" onclick="javascript:NewCssCal ('schoolcloses-date','ddMMyyyy','','','','','')" id="schoolcloses-date" name="schoolcloses-date" value="<?php echo htmlspecialchars($_FormSchoolCloses, ENT_QUOTES, 'UTF-8'); ?>" readonly onchange="CheckSchoolCloses()"/>
-				<br/><br/>
+				</div>
      
-	<label>Next Semester Begins</label><br/>
+	<div>
+	<label>Next Semester Begins</label>
 				<input type="text" maxlength="25" size="25" onclick="javascript:NewCssCal ('schoolresumes','ddMMyyyy','','','','','')" id="schoolresumes" name="schoolresumes" value="<?php echo htmlspecialchars($_FormSchoolResumes, ENT_QUOTES, 'UTF-8'); ?>" readonly onchange="CheckSchoolResume()" />
-				<br/><br/>
+				</div>
+			</div>
      		
-
+			<label>Batch</label>
 				<?php	
 			$_SQL_2 = mysqli_query($con, "SELECT * FROM tblbatch ORDER BY datetimeentry DESC");
 
@@ -209,19 +233,24 @@ function show_alert(){
 					echo "<option value='$row[batchid]' $_SelectedBatch>$row[batch]</option>";
 				}
 				
-			echo "</select><br/><br/>";
+			echo "</select>";
 			?>
 
-			<div align="center"><button class="button-save" id="register_school_data" name="register_school_data"><i class="fa fa-save"></i> <?php echo htmlspecialchars($_FormButtonText, ENT_QUOTES, 'UTF-8'); ?></button></div>
+			<div class="school-data-actions"><button class="button-save school-data-btn school-data-btn-primary" id="register_school_data" name="register_school_data"><i class="fa fa-save"></i> <?php echo htmlspecialchars($_FormButtonText, ENT_QUOTES, 'UTF-8'); ?></button></div>
             <?php if($_IsEditMode){ ?>
-            <div align="center" style="padding-top:10px;"><a href="school-data-entry.php">Cancel Edit</a></div>
+            <div class="school-data-actions school-data-cancel-row"><a class="school-data-btn school-data-btn-light" href="school-data-entry.php"><i class="fa fa-times"></i> Cancel Edit</a></div>
             <?php } ?>
 		</form>
 
-		</div>
-			</td>
-<td width="70%">
-<div class="form-entry" align="left">
+		</aside>
+<main class="school-data-panel school-data-list-panel">
+<div class="school-data-panel-heading">
+	<span class="school-data-icon"><i class="fa fa-list"></i></span>
+	<div>
+		<h2>Existing School Data</h2>
+		<p>Review the saved semester dates used on terminal reports.</p>
+	</div>
+</div>
 <?php
 echo $_SESSION['Message'];
 include("dbstring.php");
@@ -230,15 +259,16 @@ $_SQL_SU = mysqli_query($con, "SELECT * FROM tblschoolinfo si
 INNER JOIN tblbatch bh ON si.batchid=bh.batchid
 ORDER BY si.academicyear DESC, bh.datetimeentry DESC, si.termname ASC, si.datetimeentry DESC");
 if($_SQL_SU && mysqli_num_rows($_SQL_SU) > 0){
-echo "<table width='100%' style='background-color:white'>";
+echo "<div class='school-data-table-wrap'>";
+echo "<table class='school-data-table'>";
 echo "<caption>School Data</caption>";
 echo "<thead><th colspan='2'>Task</th><th>Batch</th><th>Year</th><th>Semester</th><th>Label</th><th>School Closes</th><th>Next Semester Begins</th><th>Date/Time</th></thead>";
 echo "<tbody>";
 while($row = mysqli_fetch_array($_SQL_SU, MYSQLI_ASSOC)){
 $_RowYear = trim((string)$row['academicyear']) !== "" ? trim((string)$row['academicyear']) : date("Y", strtotime((string)$row['datetimeentry']));
 echo "<tr>";
-echo "<td align='center'><a title='Edit ($_RowYear Semester $row[termname] - $row[batch])' href='school-data-entry.php?edit_school=$row[infoid]'><i class='fa fa-edit' style='color:royalblue'></i></a></td>";
-echo "<td align='center'><a title='Delete ($row[batch])' href='school-data-entry.php?delete_school=$row[infoid]'><i class='fa fa-trash-o' style='color:red'></i></a></td>";
+echo "<td align='center'><a class='school-data-row-action' title='Edit ($_RowYear Semester $row[termname] - $row[batch])' href='school-data-entry.php?edit_school=$row[infoid]'><i class='fa fa-edit'></i></a></td>";
+echo "<td align='center'><a class='school-data-row-action school-data-action-danger' title='Delete ($row[batch])' onclick=\"javascript:return confirm('Do you want to delete this school data?');\" href='school-data-entry.php?delete_school=$row[infoid]'><i class='fa fa-trash-o'></i></a></td>";
 echo "<td align='center'>$row[batch]</td>";
 echo "<td align='center'>$_RowYear</td>";
 echo "<td align='center'>$row[termname]</td>";
@@ -250,12 +280,13 @@ echo "</tr>";
 }
 echo "</tbody>";
 echo "</table>";
+echo "</div>";
+}else{
+echo "<div class='school-data-empty'><i class='fa fa-calendar-o'></i><h3>No school data found</h3><p>Create the first academic year and semester setup from the form.</p></div>";
 }
 ?>
+</main>
 </div>
-</td>
-</tr>
-</table>
 
 <br/><br/>
 <button onclick="topFunction()" id="myBtn" title="Go to top">Top</button> 

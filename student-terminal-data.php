@@ -100,6 +100,7 @@ if(!$isAdminRole){
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/student-terminal-data.css">
 
 </head>
 <body>
@@ -115,21 +116,35 @@ include("links.php");
 
 	?>
 	</div>
-<div class="main-platform" style="">
-	<table width="100%">
-		<tr>
-			<td valign="top" width="30%" align="center">
-				<div class="form-entry" align="left">
-			
-			<h3>Student Semester Data Entry 
-				</h3>
+<div class="main-platform std-page">
+	<section class="std-hero">
+		<div>
+			<span class="std-kicker">Terminal Records</span>
+			<h1>Student Semester Data</h1>
+			<p>Capture attendance, conduct, remarks, and promotion details for terminal reports.</p>
+		</div>
+		<div class="std-hero-card">
+			<i class="fa fa-address-card-o"></i>
+			<span>Semester Data Entry</span>
+		</div>
+	</section>
+
+	<div class="std-layout">
+		<aside class="std-panel std-form-panel">
+			<div class="std-panel-heading">
+				<span class="std-icon"><i class="fa fa-pencil-square-o"></i></span>
+				<div>
+					<h2>Data Entry</h2>
+					<p>Select a student from the list, then complete the report details here.</p>
+				</div>
+			</div>
 		
 			<form method="post" id="formID" name="formID" action="student-terminal-data.php">
 
-			<label>Semester Id</label><br/>
-			<input type="text" id="terminalid" name="terminalid" value="<?php include("code.php");echo $code;?>" class="validate[required]" readonly/><br/><br/>
+			<label>Semester Id</label>
+			<input type="text" id="terminalid" name="terminalid" value="<?php include("code.php");echo $code;?>" class="validate[required]" readonly/>
 
-			<fieldset><legend>STUDENT NAME</legend>
+			<fieldset class="std-fieldset"><legend>Selected Student</legend>
 			<?php
 			if(isset($_GET['view_user'])){
 				@$Class_ID=$_GET['class_id'];
@@ -140,14 +155,14 @@ include("links.php");
                     $allowView = class_teacher_is_assigned($con, $_SESSION['USERID'], $Class_ID, $_Batch_ID, (int)$_Term_Name);
                 }
                 if(!$allowView){
-                    echo "<div style='color:red'>You are not assigned to this class, semester and batch.</div>";
+                    echo "<div class='std-alert std-alert-danger'>You are not assigned to this class, semester and batch.</div>";
                 }else{
 
 			@$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsystemuser WHERE userid='$_GET[view_user]'");
 			
 			if($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
 			$_FullName=$row['firstname']." ".$row['surname']." ".$row['othernames']."(".$row['userid'].")";
-			echo "<input type='text' id='firstname' name='firstname' value='$_FullName' class='validate[required]' readonly/><br/><br/>";
+			echo "<input type='text' id='firstname' name='firstname' value='$_FullName' class='validate[required]' readonly/>";
 			echo "<input type='hidden' id='userid' name='userid' value='$row[userid]' class='validate[required]' readonly/>";
 			echo "<input type='hidden' id='classid' name='classid' value='$Class_ID' class='validate[required]' readonly/>";
 			echo "<input type='hidden' id='batchid' name='batchid' value='$_Batch_ID' class='validate[required]' readonly/>";
@@ -166,24 +181,34 @@ include("links.php");
 			}
 
 			}
-			}
+            }
+            }else{
+                echo "<div class='std-empty-note'><i class='fa fa-info-circle'></i> Choose a student using the book icon in the records panel.</div>";
             }
 			?>
 			
-			</fieldset><br/>
+			</fieldset>
 
-			<label>No. On Roll</label><br/>
-			<input type="number" id="roll" name="roll" value="" class="validate[required]" /><br/><br/>
+			<div class="std-form-grid">
+			<div>
+			<label>No. On Roll</label>
+			<input type="number" id="roll" name="roll" value="" class="validate[required]" />
+			</div>
 
 
-<label>Attendance</label><br/>
-<input type="number" id="attendance" name="attendance" value="" class="validate[required]" /><br/><br/>
+<div>
+<label>Attendance</label>
+<input type="number" id="attendance" name="attendance" value="" class="validate[required]" />
+</div>
 
 
-<label>Total Attendance</label><br/>
-<input type="number" id="totalattendance" name="totalattendance" value="" class="validate[required]" /><br/><br/>
+<div>
+<label>Total Attendance</label>
+<input type="number" id="totalattendance" name="totalattendance" value="" class="validate[required]" />
+</div>
 
-<label>Promoted To</label><br/>
+<div>
+<label>Promoted To</label>
 	<?php	
 			$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
 
@@ -193,30 +218,45 @@ include("links.php");
 				echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
 				}
 				
-			echo "</select><br/><br/>";
+			echo "</select>";
 			?>
+</div>
 
 
-<label>Conduct</label><br/>
-<input type="text" id="conduct" name="conduct" value="" class="validate[required]" /><br/><br/>
+<div>
+<label>Conduct</label>
+<input type="text" id="conduct" name="conduct" value="" class="validate[required]" />
+</div>
 
-<label>Interest (Special Aptitude)</label><br/>
-<input type="text" id="interest" name="interest" value="" class="validate[required]" /><br/><br/>
+<div>
+<label>Interest (Special Aptitude)</label>
+<input type="text" id="interest" name="interest" value="" class="validate[required]" />
+</div>
 
-<label>Class Teacher's Remark</label><br/>
-<input type="text" id="class_teacher_remark" name="class_teacher_remark" value="" class="validate[required]" /><br/><br/>
+<div class="std-span-2">
+<label>Class Teacher's Remark</label>
+<input type="text" id="class_teacher_remark" name="class_teacher_remark" value="" class="validate[required]" />
+</div>
 
-<label>Head Teacher's Remark</label><br/>
-<input type="text" id="head_teacher_remark" name="head_teacher_remark" value="" /><br/><br/>
+<div class="std-span-2">
+<label>Head Teacher's Remark</label>
+<input type="text" id="head_teacher_remark" name="head_teacher_remark" value="" />
+</div>
+</div>
 
 				
-			<div align="center"><button class="button-save" id="register_student_terminal" name="register_student_terminal"><i class="fa fa-save"></i> SAVE DATA</button></div>
+			<div class="std-actions"><button class="button-save std-btn std-btn-primary" id="register_student_terminal" name="register_student_terminal"><i class="fa fa-save"></i> Save Data</button></div>
 		</form>
 
-		</div>
-			</td>
-<td width="70%">
-<div class="form-entry">
+		</aside>
+<main class="std-panel std-records-panel">
+<div class="std-panel-heading">
+	<span class="std-icon"><i class="fa fa-list"></i></span>
+	<div>
+		<h2>Student Records</h2>
+		<p>Open a student's semester record to enter or update terminal data.</p>
+	</div>
+</div>
 <?php
 echo $_SESSION['Message'];
 include("dbstring.php");
@@ -233,12 +273,13 @@ if($isTeacherRole){
 }
 if(mysqli_num_rows($_SQL_SU)>0){
 				//Registered clients
-				echo "<table width='100%' style='background-color:white'>";
+				echo "<div class='std-table-wrap'>";
+				echo "<table class='std-table std-main-table'>";
 				echo "<caption>students' end of semester data</caption>";
 				echo "<thead><th colspan=1>Task</th><th>Class</th><th>Term</th><th>Batch</th><th>Entry Date/Time</th></thead>";
 				echo "<tbody>";
 	while($row_c=mysqli_fetch_array($_SQL_SU,MYSQLI_ASSOC)){
-				echo "<tr style='background-color:#ede'>";
+				echo "<tr class='std-student-row'>";
 				//echo "<td align='center'><a title='View $row_c[firstname] ($row_c[userid])' href='student-terminal-data.php?view_user=$row_c[userid]&class_id=$row_c[class_entryid]'><i class='fa fa-book' style='color:blue'></i></a></td>";
 				echo "<td colspan='4'>$row_c[firstname] $row_c[othernames] $row_c[surname] ($row_c[userid])</td>";
 				echo "<td align='center'></td>";
@@ -282,9 +323,9 @@ if(mysqli_num_rows($_SQL_SU)>0){
                 if($isTeacherRole && !class_teacher_is_assigned($con, $_SESSION['USERID'], $row['class_entryid'], $row_tr['batchid'], (int)$row_tr['termname'])){
                     continue;
                 }
-				echo "<tr style='background-color:#eee'>";
+				echo "<tr class='std-term-row'>";
 				//echo "<td align='center'><a onclick=\"javascript:return confirm('Do you want to remove term?')\" title='Remove term $row_tr[termname]' href='student-terminal-data.php?delete_term=$row_tr[terminalid]'<i class='fa fa-times' style='color:red'></i></a></td>";
-				echo "<td align='center'><a title='View ($row[class_name] Term: $row_tr[termname])' href='student-terminal-data.php?view_user=$row[userid]&batch_id=$row_tr[batchid]&class_id=$row[class_entryid]&term_name=$row_tr[termname]'><i class='fa fa-book' style='color:blue'></i></a></td>";
+				echo "<td align='center'><a class='std-row-action' title='View ($row[class_name] Term: $row_tr[termname])' href='student-terminal-data.php?view_user=$row[userid]&batch_id=$row_tr[batchid]&class_id=$row[class_entryid]&term_name=$row_tr[termname]'><i class='fa fa-book'></i></a></td>";
 			
 				echo "<td colspan='1' align='right'>";
 				//echo "Term:";
@@ -308,7 +349,7 @@ if(mysqli_num_rows($_SQL_SU)>0){
 				echo "<tr>";
 				echo "<td colspan='5'>";
 
-				echo "<table>";
+				echo "<div class='std-nested-wrap'><table class='std-table std-nested-table'>";
 				echo "<caption>Semester: $row_tr[termname], $row_tr[batch]</caption>";
 				echo "<thead><th>Batch</th><th>Roll</th><th>Attend.</th><th>Total Attend.</th><th>Promoted To</th><th>Conduct</th><th>Interest</th><th>Class Teacher's Remark</th><th>Head Teacher's Remark</th><th>Date/Time</th></thead>";
 				echo "<tbody>";
@@ -357,22 +398,22 @@ if(mysqli_num_rows($_SQL_SU)>0){
 				echo "</tr>";
 				}	
 				echo "</tbody>";
-				echo "</table>";
-			}
-
+				echo "</table></div>";
 				echo "</td>";
 				echo "</tr>";
+			}
 			}
 		}
 	}
 echo "</tbody>";
 echo "</table>";
+echo "</div>";
+}else{
+    echo "<div class='std-empty-state'><i class='fa fa-users'></i><h3>No student records found</h3><p>There are no students available for your current access level.</p></div>";
 }
 ?>
+</main>
 </div>
-</td>
-</tr>
-</table>
 <br/><br/>
 <button onclick="topFunction()" id="myBtn" title="Go to top">Top</button> 
 

@@ -105,8 +105,39 @@ function examanalysis_rank_student_name($studentRow){
 }
 }
 
+if(!function_exists('examanalysis_rank_available_years')){
+function examanalysis_rank_available_years($con){
+	$_Years=array();
+	if(function_exists('semester_registry_ensure_academic_year_column')){
+		semester_registry_ensure_academic_year_column($con);
+	}
+	$_RegistryYearSql=examanalysis_rank_registry_year_sql("tr");
+	$_SQL_YEARS=mysqli_query($con,"SELECT DISTINCT $_RegistryYearSql AS academicyear FROM tbltermregistry tr ORDER BY academicyear DESC");
+	if($_SQL_YEARS){
+		while($row_year=mysqli_fetch_array($_SQL_YEARS,MYSQLI_ASSOC)){
+			$_Year=trim((string)$row_year['academicyear']);
+			if($_Year!==""){
+				$_Years[$_Year]=$_Year;
+			}
+		}
+	}
+	$_AssignmentYearSql=examanalysis_rank_assignment_year_sql("sa");
+	$_SQL_ASSIGN_YEARS=mysqli_query($con,"SELECT DISTINCT $_AssignmentYearSql AS academicyear FROM tblsubjectassignment sa ORDER BY academicyear DESC");
+	if($_SQL_ASSIGN_YEARS){
+		while($row_year=mysqli_fetch_array($_SQL_ASSIGN_YEARS,MYSQLI_ASSOC)){
+			$_Year=trim((string)$row_year['academicyear']);
+			if($_Year!==""){
+				$_Years[$_Year]=$_Year;
+			}
+		}
+	}
+	rsort($_Years,SORT_NATURAL);
+	return $_Years;
+}
+}
+
 if(!function_exists('examanalysis_rank_latest_term_context')){
-function examanalysis_rank_latest_term_context($con,$userId,$classId,$batchId){
+function examanalysis_rank_latest_term_context($con,$userId,$classId,$batchId,$academicYear="",$semester=""){
 	$_Context=array(
 		'termname'=>'',
 		'academicyear'=>''
@@ -122,10 +153,22 @@ function examanalysis_rank_latest_term_context($con,$userId,$classId,$batchId){
 	$userIdSafe=mysqli_real_escape_string($con,$userId);
 	$classIdSafe=mysqli_real_escape_string($con,$classId);
 	$batchIdSafe=mysqli_real_escape_string($con,$batchId);
+	$academicYear=trim((string)$academicYear);
+	$semester=trim((string)$semester);
 	$_RegistryYearSql=examanalysis_rank_registry_year_sql("tr");
+	$_ScopeSql="";
+	if($academicYear!==""){
+		$academicYearSafe=mysqli_real_escape_string($con,$academicYear);
+		$_ScopeSql.=" AND $_RegistryYearSql='$academicYearSafe'";
+	}
+	if($semester!==""){
+		$semesterSafe=mysqli_real_escape_string($con,$semester);
+		$_ScopeSql.=" AND tr.termname='$semesterSafe'";
+	}
 	$_SQL_CONTEXT=mysqli_query($con,"SELECT tr.termname,$_RegistryYearSql AS academicyear
 		FROM tbltermregistry tr
 		WHERE tr.userid='$userIdSafe' AND tr.class_entryid='$classIdSafe' AND tr.batchid='$batchIdSafe'
+		$_ScopeSql
 		ORDER BY academicyear DESC,tr.termname DESC,tr.datetimeentry DESC
 		LIMIT 1");
 
@@ -178,11 +221,13 @@ function examanalysis_rank_student_total($con,$studentRow){
 }
 
 if(!function_exists('examanalysis_rank_class_rows')){
-function examanalysis_rank_class_rows($con,$batchId){
+function examanalysis_rank_class_rows($con,$batchId,$academicYear="",$semester=""){
 	$batchId=trim((string)$batchId);
 	if($batchId===""){
 		return array();
 	}
+	$academicYear=trim((string)$academicYear);
+	$semester=trim((string)$semester);
 
 	if(function_exists('semester_registry_ensure_academic_year_column')){
 		semester_registry_ensure_academic_year_column($con);
@@ -192,8 +237,9 @@ function examanalysis_rank_class_rows($con,$batchId){
 	$_LatestStudentRows=array();
 	$_HasClassBatch=examanalysis_rank_column_exists($con,'tblclass','batchid');
 	$_HasClassStatus=examanalysis_rank_column_exists($con,'tblclass','status');
+	$_UseRegistryScope=($academicYear!=="" || $semester!=="");
 
-	if($_HasClassBatch){
+	if($_HasClassBatch && !$_UseRegistryScope){
 		$_ClassWhereSql=" WHERE cl.batchid='$batchIdSafe' AND su.systemtype='Student'";
 		if($_HasClassStatus){
 			$_ClassWhereSql.=" AND cl.status='active'";
@@ -219,12 +265,22 @@ function examanalysis_rank_class_rows($con,$batchId){
 
 	if(empty($_LatestStudentRows)){
 		$_RegistryYearSql=examanalysis_rank_registry_year_sql("tr");
+		$_RegistryScopeSql="";
+		if($academicYear!==""){
+			$academicYearSafe=mysqli_real_escape_string($con,$academicYear);
+			$_RegistryScopeSql.=" AND $_RegistryYearSql='$academicYearSafe'";
+		}
+		if($semester!==""){
+			$semesterSafe=mysqli_real_escape_string($con,$semester);
+			$_RegistryScopeSql.=" AND tr.termname='$semesterSafe'";
+		}
 		$_SQL_REGISTRY=mysqli_query($con,"SELECT tr.termid,tr.userid,tr.class_entryid,tr.termname,tr.batchid,tr.datetimeentry,
 			$_RegistryYearSql AS academicyear,ce.class_name,su.firstname,su.othernames,su.surname
 			FROM tbltermregistry tr
 			INNER JOIN tblclassentry ce ON tr.class_entryid=ce.class_entryid
 			INNER JOIN tblsystemuser su ON tr.userid=su.userid
 			WHERE tr.batchid='$batchIdSafe' AND su.systemtype='Student'
+			$_RegistryScopeSql
 			ORDER BY tr.userid ASC,tr.datetimeentry DESC,tr.termname DESC,ce.class_name ASC");
 
 		if(!$_SQL_REGISTRY){
@@ -246,7 +302,7 @@ function examanalysis_rank_class_rows($con,$batchId){
 		if($_ClassId===""){
 			continue;
 		}
-		$_TermContext=examanalysis_rank_latest_term_context($con,$row_registry['userid'],$_ClassId,$batchId);
+		$_TermContext=examanalysis_rank_latest_term_context($con,$row_registry['userid'],$_ClassId,$batchId,$academicYear,$semester);
 		if(!isset($_ClassRowsById[$_ClassId])){
 			$_ClassRowsById[$_ClassId]=array(
 				'class_entryid'=>$_ClassId,
@@ -368,11 +424,20 @@ $fill =false;
 //$pdf->Ln(10);
 	
 @$_Batch_ID=$_POST["batchid"];
+@$_AcademicYear=$_POST["academicyear"];
+@$_Semester=$_POST["semester"];
 include("dbstring.php");
 //echo "<input type='hidden' name='batchid' value='$_Batch_ID' />";
 
-$_RankedClasses=examanalysis_rank_class_rows($con,$_Batch_ID);
+$_RankedClasses=examanalysis_rank_class_rows($con,$_Batch_ID,$_AcademicYear,$_Semester);
 $_BatchLabel=examanalysis_rank_batch_label($con,$_Batch_ID);
+$_ScopeLabel=array();
+if(trim((string)$_AcademicYear)!==""){
+	$_ScopeLabel[]="Academic Year ".$_AcademicYear;
+}
+if(trim((string)$_Semester)!==""){
+	$_ScopeLabel[]="Semester ".$_Semester;
+}
 
 foreach($_RankedClasses as $row_acl)
 {
@@ -380,7 +445,7 @@ foreach($_RankedClasses as $row_acl)
 $count=count($row_acl['students']);
 $pdf->Ln(10);
 if($_BatchLabel!==""){
-$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2],10,$_BatchLabel." Class Ranked",1,0,'L',$fill); 
+$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2],10,$_BatchLabel." Class Ranked".(!empty($_ScopeLabel) ? " - ".implode(" | ",$_ScopeLabel) : ""),1,0,'L',$fill); 
 }
 $pdf->Ln(10);
 $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2],10,$_ClassName,1,0,'L',$fill); 
@@ -611,7 +676,10 @@ function examanalysisRankPrintClass(sectionId, titleText){
 				include("dbstring.php");
 				echo "<fieldset><legend>Batch Filter</legend>";
 				$_SelectedBatchId = isset($_POST['batchid']) ? trim((string)$_POST['batchid']) : '';
+				$_SelectedAcademicYear = isset($_POST['academicyear']) ? trim((string)$_POST['academicyear']) : '';
+				$_SelectedSemester = isset($_POST['semester']) ? trim((string)$_POST['semester']) : '';
 				$_SQL_2=mysqli_query($con,"SELECT batchid,batch FROM tblbatch ORDER BY datetimeentry DESC");
+				$_AvailableYears=examanalysis_rank_available_years($con);
 				?>
 				<div class="rankdash-field">
 					<label for="batchid">Batch</label>
@@ -623,6 +691,26 @@ function examanalysisRankPrintClass(sectionId, titleText){
 							echo "<option value='".examanalysis_rank_esc($row['batchid'])."' $_Selected>".examanalysis_rank_esc($row['batch'])."</option>";
 						}
 						?>
+					</select>
+				</div>
+				<div class="rankdash-field">
+					<label for="academicyear">Academic Year</label>
+					<select id="academicyear" name="academicyear">
+						<option value="">All Years</option>
+						<?php
+						foreach($_AvailableYears as $_YearOption){
+							$_Selected = ($_SelectedAcademicYear===$_YearOption) ? "selected" : "";
+							echo "<option value='".examanalysis_rank_esc($_YearOption)."' $_Selected>".examanalysis_rank_esc($_YearOption)."</option>";
+						}
+						?>
+					</select>
+				</div>
+				<div class="rankdash-field">
+					<label for="semester">Semester</label>
+					<select id="semester" name="semester">
+						<option value="">All Semesters</option>
+						<option value="1" <?php echo ($_SelectedSemester==="1" ? "selected" : ""); ?>>Semester 1</option>
+						<option value="2" <?php echo ($_SelectedSemester==="2" ? "selected" : ""); ?>>Semester 2</option>
 					</select>
 				</div>
 				<div class="rankdash-actions">
@@ -697,11 +785,22 @@ function examanalysisRankPrintClass(sectionId, titleText){
 				<?php
 				if(isset($_POST["show_terminal_report"])){
 					@$_Batch_ID=$_POST["batchid"];
+					@$_AcademicYear=$_POST["academicyear"];
+					@$_Semester=$_POST["semester"];
 					include("dbstring.php");
 					echo "<input type='hidden' name='batchid' value='".examanalysis_rank_esc($_Batch_ID)."' />";
+					echo "<input type='hidden' name='academicyear' value='".examanalysis_rank_esc($_AcademicYear)."' />";
+					echo "<input type='hidden' name='semester' value='".examanalysis_rank_esc($_Semester)."' />";
 
-					$_RankedClasses=examanalysis_rank_class_rows($con,$_Batch_ID);
+					$_RankedClasses=examanalysis_rank_class_rows($con,$_Batch_ID,$_AcademicYear,$_Semester);
 					$_BatchLabel=examanalysis_rank_batch_label($con,$_Batch_ID);
+					$_ScopeText=array();
+					if(trim((string)$_AcademicYear)!==""){
+						$_ScopeText[]="Academic Year ".$_AcademicYear;
+					}
+					if(trim((string)$_Semester)!==""){
+						$_ScopeText[]="Semester ".$_Semester;
+					}
 					$_TotalStudentsAcrossClasses=0;
 					foreach($_RankedClasses as $_RankedClassSummary){
 						$_TotalStudentsAcrossClasses += count($_RankedClassSummary['students']);
@@ -711,7 +810,7 @@ function examanalysisRankPrintClass(sectionId, titleText){
 						<div class="rankdash-stat">
 							<h4>Batch</h4>
 							<strong><?php echo examanalysis_rank_esc($_BatchLabel!=="" ? $_BatchLabel : $_Batch_ID); ?></strong>
-							<span>Ranking is now built from the current active class placement for this batch where available.</span>
+							<span><?php echo examanalysis_rank_esc(!empty($_ScopeText) ? implode(" | ",$_ScopeText) : "All years and semesters"); ?></span>
 						</div>
 						<div class="rankdash-stat">
 							<h4>Classes</h4>
@@ -721,7 +820,7 @@ function examanalysisRankPrintClass(sectionId, titleText){
 						<div class="rankdash-stat">
 							<h4>Students Ranked</h4>
 							<strong><?php echo (int)$_TotalStudentsAcrossClasses; ?></strong>
-							<span>Totals are tied to the student's current class and latest term context in that batch.</span>
+							<span>Totals follow the selected batch, academic year, and semester scope.</span>
 						</div>
 					</div>
 					<div class="rankdash-actions rankdash-print-hide" style="margin-top:16px;">
@@ -730,7 +829,7 @@ function examanalysisRankPrintClass(sectionId, titleText){
 					<?php
 
 					if(empty($_RankedClasses)){
-						echo "<div class='rankdash-empty' style='margin-top:16px;'>No active class ranking data was found for this batch yet. Check class registry and semester registration for the selected batch.</div>";
+						echo "<div class='rankdash-empty' style='margin-top:16px;'>No active class ranking data was found for the selected batch, year, and semester. Check semester registration and score entry for that scope.</div>";
 					}else{
 						echo "<div class='rankdash-class-grid'>";
 						foreach($_RankedClasses as $classIndex=>$row_acl)
@@ -745,6 +844,7 @@ function examanalysisRankPrintClass(sectionId, titleText){
 										<h4 class="rankdash-class-card__title"><?php echo examanalysis_rank_esc($_ClassName); ?></h4>
 										<div class="rankdash-class-card__meta">
 											<span><i class="fa fa-graduation-cap"></i> <?php echo examanalysis_rank_esc($_BatchLabel); ?></span>
+											<?php if(!empty($_ScopeText)){ ?><span><i class="fa fa-calendar"></i> <?php echo examanalysis_rank_esc(implode(" | ",$_ScopeText)); ?></span><?php } ?>
 											<span><i class="fa fa-users"></i> <?php echo (int)$count; ?> Student(s)</span>
 										</div>
 									</div>

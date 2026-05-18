@@ -448,6 +448,7 @@ if($_SQLUM){
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/continuous-assessment.css">
 <script type="text/javascript">
 function checkMark(){
 	var total=document.getElementById("totalmark").value;
@@ -467,14 +468,29 @@ function checkMark(){
 	include("menu.php");
 	?>		
 	</div>
-<div class="main-platform" style="background-color:white">
-	<br/>
-<table width="100%">
-<tr>
-<td width="30%">
-<div class="form-entry">
+<div class="main-platform ca-page">
+	<section class="ca-hero">
+		<div>
+			<span class="ca-kicker">Academic Reports</span>
+			<h1>Continuous Assessment</h1>
+			<p>Review student assessment records by subject, batch, academic year, class, and semester.</p>
+		</div>
+		<div class="ca-hero-card">
+			<i class="fa fa-line-chart"></i>
+			<span>Assessment Workspace</span>
+		</div>
+	</section>
+
+	<div class="ca-layout">
+<aside class="ca-panel ca-filter-panel">
 <form id="formID" name="formID" method="post" action="continuous-assessment.php">
-	<h4>CONTINUOUS ASSESSMENT</h4>
+	<div class="ca-panel-heading">
+		<span class="ca-icon"><i class="fa fa-filter"></i></span>
+		<div>
+			<h2>Filter Report</h2>
+			<p>Choose the exact class and semester to load.</p>
+		</div>
+	</div>
 <?php	
 include("dbstring.php");
 /*$_SQL_2=mysqli_query($con,"SELECT * FROM tbltermregistry tr 
@@ -491,7 +507,7 @@ echo "<select id='classid' name='classid' class='validate[required]'>";
 	}
 echo "</select><br/><br/>";
 */
-echo "<fieldset><legend>BATCH</legend>";
+echo "<fieldset class='ca-fieldset'><legend>Report Details</legend>";
 
 $_SelectedSubjectId = isset($_POST['subjectid']) ? $_POST['subjectid'] : '';
 $_SelectedBatchId = isset($_POST['batchid']) ? $_POST['batchid'] : '';
@@ -500,24 +516,27 @@ $_SelectedClassId = isset($_POST['classid']) ? $_POST['classid'] : '';
 $_SelectedTermId = isset($_POST['termid']) ? $_POST['termid'] : '';
 
 $_SQL_2=mysqli_query($con,"SELECT * FROM tblsubject ORDER BY subject ASC");
+echo "<label for='subjectid'>Subject</label>";
 echo "<select id='subjectid' name='subjectid' class='validate[required]'>";
 echo "<option value=''>Select Subject</option>";
 while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
 $_SelSub = ($_SelectedSubjectId==$row['subjectid']) ? "selected" : "";
 echo "<option value='$row[subjectid]' $_SelSub>$row[subject]</option>";
 }
-echo "</select><br/><br/>";
+echo "</select>";
 			
 $_SQL_2=mysqli_query($con,"SELECT batchid,batch FROM tblbatch ORDER BY datetimeentry DESC");
 
+echo "<label for='batchid'>Academic Year Batch</label>";
 echo "<select id='batchid' name='batchid' class='validate[required]'>";
 echo "<option value=''>Select Academic Year (Batch)</option>";
 while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
 $_SelBatch = ($_SelectedBatchId==$row['batchid']) ? "selected" : "";
 echo "<option value='$row[batchid]' $_SelBatch>$row[batch]</option>";
 }
-echo "</select><br/><br/>";
+echo "</select>";
 
+echo "<label for='academicyear'>Academic Year</label>";
 echo "<select id='academicyear' name='academicyear' class='validate[required]'>";
 echo "<option value=''>Select Academic Year</option>";
 $_YearWhereSql = "";
@@ -546,28 +565,32 @@ $_SelYear = ($_SelectedAcademicYear===(string)$row_year['academic_year']) ? "sel
 echo "<option value='$row_year[academic_year]' $_SelYear>$row_year[academic_year]</option>";
 }
 }
-echo "</select><br/><br/>";
+echo "</select>";
 
 $_SQL_2=mysqli_query($con,"SELECT class_entryid,class_name FROM tblclassentry ORDER BY class_name ASC");
+echo "<label for='classid'>Class</label>";
 echo "<select id='classid' name='classid' class='validate[required]'>";
 echo "<option value=''>Select Class</option>";
 while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
 $_SelClass = ($_SelectedClassId==$row['class_entryid']) ? "selected" : "";
 echo "<option value='$row[class_entryid]' $_SelClass>$row[class_name]</option>";
 }
-echo "</select><br/><br/>";
+echo "</select>";
 
+echo "<label for='termid'>Semester</label>";
 echo "<select id='termid' name='termid' class='validate[required]'>";
 echo "<option value=''>Select Semester</option>";
 echo "<option value='1' ".($_SelectedTermId==='1' ? "selected" : "").">1</option>";
 echo "<option value='2' ".($_SelectedTermId==='2' ? "selected" : "").">2</option>";
 echo "<option value='3' ".($_SelectedTermId==='3' ? "selected" : "").">3</option>";
-echo "</select><br/><br/>";
+echo "</select>";
 
-echo "<button class='button-show' id='show_terminal_report' name='show_terminal_report'><i class='fa fa-search' style='color:white'></i> SHOW REPORT</button> ";
-echo "<a href='continuous-assessment.php' class='button-show' style='margin-left:6px;display:inline-block;'><i class='fa fa-undo' style='color:white'></i> RESET</a>";
+echo "<div class='ca-actions'>";
+echo "<button class='button-show ca-btn ca-btn-primary' id='show_terminal_report' name='show_terminal_report'><i class='fa fa-search'></i> Show Report</button> ";
+echo "<a href='continuous-assessment.php' class='button-show ca-btn ca-btn-light'><i class='fa fa-undo'></i> Reset</a>";
+echo "</div>";
 if($_SelectedAcademicYear!=="" || $_SelectedTermId!==""){
-echo "<div style='margin-top:8px;padding:6px 8px;background:#eef6ff;border:1px solid #bcd;color:#0b63ce;font-weight:600;'>Selected: ".($_SelectedAcademicYear!=="" ? $_SelectedAcademicYear." | " : "").($_SelectedTermId!=="" ? "Semester ".$_SelectedTermId : "")."</div>";
+echo "<div class='ca-selected'><i class='fa fa-check-circle'></i> Selected: ".($_SelectedAcademicYear!=="" ? $_SelectedAcademicYear." | " : "").($_SelectedTermId!=="" ? "Semester ".$_SelectedTermId : "")."</div>";
 }
 echo "</fieldset>";
 ?>
@@ -577,19 +600,17 @@ echo "</fieldset>";
 -->
 
 </form>
-</div>
-</td>
-<td width="70%">
-<div class="form-entry">
+</aside>
+<main class="ca-panel ca-results-panel">
 
 <form id="formID3" name="formID3" method="post" action="continuous-assessment.php">
 <?php
 if(isset($_GET["edit_mark"]))
 {
-	echo "<h3>UPDATE STUDENT'S MARK</h3>";
+	echo "<div class='ca-panel-heading ca-edit-heading'><span class='ca-icon'><i class='fa fa-pencil'></i></span><div><h2>Update Student Mark</h2><p>Edit the selected assessment score below.</p></div></div>";
 $_SQL_ED=mysqli_query($con,"SELECT * FROM tblmark mk INNER JOIN 
 	tblsystemuser su ON mk.userid=su.userid WHERE mk.markid='$_GET[edit_mark]'");
-echo "<table>";
+echo "<div class='ca-table-wrap'><table class='ca-table ca-edit-table'>";
 echo "<caption>Mark of Student</caption>";
 echo "<thead><th>STUDENT</th><th>BATCH</th><th>SUBJECT</th><th>MARK</th><th>TOTAL</th></thead>";
 echo "<tbody>";
@@ -636,17 +657,23 @@ echo "</tr>";
 }
 echo "<tr>";
 echo "<td>";
-echo "<button class='button-edit' id='updatemark' name='updatemark'><i class='fa fa-edit'></i> UPDATE MARK</button>";
+echo "<button class='button-edit ca-btn ca-btn-primary' id='updatemark' name='updatemark'><i class='fa fa-edit'></i> Update Mark</button>";
 echo "</td>";
 echo "</tr>";
 
 echo "</tbody>";
-echo "</table>";
+echo "</table></div>";
 }
 ?>
 </form>
 	<form id="formID2" name="formID2" method="post" action="continuous-assessment.php">
-		<h3>Continuous Assessment</h3>
+		<div class="ca-panel-heading">
+			<span class="ca-icon"><i class="fa fa-table"></i></span>
+			<div>
+				<h2>Assessment Results</h2>
+				<p>Loaded records will appear here with totals, position, and grade.</p>
+			</div>
+		</div>
 <?php
 include("gradingsystem.php");
 	$_grade_obj=new GradingSystem();
@@ -670,7 +697,8 @@ echo "<input type='hidden' name='classid' value='$_Class_ID' />";
 echo "<input type='hidden' name='termid' value='$_Term_ID' />";
 //echo "<button class='button-pay' id='print_terminal_report' name='print_terminal_report'><i class='fa fa-print' style='color:white'></i> Print Report</button><br/><br/>";		
 }
-echo "<table width='100%' style='background-color:white'>";
+echo "<div class='ca-table-wrap'>";
+echo "<table class='ca-table ca-results-table'>";
 echo "<caption>";
 $_SQL_USER_2=mysqli_query($con,"SELECT * FROM tblsubject su WHERE su.subjectid='$_Subject_ID'");
 if($rowst=mysqli_fetch_array($_SQL_USER_2,MYSQLI_ASSOC)){
@@ -688,7 +716,7 @@ GROUP BY su.userid");
 while($row_rsu=mysqli_fetch_array($_SQL_SU,MYSQLI_ASSOC)){
 
 //SUBJECT
-echo "<tr style='background-color:#cff;font-weight:bold'>";
+echo "<tr class='ca-student-row'>";
 //echo "<td colspan='1'></td>";
 echo "<td align='left' colspan='8'>";
 echo $row_rsu["firstname"]." ".$row_rsu["othernames"]." ".$row_rsu["surname"]." (".$row_rsu["userid"].")";
@@ -704,7 +732,7 @@ if(mysqli_num_rows($_SQL_CLASS)==0){
 
 }else{
 while($row_ce=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
-echo "<tr style='background-color:#fee;font-weight:bold'>";
+echo "<tr class='ca-class-row'>";
 echo "<td colspan='1'></td>";
 echo "<td align='left' colspan='7'>";
 echo strtoupper($row_ce['class_name']);
@@ -740,7 +768,7 @@ for($k=$_StartTerm;$k<=$_EndTerm;$k++)
 if(mysqli_num_rows($_SQL_EXECUTE)==0){
 
 }else{
-	echo "<tr style='background-color:#dee;font-weight:bold'>";
+	echo "<tr class='ca-semester-row'>";
 	echo "<td colspan='2'></td>";
 	echo "<td colspan='6'>";
 	echo "Semester: ".$k;
@@ -783,7 +811,7 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 	echo "</td>";
 	echo "</tr>";
 	}	
-	echo "<tr style='background-color:#fed;font-weight:bold'>";
+	echo "<tr class='ca-total-row'>";
 	echo "<td colspan='4'>";
 	echo "</td>";
 
@@ -824,13 +852,12 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 }
 echo "</tbody>";
 echo "</table>";
+echo "</div>";
 }
 ?>
 </form>
+</main>
 </div>
-</td>
-</tr>
-</table>
 
 <br/><br/>
 <button onclick="topFunction()" id="myBtn" title="Go to top">Top</button> 

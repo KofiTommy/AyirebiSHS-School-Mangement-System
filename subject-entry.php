@@ -135,6 +135,7 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblsubject WHERE subjectid='$_GET[d
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/subject-entry.css">
 </head>
 <body>
 	<div class="header">
@@ -148,11 +149,21 @@ include("links.php");
 
 	?>
 	</div>
-<div class="main-platform" style="">
-	<table width="100%">
-		<tr>
-			<td valign="top" width="30%" align="center">
-				<div class="form-entry" align="left">
+<div class="main-platform subject-page">
+	<section class="subject-hero">
+		<div>
+			<span class="subject-kicker">Academic Setup</span>
+			<h1>Subject Entry</h1>
+			<p>Create, update, print, and manage the subjects offered by the school.</p>
+		</div>
+		<div class="subject-hero-card">
+			<i class="fa fa-book"></i>
+			<span>Subject Manager</span>
+		</div>
+	</section>
+
+	<div class="subject-layout">
+		<aside class="subject-side">
 			
 		<?php
 		include("dbstring.php");
@@ -164,36 +175,51 @@ include("links.php");
 		{
 			if($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC))
 			{
-			echo "<h3>Item Update</h3>";
+			echo "<section class='subject-panel subject-edit-panel'>";
+			echo "<div class='subject-panel-heading'><span class='subject-icon'><i class='fa fa-edit'></i></span><div><h2>Update Subject</h2><p>Edit the selected subject name.</p></div></div>";
 			echo "<form method='post' id='formID' name='formID' action='subject-entry.php'>";
-			echo "<label>Item Id</label>";
-			echo "<input type='text' id='update_subjectid' name='update_subjectid' value='$row[subjectid]'><br/>";
+			echo "<label>Subject Id</label>";
+			echo "<input type='text' id='update_subjectid' name='update_subjectid' value='$row[subjectid]' readonly>";
 
-			echo "<label>Item </label>";
-			echo "<input type='text' id='update_item' name='update_item' value='$row[subject]'><br/><br/>";
-			echo "<div align='center'><button class='button-edit' id='update_item_entry' name='update_item_entry'><i class='fa fa-edit' style='color:white'></i> UPDATE SUBJECT</button></div>";
+			echo "<label>Subject</label>";
+			echo "<input type='text' id='update_item' name='update_item' value='$row[subject]' class='validate[required]'>";
+			echo "<div class='subject-actions'><button class='button-edit subject-btn subject-btn-primary' id='update_item_entry' name='update_item_entry'><i class='fa fa-edit'></i> Update Subject</button></div>";
+			echo "<div class='subject-actions subject-cancel-row'><a class='subject-btn subject-btn-light' href='subject-entry.php'><i class='fa fa-times'></i> Cancel Edit</a></div>";
 			echo "</form>";
+			echo "</section>";
 			}
 		}
 		}
 		?>
-			<h3>Subject Entry 
-				</h3>
-			<br/>
+			<section class="subject-panel subject-create-panel">
+			<div class="subject-panel-heading">
+				<span class="subject-icon"><i class="fa fa-plus"></i></span>
+				<div>
+					<h2>Create Subject</h2>
+					<p>Add a new subject to the system.</p>
+				</div>
+			</div>
 			<form method="post" id="formID" name="formID" action="subject-entry.php">
-			<label>Subject Id</label><br/>
-			<input type="text" id="subjectid" name="subjectid" value="<?php include("shortcode.php");echo $shortcode;?>" class="validate[required]" readonly/><br/><br/>
+			<label>Subject Id</label>
+			<input type="text" id="subjectid" name="subjectid" value="<?php include("shortcode.php");echo $shortcode;?>" class="validate[required]" readonly/>
 
-			<fieldset><legend>Subject</legend>
-			<input type="text" id="subject" name="subject" value="" class="validate[required]"/><br/><br/>
-			</fieldset><br/>
-			<div align="center"><button class="button-save" id="register_subject" name="register_subject"><i class="fa fa-save"></i> SAVE SUBJECT</button></div>
+			<fieldset class="subject-fieldset"><legend>Subject Details</legend>
+			<label for="subject">Subject Name</label>
+			<input type="text" id="subject" name="subject" value="" class="validate[required]"/>
+			</fieldset>
+			<div class="subject-actions"><button class="button-save subject-btn subject-btn-primary" id="register_subject" name="register_subject"><i class="fa fa-save"></i> Save Subject</button></div>
 		</form>
 
-		</div>
-			</td>
-			<td width="70%">
-				<div class="form-entry" align="left">
+		</section>
+		</aside>
+			<main class="subject-panel subject-list-panel">
+				<div class="subject-panel-heading">
+					<span class="subject-icon"><i class="fa fa-list"></i></span>
+					<div>
+						<h2>Subject List</h2>
+						<p>Review existing subjects, print the list, or make updates.</p>
+					</div>
+				</div>
 				<?php
 				echo $_SESSION['Message'];
 
@@ -203,10 +229,11 @@ include("links.php");
 				//Registered clients
 				if(mysqli_num_rows($_SQL_EXECUTE)>0){
 				echo "<form method='post'>";
-				echo"<div align='right'><button class='button-print' id='printsubject' name='printsubject'><i class='fa fa-print'></i> Print Subject</button></div>";
+				echo"<div class='subject-print-row'><button class='button-print subject-btn subject-btn-print' id='printsubject' name='printsubject'><i class='fa fa-print'></i> Print Subject</button></div>";
 				echo "</form>";
 				}
-				echo "<table width='100%' style='background-color:white'>";
+				echo "<div class='subject-table-wrap'>";
+				echo "<table class='subject-table'>";
 				echo "<caption>List Of Subjects</caption>";
 				echo "<thead><th colspan=2>TASK</th><th>SUBJECT ID</th><th>SUBJECT</th><th>ENTRY DATE/TIME</th><th>STATUS</th></thead>";
 				echo "<tbody>";
@@ -214,8 +241,8 @@ include("links.php");
 				while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
 				echo "<tr>";
 				//echo "<td align='center'><a title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'<i class='fa fa-book' style='color:blue'></i></a></td>";
-				echo "<td align='center'><a title='Delete $row[subject] ($row[subjectid])' onclick=\"javascript:return confirm('Do you want to delete?');\" href='subject-entry.php?delete_item=$row[subjectid]'<i class='fa fa-trash-o' style='color:red'></i></a></td>";
-				echo "<td align='center'><a title='Edit $row[subject] ($row[subjectid])'  href='subject-entry.php?edit_item=$row[subjectid]'<i class='fa fa-edit' style='color:olive'></i></a></td>";
+				echo "<td align='center'><a class='subject-row-action subject-action-danger' title='Delete $row[subject] ($row[subjectid])' onclick=\"javascript:return confirm('Do you want to delete?');\" href='subject-entry.php?delete_item=$row[subjectid]'><i class='fa fa-trash-o'></i></a></td>";
+				echo "<td align='center'><a class='subject-row-action' title='Edit $row[subject] ($row[subjectid])'  href='subject-entry.php?edit_item=$row[subjectid]'><i class='fa fa-edit'></i></a></td>";
 				
 				echo "<td align='left'>$row[subjectid]</td>";
 				echo "<td align='left'>$row[subject]</td>";
@@ -226,11 +253,10 @@ include("links.php");
 				}
 				echo "</tbody>";
 				echo "</table>";
+				echo "</div>";
 				?>
-			</div>
-			</td>
-		</tr>
-	</table>
+			</main>
+	</div>
 </div>
 </body>
 </html>
