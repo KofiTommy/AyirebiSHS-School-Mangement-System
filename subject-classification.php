@@ -90,6 +90,7 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblsubjectclassification WHERE clas
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/subject-classification.css">
 
 <script type="text/javascript">
 function selectAll(){
@@ -128,11 +129,21 @@ var inputs = document.getElementsByName("subjectid[]");
 	//include("side-menu.php");
 	?>
 	</div>
-<div class="main-platform" style="">
-	<table width="100%">
-		<tr>
-			<td valign="top" width="30%" align="center">
-				<div class="form-entry" align="left">
+<div class="main-platform classification-page">
+	<section class="classification-hero">
+		<div>
+			<span class="classification-kicker">Academic Tools</span>
+			<h1>Subject Classification</h1>
+			<p>Select a class and choose the subjects offered for that class.</p>
+		</div>
+		<div class="classification-hero-card">
+			<i class="fa fa-sitemap"></i>
+			<span>Class Subjects</span>
+		</div>
+	</section>
+
+	<div class="classification-layout">
+		<aside class="classification-side">
 			
 		<?php
 		include("dbstring.php");
@@ -144,25 +155,34 @@ var inputs = document.getElementsByName("subjectid[]");
 		{
 			if($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC))
 			{
-			echo "<h3>Item Update</h3>";
+			echo "<section class='classification-panel classification-edit-panel'>";
+			echo "<div class='classification-panel-heading'><span class='classification-icon'><i class='fa fa-edit'></i></span><div><h2>Update Subject</h2><p>Edit the selected subject name.</p></div></div>";
 			echo "<form method='post' id='formID' name='formID' action='subject-classification.php'>";
-			echo "<label>Item Id</label>";
-			echo "<input type='text' id='update_subjectid' name='update_subjectid' value='$row[subjectid]'><br/>";
+			echo "<label>Subject Id</label>";
+			echo "<input type='text' id='update_subjectid' name='update_subjectid' value='$row[subjectid]' readonly>";
 
-			echo "<label>Item </label>";
-			echo "<input type='text' id='update_item' name='update_item' value='$row[subject]'><br/><br/>";
-			echo "<div align='center'><button class='btn' id='update_item_entry' name='update_item_entry'><i class='fa fa-edit' style='color:white'></i> Update</button></div>";
+			echo "<label>Subject</label>";
+			echo "<input type='text' id='update_item' name='update_item' value='$row[subject]' class='validate[required]'>";
+			echo "<div class='classification-actions'><button class='btn classification-btn classification-btn-primary' id='update_item_entry' name='update_item_entry'><i class='fa fa-edit'></i> Update Subject</button></div>";
+			echo "<div class='classification-actions classification-cancel-row'><a class='classification-btn classification-btn-light' href='subject-classification.php'><i class='fa fa-times'></i> Cancel Edit</a></div>";
 
 			echo "</form>";
+			echo "</section>";
 			}
 		}
 		}
 		?>
-			<h3>Subject Classification 
-				</h3>
-			<br/>
+			<section class="classification-panel classification-filter-panel">
+			<div class="classification-panel-heading">
+				<span class="classification-icon"><i class="fa fa-filter"></i></span>
+				<div>
+					<h2>Classification Setup</h2>
+					<p>Choose a class, then tick the subjects to classify.</p>
+				</div>
+			</div>
 		
 <form method="post" id="formID" name="formID" action="subject-classification.php">
+		<label>Class</label>
 		<?php	
 			$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry ORDER BY class_name ASC");
 
@@ -171,14 +191,20 @@ var inputs = document.getElementsByName("subjectid[]");
 				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
 					echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
 				}				
-			echo "</select><br/><br/>";
+			echo "</select>";
 			?>
-			<div align="center"><button class="button-save" id="register_subject_classification" name="register_subject_classification"><i class="fa fa-save"></i> SAVE CLASSIFICATION</button></div>
+			<div class="classification-actions"><button class="button-save classification-btn classification-btn-primary" id="register_subject_classification" name="register_subject_classification"><i class="fa fa-save"></i> Save Classification</button></div>
 		
-		</div>
-			</td>
-			<td width="70%">
-			<div class="form-entry" align="left">
+		</section>
+		</aside>
+			<main class="classification-panel classification-list-panel">
+			<div class="classification-panel-heading">
+				<span class="classification-icon"><i class="fa fa-check-square-o"></i></span>
+				<div>
+					<h2>Subject Checklist</h2>
+					<p>Select one or more subjects and save them against the chosen class.</p>
+				</div>
+			</div>
 				<?php
 				echo $_SESSION['Message'];
 
@@ -186,13 +212,14 @@ var inputs = document.getElementsByName("subjectid[]");
 				$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsubject ORDER BY subject ASC");
 
 				//Registered clients
-				echo "<table width='100%' style='background-color:white'>";
+				echo "<div class='classification-table-wrap'>";
+				echo "<table class='classification-table'>";
 				echo "<caption>List Of Items</caption>";
 				echo "<thead><th colspan=1><input type='checkbox' id='all' name='name' onclick='selectAll()'/></th><th>Subject Id</th><th>Subject</th><th>Entry Date/Time</th><th>Status</th></thead>";
 				echo "<tbody>";
 				
 				while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
-				echo "<tr  style='background-color:#ffffff;border-bottom:1px solid #cccccc'>";
+				echo "<tr class='classification-subject-row'>";
 				//echo "<td align='center'><a title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'<i class='fa fa-book' style='color:blue'></i></a></td>";
 				echo "<td align='center'>";
 				echo "<input type='checkbox' id='subjectid' name='subjectid[]' value='$row[subjectid]'>";
@@ -210,13 +237,13 @@ var inputs = document.getElementsByName("subjectid[]");
 				 WHERE sc.subjectid='$row[subjectid]' ORDER BY ce.datetimeentry ASC");
 				@$serial=0;
 				while($row_cl=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
-				echo "<tr style='background-color:#ffffff'>";
+				echo "<tr class='classification-class-row'>";
 				
 				echo "<td align='center'>";
 				echo $serial=$serial+1 .".";
 				echo "</td>";
 
-				echo "<td align='center'><a onclick=\"javascript:return confirm('Do you want to remove?')\" title='Remove $row_cl[class_name] ($row_cl[classid])' href='subject-classification.php?delete_class=$row_cl[classificationid]'<i class='fa fa-trash-o' style='color:red'></i></a></td>";
+				echo "<td align='center'><a class='classification-row-action classification-action-danger' onclick=\"javascript:return confirm('Do you want to remove?')\" title='Remove $row_cl[class_name] ($row_cl[classid])' href='subject-classification.php?delete_class=$row_cl[classificationid]'><i class='fa fa-trash-o'></i></a></td>";
 				
 		
 				echo "<td colspan='1'>";
@@ -231,11 +258,10 @@ var inputs = document.getElementsByName("subjectid[]");
 				}
 				echo "</tbody>";
 				echo "</table>";
+				echo "</div>";
 ?>
+</main>
 </div>
-</td>
-</tr>
-</table>
 </form>
 
 

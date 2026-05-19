@@ -53,6 +53,7 @@ else{
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/notification.css">
 
 <script type="text/javascript">
 function selectAll(){
@@ -103,21 +104,37 @@ var inputs = document.getElementsByName("userid[]");
 include("menu.php");
 ?>		
 </div>
-<div class="main-platform" align="center" ><br/>
-<div class="form-entry">
-<table border="0" width="100%">
-<caption>Notification</caption>
-<tr>
-<td colspan="1" width="50%">
-<div class="form-entry" align="center">
-<form id="formID" method="post">
+<div class="main-platform notify-page">
+<section class="notify-hero">
+	<div>
+		<span class="notify-kicker">Communication</span>
+		<h1>Notifications</h1>
+		<p>Send SMS notices to staff or students by selecting recipients and composing one message.</p>
+	</div>
+	<div class="notify-hero-card">
+		<i class="fa fa-bullhorn"></i>
+		<span>Bulk SMS Notice</span>
+	</div>
+</section>
+
+<section class="notify-panel notify-filter-panel">
+	<div class="notify-panel-heading">
+		<span class="notify-icon"><i class="fa fa-filter"></i></span>
+		<div>
+			<h2>Load Recipients</h2>
+			<p>Choose a recipient group first, then load the users to select.</p>
+		</div>
+	</div>
+<form id="formID" method="post" class="notify-filter-form">
+<label>Recipient</label>
 <select id="recipient" name="recipient" class="validate[required]" onchange="toggleBatchFilter()">
 <option value="">Select Recipient</option>
 <option value="Teaching Staff" <?php if($_SelectedRecipient=="Teaching Staff"){ echo "selected"; } ?>>Teaching Staff</option>
 <option value="Non-Teaching Staff" <?php if($_SelectedRecipient=="Non-Teaching Staff"){ echo "selected"; } ?>>Non Teaching Staff</option>
 <option value="Student" <?php if($_SelectedRecipient=="Student"){ echo "selected"; } ?>>Student</option>
 </select>
-<div id="batch_wrap" style="margin-top:8px;display:none;">
+<div id="batch_wrap" class="notify-batch-wrap" style="display:none;">
+<label>Batch</label>
 <select id="batchid" name="batchid">
 <option value="">Select Batch</option>
 <?php
@@ -129,33 +146,44 @@ while($row_bh=mysqli_fetch_array($_SQL_BATCH,MYSQLI_ASSOC)){
 ?>
 </select>
 </div>
-	
-</td>
-<td width="50%">
+<div class="notify-filter-actions">
+<button class="button-show notify-btn notify-btn-primary" id="showrecipient" name="showrecipient"><i class="fa fa-search"></i> Show Users</button>
+</div>
+</form>
 <?php
 echo $_SESSION['Message'];
 ?>
-<button class="button-show" id="showrecipient" name="showrecipient"><i class="fa fa-search" style="color:white"></i> SHOW USERS</button>
-</form>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top" align="center">		
+</section>
+
 <form method="post" id="formID" name="formID" action="notification.php">
-<label>Message</label><br/>
-<textarea id="message" name="message" style="background-color:white;" class="validate[required]"></textarea><br/><br/>		
-<div align="right"><button class="button-save" id="send_message" name="send_message"><i class="fa fa-send"></i> SEND</button></div>
-</div>
-</div>
-</td>
-<td width="50%" valign="top">
-<div class="form-entry">
+<div class="notify-layout">
+<section class="notify-panel notify-message-panel">
+	<div class="notify-panel-heading">
+		<span class="notify-icon"><i class="fa fa-pencil"></i></span>
+		<div>
+			<h2>Compose Message</h2>
+			<p>Write the SMS message and send it to the selected users.</p>
+		</div>
+	</div>
+<label>Message</label>
+<textarea id="message" name="message" class="validate[required]" placeholder="Type the message you want to send..."></textarea>
+<div class="notify-actions"><button class="button-save notify-btn notify-btn-send" id="send_message" name="send_message"><i class="fa fa-send"></i> Send Message</button></div>
+</section>
+
+<section class="notify-panel notify-users-panel">
+	<div class="notify-panel-heading">
+		<span class="notify-icon"><i class="fa fa-users"></i></span>
+		<div>
+			<h2>Recipient List</h2>
+			<p>Select all or choose individual users before sending.</p>
+		</div>
+	</div>
 <?php	
 if(isset($_POST["showrecipient"])){
 	$_SQL_2=false;
 	if($_SelectedRecipient=="Student"){
 		if($_SelectedBatchId==""){
-			echo "<div style='color:red'>Select batch to view students</div>";
+			echo "<div class='notify-alert'><i class='fa fa-exclamation-circle'></i> Select batch to view students.</div>";
 		}
 		else{
 			$_BatchSafe=mysqli_real_escape_string($con,$_SelectedBatchId);
@@ -167,17 +195,18 @@ if(isset($_POST["showrecipient"])){
 		$_SQL_2=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.staffstatus='$_RecipientSafe' ORDER BY su.userid ASC");
 	}
 	if($_SQL_2){
-		echo "<table>";
+		echo "<div class='notify-table-wrap'>";
+		echo "<table class='notify-table'>";
 		echo "<caption>LIST OF USERS</caption>";
 		echo "<thead><th><input type='checkbox' id='all' name='all' Onclick='selectAll()' /></th><th>*</th><th>MOBILE</th><th>FULL NAME</th></thead>";
 		echo "<tbody>";
 		@$serial=0;
 		if(mysqli_num_rows($_SQL_2)<1){
-			echo "<tr><td colspan='4' align='center'>No users found</td></tr>";
+			echo "<tr><td colspan='4' class='notify-empty-row'>No users found</td></tr>";
 		}
 		while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC))
 		{
-		echo "<tr class='light'>";
+		echo "<tr class='notify-user-row'>";
 		echo "<td>";
 		echo "<input type='checkbox' id='userid' name='userid[]' value='$row[userid]' />";
 		echo "</td>";
@@ -194,14 +223,15 @@ if(isset($_POST["showrecipient"])){
 		}	
 		echo "</tbody>";
 		echo "</table>";
+		echo "</div>";
 	}
+}else{
+	echo "<div class='notify-empty-state'><i class='fa fa-users'></i><h3>No recipients loaded</h3><p>Select a recipient group above and click Show Users.</p></div>";
 }
 ?>
-</form>
+</section>
 </div>
-</td>
-</tr>
-</table>
+</form>
 
 <br/><br/>
 <button onclick="topFunction()" id="myBtn" title="Go to top">Top</button> 

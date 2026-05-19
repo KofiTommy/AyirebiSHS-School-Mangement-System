@@ -90,6 +90,7 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblclass WHERE classid='$_GET[delet
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/class-registry.css">
 <script type="text/javascript">
 function toggleAllStudents(){
   var selectAll = document.getElementById("all_students");
@@ -118,17 +119,32 @@ function filterStudents(){
 	include("menu.php");
 	?>		
 	</div>
-<div class="main-platform" style="">
-	<table width="100%">
-		<tr>
-			<td valign="top" width="30%" align="center">
-			<div class="form-entry" align="left">
-			<h3>Group Class Registration 
-				</h3>
-			<br/>
+<div class="main-platform registry-page">
+	<section class="registry-hero">
+		<div>
+			<span class="registry-kicker">Student Records</span>
+			<h1>Class Registry</h1>
+			<p>Register students into classes by batch and review their active class records.</p>
+		</div>
+		<div class="registry-hero-card">
+			<i class="fa fa-users"></i>
+			<span>Group Registration</span>
+		</div>
+	</section>
+
+	<div class="registry-layout">
+		<aside class="registry-panel registry-form-panel">
+			<div class="registry-panel-heading">
+				<span class="registry-icon"><i class="fa fa-plus"></i></span>
+				<div>
+					<h2>Group Class Registration</h2>
+					<p>Select class, batch, then choose students to register.</p>
+				</div>
+			</div>
 			<form method="post" id="formID" name="formID" action="class-registry.php">
 			<input type="hidden" id="classid" name="classid" value="<?php include("shortcode.php");echo $shortcode;?>" />
 			
+			<label>Class</label>
 			<?php	
 			$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry ORDER BY datetimeentry ASC");
 
@@ -137,9 +153,10 @@ function filterStudents(){
 				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
 					echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
 				}	
-			echo "</select><br/><br/>";
+			echo "</select>";
 			?>
 
+			<label>Batch</label>
 			<?php	
 			$_SQL_3=mysqli_query($con,"SELECT * FROM tblbatch ORDER BY datetimeentry DESC");
 
@@ -148,14 +165,14 @@ function filterStudents(){
 				while($row=mysqli_fetch_array($_SQL_3,MYSQLI_ASSOC)){
 					echo "<option value='$row[batchid]'>$row[batch]</option>";
 				}	
-			echo "</select><br/><br/>";
+			echo "</select>";
 			?>
 			
-			<label>Find Student</label><br/>
-			<input type="text" id="student_filter" onkeyup="filterStudents()" placeholder="Type name or user id" style="width:98%;padding:6px;" /><br/><br/>
+			<label>Find Student</label>
+			<input type="text" id="student_filter" onkeyup="filterStudents()" placeholder="Type name or user id" />
 
-			<div style="max-height:320px;overflow:auto;border:1px solid #ddd;padding:8px;background:#fff;">
-				<table width="100%">
+			<div class="registry-student-picker">
+				<table class="registry-picker-table">
 					<thead>
 						<tr>
 							<th width="10%"><input type="checkbox" id="all_students" onclick="toggleAllStudents()" /></th>
@@ -178,15 +195,20 @@ function filterStudents(){
 						?>
 					</tbody>
 				</table>
-			</div><br/>
+			</div>
 
-			<div align="center"><button class="button-save" id="register_class" name="register_class"><i class="fa fa-save"></i> SAVE CLASS REGISTRY</button></div>
+			<div class="registry-actions"><button class="button-save registry-btn registry-btn-primary" id="register_class" name="register_class"><i class="fa fa-save"></i> Save Class Registry</button></div>
 		</form>
 
-		</div>
-			</td>
-			<td width="70%">
-				<div class="form-entry" align="left">
+		</aside>
+			<main class="registry-panel registry-list-panel">
+				<div class="registry-panel-heading">
+					<span class="registry-icon"><i class="fa fa-list"></i></span>
+					<div>
+						<h2>Registered Classes</h2>
+						<p>Students are grouped with their active class and batch records underneath.</p>
+					</div>
+				</div>
 				<?php
 				echo $_SESSION['Message'];
 
@@ -194,19 +216,20 @@ function filterStudents(){
 				$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsystemuser WHERE systemtype='Student' ORDER BY firstname ASC");
 
 				//Registered clients
-				echo "<table width='100%'>";
+				echo "<div class='registry-table-wrap'>";
+				echo "<table class='registry-table'>";
 				echo "<caption>Class Registry</caption>";
 				echo "<thead><th>*</th><th colspan=1>TASK</th><th>STUENT</th><th>CLASS</th><th>BATCH</th><th>ENTRY DATE/TIME</th></thead>";
 				echo "<tbody>";
 		
 				@$serial=0;
 				while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
-				echo "<tr>";
+				echo "<tr class='registry-student-row'>";
 					echo "<td align='center'>";
 				echo $serial=$serial+1 .".";
 				echo "</td>";
 
-				echo "<td align='center' ><a title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'<i class='fa fa-plus' style='color:royalblue'></i></a></td>";
+				echo "<td align='center' ><a class='registry-row-action' title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'><i class='fa fa-plus'></i></a></td>";
 				
 					echo "<td colspan='4'>$row[firstname] $row[othernames] $row[surname] ($row[userid])</td>";
 			
@@ -219,10 +242,10 @@ function filterStudents(){
 				
 				while($row_cl=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
 
-				echo "<tr style='background-color:#ffffff;border-bottom:1px solid gray'>";
+				echo "<tr class='registry-class-row'>";
 				echo "<td colspan='1'>";
 				echo "</td>";
-				echo "<td align='center'><a onclick=\"javascript:return confirm('Do you want to remove class?')\" title='Remove class $row_cl[class_name]' href='class-registry.php?delete_class=$row_cl[classid]'<i class='fa fa-trash-o' style='color:red'></i></a></td>";
+				echo "<td align='center'><a class='registry-row-action registry-action-danger' onclick=\"javascript:return confirm('Do you want to remove class?')\" title='Remove class $row_cl[class_name]' href='class-registry.php?delete_class=$row_cl[classid]'><i class='fa fa-trash-o'></i></a></td>";
 				echo "<td colspan='1' align='right'>";
 				echo "Class:";
 				echo "</td>";
@@ -240,13 +263,13 @@ function filterStudents(){
 				echo "</tr>";
 
 		}
-		}
+				}
 				echo "</tbody>";
 				echo "</table>";
+				echo "</div>";
 				?>
-			</td>
-		</tr>
-	</table>
+			</main>
+	</div>
 
 
 <button onclick="topFunction()" id="myBtn" title="Go to top">Top</button> 

@@ -147,6 +147,7 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblsubjectclassification WHERE clas
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/subject-assignment.css">
 
 </head>
 <body>
@@ -162,11 +163,21 @@ include("links.php");
 	?>
 	</div>
 
-<div class="main-platform" style="">
-	<table width="100%">
-		<tr>
-			<td valign="top" width="30%" align="center">
-				<div class="form-entry" align="left">
+<div class="main-platform assignment-page">
+	<section class="assignment-hero">
+		<div>
+			<span class="assignment-kicker">Academic Tools</span>
+			<h1>Subject Assignment</h1>
+			<p>Assign classified subjects to teachers by batch and semester.</p>
+		</div>
+		<div class="assignment-hero-card">
+			<i class="fa fa-user-plus"></i>
+			<span>Teacher Subjects</span>
+		</div>
+	</section>
+
+	<div class="assignment-layout">
+		<aside class="assignment-side">
 			
 		<?php
 		include("dbstring.php");
@@ -178,26 +189,35 @@ include("links.php");
 		{
 			if($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC))
 			{
-			echo "<h3>Item Update</h3>";
+			echo "<section class='assignment-panel assignment-edit-panel'>";
+			echo "<div class='assignment-panel-heading'><span class='assignment-icon'><i class='fa fa-edit'></i></span><div><h2>Update Subject</h2><p>Edit the selected subject name.</p></div></div>";
 			echo "<form method='post' id='formID' name='formID' action='subject-assignment.php'>";
-			echo "<label>Item Id</label>";
-			echo "<input type='text' id='update_subjectid' name='update_subjectid' value='$row[subjectid]'><br/>";
+			echo "<label>Subject Id</label>";
+			echo "<input type='text' id='update_subjectid' name='update_subjectid' value='$row[subjectid]' readonly>";
 
-			echo "<label>Item </label>";
-			echo "<input type='text' id='update_item' name='update_item' value='$row[subject]'><br/><br/>";
-			echo "<div align='center'><button class='btn' id='update_item_entry' name='update_item_entry'><i class='fa fa-edit' style='color:white'></i> Update</button></div>";
+			echo "<label>Subject</label>";
+			echo "<input type='text' id='update_item' name='update_item' value='$row[subject]' class='validate[required]'>";
+			echo "<div class='assignment-actions'><button class='btn assignment-btn assignment-btn-primary' id='update_item_entry' name='update_item_entry'><i class='fa fa-edit'></i> Update Subject</button></div>";
+			echo "<div class='assignment-actions assignment-cancel-row'><a class='assignment-btn assignment-btn-light' href='subject-assignment.php'><i class='fa fa-times'></i> Cancel Edit</a></div>";
 
 			echo "</form>";
+			echo "</section>";
 			}
 		}
 		}
 		?>
 			
-			<h3>Subject Assignment 
-				</h3>
-			<br/>
+			<section class="assignment-panel assignment-filter-panel">
+			<div class="assignment-panel-heading">
+				<span class="assignment-icon"><i class="fa fa-filter"></i></span>
+				<div>
+					<h2>Assignment Setup</h2>
+					<p>Select teacher, batch, semester, then tick subjects.</p>
+				</div>
+			</div>
 		
 <form method="post" id="formID" name="formID" action="subject-assignment.php">
+		<label>Teacher</label>
 		<?php	
 			$_SQL_2=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.systemtype='Teacher' ORDER BY su.firstname ASC");
 
@@ -207,9 +227,10 @@ include("links.php");
 					echo "<option value='$row[userid]'>$row[firstname] $row[othernames] $row[surname]($row[userid])</option>";
 				}
 				
-			echo "</select><br/><br/>";
+			echo "</select>";
 			?>
 
+			<label>Batch</label>
 			<?php	
 			$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch ORDER BY datetimeentry DESC");
 
@@ -219,24 +240,37 @@ include("links.php");
 					echo "<option value='$row[batchid]'>$row[batch]</option>";
 				}
 				
-			echo "</select><br/><br/>";
+			echo "</select>";
 			?>
 
-			<label>Assignment Year</label><br/>
-			<input type="text" value="<?php echo date("Y"); ?>" readonly/><br/><br/>
+			<div class="assignment-grid">
+			<div>
+			<label>Assignment Year</label>
+			<input type="text" value="<?php echo date("Y"); ?>" readonly/>
+			</div>
 
+			<div>
+			<label>Semester</label>
 			<select id="term" name="term" class="validate[required]">
 				<option value="" >Select Semester</option>
 				<option value="1">1</option>
 				<option value="2">2</option>
 			
-			</select><br/><br/>	
-			<div align="center"><button class="button-save" id="register_subject_assignment" name="register_subject_assignment"><i class="fa fa-save"></i> SAVE ASSIGNMENT</button></div>
+			</select>
+			</div>
+			</div>
+			<div class="assignment-actions"><button class="button-save assignment-btn assignment-btn-primary" id="register_subject_assignment" name="register_subject_assignment"><i class="fa fa-save"></i> Save Assignment</button></div>
 		
-		</div>
-			</td>
-			<td width="70%">
-				<div class="form-entry" align="left">
+		</section>
+		</aside>
+			<main class="assignment-panel assignment-list-panel">
+				<div class="assignment-panel-heading">
+					<span class="assignment-icon"><i class="fa fa-check-square-o"></i></span>
+					<div>
+						<h2>Classified Subjects</h2>
+						<p>Tick one or more classified subjects to assign to the selected teacher.</p>
+					</div>
+				</div>
 				<?php
 				echo $_SESSION['Message'];
 
@@ -245,7 +279,8 @@ include("links.php");
 				$_SQL_EXECUTE_VIEW=mysqli_query($con,"SELECT * FROM tblclassentry ORDER BY class_name ASC");
 				
 				//Registered clients
-				echo "<table width='100%' style='background-color:white'>";
+				echo "<div class='assignment-table-wrap'>";
+				echo "<table class='assignment-table'>";
 				echo "<caption>List Of Subjects</caption>";
 				echo "<thead><th>*</th><th colspan=1>Task</th><th>Subject Id</th><th>Subject</th><th>Entry Date/Time</th><th>Status</th></thead>";
 				echo "<tbody>";
@@ -260,14 +295,14 @@ include("links.php");
 
 				}
 				else{
-				echo "<tr style='background-color:white;border-bottom:1px solid #ccc'>";
+				echo "<tr class='assignment-class-row'>";
 				echo "<td colspan='9'>";
 				echo $row_v['class_name'];
 				echo "</td>";
 				echo "</tr>";				
 				@$serial=0;
 				while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
-				echo "<tr>";
+				echo "<tr class='assignment-subject-row'>";
 
 				echo "<td align='center'>";
 				echo $serial=$serial+1 .".";
@@ -289,11 +324,10 @@ echo "</tr>";
 }
 echo "</tbody>";
 echo "</table>";
+echo "</div>";
 ?>
+</main>
 </div>
-</td>
-</tr>
-</table>
 </form>
 <br/><br/>
 <button onclick="topFunction()" id="myBtn" title="Go to top">Top</button> 

@@ -5,39 +5,7 @@
 session_start();
 include("links.php");
 ?>
-<style>
-#searchbars { padding:5%; padding-top:10%; }
-.search-wrap { display:flex; gap:8px; align-items:center; max-width:900px; }
-.search-input {
-  flex: 1;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 14px;
-}
-.search-input:focus {
-  outline: none;
-  border-color: #0ea5e9;
-  box-shadow: 0 0 0 3px rgba(14,165,233,0.15);
-}
-.search-small {
-  color:#64748b;
-  font-size:12px;
-  margin-top:8px;
-}
-.search-clear-btn {
-  border: 1px solid #ef4444;
-  background: #fef2f2;
-  color: #b91c1c;
-  border-radius: 8px;
-  padding: 10px 14px;
-  cursor: pointer;
-  font-weight: 600;
-}
-.search-clear-btn:hover {
-  background: #fee2e2;
-}
-</style>
+<link rel="stylesheet" href="css/search.css">
 <script type="text/javascript">
 var waecSearchTimer = null;
 function SearchItem(forceNow){
@@ -47,22 +15,22 @@ function SearchItem(forceNow){
 
   var str = (input.value || "").trim();
   if(str.length === 0){
-    holder.innerHTML = "";
+    holder.innerHTML = "<div class='search-empty-state'><i class='fa fa-search'></i><h3>Start searching</h3><p>Type a student name or index number to load matching records.</p></div>";
     return;
   }
   if(str.length < 2 && !forceNow){
-    holder.innerHTML = "<div class='search-small'>Type at least 2 characters...</div>";
+    holder.innerHTML = "<div class='search-note'><i class='fa fa-keyboard-o'></i> Type at least 2 characters...</div>";
     return;
   }
 
-  holder.innerHTML = "<div class='search-small'>Searching...</div>";
+  holder.innerHTML = "<div class='search-loading'><span></span><div><strong>Searching...</strong><p>Checking student records now.</p></div></div>";
   var xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function(){
     if(xhr.readyState === 4){
       if(xhr.status === 200){
         holder.innerHTML = xhr.responseText;
       } else {
-        holder.innerHTML = "<div class='search-small' style='color:#b91c1c;'>Search failed. Try again.</div>";
+        holder.innerHTML = "<div class='search-alert'><i class='fa fa-exclamation-circle'></i> Search failed. Try again.</div>";
       }
     }
   };
@@ -81,12 +49,9 @@ function ClearSearchItem(){
   var input = document.getElementById("search_student");
   var holder = document.getElementById("search-student");
   if(input){ input.value = ""; input.focus(); }
-  if(holder){ holder.innerHTML = ""; }
+  if(holder){ holder.innerHTML = "<div class='search-empty-state'><i class='fa fa-search'></i><h3>Start searching</h3><p>Type a student name or index number to load matching records.</p></div>"; }
 }
 </script>
-<?php
-include("links.php");
-?>
 </head>
 <body>
 
@@ -108,15 +73,41 @@ if($_SESSION["SYSTEMTYPE"]=="Student")
 {
 }else{
 ?>
-<div id="searchbars" style="padding:5%;padding-top:10%;">
-<div class="search-wrap">
-  <input class="search-input" type="text" id="search_student" name="search_student" placeholder="Type Index Number / Firstname / Othernames / Surname" oninput="SearchItemDebounced()" onkeydown="if(event.key==='Enter'){ event.preventDefault(); SearchItem(true);}"/>
-  <button class="button-save" type="button" onclick="SearchItem(true)"><i class="fa fa-search"></i> Search</button>
-  <button class="search-clear-btn" type="button" onclick="ClearSearchItem()">Clear</button>
-</div>
-<div class="search-small">Tip: start typing a few letters, then press Enter for an exact refresh.</div>
+<div class="main-platform search-page">
+  <section class="search-hero">
+    <div>
+      <span class="search-kicker">Student Finder</span>
+      <h1>Search Students</h1>
+      <p>Find a student quickly by index number, first name, other names, or surname.</p>
+    </div>
+    <div class="search-hero-card">
+      <i class="fa fa-search"></i>
+      <span>Fast Records Lookup</span>
+    </div>
+  </section>
 
-<div id="search-student" name="search-student"></div>
+  <section id="searchbars" class="search-panel">
+    <div class="search-panel-heading">
+      <span class="search-icon"><i class="fa fa-id-card-o"></i></span>
+      <div>
+        <h2>Student Search</h2>
+        <p>Start typing for live results, or press Enter to refresh immediately.</p>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <div class="search-input-wrap">
+        <i class="fa fa-search"></i>
+        <input class="search-input" type="text" id="search_student" name="search_student" placeholder="Type Index Number / Firstname / Othernames / Surname" oninput="SearchItemDebounced()" onkeydown="if(event.key==='Enter'){ event.preventDefault(); SearchItem(true);}"/>
+      </div>
+      <button class="button-save search-btn search-btn-primary" type="button" onclick="SearchItem(true)"><i class="fa fa-search"></i> Search</button>
+      <button class="search-clear-btn search-btn search-btn-light" type="button" onclick="ClearSearchItem()"><i class="fa fa-times"></i> Clear</button>
+    </div>
+    <div class="search-note"><i class="fa fa-lightbulb-o"></i> Tip: start with at least 2 characters. Exact index numbers appear first.</div>
+
+    <div id="search-student" name="search-student" class="search-results">
+      <div class="search-empty-state"><i class="fa fa-search"></i><h3>Start searching</h3><p>Type a student name or index number to load matching records.</p></div>
+    </div>
+  </section>
 </div>
 <?php
 }

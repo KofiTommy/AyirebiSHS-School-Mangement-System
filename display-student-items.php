@@ -1,4 +1,4 @@
-<div class="form-entry">
+<div class="search-results-card">
 <?php
 session_start();
 include("dbstring.php");
@@ -9,17 +9,17 @@ function search_esc($v){
 
 $systemType = isset($_SESSION["SYSTEMTYPE"]) ? $_SESSION["SYSTEMTYPE"] : "";
 if(!in_array($systemType, array("super_user", "normal_user"))){
-    echo "<div style='color:#b91c1c;padding:8px;'>Access denied.</div>";
+    echo "<div class='search-alert'><i class='fa fa-lock'></i> Access denied.</div>";
     exit;
 }
 
 $q = isset($_GET["search-item"]) ? trim((string)$_GET["search-item"]) : "";
 if($q === ""){
-    echo "<div style='color:#64748b;padding:8px;'>Type student name or index number to search.</div>";
+    echo "<div class='search-empty-state'><i class='fa fa-search'></i><h3>Start searching</h3><p>Type student name or index number to search.</p></div>";
     exit;
 }
 if(strlen($q) < 2){
-    echo "<div style='color:#64748b;padding:8px;'>Type at least 2 characters.</div>";
+    echo "<div class='search-note'><i class='fa fa-keyboard-o'></i> Type at least 2 characters.</div>";
     exit;
 }
 
@@ -57,7 +57,7 @@ LIMIT 120";
 
 $stmt = mysqli_prepare($con, $sql);
 if(!$stmt){
-    echo "<div style='color:#b91c1c;padding:8px;'>Search query failed.</div>";
+    echo "<div class='search-alert'><i class='fa fa-exclamation-circle'></i> Search query failed.</div>";
     exit;
 }
 
@@ -67,13 +67,15 @@ mysqli_stmt_execute($stmt);
 $result = mysqli_stmt_get_result($stmt);
 
 if(!$result){
-    echo "<div style='color:#b91c1c;padding:8px;'>No result returned.</div>";
+    echo "<div class='search-alert'><i class='fa fa-exclamation-circle'></i> No result returned.</div>";
     mysqli_stmt_close($stmt);
     exit;
 }
 
 $count = mysqli_num_rows($result);
-echo "<table border='1'>";
+echo "<div class='search-result-summary'><span>".(int)$count."</span><div><strong>Students Found</strong><p>Showing up to 120 matching records.</p></div></div>";
+echo "<div class='search-table-wrap'>";
+echo "<table class='search-table'>";
 echo "<caption>".(int)$count." Students Found</caption>";
 echo "<thead>";
 echo "<tr><th colspan='3'>Action</th><th>Index Number</th><th>Full Name</th><th>Home Address</th><th>Next of Kin</th><th>Contact</th></tr>";
@@ -88,9 +90,9 @@ while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){
     $fullName = trim($first." ".$other." ".$sur);
 
     echo "<tr>";
-    echo "<td align='center'><a href='payments.php?userid=".urlencode($userid)."' title='Click for Payment by ".search_esc($first)."'><i class='fa fa-money' style='color:green'></i></a></td>";
-    echo "<td align='center'><a href='register_edit.php?edit_user=".urlencode($userid)."' title='Update Profile of ".search_esc($first)."'><i class='fa fa-edit' style='color:olive'></i></a></td>";
-    echo "<td align='center'><a href='register.php?block_user=".urlencode($userid)."' title='Block ".search_esc($first)."'><i class='fa fa-user' style='color:red'></i></a></td>";
+    echo "<td align='center'><a class='search-row-action search-action-money' href='payments.php?userid=".urlencode($userid)."' title='Click for Payment by ".search_esc($first)."'><i class='fa fa-money'></i></a></td>";
+    echo "<td align='center'><a class='search-row-action' href='register_edit.php?edit_user=".urlencode($userid)."' title='Update Profile of ".search_esc($first)."'><i class='fa fa-edit'></i></a></td>";
+    echo "<td align='center'><a class='search-row-action search-action-danger' href='register.php?block_user=".urlencode($userid)."' title='Block ".search_esc($first)."'><i class='fa fa-user'></i></a></td>";
     echo "<td align='center'>".search_esc($userid)."</td>";
     echo "<td>".search_esc(strtoupper($fullName))."</td>";
     echo "<td>".search_esc($row["homeaddress"])."</td>";
@@ -110,33 +112,34 @@ while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){
         mysqli_stmt_bind_param($classStmt, "s", $userid);
         mysqli_stmt_execute($classStmt);
         $classRes = mysqli_stmt_get_result($classStmt);
-        echo "<table>";
+        echo "<div class='search-history-wrap'><table class='search-history-table'>";
         echo "<thead><tr><th>Batch</th><th>Class</th><th>Date/Time</th></tr></thead>";
         if($classRes && mysqli_num_rows($classRes) > 0){
             while($rowc = mysqli_fetch_array($classRes, MYSQLI_ASSOC)){
-                echo "<tr style='background-color:#efe'>";
+                echo "<tr>";
                 echo "<td>".search_esc($rowc["batch"])."</td>";
                 echo "<td>".search_esc($rowc["class_name"])."</td>";
                 echo "<td>".search_esc($rowc["datetimeentry"])."</td>";
                 echo "</tr>";
             }
         } else {
-            echo "<tr style='background-color:#f8fafc'><td colspan='3'>No class history found.</td></tr>";
+            echo "<tr><td colspan='3'>No class history found.</td></tr>";
         }
-        echo "</table>";
+        echo "</table></div>";
         mysqli_stmt_close($classStmt);
     } else {
-        echo "<div style='color:#64748b;'>Class history unavailable.</div>";
+        echo "<div class='search-note'>Class history unavailable.</div>";
     }
     echo "</td></tr>";
 }
 
 if($count === 0){
-    echo "<tr><td colspan='8' style='text-align:center;color:#64748b;'>No student matched '".search_esc($q)."'.</td></tr>";
+    echo "<tr><td colspan='8' class='search-no-match'>No student matched '".search_esc($q)."'.</td></tr>";
 }
 
 echo "</tbody>";
 echo "</table>";
+echo "</div>";
 
 mysqli_stmt_close($stmt);
 mysqli_close($con);

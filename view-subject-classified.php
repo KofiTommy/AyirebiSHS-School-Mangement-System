@@ -248,6 +248,7 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblsubjectclassification WHERE clas
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/view-subject-classified.css">
 </head>
 <body>
 	<div class="header">
@@ -260,16 +261,29 @@ include("links.php");
 	?>
 	</div>
 
-<div class="main-platform" style="">
-	<table width="100%">
-		<tr>
-			<td width="100%">
-				<div class="form-entry" align="left">	
-				<table>
-					<caption>Report Class' Subjects</caption>
-					<tr>
-						<td>
-						<form id="formID" name="formID" method="post" action="view-subject-classified.php">
+<div class="main-platform classified-page">
+	<section class="classified-hero">
+		<div>
+			<span class="classified-kicker">Academic Reports</span>
+			<h1>View Subject Classified</h1>
+			<p>Review subjects grouped by class and print class-specific or full subject classification reports.</p>
+		</div>
+		<div class="classified-hero-card">
+			<i class="fa fa-list-alt"></i>
+			<span>Classified Subjects</span>
+		</div>
+	</section>
+
+	<section class="classified-panel classified-toolbar">
+		<div class="classified-panel-heading">
+			<span class="classified-icon"><i class="fa fa-print"></i></span>
+			<div>
+				<h2>Print Reports</h2>
+				<p>Select a class to print one report, or print all classified subjects.</p>
+			</div>
+		</div>
+		<div class="classified-actions-grid">
+			<form id="formID" name="formID" method="post" action="view-subject-classified.php" class="classified-print-form">
 							<?php	
 							$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
 
@@ -279,20 +293,24 @@ include("links.php");
 									echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
 								}
 								
-							echo "</select><br/><br/>";
+							echo "</select>";
 							?>
-						</td>
-						<td width="15%">
-						<button class="button-print" name="print_report"><i class="fa fa-print"></i> Print Report</button>
-						</td>
-					</form>
-						<td width="15%">
-						<form method="post">
-						<button class="button-print" name="print_all_reports"><i class="fa fa-print"></i> Print All Reports</button>							
-						</form>
-						</td>
-					</tr>
-				</table>
+				<button class="button-print classified-btn classified-btn-primary" name="print_report"><i class="fa fa-print"></i> Print Report</button>
+			</form>
+			<form method="post" class="classified-print-all">
+				<button class="button-print classified-btn classified-btn-light" name="print_all_reports"><i class="fa fa-print"></i> Print All Reports</button>							
+			</form>
+		</div>
+	</section>
+
+	<section class="classified-panel classified-list-panel">
+		<div class="classified-panel-heading">
+			<span class="classified-icon"><i class="fa fa-table"></i></span>
+			<div>
+				<h2>Subject Classification List</h2>
+				<p>Each class is shown as a group with its classified subjects below.</p>
+			</div>
+		</div>
 			
 				<?php
 				echo $_SESSION['Message'];
@@ -302,7 +320,8 @@ include("links.php");
 				$_SQL_EXECUTE_VIEW=mysqli_query($con,"SELECT * FROM tblclassentry");
 				
 				//Registered clients
-				echo "<table width='100%' style='background-color:white'>";
+				echo "<div class='classified-table-wrap'>";
+				echo "<table class='classified-table'>";
 				echo "<caption>List Of Subjects</caption>";
 				echo "<thead><th colspan=1>Task</th><th>Subject Id</th><th>Subject</th><th>Entry Date/Time</th><th>Status</th></thead>";
 				echo "<tbody>";
@@ -316,17 +335,17 @@ include("links.php");
 
 				}
 				else{
-				echo "<tr style='background-color:lightblue;font-weight:bold;border-bottom:1px solid orange'>";
+				echo "<tr class='classified-class-row'>";
 				echo "<td colspan='9'>";
 				echo $row_v['class_name'];
 				echo "</td>";
 				echo "</tr>";				
 			
 				while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
-				echo "<tr>";
+				echo "<tr class='classified-subject-row'>";
 				//echo "<td align='center'><a title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'<i class='fa fa-book' style='color:blue'></i></a></td>";
 				//echo "<td align='center'>";
-				echo "<td align='center'><a title='Delete $row[subject]' onclick=\"javascript:return confirm('Do you want to delete $row[subject]?');\" href='view-subject-classified.php?delete_subject=$row[classificationid]'<i class='fa fa-trash-o' style='color:red'></i></a></td>";
+				echo "<td align='center'><a class='classified-row-action classified-action-danger' title='Delete $row[subject]' onclick=\"javascript:return confirm('Do you want to delete $row[subject]?');\" href='view-subject-classified.php?delete_subject=$row[classificationid]'><i class='fa fa-trash-o'></i></a></td>";
 				
 				//echo "</td>";
 				echo "<td align='left'>$row[subjectid]</td>";
@@ -340,13 +359,10 @@ include("links.php");
 }
 echo "</tbody>";
 echo "</table>";
+echo "</div>";
 ?>
 
-</div>
-</td>
-</tr>
-</table>
-</form>
+	</section>
 </div>
 </body>
 </html>

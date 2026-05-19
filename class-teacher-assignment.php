@@ -72,68 +72,83 @@ if(isset($_GET['delete_assignment'])){
 <html>
 <head>
 <?php include("links.php"); ?>
-<style>
-@media print {
-    .header, .print-hide { display: none !important; }
-    .main-platform { margin: 0; padding: 0; }
-    table { width: 100% !important; }
-}
-</style>
+<link rel="stylesheet" href="css/class-teacher-assignment.css">
 </head>
 <body>
 <div class="header">
 <?php include("menu.php"); ?>
 </div>
-<div class="main-platform">
-<table width="100%">
-<tr>
-<td width="30%" valign="top">
-<div class="form-entry" align="left">
-<h3>Class Teacher Assignment</h3>
+<div class="main-platform cta-page">
+<section class="cta-hero">
+    <div>
+        <span class="cta-kicker">Academic Setup</span>
+        <h1>Class Teacher Assignment</h1>
+        <p>Assign class teachers by class, batch, and semester so access stays accurate.</p>
+    </div>
+    <div class="cta-hero-card">
+        <i class="fa fa-user-circle-o"></i>
+        <span>Class Teacher Control</span>
+    </div>
+</section>
+
+<div class="cta-layout">
+<aside class="cta-panel cta-form-panel">
+<div class="cta-panel-heading">
+    <span class="cta-icon"><i class="fa fa-plus"></i></span>
+    <div>
+        <h2>Assign Teacher</h2>
+        <p>Select the scope for the class teacher assignment.</p>
+    </div>
+</div>
 <?php echo $_SESSION['Message']; ?>
 <form method="post" action="class-teacher-assignment.php" id="formID" name="formID">
 <?php
 $_SQL_T = mysqli_query($con,"SELECT userid,firstname,surname,othernames FROM tblsystemuser WHERE systemtype='Teacher' AND status='active' ORDER BY firstname ASC");
-echo "<label>Teacher</label><br/>";
+echo "<label>Teacher</label>";
 echo "<select id='userid' name='userid' class='validate[required]'>";
 echo "<option value=''>Select Teacher</option>";
 while($row_t=mysqli_fetch_array($_SQL_T,MYSQLI_ASSOC)){
     echo "<option value='$row_t[userid]'>$row_t[firstname] $row_t[othernames] $row_t[surname] ($row_t[userid])</option>";
 }
-echo "</select><br/><br/>";
+echo "</select>";
 
 $_SQL_C = mysqli_query($con,"SELECT class_entryid,class_name FROM tblclassentry ORDER BY class_name ASC");
-echo "<label>Class</label><br/>";
+echo "<label>Class</label>";
 echo "<select id='classid' name='classid' class='validate[required]'>";
 echo "<option value=''>Select Class</option>";
 while($row_c=mysqli_fetch_array($_SQL_C,MYSQLI_ASSOC)){
     echo "<option value='$row_c[class_entryid]'>$row_c[class_name]</option>";
 }
-echo "</select><br/><br/>";
+echo "</select>";
 
 $_SQL_B = mysqli_query($con,"SELECT batchid,batch FROM tblbatch ORDER BY datetimeentry DESC");
-echo "<label>Batch</label><br/>";
+echo "<label>Batch</label>";
 echo "<select id='batchid' name='batchid' class='validate[required]'>";
 echo "<option value=''>Select Batch</option>";
 while($row_b=mysqli_fetch_array($_SQL_B,MYSQLI_ASSOC)){
     echo "<option value='$row_b[batchid]'>$row_b[batch]</option>";
 }
-echo "</select><br/><br/>";
+echo "</select>";
 ?>
-<label>Semester</label><br/>
+<label>Semester</label>
 <select id="term" name="term" class="validate[required]">
 <option value="">Select Semester</option>
 <option value="1">1</option>
 <option value="2">2</option>
-</select><br/><br/>
-<div align="center"><button class="button-save" id="save_class_teacher" name="save_class_teacher"><i class="fa fa-save"></i> Save Assignment</button></div>
+</select>
+<div class="cta-actions"><button class="button-save cta-btn cta-btn-primary" id="save_class_teacher" name="save_class_teacher"><i class="fa fa-save"></i> Save Assignment</button></div>
 </form>
+</aside>
+<main class="cta-panel cta-list-panel">
+<div class="cta-panel-heading">
+    <span class="cta-icon"><i class="fa fa-list"></i></span>
+    <div>
+        <h2>Assigned Class Teachers</h2>
+        <p>Review active and inactive assignments, print, deactivate, or delete records.</p>
+    </div>
 </div>
-</td>
-<td width="70%" valign="top">
-<div class="form-entry">
-<div class="print-hide" style="margin-bottom:10px; text-align:right;">
-    <button class="button-save" type="button" onclick="window.print()"><i class="fa fa-print"></i> Print Class Teachers</button>
+<div class="print-hide cta-print-row">
+    <button class="button-save cta-btn cta-btn-print" type="button" onclick="window.print()"><i class="fa fa-print"></i> Print Class Teachers</button>
 </div>
 <?php
 $_SQL_A = mysqli_query($con,"SELECT ct.*,su.firstname,su.surname,su.othernames,ce.class_name,bh.batch
@@ -142,7 +157,8 @@ INNER JOIN tblsystemuser su ON su.userid=ct.userid
 INNER JOIN tblclassentry ce ON ce.class_entryid=ct.classid
 INNER JOIN tblbatch bh ON bh.batchid=ct.batchid
 ORDER BY ct.datetimeentry DESC");
-echo "<table width='100%' style='background-color:white'>";
+echo "<div class='cta-table-wrap'>";
+echo "<table class='cta-table'>";
 echo "<caption>Assigned Class Teachers</caption>";
 echo "<thead><th>Task</th><th>Teacher</th><th>Class</th><th>Semester</th><th>Batch</th><th>Status</th><th>Date/Time</th></thead>";
 echo "<tbody>";
@@ -150,10 +166,10 @@ while($row_a=mysqli_fetch_array($_SQL_A,MYSQLI_ASSOC)){
     echo "<tr>";
     echo "<td align='center'>";
     if($row_a['status']==='active'){
-        echo "<span class='print-hide'><a title='Deactivate assignment' onclick=\"javascript:return confirm('Deactivate this assignment?');\" href='class-teacher-assignment.php?deactivate_assignment=$row_a[assignmentid]'><i class='fa fa-ban' style='color:#b45309'></i></a></span> ";
-        echo "<span class='print-hide'><a title='Delete assignment' onclick=\"javascript:return confirm('Delete this assignment permanently?');\" href='class-teacher-assignment.php?delete_assignment=$row_a[assignmentid]'><i class='fa fa-trash' style='color:#b91c1c'></i></a></span>";
+        echo "<span class='print-hide'><a class='cta-row-action cta-action-warning' title='Deactivate assignment' onclick=\"javascript:return confirm('Deactivate this assignment?');\" href='class-teacher-assignment.php?deactivate_assignment=$row_a[assignmentid]'><i class='fa fa-ban'></i></a></span> ";
+        echo "<span class='print-hide'><a class='cta-row-action cta-action-danger' title='Delete assignment' onclick=\"javascript:return confirm('Delete this assignment permanently?');\" href='class-teacher-assignment.php?delete_assignment=$row_a[assignmentid]'><i class='fa fa-trash'></i></a></span>";
     }else{
-        echo "<span class='print-hide'><a title='Delete assignment' onclick=\"javascript:return confirm('Delete this assignment permanently?');\" href='class-teacher-assignment.php?delete_assignment=$row_a[assignmentid]'><i class='fa fa-trash' style='color:#b91c1c'></i></a></span>";
+        echo "<span class='print-hide'><a class='cta-row-action cta-action-danger' title='Delete assignment' onclick=\"javascript:return confirm('Delete this assignment permanently?');\" href='class-teacher-assignment.php?delete_assignment=$row_a[assignmentid]'><i class='fa fa-trash'></i></a></span>";
     }
     echo "</td>";
     echo "<td>$row_a[firstname] $row_a[othernames] $row_a[surname] ($row_a[userid])</td>";
@@ -166,11 +182,10 @@ while($row_a=mysqli_fetch_array($_SQL_A,MYSQLI_ASSOC)){
 }
 echo "</tbody>";
 echo "</table>";
+echo "</div>";
 ?>
+</main>
 </div>
-</td>
-</tr>
-</table>
 </div>
 </body>
 </html>
