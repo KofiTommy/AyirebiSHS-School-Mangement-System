@@ -210,6 +210,7 @@ if($_SQLDelete){
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/examinationtimetablereport.css">
 
 <script>
   var rnd;
@@ -259,7 +260,7 @@ function getStudentBill(str)
 </script>
 </head>
 
-<body>
+<body class="body-style">
 	<div class="header">
 		<!--<img src="images/logo.png" width="100px" height="100px" alt="logo"/>-->
 	<?php
@@ -267,21 +268,33 @@ function getStudentBill(str)
 	?>		
 	</div>
 
-<div class="main-platform" style="">
+<div class="main-platform exam-timetable-report-page">
 	<?php
 	echo $_SESSION["Message"];
 	?>
 
-	<br/><br/>
-	<table width="100%" style="background-color:white">
-		<tr>
-			<td valign="top" width="30%" align="center">
-				
-				<div class="form-entry" align="left">
-			
-			<h3>EXAMINATION TIME TABLE REPORT
-				</h3>
-			<br/>
+	<section class="exam-timetable-report-hero">
+		<div>
+			<span class="exam-timetable-report-kicker">Examination timetable</span>
+			<h1>Examination Timetable Report</h1>
+			<p>Select the class, semester and batch to print the examination timetable, while reviewing all scheduled papers below.</p>
+		</div>
+		<div class="exam-timetable-report-hero-card">
+			<i class="fa fa-calendar"></i>
+			<span>Print-ready report</span>
+			<small>Generate a PDF timetable for a selected class.</small>
+		</div>
+	</section>
+
+	<div class="exam-timetable-report-layout">
+		<aside class="exam-timetable-report-panel exam-timetable-report-filter-panel">
+			<div class="exam-timetable-report-panel-heading">
+				<span class="exam-timetable-report-icon"><i class="fa fa-filter"></i></span>
+				<div>
+					<h2>Report Filters</h2>
+					<p>Choose the details for the timetable PDF.</p>
+				</div>
+			</div>
 			<form method="post" id="formID" name="formID" action="examinationtimetablereport.php">
 			
 <?php
@@ -290,19 +303,24 @@ if( $_SESSION['SYSTEMTYPE']=="normal_user" || $_SESSION['SYSTEMTYPE']=="super_us
 {
 	$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
 
+			echo "<div class='exam-timetable-report-field'>";
+			echo "<label for='class'>Class</label>";
 			echo "<select id='class' name='class' class='validate[required]'>";
 			echo "<option value=''>Select Class</option>";
 				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
 					echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
 				}
 				
-			echo "</select><br/><br/>";
+			echo "</select>";
+			echo "</div>";
 }
 elseif( $_SESSION['SYSTEMTYPE']=="Student")
 {
 
 $_SQL_C=mysqli_query($con,"SELECT * FROM tblclass cl WHERE cl.userid='$_SESSION[USERID]'");
 
+		echo "<div class='exam-timetable-report-field'>";
+		echo "<label for='class'>Class</label>";
 		echo "<select id='class' name='class' class='validate[required]'>";
 		while($rows=mysqli_fetch_array($_SQL_C,MYSQLI_ASSOC))
 		{	
@@ -313,42 +331,59 @@ $_SQL_C=mysqli_query($con,"SELECT * FROM tblclass cl WHERE cl.userid='$_SESSION[
 			echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
 			}
 		}
-		echo "</select><br/><br/>";
+		echo "</select>";
+		echo "</div>";
 }
 ?>
 
+			<div class="exam-timetable-report-field">
+			<label for="termname">Semester</label>
 			<select id="termname" name="termname" class="validate[required]">
 				<option value="" >Select Semester</option>
 				<option value="1">1</option>
 				<option value="2">2</option>
-			</select><br/><br/>
+			</select>
+			</div>
 
 			<?php	
 			$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
 
+			echo "<div class='exam-timetable-report-field'>";
+			echo "<label for='batch'>Batch</label>";
 			echo "<select id='batch' name='batch' class='validate[required]'>";
 			echo "<option value=''>Select Batch</option>";
 				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
 					echo "<option value='$row[batchid]'>$row[batch]</option>";
 				}
 				
-			echo "</select><br/><br/>";
+			echo "</select>";
+			echo "</div>";
 			?>
-<div align="center"><button class="button-pay" id="print_timetable" name="print_timetable"><i class="fa fa-print"></i> PRINT TIME TABLE</button></div>
+<div class="exam-timetable-report-actions"><button class="button-pay exam-timetable-report-btn exam-timetable-report-btn-primary" id="print_timetable" name="print_timetable"><i class="fa fa-print"></i> PRINT TIME TABLE</button></div>
 </form>
-</div>
-</td>
-<td width="70%">
-	<div class="form-entry">
+		</aside>
+
+		<main class="exam-timetable-report-panel exam-timetable-report-list-panel">
+			<div class="exam-timetable-report-panel-heading">
+				<span class="exam-timetable-report-icon"><i class="fa fa-clock-o"></i></span>
+				<div>
+					<h2>Scheduled Papers</h2>
+					<p>All examination timetable entries currently saved in the system.</p>
+				</div>
+			</div>
 	<?php
 	include("dbstring.php");
 	$_SQL=mysqli_query($con,"SELECT * FROM tbltimetable tt INNER JOIN tblclassentry ce ON tt.class_entryid=ce.class_entryid
 	INNER JOIN tblbatch bch  ON tt.batchid=bch.batchid INNER JOIN tblsubject sub ON tt.subjectid=sub.subjectid");
-	echo "<table style='background-color:white'>";
+	echo "<div class='exam-timetable-report-table-wrap'>";
+	echo "<table class='exam-timetable-report-table'>";
 	echo "<caption>EXAMINATION TIME TABLE</caption>";
-	echo "<thead><th>*</th><th>DAY</th><th>START TIME</th><th>END START</th><th>DATE</th><th>SUBJECT</th><th>CLASS</th><th>SEMESTER</th><th>BATCH</th></thead>";
+	echo "<thead><tr><th>*</th><th>DAY</th><th>START TIME</th><th>END TIME</th><th>DATE</th><th>SUBJECT</th><th>CLASS</th><th>SEMESTER</th><th>BATCH</th></tr></thead>";
 	echo "<tbody>";
 	@$serial=0;
+	if($_SQL && mysqli_num_rows($_SQL)<1){
+	echo "<tr><td colspan='9' class='exam-timetable-report-empty-row'>No examination timetable entries found.</td></tr>";
+	}
 	while($row=mysqli_fetch_array($_SQL,MYSQLI_ASSOC)){
 	echo "<tr>";
 	//echo "<td align='center'><a title='View $row[subject]' href='examinationtimetablereport.php?view_user=$row[timeid]'<i class='fa fa-book' style='color:blue'></i></a></td>";
@@ -394,11 +429,12 @@ $_SQL_C=mysqli_query($con,"SELECT * FROM tblclass cl WHERE cl.userid='$_SESSION[
 	echo "</td>";
 	echo "</tr>";
 	}
+	echo "</tbody>";
+	echo "</table>";
+	echo "</div>";
 	?>
-</div>
-</td>
-</tr>
-</table>
+		</main>
+	</div>
 </div>
 </body>
 </html>

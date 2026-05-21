@@ -82,58 +82,83 @@ else{
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/upload-register.css">
 </head>
 <body class="body-style">
 <div class="header">
 <?php
 include("menu.php");
-?>		
-<div class="main-platform" align="center" >
+?>
+</div>
+<div class="main-platform upload-register-page">
 	<?php
 	echo $_SESSION["Message"];
 	?>
 
-	<table border="0" width="100%">
-		<tr>
-			<td width="30%" valign="top" align="center">
-				<h4>Group Student Registration</h4>	
-				
-	<div class="form-entry" align="left">
+	<section class="upload-register-hero">
+		<div>
+			<span class="upload-register-kicker">Bulk registration</span>
+			<h1>Upload Register</h1>
+			<p>Import student or teacher records from Excel and review the accounts created today.</p>
+		</div>
+		<div class="upload-register-hero-card">
+			<i class="fa fa-cloud-upload"></i>
+			<span>Excel upload</span>
+			<small>Use the approved register template before uploading.</small>
+		</div>
+	</section>
+
+	<div class="upload-register-layout">
+		<aside class="upload-register-panel upload-register-form-panel">
+			<div class="upload-register-panel-heading">
+				<span class="upload-register-icon"><i class="fa fa-upload"></i></span>
+				<div>
+					<h2>Group Student Registration</h2>
+					<p>Select the register file and upload it safely.</p>
+				</div>
+			</div>
+
 		<form method="post" action="import-data.php" id="form1" enctype="multipart/form-data">
-		<div align="center">
+			<div class="upload-register-dropzone">
+				<i class="fa fa-file-excel-o"></i>
+				<label for="file1">Upload Excel File*</label>
+				<p>Choose the completed register spreadsheet from your device.</p>
+				<input type="file" id="file1" name="file1" />
+			</div>
 
-		<div id="subscription-style1" align="left">
-			<!--Employee Details -->
-			
-			<label>Upload Excel File*</label><br>
-			<input type="file" id="file1" name="file1" /><br><br>				
-			
-			<!--Submit form's data -->
-			<button class="button-pay" id="submit_group_data" name="submit_group_data"><i class="fa fa-upload" ></i> Upload Data</button>
-			
-		</div>
-	</div>
-	</form>
-		</div>
-			</td>
+			<div class="upload-register-actions">
+				<button class="button-pay upload-register-btn upload-register-btn-primary" id="submit_group_data" name="submit_group_data"><i class="fa fa-upload" ></i> Upload Data</button>
+			</div>
+		</form>
+		</aside>
 
-			<td width="70%" valign="top">
-				<div class="form-entry" align="left">
+		<main class="upload-register-panel upload-register-list-panel">
+			<div class="upload-register-panel-heading">
+				<span class="upload-register-icon"><i class="fa fa-users"></i></span>
+				<div>
+					<h2>Today's Uploaded Users</h2>
+					<p>Recently created student and teacher accounts appear here for quick review.</p>
+				</div>
+			</div>
 				<?php
 				include("dbstring.php");
 				$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsystemuser WHERE date_format(registereddatetime,'%d-%m-%Y')=date_format(NOW(),'%d-%m-%Y') AND (systemtype='Student' OR systemtype='Teacher') ORDER BY registereddatetime DESC");
 
 				//Registered clients
-				echo "<table width='100%' style='background-color:white'>";
-				echo "<caption>STUDENTS</caption>";
-				echo "<thead><th colspan=2>TASK</th><th>STUDENTS</th><th>GENDER</th><th>BIRTHDAY</th><th>USERNAME</th><th>TYPE</th><th>DATE/TIME</th><th>STATUS</th></thead>";
+				echo "<div class='upload-register-table-wrap'>";
+				echo "<table class='upload-register-table'>";
+				echo "<caption>Uploaded Records</caption>";
+				echo "<thead><tr><th colspan=2>TASK</th><th>STUDENTS</th><th>GENDER</th><th>BIRTHDAY</th><th>USERNAME</th><th>TYPE</th><th>DATE/TIME</th><th>STATUS</th></tr></thead>";
 				echo "<tbody>";
+				if(mysqli_num_rows($_SQL_EXECUTE)<1){
+					echo "<tr><td colspan='9' class='upload-register-empty-row'>No users uploaded today.</td></tr>";
+				}
 				
 				while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
-				echo "<tr>";
-				echo "<td align='center'><a title='View $row[firstname] ($row[userid])' href='user-profile.php?view_user=$row[userid]'<i class='fa fa-book' style='color:blue'></i></a></td>";
+				echo "<tr class='upload-register-user-row'>";
+				echo "<td align='center'><a class='upload-register-row-action' title='View $row[firstname] ($row[userid])' href='user-profile.php?view_user=$row[userid]'><i class='fa fa-book'></i></a></td>";
 				//echo "<td align='center'><a title='Delete $row[firstname] ($row[userid])' onclick=\"javascript:return confirm('Do you want to delete?');\" href='viewstudents.php?delete_user=$row[userid]'<i class='fa fa-times' style='color:red'></i></a></td>";
-				echo "<td align='center'><a title='Edit $row[firstname] ($row[userid])' href='register_edit.php?edit_user=$row[userid]'<i class='fa fa-edit' style='color:green'></i></a></td>";
+				echo "<td align='center'><a class='upload-register-row-action upload-register-action-success' title='Edit $row[firstname] ($row[userid])' href='register_edit.php?edit_user=$row[userid]'><i class='fa fa-edit'></i></a></td>";
 				//echo "<td>";
 				if($row['status']=="active"){
 				//echo"<a title='Block $row[firstname] ($row[userid])' href='viewstudents.php?block_user=$row[userid]'<i class='fa fa-user' style='color:orange'></i></a>";
@@ -154,21 +179,20 @@ include("menu.php");
 				echo "<td align='center'>$row[registereddatetime]</td>";
 				echo "<td align='center'>";
 				if($row['status']=="active"){
-					echo "<strong style='color:green'>Active</strong>";
+					echo "<span class='upload-register-status upload-register-status-active'>Active</span>";
 				}
 				else{
-					echo "<strong style='color:red'>Blocked</strong>";
+					echo "<span class='upload-register-status upload-register-status-blocked'>Blocked</span>";
 				}
 				echo "</td>";
 				echo "</tr>";
 				}
 				echo "</tbody>";
 				echo "</table>";
+				echo "</div>";
 				?>
-			</div>
-			</td>
-		</tr>
-	</table>
+		</main>
+	</div>
 </div>
 </body>
 </html>

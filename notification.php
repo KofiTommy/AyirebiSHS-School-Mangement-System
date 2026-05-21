@@ -137,6 +137,7 @@ include("menu.php");
 <label>Batch</label>
 <select id="batchid" name="batchid">
 <option value="">Select Batch</option>
+<option value="__all_students__" <?php if($_SelectedBatchId=="__all_students__"){ echo "selected"; } ?>>All Students</option>
 <?php
 $_SQL_BATCH=mysqli_query($con,"SELECT batchid,batch FROM tblbatch ORDER BY datetimeentry DESC");
 while($row_bh=mysqli_fetch_array($_SQL_BATCH,MYSQLI_ASSOC)){
@@ -184,6 +185,9 @@ if(isset($_POST["showrecipient"])){
 	if($_SelectedRecipient=="Student"){
 		if($_SelectedBatchId==""){
 			echo "<div class='notify-alert'><i class='fa fa-exclamation-circle'></i> Select batch to view students.</div>";
+		}
+		else if($_SelectedBatchId=="__all_students__"){
+			$_SQL_2=mysqli_query($con,"SELECT DISTINCT su.* FROM tblsystemuser su WHERE su.systemtype='Student' AND su.status='active' ORDER BY su.firstname ASC,su.surname ASC");
 		}
 		else{
 			$_BatchSafe=mysqli_real_escape_string($con,$_SelectedBatchId);

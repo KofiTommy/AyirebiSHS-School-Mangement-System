@@ -19,22 +19,29 @@ include("links.php");
 
 <style>
 :root {
-    --bg-1: #f3f4f6;
-    --bg-2: #fffaf0;
+    --bg-1: #eef2f7;
+    --bg-2: #fff7ed;
     --ink: #1f2937;
     --muted: #64748b;
     --panel: #ffffff;
     --line: #e5e7eb;
     --brand: #0f766e;
     --accent: #b45309;
+    --executive-navy: #0f2742;
+    --executive-gold: #d59b2d;
+    --executive-teal: #0f766e;
+    --executive-sky: #0ea5e9;
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --danger: #dc2626;
 }
 
 .body-style {
     margin: 0;
     color: var(--ink);
     font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    background: radial-gradient(circle at 0% 0%, #fef3c7 0%, transparent 24%),
-                radial-gradient(circle at 100% 0%, #dbeafe 0%, transparent 28%),
+    background: radial-gradient(circle at 0% 0%, rgba(213, 155, 45, 0.22) 0%, transparent 24%),
+                radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.18) 0%, transparent 28%),
                 linear-gradient(180deg, var(--bg-2), var(--bg-1));
     overflow-x: hidden;
 }
@@ -60,10 +67,13 @@ include("links.php");
     padding: 16px 18px;
     border: 1px solid var(--line);
     border-radius: 16px;
-    background: linear-gradient(135deg, #0f766e 0%, #155e75 100%);
+    background:
+        linear-gradient(135deg, rgba(255,255,255,0.12), transparent 34%),
+        linear-gradient(135deg, var(--executive-navy) 0%, #155e75 48%, var(--executive-teal) 100%);
     color: #ecfeff;
-    box-shadow: 0 14px 36px rgba(8, 47, 73, 0.22);
+    box-shadow: 0 16px 38px rgba(8, 47, 73, 0.26);
     text-align: left;
+    animation: executiveFadeUp 0.55s ease both;
 }
 
 .admin-layout {
@@ -88,10 +98,13 @@ include("links.php");
     max-height: calc(100vh - 118px);
     overflow-y: auto;
     padding: 10px;
-    border: 1px solid var(--line);
+    border: 1px solid rgba(15, 39, 66, 0.1);
     border-radius: 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.96) 100%),
+        linear-gradient(135deg, rgba(213, 155, 45, 0.1), rgba(14, 165, 233, 0.08));
     box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+    animation: executiveFadeUp 0.62s ease both;
 }
 
 .admin-sidebar-scroll::-webkit-scrollbar {
@@ -110,10 +123,13 @@ include("links.php");
 .admin-dashboard-panel {
     min-height: calc(100vh - 190px);
     border-radius: 16px;
-    border: 1px solid var(--line);
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(15, 39, 66, 0.1);
+    background:
+        radial-gradient(circle at top right, rgba(14, 165, 233, 0.08), transparent 30%),
+        linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
     min-width: 0;
+    animation: executiveFadeUp 0.7s ease both;
 }
 
 .form-entry {
@@ -134,12 +150,15 @@ include("links.php");
 }
 
 .chart-container {
-    border: 1px solid var(--line);
+    border: 1px solid rgba(14, 165, 233, 0.18);
     border-radius: 12px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    background:
+        linear-gradient(135deg, rgba(236, 254, 255, 0.72), transparent 36%),
+        linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     padding: 14px;
     min-height: 320px;
     min-width: 0;
+    animation: executiveFadeUp 0.58s ease both;
 }
 
 .cards-side {
@@ -149,35 +168,63 @@ include("links.php");
 }
 
 .card {
-    border: 1px solid var(--line);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(15, 39, 66, 0.1);
     border-radius: 11px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    background:
+        linear-gradient(135deg, rgba(14, 165, 233, 0.06), transparent 42%),
+        linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     padding: 12px;
     min-height: 84px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+    animation: executiveFadeUp 0.55s ease both;
 }
 
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+.card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 5px;
+    background: var(--executive-sky);
 }
+
+.card:nth-child(3n+1)::before { background: var(--executive-teal); }
+.card:nth-child(3n+2)::before { background: var(--executive-sky); }
+.card:nth-child(3n+3)::before { background: var(--executive-gold); }
+
+.card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(14, 165, 233, 0.35);
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.13);
+}
+
+.card:nth-child(2) { animation-delay: 0.04s; }
+.card:nth-child(3) { animation-delay: 0.08s; }
+.card:nth-child(4) { animation-delay: 0.12s; }
+.card:nth-child(5) { animation-delay: 0.16s; }
+.card:nth-child(6) { animation-delay: 0.2s; }
 
 .card h4 {
     margin: 0 0 7px;
     font-size: 0.82rem;
     font-weight: 700;
-    color: #475569;
+    color: var(--executive-navy);
 }
 
 .card p {
     margin: 0;
     font-size: 1.45rem;
     font-weight: 800;
+    color: #0f172a;
 }
 
 .card.total {
-    background: linear-gradient(135deg, var(--brand), #0e7490);
+    background:
+        radial-gradient(circle at top right, rgba(245, 158, 11, 0.28), transparent 34%),
+        linear-gradient(135deg, var(--executive-navy), #0e7490 55%, var(--brand));
     border-color: transparent;
+    box-shadow: 0 16px 34px rgba(8, 47, 73, 0.18);
 }
 
 .card.total h4,
@@ -272,9 +319,11 @@ include("links.php");
 
 .quick-action-btn {
     text-decoration: none;
-    border: 1px solid var(--line);
-    background: #fff;
-    color: var(--ink);
+    border: 1px solid rgba(15, 39, 66, 0.1);
+    background:
+        linear-gradient(135deg, rgba(236, 254, 255, 0.55), transparent 42%),
+        #fff;
+    color: var(--executive-navy);
     border-radius: 10px;
     padding: 10px 12px;
     font-size: 0.84rem;
@@ -283,13 +332,14 @@ include("links.php");
     align-items: center;
     justify-content: center;
     gap: 6px;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
 .quick-action-btn:hover {
-    border-color: #86efac;
-    background: #f0fdf4;
-    transform: translateY(-1px);
+    border-color: rgba(15, 118, 110, 0.35);
+    background: linear-gradient(135deg, #ecfeff 0%, #fff7ed 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(15, 118, 110, 0.12);
 }
 
 .dashboard-shell {
@@ -301,9 +351,9 @@ include("links.php");
 }
 
 .dashboard-side-menu {
-    border: 1px solid var(--line);
+    border: 1px solid rgba(15, 39, 66, 0.1);
     border-radius: 12px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
     padding: 10px;
     height: fit-content;
     min-width: 0;
@@ -313,17 +363,25 @@ include("links.php");
     width: 100%;
     margin-bottom: 8px;
     text-align: left;
-    border: 1px solid var(--line);
+    border: 1px solid rgba(15, 39, 66, 0.1);
     border-radius: 10px;
     padding: 10px 11px;
     background: #fff;
     color: #0f172a;
     cursor: pointer;
     font-weight: 600;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
 
 .dash-side-btn.active {
-    background: #ecfeff;
+    background: linear-gradient(135deg, #ecfeff 0%, #fff7ed 100%);
+    border-color: #67e8f9;
+    color: var(--executive-navy);
+    box-shadow: inset 4px 0 0 var(--executive-gold);
+}
+
+.dash-side-btn:hover {
+    transform: translateX(2px);
     border-color: #67e8f9;
 }
 
@@ -332,7 +390,7 @@ include("links.php");
 }
 
 .dashboard-top-menu {
-    border: 1px solid var(--line);
+    border: 1px solid rgba(15, 39, 66, 0.1);
     border-radius: 12px;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     padding: 10px;
@@ -345,18 +403,23 @@ include("links.php");
 }
 
 .dash-top-btn {
-    border: 1px solid var(--line);
+    border: 1px solid rgba(15, 39, 66, 0.1);
     border-radius: 10px;
     padding: 9px 12px;
     background: #fff;
     color: #0f172a;
     cursor: pointer;
     font-weight: 700;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
 .dash-top-btn.active {
-    background: #fef3c7;
+    background: linear-gradient(135deg, #fef3c7 0%, #ecfeff 100%);
     border-color: #f59e0b;
+}
+
+.dash-top-btn:hover {
+    transform: translateY(-2px);
 }
 
 .dashboard-section {
@@ -365,12 +428,15 @@ include("links.php");
 
 .dashboard-section.active {
     display: block;
+    animation: executiveFadeUp 0.42s ease both;
 }
 
 .perf-panel {
-    border: 1px solid var(--line);
+    border: 1px solid rgba(15, 39, 66, 0.1);
     border-radius: 12px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    background:
+        linear-gradient(135deg, rgba(213, 155, 45, 0.08), transparent 35%),
+        linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     padding: 12px;
     margin-bottom: 14px;
     min-width: 0;
@@ -408,7 +474,7 @@ include("links.php");
 }
 
 .perf-chart-wrap {
-    border: 1px solid var(--line);
+    border: 1px solid rgba(14, 165, 233, 0.18);
     border-radius: 10px;
     background: #fff;
     padding: 10px;
@@ -417,7 +483,7 @@ include("links.php");
 }
 
 .perf-table-wrap {
-    border: 1px solid var(--line);
+    border: 1px solid rgba(15, 118, 110, 0.16);
     border-radius: 10px;
     background: #fff;
     padding: 10px;
@@ -426,7 +492,7 @@ include("links.php");
 }
 
 .pending-list-wrap {
-    border: 1px solid var(--line);
+    border: 1px solid rgba(245, 158, 11, 0.26);
     border-radius: 10px;
     background: #fff;
     padding: 10px;
@@ -449,7 +515,7 @@ include("links.php");
 .table-wrap {
     min-width: 0;
     overflow-x: visible;
-    border: 1px solid var(--line);
+    border: 1px solid rgba(15, 39, 66, 0.1);
     border-radius: 12px;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     padding: 12px;
@@ -472,10 +538,10 @@ include("links.php");
 .table thead th {
     text-align: left;
     font-weight: 700;
-    color: #334155;
-    border-bottom: 1px solid var(--line);
+    color: #ecfeff;
+    border-bottom: 1px solid rgba(15, 39, 66, 0.12);
     padding: 9px 10px;
-    background: #f8fafc;
+    background: linear-gradient(135deg, var(--executive-navy) 0%, #155e75 100%);
 }
 
 .table td {
@@ -505,6 +571,298 @@ include("links.php");
     position: sticky;
     top: 0;
     z-index: 2;
+}
+
+.system-change-panel {
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    border: 1px solid #dbeafe;
+    background:
+        radial-gradient(circle at top right, rgba(14, 165, 233, 0.14), transparent 32%),
+        linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.system-change-header {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 16px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.system-change-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 240px;
+}
+
+.system-change-icon {
+    width: 46px;
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: 15px;
+    background: #ecfeff;
+    color: #0e7490;
+    box-shadow: inset 0 0 0 1px #a5f3fc;
+}
+
+.system-change-title h3 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 1.1rem;
+}
+
+.system-change-title p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 0.84rem;
+}
+
+.system-change-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.system-change-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border: 1px solid #fecaca;
+    border-radius: 999px;
+    background: #fff1f2;
+    color: #991b1b;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.system-change-count strong {
+    min-width: 24px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #b91c1c;
+    color: #ffffff;
+    text-align: center;
+}
+
+.system-change-count.has-unread strong {
+    animation: executivePulse 1.9s ease-in-out infinite;
+}
+
+.system-change-mark-form {
+    margin: 0;
+}
+
+.system-change-mark-btn {
+    min-height: 40px;
+    padding: 9px 13px;
+    border-radius: 999px;
+    border-color: #bae6fd;
+    background: #f0f9ff;
+    color: #075985;
+    font-weight: 800;
+}
+
+.system-change-mark-btn:hover {
+    border-color: #38bdf8;
+    background: #e0f2fe;
+}
+
+.system-change-table-wrap {
+    margin: 14px;
+    max-height: 390px;
+    overflow: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #ffffff;
+}
+
+.system-change-table {
+    min-width: 900px;
+}
+
+.system-change-table caption {
+    padding: 14px 14px 4px;
+    margin: 0;
+    color: #0f172a;
+    font-size: 1rem;
+}
+
+.system-change-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #0f766e;
+    color: #ecfeff;
+}
+
+.system-change-row-unread td {
+    background: #fffbeb;
+}
+
+.system-change-row-read td {
+    background: #ffffff;
+}
+
+.system-change-actor {
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.system-change-actor small {
+    display: block;
+    margin-top: 3px;
+    color: #64748b;
+    font-weight: 700;
+}
+
+.system-change-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 74px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.system-change-pill-read {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.system-change-pill-unread {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.system-change-role {
+    background: #eef2ff;
+    color: #3730a3;
+}
+
+.system-change-empty {
+    padding: 28px !important;
+    color: #64748b !important;
+    text-align: center;
+}
+
+.admin-danger-zone {
+    margin-top: 14px;
+    border: 1px solid #fecaca;
+    border-radius: 16px;
+    background:
+        linear-gradient(135deg, rgba(254, 226, 226, 0.78), transparent 45%),
+        #ffffff;
+    overflow: hidden;
+}
+
+.admin-danger-zone summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 13px 15px;
+    color: #7f1d1d;
+    font-weight: 900;
+    cursor: pointer;
+    list-style: none;
+}
+
+.admin-danger-zone summary::-webkit-details-marker {
+    display: none;
+}
+
+.admin-danger-zone summary::after {
+    content: "Open";
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: #fee2e2;
+    color: #991b1b;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+}
+
+.admin-danger-zone[open] summary::after {
+    content: "Close";
+}
+
+.admin-danger-zone-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 0 15px 15px;
+}
+
+.admin-danger-zone-body p {
+    flex: 1 1 320px;
+    margin: 0;
+    color: #64748b;
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.admin-danger-btn {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #991b1b 0%, #dc2626 100%);
+    color: #ffffff !important;
+    font-size: 0.82rem;
+    font-weight: 900;
+    text-decoration: none;
+    box-shadow: 0 10px 22px rgba(185, 28, 28, 0.18);
+}
+
+@keyframes executiveFadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes executivePulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(185, 28, 28, 0.22);
+    }
+    50% {
+        transform: scale(1.04);
+        box-shadow: 0 0 0 7px rgba(185, 28, 28, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
+    }
 }
 
 #myBtn {
@@ -592,6 +950,29 @@ include("links.php");
     }
     .perf-toolbar {
         grid-template-columns: 1fr;
+    }
+    .system-change-header {
+        padding: 14px;
+    }
+    .system-change-title,
+    .system-change-actions,
+    .system-change-count,
+    .system-change-mark-form,
+    .system-change-mark-btn {
+        width: 100%;
+    }
+    .system-change-actions {
+        justify-content: stretch;
+    }
+    .system-change-count,
+    .system-change-mark-btn {
+        justify-content: center;
+    }
+    .system-change-table-wrap {
+        margin: 10px;
+    }
+    .system-change-table {
+        min-width: 760px;
     }
 }
 </style>
@@ -986,22 +1367,29 @@ include("links.php");
                         ?>
 
                         <div class="dashboard-section" id="section-notifications">
-                        <div class="table-wrap" role="region" aria-label="System Change Notifications" style="margin-bottom:14px;" id="system-change-notifications">
-                            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-                                <div style="font-weight:600;color:#0f172a;">
-                                    Unread Changes:
-                                    <span style="display:inline-block;min-width:22px;padding:2px 8px;border-radius:999px;background:#b91c1c;color:#fff;font-size:12px;text-align:center;">
-                                        <?php echo (int)$_UnreadChangeCount; ?>
-                                    </span>
+                        <div class="table-wrap system-change-panel" role="region" aria-label="System Change Notifications" id="system-change-notifications">
+                            <div class="system-change-header">
+                                <div class="system-change-title">
+                                    <span class="system-change-icon"><i class="fa fa-bell"></i></span>
+                                    <div>
+                                        <h3>System Change Notifications</h3>
+                                        <p>Track teacher and student account changes in one clean audit view.</p>
+                                    </div>
                                 </div>
-                                <form method="post" action="admin.php#system-change-notifications" style="margin:0;">
-                                    <button type="submit" name="mark_changes_read" class="quick-action-btn" style="padding:8px 12px;">
-                                        <i class="fa fa-check"></i> Mark All As Read
-                                    </button>
-                                </form>
+                                <div class="system-change-actions">
+                                    <div class="system-change-count <?php echo ((int)$_UnreadChangeCount > 0) ? 'has-unread' : ''; ?>">
+                                        <span>Unread Changes</span>
+                                        <strong><?php echo (int)$_UnreadChangeCount; ?></strong>
+                                    </div>
+                                    <form method="post" action="admin.php#system-change-notifications" class="system-change-mark-form">
+                                        <button type="submit" name="mark_changes_read" class="quick-action-btn system-change-mark-btn">
+                                            <i class="fa fa-check"></i> Mark All As Read
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
-                            <div class="notification-scroll">
-                                <table class="table" style="margin:0;">
+                            <div class="system-change-table-wrap">
+                                <table class="table system-change-table">
                                     <caption>System Change Notifications (Teachers and Students)</caption>
                                     <thead>
                                         <tr>
@@ -1017,23 +1405,33 @@ include("links.php");
                                         <?php
                                         if ($_SQL_CHANGE_LOG && mysqli_num_rows($_SQL_CHANGE_LOG) > 0) {
                                             while ($row_log = mysqli_fetch_array($_SQL_CHANGE_LOG, MYSQLI_ASSOC)) {
-                                                echo "<tr>";
+                                                $_ChangeStatus = strtolower(trim((string)($row_log['status'] ?? 'read')));
+                                                $_RowClass = ($_ChangeStatus === 'unread') ? 'system-change-row-unread' : 'system-change-row-read';
+                                                $_StatusClass = ($_ChangeStatus === 'unread') ? 'system-change-pill-unread' : 'system-change-pill-read';
+                                                echo "<tr class='".$_RowClass."'>";
                                                 echo "<td>".htmlspecialchars($row_log['datetimeentry'])."</td>";
-                                                echo "<td>".htmlspecialchars($row_log['actor_name'])." (".htmlspecialchars($row_log['actor_userid']).")</td>";
-                                                echo "<td>".htmlspecialchars($row_log['actor_type'])."</td>";
+                                                echo "<td><span class='system-change-actor'>".htmlspecialchars($row_log['actor_name'])."<small>".htmlspecialchars($row_log['actor_userid'])."</small></span></td>";
+                                                echo "<td><span class='system-change-pill system-change-role'>".htmlspecialchars($row_log['actor_type'])."</span></td>";
                                                 echo "<td>".htmlspecialchars($row_log['action_type'])."</td>";
-                                                echo "<td>".htmlspecialchars($row_log['status'])."</td>";
+                                                echo "<td><span class='system-change-pill ".$_StatusClass."'>".htmlspecialchars($row_log['status'])."</span></td>";
                                                 echo "<td>".htmlspecialchars($row_log['details'])."</td>";
                                                 echo "</tr>";
                                             }
                                         } else {
-                                            echo "<tr><td colspan='6' style='text-align:center;color:#64748b'>No change notifications yet.</td></tr>";
+                                            echo "<tr><td colspan='6' class='system-change-empty'>No change notifications yet.</td></tr>";
                                         }
                                         ?>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
+                        <details class="admin-danger-zone">
+                            <summary><span><i class="fa fa-shield"></i> Admin Danger Zone</span></summary>
+                            <div class="admin-danger-zone-body">
+                                <p>The database reset button is hidden here for safety. Open it only after taking a backup and when you intentionally want to clear school operational data.</p>
+                                <a class="admin-danger-btn" href="global_deletes.php"><i class="fa fa-trash"></i> Open Database Reset</a>
+                            </div>
+                        </details>
                         </div>
 
                         <!-- Chart.js CDN -->
@@ -1447,7 +1845,3 @@ include("links.php");
     </script>
 </body>
 </html>
-
-
-
-

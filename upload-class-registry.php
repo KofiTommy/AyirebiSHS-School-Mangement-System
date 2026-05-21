@@ -79,6 +79,7 @@ else{
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" href="css/upload-class-registry.css">
 
 </head>
 
@@ -94,35 +95,52 @@ include("links.php");
 	//include("side-menu.php");
 	?>
 	</div>
-<div class="main-platform" align="center" >
+<div class="main-platform upload-registry-page">
+	<section class="upload-registry-hero">
+		<div>
+			<span class="upload-registry-kicker">Student Records</span>
+			<h1>Upload Class Registry</h1>
+			<p>Import class registration records from Excel and review the uploaded student class assignments.</p>
+		</div>
+		<div class="upload-registry-hero-card">
+			<i class="fa fa-upload"></i>
+			<span>Bulk Registry Upload</span>
+		</div>
+	</section>
+
 	<?php
 	echo $_SESSION["Message"];
 	?>
-	<table border="0" width="100%">
-		<tr>
-			<td width="30%" valign="top" align="center">
-				<h4>GROUP CLASS REGISTRATION</h4>		
-				
-	<div class="form-entry" align="left">
+	<div class="upload-registry-layout">
+		<aside class="upload-registry-panel upload-registry-form-panel">
+			<div class="upload-registry-panel-heading">
+				<span class="upload-registry-icon"><i class="fa fa-file-excel-o"></i></span>
+				<div>
+					<h2>Upload Register</h2>
+					<p>Select an Excel file containing class registration data.</p>
+				</div>
+			</div>
 		<form method="post" action="import-class-data.php" id="form1" enctype="multipart/form-data">
-		<div align="center">
-
-		<div id="subscription-style1" align="left">
-			<!--Employee Details -->
-		
-			<label>Upload Excel File*</label><br><br/>
-			<input type="file" id="file1" name="file1" /><br><br>				
+			<div class="upload-registry-dropzone">
+				<i class="fa fa-cloud-upload"></i>
+				<label for="file1">Upload Excel File</label>
+				<p>Choose the prepared class registry spreadsheet.</p>
+				<input type="file" id="file1" name="file1" />
+			</div>
 			
 			<!--Submit form's data -->
-			<button class="button-pay" id="submit_group_data" name="submit_group_data"><i class="fa fa-upload"></i> Upload Data</button>
-		</div>
-	</div>
+			<div class="upload-registry-actions"><button class="button-pay upload-registry-btn upload-registry-btn-primary" id="submit_group_data" name="submit_group_data"><i class="fa fa-upload"></i> Upload Data</button></div>
 	</form>
-		</div>
-			</td>
+		</aside>
 
-			<td width="70%" valign="top">
-				<div class="form-entry" align="left">
+			<main class="upload-registry-panel upload-registry-list-panel">
+				<div class="upload-registry-panel-heading">
+					<span class="upload-registry-icon"><i class="fa fa-list"></i></span>
+					<div>
+						<h2>Student Class Registration</h2>
+						<p>Review active class assignments after upload.</p>
+					</div>
+				</div>
 				<?php
 				echo $_SESSION['Message'];
 
@@ -130,20 +148,21 @@ include("links.php");
 				$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsystemuser WHERE systemtype='Student' ORDER BY firstname ASC");
 
 				//Registered clients
-				echo "<table width='100%' style='background-color:white'>";
+				echo "<div class='upload-registry-table-wrap'>";
+				echo "<table class='upload-registry-table'>";
 				echo "<caption>STUDENT CLASS REGISTRATION</caption>";
 				echo "<thead><th>*</th><th colspan=1>TASK</th><th>STUDENT</th><th>CLASS</th><th>BATCH</th><th>ENTRY DATE/TIME</th></thead>";
 				echo "<tbody>";
 				@$serial=0;
 
 				while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
-				echo "<tr>";
+				echo "<tr class='upload-registry-student-row'>";
 				echo "<td align='center'>";
 				echo $serial=$serial+1 .".";
 				echo "</td>";
 
-				echo "<td align='center' ><a title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'<i class='fa fa-plus' style='color:royalblue'></i></a></td>";
-				echo "<td colspan='4' style='background-color:#ffffff;border-bottom:0px solid gray'>$row[firstname] $row[othernames] $row[surname] ($row[userid])</td>";
+				echo "<td align='center' ><a class='upload-registry-row-action' title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'><i class='fa fa-plus'></i></a></td>";
+				echo "<td colspan='4'>$row[firstname] $row[othernames] $row[surname] ($row[userid])</td>";
 			
 				echo "</tr>";
 				
@@ -152,12 +171,12 @@ include("links.php");
 				INNER JOIN tblbatch bh ON cl.batchid=bh.batchid
 				 WHERE cl.userid='$row[userid]' AND cl.status='active' ORDER BY ce.class_name ASC");
 				while($row_cl=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
-				echo "<tr style='background-color:#ffffff;border-bottom:1px solid gray'>";
+				echo "<tr class='upload-registry-class-row'>";
 			
 				echo "<td colspan='1'>";
 				echo "</td>";
 
-				echo "<td align='center'><a onclick=\"javascript:return confirm('Do you want to remove class?')\" title='Remove class $row_cl[class_name]' href='upload-class-registry.php?delete_class=$row_cl[classid]'<i class='fa fa-trash-o' style='color:red'></i></a></td>";
+				echo "<td align='center'><a class='upload-registry-row-action upload-registry-action-danger' onclick=\"javascript:return confirm('Do you want to remove class?')\" title='Remove class $row_cl[class_name]' href='upload-class-registry.php?delete_class=$row_cl[classid]'><i class='fa fa-trash-o'></i></a></td>";
 				echo "<td colspan='1' align='right'>";
 				echo "Class:";
 				echo "</td>";
@@ -179,11 +198,10 @@ include("links.php");
 			}
 				echo "</tbody>";
 				echo "</table>";
+				echo "</div>";
 				?>
-			</div>
-			</td>
-		</tr>
-	</table>
+			</main>
+	</div>
 
 	
   <br/><br/>

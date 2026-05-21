@@ -347,10 +347,6 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="no
 
 <a href="viewusers.php"><button><i class="fa fa-user" style="color:royalblue"></i> View Teachers</button></a>
 <a href="viewstudents.php"><button><i class="fa fa-user" style="color:royalblue"></i> View Students</button></a>
-<?php
-echo "<a  onclick=\"javascript:return confirm('Do you want to clear database?');\" href='global_deletes.php'><button><i class='fa fa-book' style='color:green'></i> Empty Data </button></a>";
-?>
-
 <!--<a href="backup_db.php"><button class="btn-menu"><i class="fa fa-book" style="color:royalblue"></i> Backup </button></a>-->
 <a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
 </div>
@@ -389,9 +385,6 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="su
 <a href="backup_db.php"><button><i class="fa fa-book" style="color:green"></i> Backup </button></a>
 <a href="generateapikey.php"><button><i class="fa fa-book" style="color:green"></i> API KEY </button></a>
 
-<?php
-echo "<a  onclick=\"javascript:return confirm('Do you want to clear database?');\" href='global_deletes.php'><button><i class='fa fa-book' style='color:green'></i> Empty Data </button></a>";
-?>
 <a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
 </div>
 <?php
