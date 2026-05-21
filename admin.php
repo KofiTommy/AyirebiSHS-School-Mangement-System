@@ -143,7 +143,7 @@ include("links.php");
 
 .dashboard-flex {
     display: grid;
-    grid-template-columns: 340px minmax(0, 1fr);
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
     gap: 14px;
     margin: 0 0 16px;
     min-width: 0;
@@ -156,15 +156,31 @@ include("links.php");
         linear-gradient(135deg, rgba(236, 254, 255, 0.72), transparent 36%),
         linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     padding: 14px;
-    min-height: 320px;
+    height: 360px;
     min-width: 0;
-    animation: executiveFadeUp 0.58s ease both;
+    overflow: hidden;
+}
+
+.chart-container #studentChart {
+    display: block;
+    width: 100% !important;
+    height: 282px !important;
+}
+
+.chart-note {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+    line-height: 1.45;
+    text-align: center;
 }
 
 .cards-side {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
+    align-items: stretch;
+    grid-auto-rows: minmax(82px, 1fr);
 }
 
 .card {
@@ -176,9 +192,8 @@ include("links.php");
         linear-gradient(135deg, rgba(14, 165, 233, 0.06), transparent 42%),
         linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     padding: 12px;
-    min-height: 84px;
+    min-height: 82px;
     transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
-    animation: executiveFadeUp 0.55s ease both;
 }
 
 .card::before {
@@ -198,12 +213,6 @@ include("links.php");
     border-color: rgba(14, 165, 233, 0.35);
     box-shadow: 0 16px 30px rgba(15, 23, 42, 0.13);
 }
-
-.card:nth-child(2) { animation-delay: 0.04s; }
-.card:nth-child(3) { animation-delay: 0.08s; }
-.card:nth-child(4) { animation-delay: 0.12s; }
-.card:nth-child(5) { animation-delay: 0.16s; }
-.card:nth-child(6) { animation-delay: 0.2s; }
 
 .card h4 {
     margin: 0 0 7px;
@@ -311,10 +320,11 @@ include("links.php");
 }
 
 .quick-actions {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
     gap: 10px;
-    margin: 10px 0 16px;
+    margin: 0;
 }
 
 .quick-action-btn {
@@ -333,6 +343,38 @@ include("links.php");
     justify-content: center;
     gap: 6px;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.dashboard-status-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(15, 39, 66, 0.1);
+    border-radius: 14px;
+    background:
+        linear-gradient(135deg, rgba(236, 254, 255, 0.72), transparent 42%),
+        #ffffff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.dashboard-status-strip strong {
+    color: var(--executive-navy);
+}
+
+.dashboard-status-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #374151;
+    font-size: 0.92rem;
+}
+
+.dashboard-status-label i {
+    color: var(--executive-teal);
 }
 
 .quick-action-btn:hover {
@@ -429,6 +471,10 @@ include("links.php");
 .dashboard-section.active {
     display: block;
     animation: executiveFadeUp 0.42s ease both;
+}
+
+#section-overview.dashboard-section.active {
+    animation: none;
 }
 
 .perf-panel {
@@ -886,11 +932,8 @@ include("links.php");
         padding-right: 14px;
     }
 
-    .quick-actions {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
     .cards-side {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .perf-grid {
         grid-template-columns: 1fr;
@@ -938,13 +981,18 @@ include("links.php");
     }
 }
 
+@media (max-width: 760px) {
+    .cards-side {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 620px) {
     .main-platform {
         padding-left: 10px;
         padding-right: 10px;
     }
 
-    .quick-actions,
     .cards-side {
         grid-template-columns: 1fr;
     }
@@ -1005,6 +1053,14 @@ include("links.php");
                         ensureSystemChangeLogTable($con);
                         mysqli_query($con, "DELETE FROM tblsystemchangelog WHERE status='read' AND datetimeentry < (NOW() - INTERVAL 48 HOUR)");
 
+                        $normalizedResidenceSql = "
+                          CASE
+                            WHEN UPPER(TRIM(COALESCE(su.residencetype, ''))) IN ('DAY','D') THEN 'Day'
+                            WHEN UPPER(TRIM(COALESCE(su.residencetype, ''))) IN ('BOARDING','BOARDER','B') THEN 'Boarding'
+                            ELSE ''
+                          END
+                        ";
+
                         /* 1) Query: counts by (gender x residence) */
                         $sql = "
                           SELECT
@@ -1013,18 +1069,29 @@ include("links.php");
                               WHEN UPPER(su.gender) IN ('F','FEMALE','GIRL','G') THEN 'Female'
                               ELSE 'Other'
                             END AS gnorm,
-                            su.residencetype,
+                            ".$normalizedResidenceSql." AS residence_group,
                             COUNT(DISTINCT su.userid) AS cnt
                           FROM tblsystemuser su
                           INNER JOIN tblclass cl ON cl.userid=su.userid
                           WHERE su.systemtype='Student'
                             AND su.status='active'
                             AND cl.status='active'
-                            AND su.residencetype IN ('Day','Boarding')
-                          GROUP BY gnorm, su.residencetype
+                          GROUP BY gnorm, residence_group
                         ";
 
                         $res = mysqli_query($con, $sql);
+
+                        $statsSql = "
+                          SELECT
+                            COUNT(DISTINCT su.userid) AS total_students,
+                            COUNT(DISTINCT CASE WHEN ".$normalizedResidenceSql." = '' THEN su.userid END) AS no_status_students
+                          FROM tblsystemuser su
+                          INNER JOIN tblclass cl ON cl.userid=su.userid
+                          WHERE su.systemtype='Student'
+                            AND su.status='active'
+                            AND cl.status='active'
+                        ";
+                        $statsRes = mysqli_query($con, $statsSql);
 
                         /* 2) Seed defaults so missing combos show 0 */
                         $counts = [
@@ -1032,12 +1099,21 @@ include("links.php");
                           'Female' => ['Day' => 0, 'Boarding' => 0],
                         ];
 
-                        while ($row = mysqli_fetch_assoc($res)) {
-                          $g = $row['gnorm'];
-                          $r = $row['residencetype'];
-                          if (isset($counts[$g][$r])) {
-                            $counts[$g][$r] = (int)$row['cnt'];
+                        if ($res) {
+                          while ($row = mysqli_fetch_assoc($res)) {
+                            $g = $row['gnorm'];
+                            $r = $row['residence_group'];
+                            if (isset($counts[$g][$r])) {
+                              $counts[$g][$r] = (int)$row['cnt'];
+                            }
                           }
+                        }
+
+                        $students_total = 0;
+                        $students_no_status = 0;
+                        if ($statsRes && ($statsRow = mysqli_fetch_assoc($statsRes))) {
+                            $students_total = (int)$statsRow['total_students'];
+                            $students_no_status = (int)$statsRow['no_status_students'];
                         }
 
                         /* 3) Convenient vars + totals */
@@ -1050,7 +1126,8 @@ include("links.php");
                         $girls_total     = $girls_day + $girls_boarding;
                         $day_total       = $boys_day + $girls_day;
                         $boarding_total  = $boys_boarding + $girls_boarding;
-                        $grand_total     = $boys_total + $girls_total;
+                        $students_with_status_total = $boys_total + $girls_total;
+                        $grand_total     = $students_total;
 
                         $activeBatchNames = array();
                         $_SQL_ACTIVE_BATCH = mysqli_query($con, "SELECT batch FROM tblbatch WHERE status='active' ORDER BY datetimeentry DESC");
@@ -1338,14 +1415,15 @@ include("links.php");
                         }
                         ?>
 
-                        <div style="text-align:left;margin-bottom:8px;color:#374151;font-size:0.92rem;">
-                            Active Semesters: <strong><?php echo $activeBatchLabel; ?></strong>
-                        </div>
-                        <div class="quick-actions" role="region" aria-label="Semester actions">
-                            <a class="quick-action-btn" href="batch-entry.php"><i class="fa fa-plus"></i> Start New Semester</a>
-                            <a class="quick-action-btn" href="term-registry.php"><i class="fa fa-plus"></i> Semester Registry</a>
-                            <a class="quick-action-btn" href="promotion-center.php"><i class="fa fa-level-up"></i> Promote Students</a>
-                            <a class="quick-action-btn" href="student-history.php"><i class="fa fa-history"></i> Student History</a>
+                        <div class="dashboard-status-strip">
+                            <div class="dashboard-status-label">
+                                <i class="fa fa-calendar-check-o"></i>
+                                <span>Active Semesters: <strong><?php echo $activeBatchLabel; ?></strong></span>
+                            </div>
+                            <div class="quick-actions" role="region" aria-label="Academic actions">
+                                <a class="quick-action-btn" href="promotion-center.php"><i class="fa fa-level-up"></i> Promote Students</a>
+                                <a class="quick-action-btn" href="student-history.php"><i class="fa fa-history"></i> Student History</a>
+                            </div>
                         </div>
 
                         <div class="dashboard-shell">
@@ -1443,6 +1521,7 @@ include("links.php");
                             <div class="chart-side">
                                 <div class="chart-container">
                                     <canvas id="studentChart" width="280" height="280" aria-label="Student distribution by gender and residence"></canvas>
+                                    <p class="chart-note">Chart and summary tiles below show students with recognized Day or Boarding residence. Missing residence records are shown separately.</p>
                                 </div>
                             </div>
                             <div class="cards-side">
@@ -1462,8 +1541,12 @@ include("links.php");
                                     <h4><i class="fa fa-female" style="color:#f472b6; margin-right:4px;"></i>Girls - Boarding</h4>
                                     <p><?php echo number_format($girls_boarding); ?></p>
                                 </div>
-                                <div class="card total" role="article" aria-label="Total Students">
-                                    <h4><i class="fa fa-users" style="color:#fff; margin-right:4px;"></i>Total Students</h4>
+                                <div class="card" role="article" aria-label="Students With No Residence Status">
+                                    <h4><i class="fa fa-question-circle" style="color:#b45309; margin-right:4px;"></i>No Residence Status</h4>
+                                    <p><?php echo number_format($students_no_status); ?></p>
+                                </div>
+                                <div class="card total" role="article" aria-label="Total Active Students">
+                                    <h4><i class="fa fa-users" style="color:#fff; margin-right:4px;"></i>Total Active Students</h4>
                                     <p><?php echo number_format($grand_total); ?></p>
                                 </div>
                             </div>
@@ -1717,11 +1800,11 @@ include("links.php");
                                 new Chart(ctx, {
                                     type: 'doughnut',
                                     data: {
-                                        labels: ['Boys Day', 'Boys Boarding', 'Girls Day', 'Girls Boarding'],
+                                        labels: ['Boys Day', 'Boys Boarding', 'Girls Day', 'Girls Boarding', 'No Residence Status'],
                                         datasets: [{
                                             label: 'Student Count',
-                                            data: [<?php echo $boys_day; ?>, <?php echo $boys_boarding; ?>, <?php echo $girls_day; ?>, <?php echo $girls_boarding; ?>],
-                                            backgroundColor: ['#2563eb', '#38bdf8', '#db2777', '#f472b6'],
+                                            data: [<?php echo $boys_day; ?>, <?php echo $boys_boarding; ?>, <?php echo $girls_day; ?>, <?php echo $girls_boarding; ?>, <?php echo $students_no_status; ?>],
+                                            backgroundColor: ['#2563eb', '#38bdf8', '#db2777', '#f472b6', '#d59b2d'],
                                             borderColor: '#fff',
                                             borderWidth: 2,
                                             hoverOffset: 16
@@ -1729,6 +1812,7 @@ include("links.php");
                                     },
                                     options: {
                                         responsive: true, maintainAspectRatio: false,
+                                        animation: false,
                                         plugins: {
                                             legend: {
                                                 position: 'bottom',
@@ -1741,7 +1825,7 @@ include("links.php");
                                             },
                                             title: {
                                                 display: true,
-                                                text: 'Student Distribution by Gender & Residence',
+                                                text: 'Student Distribution by Gender & Residence Status',
                                                 font: { size: 16, weight: '600' },
                                                 color: '#111827',
                                                 padding: { top: 10, bottom: 20 }
