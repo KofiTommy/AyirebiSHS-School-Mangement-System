@@ -127,7 +127,14 @@ button{
     display: flex;
     align-items: stretch;
     flex: 0 0 auto;
-    z-index: 2000;
+    z-index: 999990;
+}
+
+.header,
+.top-actions {
+    position: relative;
+    z-index: 999980;
+    overflow: visible !important;
 }
 
 .dropdownNew .dropbtnNew {
@@ -148,8 +155,9 @@ button{
     border-radius: 10px;
     box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.3);
     right: 0;
-    z-index: 3000;
+    z-index: 999999;
     padding-top: 6px;
+    overflow: visible;
 
 }
 
@@ -201,6 +209,8 @@ button{
 @media (max-width:640px) {
   .top-actions {
     justify-content: flex-start;
+    position: relative;
+    z-index: 999980;
   }
 
   .top-action-link,
@@ -214,6 +224,23 @@ button{
     right: 0;
     min-width: 100%;
     max-width: none;
+  }
+
+  .dropdownNew.is-open .dropdownNew-content {
+    position: fixed;
+    top: 72px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    max-height: calc(100vh - 88px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    z-index: 2147483000;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 22px 48px rgba(15, 23, 42, 0.28);
   }
 }
 </style>
