@@ -366,7 +366,7 @@ alert("Please select Date Time Picker");
 				echo "</td>";
 				echo "<td align='center'>";
 				if($row['systemtype']=="Student"){
-					echo "<a title='All Reports: $row[firstname] ($row[userid])' href='student-history.php?studentid=$row[userid]'><i class='fa fa-history' style='color:#0b63ce'></i></a>";
+					echo "<a title='View Transcript: $row[firstname] ($row[userid])' href='student-history.php?studentid=$row[userid]'><i class='fa fa-history' style='color:#0b63ce'></i></a>";
 				}
 				else{
 					echo "-";

@@ -204,7 +204,7 @@ if($_LandingPhoneHref !== ""){
 $_LandingQuickActionHref = $_PublicAdmissionOpen ? "online-admission.php" : "#portal-login";
 $_LandingQuickActionLabel = $_PublicAdmissionOpen ? "Admission" : "Login";
 $_LandingQuickActionIcon = $_PublicAdmissionOpen ? "fa-arrow-right" : "fa-sign-in";
-$_LandingLogoHref = "images/xschool-logo.png";
+$_LandingLogoHref = "images/nexgen-logo.png";
 if(isset($_Logo) && trim((string)$_Logo) !== ""){
     $__LandingLogoFile = trim((string)$_Logo);
     $__LandingLogoCandidates = array(

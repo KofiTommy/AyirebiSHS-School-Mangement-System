@@ -342,7 +342,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a href="group-term-registry.php"><i class="fa fa-plus"></i> Group Semester Registry</a>
 <a href="upload-semester-registry.php"><i class="fa fa-arrow-circle-up"></i> Upload Semester Registry</a>
 <a href="promotion-center.php"><i class="fa fa-level-up"></i> Promotion Center</a>
-<a href="student-history.php"><i class="fa fa-history"></i> Student History</a>
+<a href="student-history.php"><i class="fa fa-history"></i> Student Transcript</a>
 <a href="continuing-students.php"><i class="fa fa-users"></i> Continuing Students</a>
 <?php menuboard_section_end(); ?>
 
@@ -431,7 +431,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <a href="group-term-registry.php"><i class="fa fa-plus"></i> Group Semester Registry</a>
 <a href="upload-semester-registry.php"><i class="fa fa-arrow-circle-up"></i> Upload Semester Registry</a>
 <a href="promotion-center.php"><i class="fa fa-level-up"></i> Promotion Center</a>
-<a href="student-history.php"><i class="fa fa-history"></i> Student History</a>
+<a href="student-history.php"><i class="fa fa-history"></i> Student Transcript</a>
 <a href="continuing-students.php"><i class="fa fa-users"></i> Continuing Students</a>
 <?php menuboard_section_end(); ?>
 

@@ -165,8 +165,8 @@ include("menu.php");
                         <p>Maintain active class placement records.</p>
                     </a>
                     <a class="quick-card" href="student-history.php">
-                        <h4><i class="fa fa-history"></i> Student History</h4>
-                        <p>Review report and progression history.</p>
+                        <h4><i class="fa fa-history"></i> Student Transcript</h4>
+                        <p>Review the official multi-year academic transcript.</p>
                     </a>
                     <a class="quick-card" href="view-class-registry.php">
                         <h4><i class="fa fa-eye"></i> View Class Registry</h4>

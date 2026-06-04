@@ -12,7 +12,7 @@
 include("validation/header.php");
 include_once("company.php");
 
-$__faviconHref = "images/xschool-logo.png";
+$__faviconHref = "images/nexgen-logo.png";
 if(isset($_Logo) && trim((string)$_Logo) !== ""){
     $__logoFile = trim((string)$_Logo);
     $__candidates = array(

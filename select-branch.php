@@ -12,7 +12,7 @@ function branch_esc($value){
 function branch_image_src($filename){
     $filename = trim((string)$filename);
     if($filename === ""){
-        return "images/xschool-logo.png";
+        return "images/nexgen-logo.png";
     }
     return "images/logo/".rawurlencode($filename);
 }
@@ -159,7 +159,7 @@ document.getElementById("staff-id").value=rnd;
         <div class="branch-hero__copy">
             <div class="branch-brand">
                 <div class="branch-brand__mark">
-                    <img src="images/xschool-logo.png" alt="XSCHOOL">
+                    <img src="images/nexgen-logo.png" alt="NexGen">
                 </div>
                 <div>
                     <span class="branch-kicker">Branch Workspace</span>

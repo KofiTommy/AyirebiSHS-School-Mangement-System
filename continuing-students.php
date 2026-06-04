@@ -86,7 +86,7 @@ $_ClassIdSafe = mysqli_real_escape_string($con, $_ClassId);
             echo "<td>$row[batch]</td>";
             echo "<td>$row[gender]</td>";
             echo "<td>$row[residencetype]</td>";
-            echo "<td align='center'><a href='student-history.php?studentid=$row[userid]' title='All Reports'><i class='fa fa-history' style='color:#0b63ce'></i></a></td>";
+            echo "<td align='center'><a href='student-history.php?studentid=$row[userid]' title='View Transcript'><i class='fa fa-history' style='color:#0b63ce'></i></a></td>";
             echo "<td>$row[datetimeentry]</td>";
             echo "</tr>";
         }

@@ -561,7 +561,7 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
 <div class="oa-shell">
     <header class="oa-topbar">
         <div class="oa-brand">
-            <div class="oa-brand__mark"><img src="images/xschool-logo.png" alt="XSCHOOL"></div>
+            <div class="oa-brand__mark"><img src="images/nexgen-logo.png" alt="NexGen"></div>
             <div class="oa-brand__text">
                 <span class="oa-kicker">Online Admission</span>
                 <h2><?php echo oa_esc($companyName); ?></h2>

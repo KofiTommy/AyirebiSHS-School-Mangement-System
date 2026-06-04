@@ -8,5 +8,5 @@ return array(
     "cancel_path" => "online-admission-hubtel-cancel.php",
     "title" => "School Admission Payment",
     "description" => "Admission fee payment for a verified posted student",
-    "logo_url" => "https://yourdomain.com/images/xschool-logo.png"
+    "logo_url" => "https://yourdomain.com/images/nexgen-logo.png"
 );

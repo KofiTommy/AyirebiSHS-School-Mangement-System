@@ -91,7 +91,7 @@ include("validation/header.php");
 		<div class="form-entry" align="left">
 			
 			<form id="formID" name="formID" method="post" action="app_anthentication.php">
-				<h3 style="color:royalblue" align="left"><img src="images/xsoft-logo.png" style="border:0px solid gray" width="35%" height="5%"> API ANTHENTICATION</h3>
+				<h3 style="color:royalblue" align="left"><img src="images/nexgen-logo.png" alt="NexGen" style="border:0; display:block; width:35%; max-width:220px; min-width:140px; height:auto; margin:0 0 10px;"> API ANTHENTICATION</h3>
 				<?php
 			echo @$_SESSION['Message'];
 			//echo $_SESSION['USERID'];

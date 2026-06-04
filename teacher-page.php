@@ -516,7 +516,8 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <?php } ?>
         <a class="teacher-action-card" href="class-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-pencil"></i></span><h3>Class Score Entry</h3></a>
         <a class="teacher-action-card" href="exam-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-edit"></i></span><h3>Exam Score Entry</h3></a>
-        <a class="teacher-action-card" href="upload-classexam-score.php"><span class="teacher-action-card__icon"><i class="fa fa-upload"></i></span><h3>Upload Scores</h3></a>
+        <a class="teacher-action-card" href="upload-class-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-upload"></i></span><h3>Upload Class Scores</h3><p>Use the newer Excel upload flow for class score sheets.</p></a>
+        <a class="teacher-action-card" href="upload-exam-score-entry.php"><span class="teacher-action-card__icon"><i class="fa fa-upload"></i></span><h3>Upload Exam Scores</h3><p>Use the newer Excel upload flow for exam score sheets.</p></a>
         <?php if($teacherCanTakeAttendance){ ?>
         <a class="teacher-action-card" href="student-terminal-data.php"><span class="teacher-action-card__icon"><i class="fa fa-commenting"></i></span><h3>Student Remarks</h3></a>
         <?php } ?>

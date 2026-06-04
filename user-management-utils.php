@@ -336,7 +336,7 @@ function um_module_catalog(){
         'student_progression' => array(
             'label' => 'Student Progression',
             'group' => 'Academics',
-            'description' => 'Promotion center and student history tools.',
+            'description' => 'Promotion center and student transcript tools.',
             'scripts' => array('promotion-center.php','student-history.php','continuing-students.php')
         ),
         'subject_management' => array(
@@ -589,7 +589,7 @@ function um_teacher_extra_nav_links($con, $userId = ''){
         ),
         'student_progression' => array(
             array('href' => 'promotion-center.php', 'label' => 'Promotion Center', 'icon' => 'fa-level-up'),
-            array('href' => 'student-history.php', 'label' => 'Student History', 'icon' => 'fa-history')
+            array('href' => 'student-history.php', 'label' => 'Student Transcript', 'icon' => 'fa-history')
         ),
         'subject_management' => array(
             array('href' => 'subject-classification.php', 'label' => 'Subject Classification', 'icon' => 'fa-book'),

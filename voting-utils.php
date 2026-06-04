@@ -216,7 +216,7 @@ function voting_candidate_photo($candidate){
     if($path !== ''){
         return $path;
     }
-    return 'images/xschool-logo.png';
+    return 'images/nexgen-logo.png';
 }
 }
 

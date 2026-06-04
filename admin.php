@@ -1422,7 +1422,7 @@ include("links.php");
                             </div>
                             <div class="quick-actions" role="region" aria-label="Academic actions">
                                 <a class="quick-action-btn" href="promotion-center.php"><i class="fa fa-level-up"></i> Promote Students</a>
-                                <a class="quick-action-btn" href="student-history.php"><i class="fa fa-history"></i> Student History</a>
+                                <a class="quick-action-btn" href="student-history.php"><i class="fa fa-history"></i> Student Transcript</a>
                             </div>
                         </div>
 
