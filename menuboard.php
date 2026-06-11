@@ -1,7 +1,13 @@
 <?php
 if(!function_exists('menuboard_section_start')){
 function menuboard_section_start($title, $icon = 'fa-folder-open', $open = false){
-    echo "<details class='menuboard-section'".($open ? " open" : "").">";
+    $sectionKey = strtolower(trim((string)$title));
+    $sectionKey = preg_replace('/[^a-z0-9]+/', '-', $sectionKey);
+    $sectionKey = trim((string)$sectionKey, '-');
+    if($sectionKey === ''){
+        $sectionKey = 'menu-section';
+    }
+    echo "<details class='menuboard-section' data-menuboard-key='".$sectionKey."'".($open ? " open" : "").">";
     echo "<summary><span class='menuboard-section__title'><i class='fa ".$icon."'></i> ".$title."</span></summary>";
     echo "<div class='menuboard-section__body'>";
 }
@@ -321,7 +327,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a href="school-data-entry.php"><i class="fa fa-plus"></i> School Data Entry</a>
 <?php menuboard_section_end(); ?>
 
-<?php menuboard_section_start('Student Records', 'fa-folder-o', true); ?>
+<?php menuboard_section_start('Student Records', 'fa-folder-o'); ?>
 <a href="class-registry.php"><i class="fa fa-plus"></i> Class Registry</a>
 <a href="upload-class-registry.php"><i class="fa fa-arrow-circle-up"></i> Upload Class Registry</a>
 <a href="view-class-registry.php"><i class="fa fa-arrow-circle-up"></i> View Class Registry</a>
@@ -414,7 +420,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <a href="school-data-entry.php"><i class="fa fa-plus"></i> School Data Entry</a>
 <?php menuboard_section_end(); ?>
 
-<?php menuboard_section_start('Student Records', 'fa-folder-o', true); ?>
+<?php menuboard_section_start('Student Records', 'fa-folder-o'); ?>
 <a href="class-registry.php"><i class="fa fa-plus"></i> Class Registry</a>
 <a href="upload-class-registry.php"><i class="fa fa-arrow-circle-up"></i> Upload Class Registry</a>
 <a href="view-class-registry.php"><i class="fa fa-arrow-circle-up"></i> View Class Registry</a>
@@ -540,9 +546,38 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
 </div>
 <script>
 (function () {
+    var storageKeyPrefix = 'menuboard-section-state:';
     var sections = document.querySelectorAll('.menu-inner .menuboard-section');
+
+    sections.forEach(function (section) {
+        var key = section.getAttribute('data-menuboard-key');
+        if (!key) {
+            return;
+        }
+
+        try {
+            var savedState = window.localStorage.getItem(storageKeyPrefix + key);
+            if (savedState === 'open') {
+                section.open = true;
+            } else if (savedState === 'closed') {
+                section.open = false;
+            }
+        } catch (error) {
+            // Ignore storage issues and keep the default state.
+        }
+    });
+
     sections.forEach(function (section) {
         section.addEventListener('toggle', function () {
+            var key = section.getAttribute('data-menuboard-key');
+            if (key) {
+                try {
+                    window.localStorage.setItem(storageKeyPrefix + key, section.open ? 'open' : 'closed');
+                } catch (error) {
+                    // Ignore storage issues and keep the menu usable.
+                }
+            }
+
             if (!section.open) {
                 return;
             }
@@ -550,6 +585,14 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
             sections.forEach(function (otherSection) {
                 if (otherSection !== section) {
                     otherSection.open = false;
+                    var otherKey = otherSection.getAttribute('data-menuboard-key');
+                    if (otherKey) {
+                        try {
+                            window.localStorage.setItem(storageKeyPrefix + otherKey, 'closed');
+                        } catch (error) {
+                            // Ignore storage issues and keep the menu usable.
+                        }
+                    }
                 }
             });
         });
