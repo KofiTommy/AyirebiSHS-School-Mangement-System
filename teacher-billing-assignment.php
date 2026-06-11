@@ -7,25 +7,67 @@ include("teacher-billing-utils.php");
 ensure_teacher_billing_table($con);
 ensure_teacher_billing_item_table($con);
 
-if(!teacher_billing_can_manage_assignments()){
-    header("location:".teacher_billing_landing_page());
+if (!teacher_billing_can_manage_assignments()) {
+    header("location:" . teacher_billing_landing_page());
     exit();
 }
 
-function tba_redirect(){
-    header("location:teacher-billing-assignment.php");
-    exit();
+if (!function_exists('tba_redirect')) {
+    function tba_redirect($query = '')
+    {
+        header("location:teacher-billing-assignment.php" . $query);
+        exit();
+    }
 }
 
-if(isset($_POST['save_teacher_billing_assignment'])){
+if (!function_exists('tba_esc')) {
+    function tba_esc($value)
+    {
+        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+if (!function_exists('tba_flash_html')) {
+    function tba_flash_html($tone, $message)
+    {
+        $tone = trim((string)$tone);
+        $allowed = array('success', 'error', 'warning', 'info');
+        if (!in_array($tone, $allowed, true)) {
+            $tone = 'info';
+        }
+
+        $icon = 'fa-info-circle';
+        if ($tone === 'success') {
+            $icon = 'fa-check-circle';
+        } elseif ($tone === 'error') {
+            $icon = 'fa-exclamation-circle';
+        } elseif ($tone === 'warning') {
+            $icon = 'fa-exclamation-triangle';
+        }
+
+        return "<div class='tba-flash tba-flash--" . $tone . "'><span class='tba-flash__icon'><i class='fa " . $icon . "'></i></span><div class='tba-flash__body'>" . $message . "</div></div>";
+    }
+}
+
+if (!function_exists('tba_status_badge_html')) {
+    function tba_status_badge_html($status)
+    {
+        $status = strtolower(trim((string)$status));
+        $tone = ($status === 'active') ? 'active' : 'inactive';
+        $label = ($status === 'active') ? 'Active' : 'Inactive';
+        return "<span class='tba-badge tba-badge--" . $tone . "'>" . tba_esc($label) . "</span>";
+    }
+}
+
+if (isset($_POST['save_teacher_billing_assignment'])) {
     $_TeacherId = isset($_POST['userid']) ? trim((string)$_POST['userid']) : "";
     $_ClassId = isset($_POST['classid']) ? trim((string)$_POST['classid']) : "";
     $_BatchId = isset($_POST['batchid']) ? trim((string)$_POST['batchid']) : "";
     $_TermName = isset($_POST['termname']) ? (int)$_POST['termname'] : 0;
     $_RecordedBy = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : "";
 
-    if($_TeacherId === '' || $_ClassId === '' || $_BatchId === '' || $_TermName <= 0){
-        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white;padding:8px;'>Please select teacher, class, batch, and semester.</div>";
+    if ($_TeacherId === '' || $_ClassId === '' || $_BatchId === '' || $_TermName <= 0) {
+        $_SESSION['Message'] = tba_flash_html('error', 'Please select teacher, class, batch, and semester.');
         tba_redirect();
     }
 
@@ -42,15 +84,15 @@ if(isset($_POST['save_teacher_billing_assignment'])){
           AND termname='$_TermName'
         LIMIT 1");
 
-    if($_SQL_EXIST && ($row_exist = mysqli_fetch_array($_SQL_EXIST, MYSQLI_ASSOC))){
+    if ($_SQL_EXIST && ($row_exist = mysqli_fetch_array($_SQL_EXIST, MYSQLI_ASSOC))) {
         $_AssignmentIdEsc = mysqli_real_escape_string($con, $row_exist['assignmentid']);
         $_SQL_UPDATE = mysqli_query($con, "UPDATE tblteacherbillingassignment
             SET status='active', datetimeentry=NOW(), recordedby='$_RecordedByEsc'
             WHERE assignmentid='$_AssignmentIdEsc'");
-        if($_SQL_UPDATE){
-            $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white;padding:8px;'>Teacher billing assignment updated successfully.</div>";
-        }else{
-            $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white;padding:8px;'>Failed to update assignment: ".mysqli_error($con)."</div>";
+        if ($_SQL_UPDATE) {
+            $_SESSION['Message'] = tba_flash_html('success', 'Teacher billing assignment updated successfully.');
+        } else {
+            $_SESSION['Message'] = tba_flash_html('error', 'Failed to update assignment: ' . tba_esc(mysqli_error($con)));
         }
         tba_redirect();
     }
@@ -59,221 +101,430 @@ if(isset($_POST['save_teacher_billing_assignment'])){
     $_AssignmentIdEsc = mysqli_real_escape_string($con, trim((string)$code));
     $_SQL_INSERT = mysqli_query($con, "INSERT INTO tblteacherbillingassignment(assignmentid,userid,classid,batchid,termname,status,datetimeentry,recordedby)
         VALUES('$_AssignmentIdEsc','$_TeacherIdEsc','$_ClassIdEsc','$_BatchIdEsc','$_TermName','active',NOW(),'$_RecordedByEsc')");
-    if($_SQL_INSERT){
-        $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white;padding:8px;'>Teacher billing assignment saved successfully.</div>";
-    }else{
-        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white;padding:8px;'>Failed to save assignment: ".mysqli_error($con)."</div>";
+    if ($_SQL_INSERT) {
+        $_SESSION['Message'] = tba_flash_html('success', 'Teacher billing assignment saved successfully.');
+    } else {
+        $_SESSION['Message'] = tba_flash_html('error', 'Failed to save assignment: ' . tba_esc(mysqli_error($con)));
     }
     tba_redirect();
 }
 
-if(isset($_GET['deactivate_assignment'])){
+if (isset($_GET['deactivate_assignment'])) {
     $_AssignmentId = mysqli_real_escape_string($con, trim((string)$_GET['deactivate_assignment']));
-    if($_AssignmentId !== ''){
+    if ($_AssignmentId !== '') {
         $_SQL_D = mysqli_query($con, "UPDATE tblteacherbillingassignment SET status='inactive' WHERE assignmentid='$_AssignmentId'");
         $_SESSION['Message'] = $_SQL_D
-            ? "<div style='color:#8b4513;text-align:center;background-color:white;padding:8px;'>Assignment deactivated.</div>"
-            : "<div style='color:red;text-align:center;background-color:white;padding:8px;'>Failed to deactivate assignment: ".mysqli_error($con)."</div>";
+            ? tba_flash_html('warning', 'Assignment deactivated.')
+            : tba_flash_html('error', 'Failed to deactivate assignment: ' . tba_esc(mysqli_error($con)));
     }
     tba_redirect();
 }
 
-if(isset($_GET['delete_assignment'])){
+if (isset($_GET['delete_assignment'])) {
     $_AssignmentId = mysqli_real_escape_string($con, trim((string)$_GET['delete_assignment']));
-    if($_AssignmentId !== ''){
+    if ($_AssignmentId !== '') {
         @mysqli_query($con, "DELETE FROM tblteacherbillingassignmentitem WHERE assignmentid='$_AssignmentId'");
         $_SQL_DEL = mysqli_query($con, "DELETE FROM tblteacherbillingassignment WHERE assignmentid='$_AssignmentId'");
         $_SESSION['Message'] = $_SQL_DEL
-            ? "<div style='color:#8b4513;text-align:center;background-color:white;padding:8px;'>Assignment deleted.</div>"
-            : "<div style='color:red;text-align:center;background-color:white;padding:8px;'>Failed to delete assignment: ".mysqli_error($con)."</div>";
+            ? tba_flash_html('warning', 'Assignment deleted.')
+            : tba_flash_html('error', 'Failed to delete assignment: ' . tba_esc(mysqli_error($con)));
     }
     tba_redirect();
 }
 
-if(isset($_POST['save_assignment_items'])){
+if (isset($_POST['save_assignment_items'])) {
     $_AssignmentId = isset($_POST['assignmentid']) ? trim((string)$_POST['assignmentid']) : "";
     $_RecordedBy = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : "";
     $_AssignmentRow = teacher_billing_assignment_row($con, $_AssignmentId);
-    if(!$_AssignmentRow){
-        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white;padding:8px;'>The selected billing assignment could not be found.</div>";
+    if (!$_AssignmentRow) {
+        $_SESSION['Message'] = tba_flash_html('error', 'The selected billing assignment could not be found.');
         tba_redirect();
     }
+
     $_AllowedRows = teacher_billing_scope_itemprice_rows($con, $_AssignmentRow['classid'], $_AssignmentRow['batchid'], $_AssignmentRow['termname']);
     $_AllowedMap = array();
-    foreach($_AllowedRows as $_allowedRow){
+    foreach ($_AllowedRows as $_allowedRow) {
         $_AllowedMap[(string)$_allowedRow['itempriceid']] = true;
     }
+
     $_SubmittedItems = isset($_POST['itempriceids']) && is_array($_POST['itempriceids']) ? $_POST['itempriceids'] : array();
     $_ValidItems = array();
-    foreach($_SubmittedItems as $_ItemPriceId){
+    foreach ($_SubmittedItems as $_ItemPriceId) {
         $_ItemPriceId = trim((string)$_ItemPriceId);
-        if($_ItemPriceId !== '' && isset($_AllowedMap[$_ItemPriceId])){
+        if ($_ItemPriceId !== '' && isset($_AllowedMap[$_ItemPriceId])) {
             $_ValidItems[] = $_ItemPriceId;
         }
     }
+
     $_Saved = teacher_billing_assignment_replace_items($con, $_AssignmentId, $_ValidItems, $_RecordedBy);
-    if($_Saved){
-        if(count($_ValidItems) > 0){
-            $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white;padding:8px;'>Teacher billing items updated successfully.</div>";
-        }else{
-            $_SESSION['Message'] = "<div style='color:#8b4513;text-align:center;background-color:white;padding:8px;'>No specific items were selected. The teacher will be able to collect all billed items in that assigned scope.</div>";
+    if ($_Saved) {
+        if (count($_ValidItems) > 0) {
+            $_SESSION['Message'] = tba_flash_html('success', 'Teacher billing items updated successfully.');
+        } else {
+            $_SESSION['Message'] = tba_flash_html('info', 'No specific items were selected. The teacher will be able to collect all billed items in that assigned scope.');
         }
-    }else{
-        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white;padding:8px;'>Some billing items could not be saved. Please try again.</div>";
+    } else {
+        $_SESSION['Message'] = tba_flash_html('error', 'Some billing items could not be saved. Please try again.');
     }
-    header("location:teacher-billing-assignment.php?set_items=".urlencode($_AssignmentId));
+    header("location:teacher-billing-assignment.php?set_items=" . urlencode($_AssignmentId));
     exit();
 }
-?>
-<html>
-<head>
-<?php include("links.php"); ?>
-<style>
-@media print {
-    .header, .print-hide { display:none !important; }
-    .main-platform { margin:0; padding:0; }
+
+$_TeacherOptions = array();
+$_SQL_T = mysqli_query($con, "SELECT userid,firstname,surname,othernames
+    FROM tblsystemuser
+    WHERE systemtype='Teacher' AND status='active'
+    ORDER BY firstname ASC, surname ASC");
+if ($_SQL_T) {
+    while ($_row_t = mysqli_fetch_array($_SQL_T, MYSQLI_ASSOC)) {
+        $_TeacherOptions[] = $_row_t;
+    }
 }
-</style>
-</head>
-<body>
-<div class="header">
-<?php include("menu.php"); ?>
-</div>
-<div class="main-platform">
-<table width="100%">
-<tr>
-<td width="32%" valign="top">
-<div class="form-entry" align="left">
-<h3>Teacher Billing Assignment</h3>
-<?php
-echo $_SESSION['Message'];
-$_SESSION['Message'] = "";
-?>
-<form method="post" action="teacher-billing-assignment.php" id="formID" name="formID">
-<?php
-$_SQL_T = mysqli_query($con, "SELECT userid,firstname,surname,othernames FROM tblsystemuser WHERE systemtype='Teacher' AND status='active' ORDER BY firstname ASC, surname ASC");
-echo "<label>Teacher</label><br/>";
-echo "<select id='userid' name='userid' class='validate[required]'>";
-echo "<option value=''>Select Teacher</option>";
-while($_row_t = mysqli_fetch_array($_SQL_T, MYSQLI_ASSOC)){
-    echo "<option value='".$_row_t['userid']."'>".$_row_t['firstname']." ".$_row_t['othernames']." ".$_row_t['surname']." (".$_row_t['userid'].")</option>";
-}
-echo "</select><br/><br/>";
 
 $_ClassOptions = teacher_billing_class_options($con);
-echo "<label>Class</label><br/>";
-echo "<select id='classid' name='classid' class='validate[required]'>";
-echo "<option value=''>Select Class</option>";
-foreach($_ClassOptions as $_class_row){
-    echo "<option value='".$_class_row['class_entryid']."'>".$_class_row['class_name']."</option>";
-}
-echo "</select><br/><br/>";
-
 $_BatchOptions = teacher_billing_batch_options($con);
-echo "<label>Batch</label><br/>";
-echo "<select id='batchid' name='batchid' class='validate[required]'>";
-echo "<option value=''>Select Batch</option>";
-foreach($_BatchOptions as $_batch_row){
-    echo "<option value='".$_batch_row['batchid']."'>".$_batch_row['batch']."</option>";
-}
-echo "</select><br/><br/>";
-?>
-<label>Semester</label><br/>
-<select id="termname" name="termname" class="validate[required]">
-<option value="">Select Semester</option>
-<option value="1">1</option>
-<option value="2">2</option>
-</select><br/><br/>
-<div align="center">
-    <button class="button-save" id="save_teacher_billing_assignment" name="save_teacher_billing_assignment"><i class="fa fa-save"></i> Save Assignment</button>
-</div>
-</form>
-</div>
-</td>
-<td width="68%" valign="top">
-<?php
+
 $_ManageAssignmentId = isset($_GET['set_items']) ? trim((string)$_GET['set_items']) : "";
 $_ManageAssignmentRow = $_ManageAssignmentId !== "" ? teacher_billing_assignment_row($con, $_ManageAssignmentId) : null;
-if($_ManageAssignmentRow){
+$_ManageItemRows = array();
+$_SelectedItems = array();
+if ($_ManageAssignmentRow) {
     $_ManageItemRows = teacher_billing_scope_itemprice_rows($con, $_ManageAssignmentRow['classid'], $_ManageAssignmentRow['batchid'], $_ManageAssignmentRow['termname']);
-    $_SelectedItems = array();
-    foreach(teacher_billing_assignment_item_rows($con, $_ManageAssignmentId) as $_SelectedRow){
+    foreach (teacher_billing_assignment_item_rows($con, $_ManageAssignmentId) as $_SelectedRow) {
         $_SelectedItems[(string)$_SelectedRow['itempriceid']] = true;
     }
-    echo "<div class='form-entry print-hide' align='left' style='margin-bottom:16px;'>";
-    echo "<h3>Billing Items For Assigned Teacher</h3>";
-    echo "<div style='margin-bottom:10px;color:#475569;'>";
-    echo "<strong>Teacher:</strong> ".$_ManageAssignmentRow['firstname']." ".$_ManageAssignmentRow['othernames']." ".$_ManageAssignmentRow['surname']." (".$_ManageAssignmentRow['userid'].")";
-    echo " | <strong>Class:</strong> ".$_ManageAssignmentRow['class_name'];
-    echo " | <strong>Batch:</strong> ".$_ManageAssignmentRow['batch'];
-    echo " | <strong>Semester:</strong> ".$_ManageAssignmentRow['termname'];
-    echo "</div>";
-    echo "<div style='margin-bottom:10px;color:#64748b;'>Select the class billing items this teacher can collect for this scope. If you leave everything unchecked, the teacher will be able to collect all billed items in this scope.</div>";
-    if(empty($_ManageItemRows)){
-        echo "<div style='color:#b45309;background-color:#fff7ed;padding:10px;border-radius:8px;'>No active class billing items exist yet for this class, batch, and semester. Create them first in <a href='class-billing.php'>Billing Manager</a>.</div>";
-    }else{
-        echo "<form method='post' action='teacher-billing-assignment.php?set_items=".urlencode($_ManageAssignmentId)."'>";
-        echo "<input type='hidden' name='assignmentid' value='".htmlspecialchars($_ManageAssignmentId, ENT_QUOTES, 'UTF-8')."'>";
-        echo "<table width='100%' style='background-color:white'>";
-        echo "<thead><tr><th align='center'>*</th><th align='left'>Billing Item</th><th align='center'>Price</th><th align='center'>Item Price ID</th></tr></thead><tbody>";
-        foreach($_ManageItemRows as $_ItemRow){
-            $_ItemPriceId = (string)$_ItemRow['itempriceid'];
-            echo "<tr>";
-            echo "<td align='center'><input type='checkbox' name='itempriceids[]' value='".htmlspecialchars($_ItemPriceId, ENT_QUOTES, 'UTF-8')."'".(isset($_SelectedItems[$_ItemPriceId]) ? " checked" : "")."></td>";
-            echo "<td>".htmlspecialchars((string)$_ItemRow['itemname'], ENT_QUOTES, 'UTF-8')."</td>";
-            echo "<td align='center'>".htmlspecialchars((string)$_SESSION['SYMBOL'], ENT_QUOTES, 'UTF-8')." ".number_format((float)$_ItemRow['price'], 2)."</td>";
-            echo "<td align='center'>".htmlspecialchars($_ItemPriceId, ENT_QUOTES, 'UTF-8')."</td>";
-            echo "</tr>";
-        }
-        echo "</tbody></table><br/>";
-        echo "<button class='button-save' type='submit' name='save_assignment_items'><i class='fa fa-save'></i> Save Billing Items</button> ";
-        echo "<a class='button-save' style='text-decoration:none;padding:8px 12px;display:inline-block;background:#64748b;margin-left:6px;' href='teacher-billing-assignment.php'>Close</a>";
-        echo "</form>";
-    }
-    echo "</div>";
 }
-?>
-<div class="form-entry">
-<div class="print-hide" style="margin-bottom:10px;text-align:right;">
-    <button class="button-save" type="button" onclick="window.print()"><i class="fa fa-print"></i> Print Billing Assignments</button>
-</div>
-<?php
-$_SQL_A = mysqli_query($con, "SELECT tba.*,su.firstname,su.surname,su.othernames,ce.class_name,bh.batch
+
+$_AssignmentRows = array();
+$_ActiveAssignments = 0;
+$_InactiveAssignments = 0;
+$_DistinctTeacherMap = array();
+$_SQL_A = mysqli_query($con, "SELECT
+        tba.*,
+        su.firstname,
+        su.surname,
+        su.othernames,
+        ce.class_name,
+        bh.batch,
+        (
+            SELECT COUNT(*)
+            FROM tblteacherbillingassignmentitem tbai
+            WHERE tbai.assignmentid=tba.assignmentid
+        ) AS selected_item_count
     FROM tblteacherbillingassignment tba
     INNER JOIN tblsystemuser su ON su.userid=tba.userid
     INNER JOIN tblclassentry ce ON ce.class_entryid=tba.classid
     INNER JOIN tblbatch bh ON bh.batchid=tba.batchid
     ORDER BY tba.datetimeentry DESC");
-echo "<table width='100%' style='background-color:white'>";
-echo "<caption>Assigned Teacher Billing Scopes</caption>";
-echo "<thead><th>Task</th><th>Teacher</th><th>Class</th><th>Semester</th><th>Batch</th><th>Billing Items</th><th>Status</th><th>Date/Time</th></thead>";
-echo "<tbody>";
-while($_row_a = mysqli_fetch_array($_SQL_A, MYSQLI_ASSOC)){
-    $_SelectedItemCount = count(teacher_billing_assignment_item_rows($con, $_row_a['assignmentid']));
-    echo "<tr>";
-    echo "<td align='center'>";
-    if($_row_a['status'] === 'active'){
-        echo "<span class='print-hide'><a title='Deactivate assignment' onclick=\"javascript:return confirm('Deactivate this assignment?');\" href='teacher-billing-assignment.php?deactivate_assignment=".$_row_a['assignmentid']."'><i class='fa fa-ban' style='color:#b45309'></i></a></span> ";
+if ($_SQL_A) {
+    while ($_row_a = mysqli_fetch_array($_SQL_A, MYSQLI_ASSOC)) {
+        $_AssignmentRows[] = $_row_a;
+        $_DistinctTeacherMap[(string)$_row_a['userid']] = true;
+        if ((string)$_row_a['status'] === 'active') {
+            $_ActiveAssignments++;
+        } else {
+            $_InactiveAssignments++;
+        }
     }
-    echo "<span class='print-hide'><a title='Set billing items' href='teacher-billing-assignment.php?set_items=".$_row_a['assignmentid']."'><i class='fa fa-list' style='color:#0f766e'></i></a></span> ";
-    echo "<span class='print-hide'><a title='Delete assignment' onclick=\"javascript:return confirm('Delete this assignment permanently?');\" href='teacher-billing-assignment.php?delete_assignment=".$_row_a['assignmentid']."'><i class='fa fa-trash' style='color:#b91c1c'></i></a></span>";
-    echo "</td>";
-    echo "<td>".$_row_a['firstname']." ".$_row_a['othernames']." ".$_row_a['surname']." (".$_row_a['userid'].")</td>";
-    echo "<td align='center'>".$_row_a['class_name']."</td>";
-    echo "<td align='center'>".$_row_a['termname']."</td>";
-    echo "<td align='center'>".$_row_a['batch']."</td>";
-    echo "<td align='center'>".($_SelectedItemCount > 0 ? $_SelectedItemCount." selected" : "All in scope")."</td>";
-    echo "<td align='center'>".$_row_a['status']."</td>";
-    echo "<td align='center'>".$_row_a['datetimeentry']."</td>";
-    echo "</tr>";
 }
-echo "</tbody>";
-echo "</table>";
+
+$_MessageHtml = $_SESSION['Message'];
+$_SESSION['Message'] = "";
+$_TotalAssignments = count($_AssignmentRows);
+$_AssignedTeachers = count($_DistinctTeacherMap);
+$_SelectableItemCount = count($_ManageItemRows);
+$_SelectedItemCount = count($_SelectedItems);
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<?php include("links.php"); ?>
+<link rel="stylesheet" href="css/teacher-billing-assignment.css">
+<script src="scripts/teacher-billing-assignment.js" defer></script>
+</head>
+<body class="teacher-billing-assignment-page">
+<div class="header">
+<?php include("menu.php"); ?>
 </div>
-</td>
-</tr>
-</table>
+<div class="main-platform">
+    <main class="tba-shell">
+        <section class="tba-hero">
+            <div class="tba-hero__copy">
+                <span class="tba-kicker"><i class="fa fa-credit-card"></i> Teacher Billing Control</span>
+                <h1>Assign billing scopes and collection items from one clean workspace.</h1>
+                <p>Set the teacher, class, batch, and semester once, then manage exactly which billed items they can collect. The whole page now stays usable on phones without squeezing the data tables.</p>
+                <div class="tba-hero__chips">
+                    <span class="tba-chip"><i class="fa fa-users"></i> Active Teachers: <?php echo number_format((int)count($_TeacherOptions)); ?></span>
+                    <span class="tba-chip"><i class="fa fa-building"></i> Classes: <?php echo number_format((int)count($_ClassOptions)); ?></span>
+                    <span class="tba-chip"><i class="fa fa-calendar"></i> Batches: <?php echo number_format((int)count($_BatchOptions)); ?></span>
+                </div>
+            </div>
+            <div class="tba-stats">
+                <article class="tba-stat">
+                    <span>Total Assignments</span>
+                    <strong><?php echo number_format((int)$_TotalAssignments); ?></strong>
+                    <small>Every saved teacher billing scope in the system.</small>
+                </article>
+                <article class="tba-stat">
+                    <span>Active Assignments</span>
+                    <strong><?php echo number_format((int)$_ActiveAssignments); ?></strong>
+                    <small>Scopes currently available for teacher billing activity.</small>
+                </article>
+                <article class="tba-stat">
+                    <span>Inactive Assignments</span>
+                    <strong><?php echo number_format((int)$_InactiveAssignments); ?></strong>
+                    <small>Saved scopes that were deactivated for now.</small>
+                </article>
+                <article class="tba-stat tba-stat--accent">
+                    <span>Assigned Teachers</span>
+                    <strong><?php echo number_format((int)$_AssignedTeachers); ?></strong>
+                    <small>Unique teachers with at least one billing assignment.</small>
+                </article>
+            </div>
+        </section>
+
+        <div class="tba-layout">
+            <aside class="tba-sidebar">
+                <section class="tba-surface tba-form-surface">
+                    <div class="tba-panel-head">
+                        <div>
+                            <span class="tba-panel-kicker">Assignment Setup</span>
+                            <h2>Create or reactivate a billing scope</h2>
+                            <p>Choose the teacher and billing scope details below. If the same scope already exists, saving will reactivate and refresh it instead of creating a duplicate.</p>
+                        </div>
+                    </div>
+
+                    <?php if ($_MessageHtml !== "") { ?>
+                    <div class="tba-message-stack"><?php echo $_MessageHtml; ?></div>
+                    <?php } ?>
+
+                    <form method="post" action="teacher-billing-assignment.php" class="tba-form">
+                        <div class="tba-form-grid">
+                            <label class="tba-field">
+                                <span>Teacher</span>
+                                <select id="userid" name="userid" class="validate[required]">
+                                    <option value="">Select Teacher</option>
+                                    <?php foreach ($_TeacherOptions as $_teacherRow) {
+                                        $_TeacherName = trim((string)$_teacherRow['firstname'] . " " . (string)$_teacherRow['othernames'] . " " . (string)$_teacherRow['surname']);
+                                    ?>
+                                    <option value="<?php echo tba_esc($_teacherRow['userid']); ?>"><?php echo tba_esc($_TeacherName); ?> (<?php echo tba_esc($_teacherRow['userid']); ?>)</option>
+                                    <?php } ?>
+                                </select>
+                            </label>
+
+                            <label class="tba-field">
+                                <span>Class</span>
+                                <select id="classid" name="classid" class="validate[required]">
+                                    <option value="">Select Class</option>
+                                    <?php foreach ($_ClassOptions as $_classRow) { ?>
+                                    <option value="<?php echo tba_esc($_classRow['class_entryid']); ?>"><?php echo tba_esc($_classRow['class_name']); ?></option>
+                                    <?php } ?>
+                                </select>
+                            </label>
+
+                            <label class="tba-field">
+                                <span>Batch</span>
+                                <select id="batchid" name="batchid" class="validate[required]">
+                                    <option value="">Select Batch</option>
+                                    <?php foreach ($_BatchOptions as $_batchRow) { ?>
+                                    <option value="<?php echo tba_esc($_batchRow['batchid']); ?>"><?php echo tba_esc($_batchRow['batch']); ?></option>
+                                    <?php } ?>
+                                </select>
+                            </label>
+
+                            <label class="tba-field">
+                                <span>Semester</span>
+                                <select id="termname" name="termname" class="validate[required]">
+                                    <option value="">Select Semester</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="tba-inline-note">
+                            <i class="fa fa-info-circle"></i>
+                            <span>Use this form when a teacher needs permission to collect billing items for a specific class, batch, and semester.</span>
+                        </div>
+
+                        <div class="tba-actions">
+                            <button class="tba-btn tba-btn--primary" id="save_teacher_billing_assignment" name="save_teacher_billing_assignment" type="submit"><i class="fa fa-save"></i> Save Assignment</button>
+                        </div>
+                    </form>
+                </section>
+            </aside>
+
+            <section class="tba-main">
+                <?php if ($_ManageAssignmentRow) {
+                    $_ManageTeacherName = trim((string)$_ManageAssignmentRow['firstname'] . " " . (string)$_ManageAssignmentRow['othernames'] . " " . (string)$_ManageAssignmentRow['surname']);
+                ?>
+                <section class="tba-surface print-hide">
+                    <div class="tba-panel-head">
+                        <div>
+                            <span class="tba-panel-kicker">Billing Items</span>
+                            <h2>Choose the items this teacher can collect</h2>
+                            <p>Leaving every item unchecked means the teacher can collect all active billed items inside this class, batch, and semester scope.</p>
+                        </div>
+                        <a class="tba-btn tba-btn--secondary" href="teacher-billing-assignment.php"><i class="fa fa-times"></i> Close</a>
+                    </div>
+
+                    <div class="tba-meta-grid">
+                        <div class="tba-meta-card">
+                            <span>Teacher</span>
+                            <strong><?php echo tba_esc($_ManageTeacherName); ?></strong>
+                            <small><?php echo tba_esc($_ManageAssignmentRow['userid']); ?></small>
+                        </div>
+                        <div class="tba-meta-card">
+                            <span>Class</span>
+                            <strong><?php echo tba_esc($_ManageAssignmentRow['class_name']); ?></strong>
+                            <small>Semester <?php echo tba_esc($_ManageAssignmentRow['termname']); ?></small>
+                        </div>
+                        <div class="tba-meta-card">
+                            <span>Batch</span>
+                            <strong><?php echo tba_esc($_ManageAssignmentRow['batch']); ?></strong>
+                            <small><?php echo $_SelectedItemCount > 0 ? number_format((int)$_SelectedItemCount) . ' item(s) selected' : 'All items currently allowed'; ?></small>
+                        </div>
+                    </div>
+
+                    <?php if (empty($_ManageItemRows)) { ?>
+                    <div class="tba-inline-note tba-inline-note--warning">
+                        <i class="fa fa-exclamation-triangle"></i>
+                        <span>No active class billing items exist yet for this class, batch, and semester. Create them first in <a href="class-billing.php">Billing Manager</a>.</span>
+                    </div>
+                    <?php } else { ?>
+                    <form method="post" action="teacher-billing-assignment.php?set_items=<?php echo urlencode($_ManageAssignmentId); ?>" class="tba-item-form">
+                        <input type="hidden" name="assignmentid" value="<?php echo tba_esc($_ManageAssignmentId); ?>">
+
+                        <div class="tba-toolbar tba-toolbar--items">
+                            <div class="tba-toolbar__copy">
+                                <strong><?php echo number_format((int)$_SelectableItemCount); ?> available item<?php echo $_SelectableItemCount === 1 ? '' : 's'; ?></strong>
+                                <span><?php echo $_SelectedItemCount > 0 ? number_format((int)$_SelectedItemCount) . ' selected for this teacher.' : 'Nothing selected means the teacher gets access to all items in this scope.'; ?></span>
+                            </div>
+                            <label class="tba-search">
+                                <i class="fa fa-search"></i>
+                                <input type="search" placeholder="Search billing items" data-item-search>
+                            </label>
+                        </div>
+
+                        <div class="tba-item-grid" data-item-grid>
+                            <?php foreach ($_ManageItemRows as $_ItemRow) {
+                                $_ItemPriceId = (string)$_ItemRow['itempriceid'];
+                                $_ItemSearch = strtolower(trim((string)$_ItemRow['itemname'] . " " . (string)$_ItemPriceId));
+                            ?>
+                            <label class="tba-item-card" data-item-card data-search="<?php echo tba_esc($_ItemSearch); ?>">
+                                <span class="tba-item-card__check">
+                                    <input type="checkbox" name="itempriceids[]" value="<?php echo tba_esc($_ItemPriceId); ?>"<?php echo isset($_SelectedItems[$_ItemPriceId]) ? " checked" : ""; ?>>
+                                </span>
+                                <span class="tba-item-card__body">
+                                    <strong><?php echo tba_esc($_ItemRow['itemname']); ?></strong>
+                                    <small>Item Price ID: <?php echo tba_esc($_ItemPriceId); ?></small>
+                                </span>
+                                <span class="tba-item-card__price"><?php echo tba_esc((string)$_SESSION['SYMBOL']); ?> <?php echo number_format((float)$_ItemRow['price'], 2); ?></span>
+                            </label>
+                            <?php } ?>
+                        </div>
+
+                        <div class="tba-empty-state tba-empty-state--inline" data-item-empty hidden>
+                            <h3>No billing items match this search</h3>
+                            <p>Try a shorter item name or clear the search to see the full list again.</p>
+                        </div>
+
+                        <div class="tba-actions">
+                            <button class="tba-btn tba-btn--primary" type="submit" name="save_assignment_items"><i class="fa fa-save"></i> Save Billing Items</button>
+                            <a class="tba-btn tba-btn--secondary" href="teacher-billing-assignment.php"><i class="fa fa-arrow-left"></i> Back To Assignments</a>
+                        </div>
+                    </form>
+                    <?php } ?>
+                </section>
+                <?php } ?>
+
+                <section class="tba-surface">
+                    <div class="tba-panel-head">
+                        <div>
+                            <span class="tba-panel-kicker">Assignment Directory</span>
+                            <h2>Review, print, and manage teacher billing scopes</h2>
+                            <p>Each row shows the teacher, assigned class scope, number of selected billing items, and quick actions for deactivating, editing, or deleting the assignment.</p>
+                        </div>
+                        <span class="tba-panel-tag"><i class="fa fa-list"></i> <?php echo number_format((int)$_TotalAssignments); ?> assignment<?php echo $_TotalAssignments === 1 ? '' : 's'; ?></span>
+                    </div>
+
+                    <div class="tba-toolbar print-hide">
+                        <label class="tba-search">
+                            <i class="fa fa-search"></i>
+                            <input type="search" placeholder="Search teacher, class, batch, or semester" data-assignment-search>
+                        </label>
+                        <button class="tba-btn tba-btn--secondary" type="button" onclick="window.print()"><i class="fa fa-print"></i> Print Assignments</button>
+                    </div>
+
+                    <?php if (empty($_AssignmentRows)) { ?>
+                    <div class="tba-empty-state">
+                        <h3>No billing assignments yet</h3>
+                        <p>Start by creating a teacher billing scope from the setup panel on the left.</p>
+                    </div>
+                    <?php } else { ?>
+                    <div class="tba-table-wrap">
+                        <table class="tba-table">
+                            <thead>
+                                <tr>
+                                    <th>Actions</th>
+                                    <th>Teacher</th>
+                                    <th>Class</th>
+                                    <th>Semester</th>
+                                    <th>Batch</th>
+                                    <th>Billing Items</th>
+                                    <th>Status</th>
+                                    <th>Date / Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($_AssignmentRows as $_row_a) {
+                                    $_TeacherName = trim((string)$_row_a['firstname'] . " " . (string)$_row_a['othernames'] . " " . (string)$_row_a['surname']);
+                                    $_SelectedItemCount = (int)$_row_a['selected_item_count'];
+                                    $_SearchText = strtolower(trim($_TeacherName . " " . (string)$_row_a['userid'] . " " . (string)$_row_a['class_name'] . " " . (string)$_row_a['batch'] . " " . (string)$_row_a['termname'] . " " . (string)$_row_a['status']));
+                                ?>
+                                <tr data-assignment-row data-search="<?php echo tba_esc($_SearchText); ?>">
+                                    <td data-label="Actions">
+                                        <div class="tba-row-actions print-hide">
+                                            <a class="tba-action-btn tba-action-btn--edit" title="Set billing items" href="teacher-billing-assignment.php?set_items=<?php echo urlencode($_row_a['assignmentid']); ?>"><i class="fa fa-list"></i><span>Items</span></a>
+                                            <?php if ((string)$_row_a['status'] === 'active') { ?>
+                                            <a class="tba-action-btn tba-action-btn--warn" title="Deactivate assignment" onclick="return confirm('Deactivate this assignment?');" href="teacher-billing-assignment.php?deactivate_assignment=<?php echo urlencode($_row_a['assignmentid']); ?>"><i class="fa fa-ban"></i><span>Deactivate</span></a>
+                                            <?php } ?>
+                                            <a class="tba-action-btn tba-action-btn--danger" title="Delete assignment" onclick="return confirm('Delete this assignment permanently?');" href="teacher-billing-assignment.php?delete_assignment=<?php echo urlencode($_row_a['assignmentid']); ?>"><i class="fa fa-trash"></i><span>Delete</span></a>
+                                        </div>
+                                    </td>
+                                    <td data-label="Teacher">
+                                        <div class="tba-person">
+                                            <strong><?php echo tba_esc($_TeacherName); ?></strong>
+                                            <small><?php echo tba_esc($_row_a['userid']); ?></small>
+                                        </div>
+                                    </td>
+                                    <td data-label="Class"><?php echo tba_esc($_row_a['class_name']); ?></td>
+                                    <td data-label="Semester"><?php echo tba_esc($_row_a['termname']); ?></td>
+                                    <td data-label="Batch"><?php echo tba_esc($_row_a['batch']); ?></td>
+                                    <td data-label="Billing Items">
+                                        <?php if ($_SelectedItemCount > 0) { ?>
+                                        <span class="tba-badge tba-badge--count"><?php echo number_format((int)$_SelectedItemCount); ?> selected</span>
+                                        <?php } else { ?>
+                                        <span class="tba-badge tba-badge--all">All in scope</span>
+                                        <?php } ?>
+                                    </td>
+                                    <td data-label="Status"><?php echo tba_status_badge_html($_row_a['status']); ?></td>
+                                    <td data-label="Date / Time"><?php echo tba_esc($_row_a['datetimeentry']); ?></td>
+                                </tr>
+                                <?php } ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="tba-empty-state tba-empty-state--inline" data-assignment-empty hidden>
+                        <h3>No assignments match this search</h3>
+                        <p>Try a teacher name, class name, batch, or clear the search box.</p>
+                    </div>
+                    <?php } ?>
+                </section>
+            </section>
+        </div>
+    </main>
 </div>
 </body>
 </html>

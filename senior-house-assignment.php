@@ -1,152 +1,378 @@
 <?php
 session_start();
-$_SESSION['Message'] = "";
+$_SESSION['Message'] = isset($_SESSION['Message']) ? $_SESSION['Message'] : "";
 include("check-login.php");
 include("dbstring.php");
 include("house-master-utils.php");
 ensure_house_tables($con);
 
-if(!house_master_is_admin()){
-    header("location:".house_master_landing_page());
+if (!house_master_is_admin()) {
+    header("location:" . house_master_landing_page());
     exit();
 }
 
-if(isset($_POST['save_senior_house'])){
-    @$_TeacherId = $_POST['userid'];
-    @$_Designation = $_POST['designation'];
-    @$_RecordedBy = $_SESSION['USERID'];
+if (!function_exists('sha_redirect')) {
+    function sha_redirect()
+    {
+        header("location:senior-house-assignment.php");
+        exit();
+    }
+}
+
+if (!function_exists('sha_esc')) {
+    function sha_esc($value)
+    {
+        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+if (!function_exists('sha_flash_html')) {
+    function sha_flash_html($tone, $message)
+    {
+        $tone = trim((string)$tone);
+        $allowed = array('success', 'error', 'warning', 'info');
+        if (!in_array($tone, $allowed, true)) {
+            $tone = 'info';
+        }
+
+        $icon = 'fa-info-circle';
+        if ($tone === 'success') {
+            $icon = 'fa-check-circle';
+        } elseif ($tone === 'error') {
+            $icon = 'fa-exclamation-circle';
+        } elseif ($tone === 'warning') {
+            $icon = 'fa-exclamation-triangle';
+        }
+
+        return "<div class='sha-flash sha-flash--" . $tone . "'><span class='sha-flash__icon'><i class='fa " . $icon . "'></i></span><div class='sha-flash__body'>" . $message . "</div></div>";
+    }
+}
+
+if (!function_exists('sha_status_badge_html')) {
+    function sha_status_badge_html($status)
+    {
+        $status = strtolower(trim((string)$status));
+        if ($status === 'active') {
+            return "<span class='sha-badge sha-badge--active'>Active</span>";
+        }
+        return "<span class='sha-badge sha-badge--inactive'>Inactive</span>";
+    }
+}
+
+if (!function_exists('sha_designation_badge_html')) {
+    function sha_designation_badge_html($designation)
+    {
+        $designation = trim((string)$designation);
+        $tone = ($designation === 'Senior House Mistress') ? 'mistress' : 'master';
+        return "<span class='sha-badge sha-badge--" . $tone . "'>" . sha_esc($designation) . "</span>";
+    }
+}
+
+if (isset($_POST['save_senior_house'])) {
+    $_TeacherId = isset($_POST['userid']) ? trim((string)$_POST['userid']) : "";
+    $_Designation = isset($_POST['designation']) ? trim((string)$_POST['designation']) : "";
+    $_RecordedBy = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : "";
 
     $_Designation = house_master_normalize_senior_designation($_Designation);
 
-    if(!$_TeacherId || !$_Designation){
-        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Please select teacher and designation.</div>";
-    }else{
-        $_TeacherId = mysqli_real_escape_string($con, $_TeacherId);
-        $_DesignationEsc = mysqli_real_escape_string($con, $_Designation);
-        $_RecordedBy = mysqli_real_escape_string($con, $_RecordedBy);
+    if ($_TeacherId === '' || $_Designation === '') {
+        $_SESSION['Message'] = sha_flash_html('error', 'Please select teacher and designation.');
+        sha_redirect();
+    }
 
-        $_TeacherExists = mysqli_query($con, "SELECT userid FROM tblsystemuser WHERE userid='$_TeacherId' AND systemtype='Teacher' AND status='active' LIMIT 1");
-        if(!$_TeacherExists || mysqli_num_rows($_TeacherExists) === 0){
-            $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Selected teacher is not active.</div>";
-        }else{
-            $_EXIST = mysqli_query($con, "SELECT assignmentid,userid FROM tblseniorhouseauthority WHERE designation='$_DesignationEsc' AND status='active' LIMIT 1");
-            if($_EXIST && $row_exist=mysqli_fetch_array($_EXIST, MYSQLI_ASSOC)){
-                $_AssignmentId = $row_exist['assignmentid'];
-                $_UPD = mysqli_query($con, "UPDATE tblseniorhouseauthority
-                    SET userid='$_TeacherId', recordedby='$_RecordedBy', datetimeentry=NOW(), status='active'
-                    WHERE assignmentid='$_AssignmentId'");
-                if($_UPD){
-                    notify_senior_house_assignment($con, $_TeacherId, $_Designation, $_RecordedBy, "updated");
-                    $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white'>Senior house role updated successfully.</div>";
-                }else{
-                    $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Update failed: ".mysqli_error($con)."</div>";
-                }
-            }else{
-                include("code.php");
-                $_AssignmentId = $code;
-                $_INS = mysqli_query($con, "INSERT INTO tblseniorhouseauthority(assignmentid,userid,designation,status,datetimeentry,recordedby)
-                    VALUES('$_AssignmentId','$_TeacherId','$_DesignationEsc','active',NOW(),'$_RecordedBy')");
-                if($_INS){
-                    notify_senior_house_assignment($con, $_TeacherId, $_Designation, $_RecordedBy, "assigned");
-                    $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white'>Senior house role assigned successfully.</div>";
-                }else{
-                    $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Assignment failed: ".mysqli_error($con)."</div>";
-                }
-            }
+    $_TeacherIdEsc = mysqli_real_escape_string($con, $_TeacherId);
+    $_DesignationEsc = mysqli_real_escape_string($con, $_Designation);
+    $_RecordedByEsc = mysqli_real_escape_string($con, $_RecordedBy);
+
+    $_TeacherExists = mysqli_query($con, "SELECT userid
+        FROM tblsystemuser
+        WHERE userid='$_TeacherIdEsc' AND systemtype='Teacher' AND status='active'
+        LIMIT 1");
+    if (!$_TeacherExists || mysqli_num_rows($_TeacherExists) === 0) {
+        $_SESSION['Message'] = sha_flash_html('error', 'Selected teacher is not active.');
+        sha_redirect();
+    }
+
+    $_EXIST = mysqli_query($con, "SELECT assignmentid,userid
+        FROM tblseniorhouseauthority
+        WHERE designation='$_DesignationEsc' AND status='active'
+        LIMIT 1");
+    if ($_EXIST && ($row_exist = mysqli_fetch_array($_EXIST, MYSQLI_ASSOC))) {
+        $_AssignmentId = $row_exist['assignmentid'];
+        $_UPD = mysqli_query($con, "UPDATE tblseniorhouseauthority
+            SET userid='$_TeacherIdEsc', recordedby='$_RecordedByEsc', datetimeentry=NOW(), status='active'
+            WHERE assignmentid='" . mysqli_real_escape_string($con, $_AssignmentId) . "'");
+        if ($_UPD) {
+            notify_senior_house_assignment($con, $_TeacherIdEsc, $_Designation, $_RecordedBy, "updated");
+            $_SESSION['Message'] = sha_flash_html('success', 'Senior house role updated successfully.');
+        } else {
+            $_SESSION['Message'] = sha_flash_html('error', 'Update failed: ' . sha_esc(mysqli_error($con)));
+        }
+        sha_redirect();
+    }
+
+    include("code.php");
+    $_AssignmentId = trim((string)$code);
+    $_AssignmentIdEsc = mysqli_real_escape_string($con, $_AssignmentId);
+    $_INS = mysqli_query($con, "INSERT INTO tblseniorhouseauthority(assignmentid,userid,designation,status,datetimeentry,recordedby)
+        VALUES('$_AssignmentIdEsc','$_TeacherIdEsc','$_DesignationEsc','active',NOW(),'$_RecordedByEsc')");
+    if ($_INS) {
+        notify_senior_house_assignment($con, $_TeacherIdEsc, $_Designation, $_RecordedBy, "assigned");
+        $_SESSION['Message'] = sha_flash_html('success', 'Senior house role assigned successfully.');
+    } else {
+        $_SESSION['Message'] = sha_flash_html('error', 'Assignment failed: ' . sha_esc(mysqli_error($con)));
+    }
+    sha_redirect();
+}
+
+if (isset($_GET['deactivate_assignment'])) {
+    $_AssignmentId = mysqli_real_escape_string($con, trim((string)$_GET['deactivate_assignment']));
+    if ($_AssignmentId !== '') {
+        $_SQL = mysqli_query($con, "UPDATE tblseniorhouseauthority SET status='inactive' WHERE assignmentid='$_AssignmentId'");
+        if ($_SQL) {
+            $_SESSION['Message'] = sha_flash_html('warning', 'Senior house assignment deactivated.');
+        } else {
+            $_SESSION['Message'] = sha_flash_html('error', 'Failed to deactivate assignment: ' . sha_esc(mysqli_error($con)));
+        }
+    }
+    sha_redirect();
+}
+
+if (isset($_GET['delete_assignment'])) {
+    $_AssignmentId = mysqli_real_escape_string($con, trim((string)$_GET['delete_assignment']));
+    if ($_AssignmentId !== '') {
+        $_SQL_D = mysqli_query($con, "DELETE FROM tblseniorhouseauthority WHERE assignmentid='$_AssignmentId'");
+        if ($_SQL_D) {
+            $_SESSION['Message'] = sha_flash_html('warning', 'Senior house assignment deleted successfully.');
+        } else {
+            $_SESSION['Message'] = sha_flash_html('error', 'Failed to delete assignment: ' . sha_esc(mysqli_error($con)));
+        }
+    }
+    sha_redirect();
+}
+
+$_TeacherOptions = array();
+$_SQL_T = mysqli_query($con, "SELECT userid,firstname,surname,othernames
+    FROM tblsystemuser
+    WHERE systemtype='Teacher' AND status='active'
+    ORDER BY firstname ASC,surname ASC,othernames ASC");
+if ($_SQL_T) {
+    while ($row_t = mysqli_fetch_array($_SQL_T, MYSQLI_ASSOC)) {
+        $_TeacherOptions[] = $row_t;
+    }
+}
+
+$_AssignmentRows = array();
+$_ActiveAssignments = 0;
+$_InactiveAssignments = 0;
+$_AssignedTeacherMap = array();
+$_DesignationCoverage = array(
+    'Senior House Master' => false,
+    'Senior House Mistress' => false,
+);
+$_SQL_A = mysqli_query($con, "SELECT sha.*,su.firstname,su.surname,su.othernames
+    FROM tblseniorhouseauthority sha
+    INNER JOIN tblsystemuser su ON su.userid=sha.userid
+    ORDER BY
+        CASE WHEN sha.designation='Senior House Master' THEN 0 ELSE 1 END ASC,
+        sha.datetimeentry DESC");
+if ($_SQL_A) {
+    while ($row = mysqli_fetch_array($_SQL_A, MYSQLI_ASSOC)) {
+        $_AssignmentRows[] = $row;
+        $_AssignedTeacherMap[(string)$row['userid']] = true;
+        if ((string)$row['status'] === 'active') {
+            $_ActiveAssignments++;
+            $_DesignationCoverage[(string)$row['designation']] = true;
+        } else {
+            $_InactiveAssignments++;
         }
     }
 }
 
-if(isset($_GET['deactivate_assignment'])){
-    $_AssignmentId = mysqli_real_escape_string($con, $_GET['deactivate_assignment']);
-    $_SQL = mysqli_query($con, "UPDATE tblseniorhouseauthority SET status='inactive' WHERE assignmentid='$_AssignmentId'");
-    if($_SQL){
-        $_SESSION['Message'] = "<div style='color:maroon;text-align:center;background-color:white'>Senior house assignment deactivated.</div>";
-    }else{
-        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Failed to deactivate assignment: ".mysqli_error($con)."</div>";
+$_AssignedTeacherCount = count($_AssignedTeacherMap);
+$_TotalAssignments = count($_AssignmentRows);
+$_OpenDesignationCount = 0;
+foreach ($_DesignationCoverage as $_isCovered) {
+    if (!$_isCovered) {
+        $_OpenDesignationCount++;
     }
 }
 
-if(isset($_GET['delete_assignment'])){
-    $_AssignmentId = mysqli_real_escape_string($con, $_GET['delete_assignment']);
-    $_SQL_D = mysqli_query($con, "DELETE FROM tblseniorhouseauthority WHERE assignmentid='$_AssignmentId'");
-    if($_SQL_D){
-        $_SESSION['Message'] = "<div style='color:maroon;text-align:center;background-color:white'>Senior house assignment deleted successfully.</div>";
-    }else{
-        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Failed to delete assignment: ".mysqli_error($con)."</div>";
-    }
-}
+$_MessageHtml = $_SESSION['Message'];
+$_SESSION['Message'] = "";
 ?>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
 <?php include("links.php"); ?>
+<link rel="stylesheet" href="css/senior-house-assignment.css">
+<script src="scripts/senior-house-assignment.js" defer></script>
 </head>
-<body>
+<body class="senior-house-assignment-page">
 <div class="header">
 <?php include("menu.php"); ?>
 </div>
 <div class="main-platform">
-<table width="100%">
-<tr>
-<td width="30%" valign="top">
-<div class="form-entry" align="left">
-<h3>Senior House Assignment</h3>
-<?php echo $_SESSION['Message']; ?>
-<form method="post" action="senior-house-assignment.php" id="formID" name="formID">
-<?php
-$_SQL_T = mysqli_query($con, "SELECT userid,firstname,surname,othernames FROM tblsystemuser WHERE systemtype='Teacher' AND status='active' ORDER BY firstname ASC");
-echo "<label>Teacher</label><br/>";
-echo "<select id='userid' name='userid' class='validate[required]'>";
-echo "<option value=''>Select Teacher</option>";
-while($row_t=mysqli_fetch_array($_SQL_T, MYSQLI_ASSOC)){
-    echo "<option value='$row_t[userid]'>$row_t[firstname] $row_t[othernames] $row_t[surname] ($row_t[userid])</option>";
-}
-echo "</select><br/><br/>";
-?>
-<label>Designation</label><br/>
-<select id="designation" name="designation" class="validate[required]">
-    <option value="">Select Designation</option>
-    <option value="Senior House Master">Senior House Master</option>
-    <option value="Senior House Mistress">Senior House Mistress</option>
-</select><br/><br/>
-<div align="center"><button class="button-save" id="save_senior_house" name="save_senior_house"><i class="fa fa-save"></i> Save Assignment</button></div>
-</form>
-</div>
-</td>
-<td width="70%" valign="top">
-<div class="form-entry">
-<?php
-$_SQL_A = mysqli_query($con, "SELECT sha.*,su.firstname,su.surname,su.othernames
-FROM tblseniorhouseauthority sha
-INNER JOIN tblsystemuser su ON su.userid=sha.userid
-ORDER BY
-    CASE WHEN sha.designation='Senior House Master' THEN 0 ELSE 1 END ASC,
-    sha.datetimeentry DESC");
-echo "<table width='100%' style='background-color:white'>";
-echo "<caption>Assigned Senior House Officials</caption>";
-echo "<thead><th>Task</th><th>Designation</th><th>Teacher</th><th>Status</th><th>Date/Time</th></thead>";
-echo "<tbody>";
-while($row=mysqli_fetch_array($_SQL_A, MYSQLI_ASSOC)){
-    echo "<tr>";
-    echo "<td align='center'>";
-    if($row['status'] === 'active'){
-        echo "<a title='Deactivate assignment' onclick=\"javascript:return confirm('Deactivate this senior house assignment?');\" href='senior-house-assignment.php?deactivate_assignment=$row[assignmentid]'><i class='fa fa-ban' style='color:#b45309'></i></a> ";
-    }
-    echo "<a title='Delete assignment' onclick=\"javascript:return confirm('Delete this senior house assignment permanently?');\" href='senior-house-assignment.php?delete_assignment=$row[assignmentid]'><i class='fa fa-trash' style='color:#b91c1c'></i></a>";
-    echo "</td>";
-    echo "<td>".htmlspecialchars($row['designation'])."</td>";
-    echo "<td>".htmlspecialchars($row['firstname']." ".$row['othernames']." ".$row['surname'])." (".htmlspecialchars($row['userid']).")</td>";
-    echo "<td align='center'>".htmlspecialchars($row['status'])."</td>";
-    echo "<td align='center'>".htmlspecialchars($row['datetimeentry'])."</td>";
-    echo "</tr>";
-}
-echo "</tbody>";
-echo "</table>";
-?>
-</div>
-</td>
-</tr>
-</table>
+    <main class="sha-shell">
+        <section class="sha-hero">
+            <div class="sha-hero__copy">
+                <span class="sha-kicker"><i class="fa fa-shield"></i> Senior House Leadership</span>
+                <h1>Assign the school’s top house leadership roles from one clean page.</h1>
+                <p>Choose the active teacher for each senior house designation, keep the assignment history visible, and manage updates or deactivations from a mobile-friendly workspace.</p>
+                <div class="sha-hero__chips">
+                    <span class="sha-chip"><i class="fa fa-users"></i> Active Teachers: <?php echo number_format((int)count($_TeacherOptions)); ?></span>
+                    <span class="sha-chip"><i class="fa fa-user-secret"></i> Assigned Teachers: <?php echo number_format((int)$_AssignedTeacherCount); ?></span>
+                    <span class="sha-chip"><i class="fa fa-bookmark"></i> Roles: 2 official designations</span>
+                </div>
+            </div>
+            <div class="sha-stats">
+                <article class="sha-stat">
+                    <span>Total Assignments</span>
+                    <strong><?php echo number_format((int)$_TotalAssignments); ?></strong>
+                    <small>Every saved senior house assignment on record.</small>
+                </article>
+                <article class="sha-stat">
+                    <span>Active Roles</span>
+                    <strong><?php echo number_format((int)$_ActiveAssignments); ?></strong>
+                    <small>Senior house roles currently assigned and active.</small>
+                </article>
+                <article class="sha-stat">
+                    <span>Inactive Roles</span>
+                    <strong><?php echo number_format((int)$_InactiveAssignments); ?></strong>
+                    <small>Older assignments that were deactivated instead of removed.</small>
+                </article>
+                <article class="sha-stat sha-stat--accent">
+                    <span>Open Designations</span>
+                    <strong><?php echo number_format((int)$_OpenDesignationCount); ?></strong>
+                    <small><?php echo $_OpenDesignationCount > 0 ? 'One or more leadership roles still need an active teacher.' : 'Both leadership roles are currently covered.'; ?></small>
+                </article>
+            </div>
+        </section>
+
+        <div class="sha-layout">
+            <aside class="sha-sidebar">
+                <section class="sha-surface">
+                    <div class="sha-panel-head">
+                        <div>
+                            <span class="sha-panel-kicker">Assignment Setup</span>
+                            <h2>Assign or refresh a senior house designation</h2>
+                            <p>Select the teacher and designation below. If the designation is already active, saving will replace the current teacher for that leadership role.</p>
+                        </div>
+                    </div>
+
+                    <?php if ($_MessageHtml !== "") { ?>
+                    <div class="sha-message-stack"><?php echo $_MessageHtml; ?></div>
+                    <?php } ?>
+
+                    <form method="post" action="senior-house-assignment.php" class="sha-form">
+                        <div class="sha-form-grid">
+                            <label class="sha-field">
+                                <span>Teacher</span>
+                                <select id="userid" name="userid" class="validate[required]">
+                                    <option value="">Select Teacher</option>
+                                    <?php foreach ($_TeacherOptions as $_teacherRow) {
+                                        $_TeacherName = trim((string)$_teacherRow['firstname'] . " " . (string)$_teacherRow['othernames'] . " " . (string)$_teacherRow['surname']);
+                                    ?>
+                                    <option value="<?php echo sha_esc($_teacherRow['userid']); ?>"><?php echo sha_esc($_TeacherName); ?> (<?php echo sha_esc($_teacherRow['userid']); ?>)</option>
+                                    <?php } ?>
+                                </select>
+                            </label>
+
+                            <label class="sha-field">
+                                <span>Designation</span>
+                                <select id="designation" name="designation" class="validate[required]">
+                                    <option value="">Select Designation</option>
+                                    <option value="Senior House Master">Senior House Master</option>
+                                    <option value="Senior House Mistress">Senior House Mistress</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="sha-inline-note">
+                            <i class="fa fa-info-circle"></i>
+                            <span>Use this page for only the top house leadership roles. Class and house-specific assignments should stay in their own workflow.</span>
+                        </div>
+
+                        <div class="sha-actions">
+                            <button class="sha-btn sha-btn--primary" id="save_senior_house" name="save_senior_house" type="submit"><i class="fa fa-save"></i> Save Assignment</button>
+                        </div>
+                    </form>
+                </section>
+            </aside>
+
+            <section class="sha-main">
+                <section class="sha-surface">
+                    <div class="sha-panel-head">
+                        <div>
+                            <span class="sha-panel-kicker">Leadership Directory</span>
+                            <h2>Review and manage senior house officials</h2>
+                            <p>Search by teacher, role, status, or date, then deactivate or remove assignments without leaving the page. On smaller screens, rows collapse into easy-to-read cards.</p>
+                        </div>
+                        <span class="sha-panel-tag"><i class="fa fa-list"></i> <?php echo number_format((int)$_TotalAssignments); ?> assignment<?php echo $_TotalAssignments === 1 ? '' : 's'; ?></span>
+                    </div>
+
+                    <div class="sha-toolbar">
+                        <label class="sha-search">
+                            <i class="fa fa-search"></i>
+                            <input type="search" placeholder="Search teacher, designation, status, or date" data-assignment-search>
+                        </label>
+                    </div>
+
+                    <?php if (empty($_AssignmentRows)) { ?>
+                    <div class="sha-empty-state">
+                        <h3>No senior house assignments yet</h3>
+                        <p>Start by selecting a teacher and one of the two senior house leadership roles from the setup panel.</p>
+                    </div>
+                    <?php } else { ?>
+                    <div class="sha-table-wrap">
+                        <table class="sha-table">
+                            <thead>
+                                <tr>
+                                    <th>Actions</th>
+                                    <th>Designation</th>
+                                    <th>Teacher</th>
+                                    <th>Status</th>
+                                    <th>Date / Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($_AssignmentRows as $row) {
+                                    $_TeacherName = trim((string)$row['firstname'] . " " . (string)$row['othernames'] . " " . (string)$row['surname']);
+                                    $_SearchText = strtolower(trim($_TeacherName . " " . (string)$row['userid'] . " " . (string)$row['designation'] . " " . (string)$row['status'] . " " . (string)$row['datetimeentry']));
+                                ?>
+                                <tr data-assignment-row data-search="<?php echo sha_esc($_SearchText); ?>">
+                                    <td data-label="Actions">
+                                        <div class="sha-row-actions">
+                                            <?php if ((string)$row['status'] === 'active') { ?>
+                                            <a class="sha-action-btn sha-action-btn--warn" title="Deactivate assignment" onclick="return confirm('Deactivate this senior house assignment?');" href="senior-house-assignment.php?deactivate_assignment=<?php echo urlencode($row['assignmentid']); ?>"><i class="fa fa-ban"></i><span>Deactivate</span></a>
+                                            <?php } ?>
+                                            <a class="sha-action-btn sha-action-btn--danger" title="Delete assignment" onclick="return confirm('Delete this senior house assignment permanently?');" href="senior-house-assignment.php?delete_assignment=<?php echo urlencode($row['assignmentid']); ?>"><i class="fa fa-trash"></i><span>Delete</span></a>
+                                        </div>
+                                    </td>
+                                    <td data-label="Designation"><?php echo sha_designation_badge_html($row['designation']); ?></td>
+                                    <td data-label="Teacher">
+                                        <div class="sha-person">
+                                            <strong><?php echo sha_esc($_TeacherName); ?></strong>
+                                            <small><?php echo sha_esc($row['userid']); ?></small>
+                                        </div>
+                                    </td>
+                                    <td data-label="Status"><?php echo sha_status_badge_html($row['status']); ?></td>
+                                    <td data-label="Date / Time"><?php echo sha_esc($row['datetimeentry']); ?></td>
+                                </tr>
+                                <?php } ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="sha-empty-state sha-empty-state--inline" data-assignment-empty hidden>
+                        <h3>No assignments match this search</h3>
+                        <p>Try the teacher name, the designation title, or clear the search box.</p>
+                    </div>
+                    <?php } ?>
+                </section>
+            </section>
+        </div>
+    </main>
 </div>
 </body>
 </html>
