@@ -224,9 +224,9 @@ $_OpenHouses = max(0, $_ActiveHouses - $_CoveredHouses);
     <main class="he-shell">
         <section class="he-hero">
             <div class="he-hero__copy">
-                <span class="he-kicker"><i class="fa fa-building"></i> House Management</span>
-                <h1>Build and manage school houses from one clean workspace.</h1>
-                <p>Create new houses, update names without breaking existing assignments, and keep the full house list easy to scan on desktop and mobile. The directory also shows whether each house is already linked to a house master or active students.</p>
+                <span class="he-kicker"><i class="fa fa-building"></i> House Records</span>
+                <h1>Manage School Houses</h1>
+                <p>Add new houses, update existing records, and review whether each house is already linked to a house master or students.</p>
                 <div class="he-hero__chips">
                     <span class="he-chip"><i class="fa fa-home"></i> Total Houses: <?php echo number_format((int)$_TotalHouses); ?></span>
                     <span class="he-chip"><i class="fa fa-user-secret"></i> Covered Houses: <?php echo number_format((int)$_CoveredHouses); ?></span>
@@ -263,8 +263,8 @@ $_OpenHouses = max(0, $_ActiveHouses - $_CoveredHouses);
                     <div class="he-panel-head">
                         <div>
                             <span class="he-panel-kicker">House Setup</span>
-                            <h2><?php echo $_EditingHouse ? 'Update this house record' : 'Create a new house'; ?></h2>
-                            <p><?php echo $_EditingHouse ? 'You are editing the existing house record. Current house assignments will stay linked to the same house ID after you save.' : 'Add a house name and optional description. New houses become active immediately for assignment workflows.'; ?></p>
+                            <h2><?php echo $_EditingHouse ? 'Edit House' : 'Create House'; ?></h2>
+                            <p><?php echo $_EditingHouse ? 'Update the selected house record. Existing assignments will remain linked to the same house ID after you save.' : 'Enter the house name and optional description to add a new house record.'; ?></p>
                         </div>
                     </div>
 
@@ -308,9 +308,9 @@ $_OpenHouses = max(0, $_ActiveHouses - $_CoveredHouses);
                 <section class="he-surface">
                     <div class="he-panel-head">
                         <div>
-                            <span class="he-panel-kicker">House Directory</span>
-                            <h2>Review and manage every house in one place</h2>
-                            <p>Search by house name, description, status, or date. Each row shows whether the house already has a house master and how many active students are linked to it.</p>
+                            <span class="he-panel-kicker">House List</span>
+                            <h2>House Records</h2>
+                            <p>Review each house, its description, linked assignments, and current status.</p>
                         </div>
                         <span class="he-panel-tag"><i class="fa fa-list"></i> <?php echo number_format((int)$_TotalHouses); ?> house<?php echo $_TotalHouses === 1 ? '' : 's'; ?></span>
                     </div>

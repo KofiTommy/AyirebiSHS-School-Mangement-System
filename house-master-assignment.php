@@ -217,9 +217,9 @@ $_SESSION['Message'] = "";
     <main class="hma-shell">
         <section class="hma-hero">
             <div class="hma-hero__copy">
-                <span class="hma-kicker"><i class="fa fa-home"></i> House Leadership</span>
-                <h1>Assign each house to the right house master from one clean workspace.</h1>
-                <p>Choose the active teacher for a house, refresh existing assignments without duplication, and manage the full house leadership directory from a layout that stays readable on mobile.</p>
+                <span class="hma-kicker"><i class="fa fa-home"></i> House Master Assignment</span>
+                <h1>Assign House Masters</h1>
+                <p>Assign teachers to houses and manage active or past house master records from one page.</p>
                 <div class="hma-hero__chips">
                     <span class="hma-chip"><i class="fa fa-users"></i> Active Teachers: <?php echo number_format((int)count($_TeacherOptions)); ?></span>
                     <span class="hma-chip"><i class="fa fa-building"></i> Active Houses: <?php echo number_format((int)count($_HouseOptions)); ?></span>
@@ -256,8 +256,8 @@ $_SESSION['Message'] = "";
                     <div class="hma-panel-head">
                         <div>
                             <span class="hma-panel-kicker">Assignment Setup</span>
-                            <h2>Assign or refresh a house master</h2>
-                            <p>Select the teacher and house below. If the house already has an active assignment, saving will replace the current teacher for that house.</p>
+                            <h2>Assign or Update a House Master</h2>
+                            <p>Select the teacher and house below. If the house already has an active assignment, saving will replace it.</p>
                         </div>
                     </div>
 
@@ -306,9 +306,9 @@ $_SESSION['Message'] = "";
                 <section class="hma-surface">
                     <div class="hma-panel-head">
                         <div>
-                            <span class="hma-panel-kicker">House Directory</span>
-                            <h2>Review and manage house master assignments</h2>
-                            <p>Search by house name, teacher, status, or date, then deactivate or delete assignments from the same page. On smaller screens, rows collapse into easy-to-scan cards.</p>
+                            <span class="hma-panel-kicker">Assignment List</span>
+                            <h2>House Master Assignments</h2>
+                            <p>Review each house, the assigned teacher, and the current assignment status.</p>
                         </div>
                         <span class="hma-panel-tag"><i class="fa fa-list"></i> <?php echo number_format((int)$_TotalAssignments); ?> assignment<?php echo $_TotalAssignments === 1 ? '' : 's'; ?></span>
                     </div>

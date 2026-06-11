@@ -529,9 +529,9 @@ if ($scopeIsSelected && $scopeIsAllowed) {
     <main class="psb-shell">
         <section class="psb-hero">
             <div class="psb-hero__copy">
-                <span class="psb-kicker"><i class="fa fa-print"></i> Student Bills Print Center</span>
-                <h1>Print real billed statements from a cleaner scope-driven workflow.</h1>
-                <p>Choose a class and batch once, review each student's billed semesters, and print only the scopes that already have billed items. The page now respects teacher billing item filters and no longer drags every student into hidden bulk print inputs.</p>
+                <span class="psb-kicker"><i class="fa fa-print"></i> Print Student Bills</span>
+                <h1>Print Student Bill Statements</h1>
+                <p>Select a class and batch, review billed semesters, and print statements for students who already have billed items.</p>
                 <div class="psb-hero__chips">
                     <span class="psb-chip"><i class="fa fa-building"></i> Scope: <?php echo $scopeIsSelected ? psb_esc($selectedClassLabel . ' / ' . $selectedBatchLabel) : 'Select a class and batch'; ?></span>
                     <span class="psb-chip"><i class="fa fa-filter"></i> Teacher item filters respected</span>
@@ -568,8 +568,8 @@ if ($scopeIsSelected && $scopeIsAllowed) {
                     <div class="psb-panel-head">
                         <div>
                             <span class="psb-panel-kicker">Scope Filters</span>
-                            <h2>Choose the print scope</h2>
-                            <p>Pick the class and batch you want to review. The print directory will then show each student's semester scopes and only allow printing where billed items exist.</p>
+                            <h2>Choose Class and Batch</h2>
+                            <p>Select the class and batch you want to review. Only billed semesters will be available for printing.</p>
                         </div>
                     </div>
 
@@ -619,9 +619,9 @@ if ($scopeIsSelected && $scopeIsAllowed) {
                 <section class="psb-surface">
                     <div class="psb-panel-head">
                         <div>
-                            <span class="psb-panel-kicker">Print Directory</span>
-                            <h2>Review billed semesters and print with confidence</h2>
-                            <p>Each student card shows the billed and pending amount per semester. Bulk print uses the selected semester and skips students who have no billed items in that term.</p>
+                            <span class="psb-panel-kicker">Print List</span>
+                            <h2>Printable Student Bills</h2>
+                            <p>Review each student's billed and pending amount by semester, then print single or bulk statements for billed semesters.</p>
                         </div>
                         <span class="psb-panel-tag"><i class="fa fa-users"></i> <?php echo number_format((int)$printableStudentCount); ?> printable student<?php echo ($printableStudentCount === 1 ? '' : 's'); ?></span>
                     </div>

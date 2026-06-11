@@ -1,42 +1,121 @@
 <?php
 if(!function_exists('xschool_schema_cache_is_fresh')){
 function xschool_schema_cache_is_fresh($key, $ttlSeconds = 900){
-    static $memoryCache = array();
+    if(!isset($GLOBALS['_xschool_schema_memory_cache']) || !is_array($GLOBALS['_xschool_schema_memory_cache'])){
+        $GLOBALS['_xschool_schema_memory_cache'] = array();
+    }
+    $memoryCache = &$GLOBALS['_xschool_schema_memory_cache'];
     $key = trim((string)$key);
     if($key === ""){
         return false;
     }
-    if(isset($memoryCache[$key])){
-        return $memoryCache[$key];
+    if(isset($memoryCache[$key]) && ((int)$memoryCache[$key] + (int)$ttlSeconds) > time()){
+        return true;
     }
-    if(PHP_SAPI === 'cli' || !function_exists('session_status') || session_status() !== PHP_SESSION_ACTIVE){
-        $memoryCache[$key] = false;
-        return false;
+
+    $sessionFresh = false;
+    if(PHP_SAPI !== 'cli' && function_exists('session_status') && session_status() === PHP_SESSION_ACTIVE){
+        $cacheBag = isset($_SESSION['_xschool_schema_cache']) && is_array($_SESSION['_xschool_schema_cache'])
+            ? $_SESSION['_xschool_schema_cache']
+            : array();
+        $sessionFresh = isset($cacheBag[$key]) && ((int)$cacheBag[$key] + (int)$ttlSeconds) > time();
     }
-    $cacheBag = isset($_SESSION['_xschool_schema_cache']) && is_array($_SESSION['_xschool_schema_cache'])
-        ? $_SESSION['_xschool_schema_cache']
-        : array();
-    $isFresh = isset($cacheBag[$key]) && ((int)$cacheBag[$key] + (int)$ttlSeconds) > time();
-    $memoryCache[$key] = $isFresh;
+
+    $sharedFresh = false;
+    if(function_exists('xschool_schema_cache_shared_file')){
+        $sharedFile = xschool_schema_cache_shared_file();
+        if($sharedFile !== '' && is_file($sharedFile)){
+            $raw = @file_get_contents($sharedFile);
+            $decoded = json_decode((string)$raw, true);
+            if(is_array($decoded) && isset($decoded[$key]) && ((int)$decoded[$key] + (int)$ttlSeconds) > time()){
+                $sharedFresh = true;
+            }
+        }
+    }
+
+    $isFresh = ($sessionFresh || $sharedFresh);
+    if($isFresh){
+        $memoryCache[$key] = time();
+    }
     return $isFresh;
 }
 }
 
 if(!function_exists('xschool_schema_cache_mark')){
 function xschool_schema_cache_mark($key){
-    static $memoryCache = array();
+    if(!isset($GLOBALS['_xschool_schema_memory_cache']) || !is_array($GLOBALS['_xschool_schema_memory_cache'])){
+        $GLOBALS['_xschool_schema_memory_cache'] = array();
+    }
+    $memoryCache = &$GLOBALS['_xschool_schema_memory_cache'];
     $key = trim((string)$key);
     if($key === ""){
         return;
     }
-    $memoryCache[$key] = true;
+    $memoryCache[$key] = time();
+
     if(PHP_SAPI === 'cli' || !function_exists('session_status') || session_status() !== PHP_SESSION_ACTIVE){
+        if(function_exists('xschool_schema_cache_write_shared')){
+            xschool_schema_cache_write_shared($key, (int)$memoryCache[$key]);
+        }
         return;
     }
     if(!isset($_SESSION['_xschool_schema_cache']) || !is_array($_SESSION['_xschool_schema_cache'])){
         $_SESSION['_xschool_schema_cache'] = array();
     }
-    $_SESSION['_xschool_schema_cache'][$key] = time();
+    $_SESSION['_xschool_schema_cache'][$key] = (int)$memoryCache[$key];
+    if(function_exists('xschool_schema_cache_write_shared')){
+        xschool_schema_cache_write_shared($key, (int)$_SESSION['_xschool_schema_cache'][$key]);
+    }
+}
+}
+
+if(!function_exists('xschool_schema_cache_shared_file')){
+function xschool_schema_cache_shared_file(){
+    $tempDir = function_exists('sys_get_temp_dir') ? (string)sys_get_temp_dir() : '';
+    if($tempDir === ''){
+        return '';
+    }
+    return rtrim($tempDir, '\\/').DIRECTORY_SEPARATOR.'xschool-2026semester1-schema-cache.json';
+}
+}
+
+if(!function_exists('xschool_schema_cache_write_shared')){
+function xschool_schema_cache_write_shared($key, $timestamp){
+    $sharedFile = xschool_schema_cache_shared_file();
+    if($sharedFile === ''){
+        return false;
+    }
+    $timestamp = (int)$timestamp;
+    $cacheBag = array();
+    if(is_file($sharedFile)){
+        $decoded = json_decode((string)@file_get_contents($sharedFile), true);
+        if(is_array($decoded)){
+            $cacheBag = $decoded;
+        }
+    }
+    $cacheBag[$key] = $timestamp > 0 ? $timestamp : time();
+    return @file_put_contents($sharedFile, json_encode($cacheBag), LOCK_EX) !== false;
+}
+}
+
+if(!function_exists('xschool_schema_ensure_index')){
+function xschool_schema_ensure_index($con, $tableName, $indexName, $createSql){
+    if(!$con){
+        return false;
+    }
+    $tableName = trim((string)$tableName);
+    $indexName = trim((string)$indexName);
+    $createSql = trim((string)$createSql);
+    if($tableName === '' || $indexName === '' || $createSql === ''){
+        return false;
+    }
+    $tableEsc = mysqli_real_escape_string($con, $tableName);
+    $indexEsc = mysqli_real_escape_string($con, $indexName);
+    $res = mysqli_query($con, "SHOW INDEX FROM `$tableEsc` WHERE Key_name='$indexEsc'");
+    if($res && mysqli_num_rows($res) > 0){
+        return true;
+    }
+    return mysqli_query($con, $createSql) ? true : false;
 }
 }
 
@@ -109,7 +188,7 @@ function house_master_can_view_senior_dashboard($con = null){
 
 if(!function_exists('ensure_house_tables')){
 function ensure_house_tables($con){
-    if(xschool_schema_cache_is_fresh('schema_house_master_v2')){
+    if(xschool_schema_cache_is_fresh('schema_house_master_v2', 43200)){
         return;
     }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblhouse (
@@ -587,8 +666,34 @@ function send_bulk_sms_message($phone, $message, &$resultCode = null){
     $msg = urlencode($message);
     $url = "http://clientlogin.bulksmsgh.com/smsapi?key={$key}&to={$phone}&msg={$msg}&sender_id={$senderId}";
 
-    $response = @file_get_contents($url);
+    $response = false;
+    if(function_exists('curl_init')){
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+        $response = curl_exec($ch);
+        if($response === false){
+            $resultCode = trim((string)curl_error($ch)) !== '' ? trim((string)curl_error($ch)) : 'SMS_GATEWAY_TIMEOUT';
+        }
+        curl_close($ch);
+    }
+    if($response === false){
+        $context = stream_context_create(array(
+            'http' => array(
+                'timeout' => 8,
+                'ignore_errors' => true
+            )
+        ));
+        $response = @file_get_contents($url, false, $context);
+    }
     $raw = trim((string)$response);
+    if($raw === ""){
+        if(trim((string)$resultCode) === ""){
+            $resultCode = "SMS_GATEWAY_TIMEOUT";
+        }
+        return false;
+    }
     $resultCode = $raw;
 
     if($raw === "1000"){

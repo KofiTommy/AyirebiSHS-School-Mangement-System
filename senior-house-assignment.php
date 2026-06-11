@@ -217,8 +217,8 @@ $_SESSION['Message'] = "";
         <section class="sha-hero">
             <div class="sha-hero__copy">
                 <span class="sha-kicker"><i class="fa fa-shield"></i> Senior House Leadership</span>
-                <h1>Assign the school’s top house leadership roles from one clean page.</h1>
-                <p>Choose the active teacher for each senior house designation, keep the assignment history visible, and manage updates or deactivations from a mobile-friendly workspace.</p>
+                <h1>Assign Senior House Roles</h1>
+                <p>Assign teachers to the school's senior house leadership roles and manage active or past appointments from one page.</p>
                 <div class="sha-hero__chips">
                     <span class="sha-chip"><i class="fa fa-users"></i> Active Teachers: <?php echo number_format((int)count($_TeacherOptions)); ?></span>
                     <span class="sha-chip"><i class="fa fa-user-secret"></i> Assigned Teachers: <?php echo number_format((int)$_AssignedTeacherCount); ?></span>
@@ -255,8 +255,8 @@ $_SESSION['Message'] = "";
                     <div class="sha-panel-head">
                         <div>
                             <span class="sha-panel-kicker">Assignment Setup</span>
-                            <h2>Assign or refresh a senior house designation</h2>
-                            <p>Select the teacher and designation below. If the designation is already active, saving will replace the current teacher for that leadership role.</p>
+                            <h2>Assign or Update a Senior House Role</h2>
+                            <p>Select the teacher and designation below. If the role is already active, saving will replace the current assignment.</p>
                         </div>
                     </div>
 
@@ -304,9 +304,9 @@ $_SESSION['Message'] = "";
                 <section class="sha-surface">
                     <div class="sha-panel-head">
                         <div>
-                            <span class="sha-panel-kicker">Leadership Directory</span>
-                            <h2>Review and manage senior house officials</h2>
-                            <p>Search by teacher, role, status, or date, then deactivate or remove assignments without leaving the page. On smaller screens, rows collapse into easy-to-read cards.</p>
+                            <span class="sha-panel-kicker">Assignment List</span>
+                            <h2>Senior House Assignments</h2>
+                            <p>Review each senior house role, the teacher assigned to it, and the current assignment status.</p>
                         </div>
                         <span class="sha-panel-tag"><i class="fa fa-list"></i> <?php echo number_format((int)$_TotalAssignments); ?> assignment<?php echo $_TotalAssignments === 1 ? '' : 's'; ?></span>
                     </div>

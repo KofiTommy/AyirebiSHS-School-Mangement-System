@@ -596,8 +596,7 @@ $editableAssignedHouse = null;
 if($selectedApplicationId !== ""){
     $editableApplication = aa_fetch_application_bundle($con, $branchId, $selectedApplicationId);
     if($editableApplication){
-        $editableAssignedHouse = online_admission_assign_house_for_application($con, $editableApplication);
-        $editableApplication = aa_fetch_application_bundle($con, $branchId, $selectedApplicationId);
+        $editableAssignedHouse = online_admission_application_assigned_house($con, $editableApplication);
         $editableApplicationForm = aa_application_form_defaults($editableApplication);
         $editablePayment = online_admission_get_latest_payment_by_application($con, $editableApplication["applicationid"]);
     }
@@ -1419,10 +1418,8 @@ $appRes = mysqli_query($con, "SELECT *
     LIMIT $applicationOffset, $applicationsPerPage");
 if($appRes){ while($row = mysqli_fetch_array($appRes, MYSQLI_ASSOC)){ $applications[] = $row; } }
 $applicationAssignedHouseMap = array();
-foreach($applications as $index => $app){
-    $assignedHouse = online_admission_assign_house_for_application($con, $app);
-    $refreshedApplication = online_admission_get_application_by_id($con, $app["applicationid"]);
-    $applications[$index] = $refreshedApplication ? $refreshedApplication : $app;
+foreach($applications as $app){
+    $assignedHouse = online_admission_application_assigned_house($con, $app);
     $applicationAssignedHouseMap[$app["applicationid"]] = $assignedHouse;
 }
 $applicationPaymentMap = array();

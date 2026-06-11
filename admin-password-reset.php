@@ -837,11 +837,11 @@ foreach ($listRows as $row) {
     }
 }
 
-$heroKicker = ($targetType === 'Student') ? 'Parent And Guardian Access' : 'Staff Credential Support';
-$heroTitle = ($targetType === 'Student') ? 'Send student portal credentials with confidence.' : 'Reset teacher credentials from one clean workspace.';
+$heroKicker = ($targetType === 'Student') ? 'Student Credential Delivery' : 'Teacher Credential Reset';
+$heroTitle = ($targetType === 'Student') ? 'Send Student Login Credentials' : 'Reset Teacher Login Credentials';
 $heroIntro = ($targetType === 'Student')
-    ? 'Choose a class or batch, confirm the contact on file, and send fresh student login credentials in one guided flow. Bulk delivery stays tied to the active class registry and still forces password change on first login.'
-    : 'Search teachers, confirm their registered number, and issue a reset that immediately prompts a secure password change on first sign-in.';
+    ? 'Select a batch or class, confirm the contact on file, and send fresh student portal credentials by SMS. Students will still be required to change the password after login.'
+    : 'Search for a teacher, confirm the registered phone number, and send a new temporary password by SMS.';
 $heroScopeCopy = ($targetType === 'Student')
     ? ($studentScopeActive ? $scopeLabel : 'Select a batch or class to unlock bulk sending.')
     : 'Teacher direct SMS resets only';
@@ -865,8 +865,8 @@ $heroScopeCopy = ($targetType === 'Student')
             <p><?php echo apr_esc($heroIntro); ?></p>
             <div class="apr-hero__chips">
                 <span class="apr-chip"><i class="fa fa-filter"></i> Scope: <?php echo apr_esc($heroScopeCopy); ?></span>
-                <span class="apr-chip"><i class="fa fa-comments"></i> Trusted contact delivery</span>
-                <span class="apr-chip"><i class="fa fa-lock"></i> Forced password change</span>
+                <span class="apr-chip"><i class="fa fa-comments"></i> SMS to registered contact</span>
+                <span class="apr-chip"><i class="fa fa-lock"></i> Password change required</span>
             </div>
         </div>
         <div class="apr-stats">
@@ -908,11 +908,11 @@ $heroScopeCopy = ($targetType === 'Student')
             <section class="apr-surface">
                 <div class="apr-panel-head">
                     <div>
-                        <span class="apr-panel-kicker">Credential Filters</span>
-                        <h2>Search, scope, and prepare the delivery list</h2>
-                        <p>Switch between students and teachers, narrow the student list by batch or class, and confirm the contact coverage before sending any resets.</p>
+                        <span class="apr-panel-kicker">Search And Filter</span>
+                        <h2>Find the users you want to work on</h2>
+                        <p>Switch between students and teachers, narrow the student list by batch or class, and review the available contacts before sending credentials.</p>
                     </div>
-                    <span class="apr-panel-tag"><i class="fa fa-database"></i> Live registry scope</span>
+                    <span class="apr-panel-tag"><i class="fa fa-database"></i> Current records</span>
                 </div>
                 <form method="get" action="admin-password-reset.php" class="apr-filter-form">
                     <div class="apr-filter-grid<?php echo ($targetType === 'Student') ? '' : ' apr-filter-grid--compact'; ?>">
@@ -969,10 +969,10 @@ $heroScopeCopy = ($targetType === 'Student')
                 <div class="apr-panel-head">
                     <div>
                         <span class="apr-panel-kicker">Bulk Delivery</span>
-                        <h2>Send credentials batch-by-batch or class-by-class</h2>
-                        <p>Bulk sending keeps each student’s current username, generates a unique temporary password, and sends it to the trusted contact stored on the student record.</p>
+                        <h2>Send Student Credentials In Bulk</h2>
+                        <p>Bulk sending keeps each student's current username, generates a temporary password, and sends it to the registered contact on the student record.</p>
                     </div>
-                    <span class="apr-panel-tag"><i class="fa fa-envelope"></i> Guided bulk send</span>
+                    <span class="apr-panel-tag"><i class="fa fa-envelope"></i> Batch or class scope</span>
                 </div>
                 <div class="apr-bulk-meta">
                     <span class="apr-chip apr-chip--light"><i class="fa fa-filter"></i> Scope: <?php echo apr_esc($scopeLabel); ?></span>
@@ -981,7 +981,7 @@ $heroScopeCopy = ($targetType === 'Student')
                 </div>
                 <form method="post" action="<?php echo apr_esc(adminPasswordResetBuildRedirectUrl($targetType, $keyword, $selectedBatchId, $selectedClassId, $currentPage, $perPage)); ?>" class="apr-bulk-form">
                     <div class="apr-bulk-form__copy">
-                        Run this only after reviewing the scope and the contact coverage. Bulk sending uses the selected batch and class filters, not the search box. Students without a trusted number on file are skipped entirely so they are not locked out by an unseen password reset.
+                        Run this only after confirming the selected scope and contact coverage. The bulk action uses the chosen batch and class filters, not the search box. Students without a valid phone number are skipped.
                     </div>
                     <div class="apr-bulk-form__actions">
                         <input type="hidden" name="target_type" value="Student">
@@ -1007,8 +1007,8 @@ $heroScopeCopy = ($targetType === 'Student')
                 <div class="apr-panel-head">
                     <div>
                         <span class="apr-panel-kicker">Delivery List</span>
-                        <h2>Review contacts and send one student at a time when needed</h2>
-                        <p>The quick action generates a temporary password and sends it immediately by SMS. If you need something custom, open the advanced reset panel for that row.</p>
+                        <h2>Review contacts and send individual resets</h2>
+                        <p>The quick action generates a temporary password and sends it immediately by SMS. Use the advanced options only when you need a custom username or password.</p>
                     </div>
                     <span class="apr-panel-tag"><i class="fa fa-list"></i> <?php echo ($totalMatchingRows > 0) ? number_format((int)$rangeStart) . '-' . number_format((int)$rangeEnd) : '0'; ?> of <?php echo number_format((int)$totalMatchingRows); ?></span>
                 </div>
@@ -1138,7 +1138,7 @@ $heroScopeCopy = ($targetType === 'Student')
                     </div>
                 </nav>
                 <?php } ?>
-                <p class="apr-footnote">Only administrator accounts can access this workspace. Student resets send the new username and password by SMS to the registered contact shown above, and bulk sending uses the active class and batch registry.</p>
+                <p class="apr-footnote">Only administrator accounts can access this page. Student resets send the username and temporary password by SMS to the registered contact shown above, and bulk sending uses the selected class and batch scope.</p>
             </section>
         </section>
     </div>

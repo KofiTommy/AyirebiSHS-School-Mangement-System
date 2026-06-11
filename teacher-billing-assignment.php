@@ -250,9 +250,9 @@ $_SelectedItemCount = count($_SelectedItems);
     <main class="tba-shell">
         <section class="tba-hero">
             <div class="tba-hero__copy">
-                <span class="tba-kicker"><i class="fa fa-credit-card"></i> Teacher Billing Control</span>
-                <h1>Assign billing scopes and collection items from one clean workspace.</h1>
-                <p>Set the teacher, class, batch, and semester once, then manage exactly which billed items they can collect. The whole page now stays usable on phones without squeezing the data tables.</p>
+                <span class="tba-kicker"><i class="fa fa-credit-card"></i> Teacher Billing Assignment</span>
+                <h1>Assign Billing Responsibilities</h1>
+                <p>Assign a teacher to a class, batch, and semester, then choose the billed items the teacher is allowed to collect.</p>
                 <div class="tba-hero__chips">
                     <span class="tba-chip"><i class="fa fa-users"></i> Active Teachers: <?php echo number_format((int)count($_TeacherOptions)); ?></span>
                     <span class="tba-chip"><i class="fa fa-building"></i> Classes: <?php echo number_format((int)count($_ClassOptions)); ?></span>
@@ -289,8 +289,8 @@ $_SelectedItemCount = count($_SelectedItems);
                     <div class="tba-panel-head">
                         <div>
                             <span class="tba-panel-kicker">Assignment Setup</span>
-                            <h2>Create or reactivate a billing scope</h2>
-                            <p>Choose the teacher and billing scope details below. If the same scope already exists, saving will reactivate and refresh it instead of creating a duplicate.</p>
+                            <h2>Create or Update a Billing Assignment</h2>
+                            <p>Select the teacher, class, batch, and semester below. If the same assignment already exists, saving will reactivate it instead of creating a duplicate.</p>
                         </div>
                     </div>
 
@@ -362,8 +362,8 @@ $_SelectedItemCount = count($_SelectedItems);
                     <div class="tba-panel-head">
                         <div>
                             <span class="tba-panel-kicker">Billing Items</span>
-                            <h2>Choose the items this teacher can collect</h2>
-                            <p>Leaving every item unchecked means the teacher can collect all active billed items inside this class, batch, and semester scope.</p>
+                            <h2>Select Billing Items</h2>
+                            <p>Leave all items unchecked if the teacher should be allowed to collect every active billed item in this class, batch, and semester.</p>
                         </div>
                         <a class="tba-btn tba-btn--secondary" href="teacher-billing-assignment.php"><i class="fa fa-times"></i> Close</a>
                     </div>
@@ -441,9 +441,9 @@ $_SelectedItemCount = count($_SelectedItems);
                 <section class="tba-surface">
                     <div class="tba-panel-head">
                         <div>
-                            <span class="tba-panel-kicker">Assignment Directory</span>
-                            <h2>Review, print, and manage teacher billing scopes</h2>
-                            <p>Each row shows the teacher, assigned class scope, number of selected billing items, and quick actions for deactivating, editing, or deleting the assignment.</p>
+                            <span class="tba-panel-kicker">Assignment List</span>
+                            <h2>Teacher Billing Assignments</h2>
+                            <p>Review each teacher's class billing assignment, selected items, and available actions from one list.</p>
                         </div>
                         <span class="tba-panel-tag"><i class="fa fa-list"></i> <?php echo number_format((int)$_TotalAssignments); ?> assignment<?php echo $_TotalAssignments === 1 ? '' : 's'; ?></span>
                     </div>

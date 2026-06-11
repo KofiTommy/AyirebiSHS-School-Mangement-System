@@ -73,7 +73,7 @@ function online_admission_can_manage_portal($con = null){
 if(!function_exists('ensure_online_admission_tables')){
 function ensure_online_admission_tables($con){
     ensure_house_tables($con);
-    if(xschool_schema_cache_is_fresh('schema_online_admission_v4')){
+    if(xschool_schema_cache_is_fresh('schema_online_admission_v5', 43200)){
         return;
     }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbladmissionpostedstudent (
@@ -331,6 +331,15 @@ function ensure_online_admission_tables($con){
     if($columnRes && mysqli_num_rows($columnRes) === 0){
         mysqli_query($con, "ALTER TABLE tblonlineadmissiondocument ADD COLUMN randompool VARCHAR(120) NULL AFTER randomenabled");
     }
+    if(function_exists('xschool_schema_ensure_index')){
+        xschool_schema_ensure_index($con, 'tbladmissionpostedstudent', 'idx_posted_access_scope', "CREATE INDEX idx_posted_access_scope ON tbladmissionpostedstudent(beceindexnumber, birthdate, admissionyear, branchid, status)");
+        xschool_schema_ensure_index($con, 'tblonlineadmissionapplication', 'idx_application_branch_token', "CREATE INDEX idx_application_branch_token ON tblonlineadmissionapplication(branchid, verificationtoken)");
+        xschool_schema_ensure_index($con, 'tblonlineadmissionapplication', 'idx_application_house_scope', "CREATE INDEX idx_application_house_scope ON tblonlineadmissionapplication(assignedhouseid, branchid, admissionyear, status)");
+        xschool_schema_ensure_index($con, 'tblonlineadmissionapplication', 'idx_application_branch_updated', "CREATE INDEX idx_application_branch_updated ON tblonlineadmissionapplication(branchid, updatedat)");
+        xschool_schema_ensure_index($con, 'tblonlineadmissionpayment', 'idx_payment_application_created', "CREATE INDEX idx_payment_application_created ON tblonlineadmissionpayment(applicationid, createdat)");
+        xschool_schema_ensure_index($con, 'tblonlineadmissionpayment', 'idx_payment_application_status_paid', "CREATE INDEX idx_payment_application_status_paid ON tblonlineadmissionpayment(applicationid, status, paidat, createdat)");
+        xschool_schema_ensure_index($con, 'tblonlineadmissiondocument', 'idx_document_scope_status', "CREATE INDEX idx_document_scope_status ON tblonlineadmissiondocument(branchid, admissionyear, status)");
+    }
     xschool_schema_cache_mark('schema_online_admission_v5');
 }
 }
@@ -480,14 +489,20 @@ function online_admission_get_application_by_id($con, $applicationId){
 
 if(!function_exists('online_admission_get_house_by_id')){
 function online_admission_get_house_by_id($con, $houseId){
+    static $houseCache = array();
     $houseIdEsc = mysqli_real_escape_string($con, trim((string)$houseId));
     if($houseIdEsc === ""){
         return null;
     }
+    if(array_key_exists($houseIdEsc, $houseCache)){
+        return $houseCache[$houseIdEsc];
+    }
     $res = mysqli_query($con, "SELECT * FROM tblhouse WHERE houseid='$houseIdEsc' LIMIT 1");
     if($res && $row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        $houseCache[$houseIdEsc] = $row;
         return $row;
     }
+    $houseCache[$houseIdEsc] = null;
     return null;
 }
 }
@@ -2410,8 +2425,8 @@ function online_admission_http_json_request($method, $url, $headers, $payload, &
         $httpHeaders[] = $header.": ".$value;
     }
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 20);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 45);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 20);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper((string)$method));
     curl_setopt($ch, CURLOPT_HTTPHEADER, $httpHeaders);
     if($payload !== null){

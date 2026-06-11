@@ -725,7 +725,7 @@ $schoolLogoPath = sh_resolve_school_logo(isset($_Logo) ? $_Logo : "");
             <div>
                 <span class="student-history-kicker">Academic Record</span>
                 <h2>Student Transcript</h2>
-                <p>Search a student once and print one multi-year transcript with semester summaries, subject totals, grades, and official remarks.</p>
+                <p>Search for a student and print a multi-year transcript with semester summaries, subject totals, grades, and official remarks.</p>
             </div>
         </div>
 

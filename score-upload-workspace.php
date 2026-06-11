@@ -215,7 +215,7 @@ if($selectedAssignment){
 <main class="score-entry-shell score-upload-shell">
     <section class="score-entry-hero">
         <div class="score-entry-hero__copy">
-            <span class="score-entry-kicker">Teacher Upload Workspace</span>
+            <span class="score-entry-kicker">Teacher Score Upload</span>
             <h1><?php echo score_entry_esc($heroTitle); ?></h1>
             <p><?php echo score_entry_esc($pageDescription); ?></p>
             <div class="score-entry-hero__stats">
@@ -227,7 +227,7 @@ if($selectedAssignment){
         </div>
         <aside class="score-entry-hero__aside">
             <div class="score-entry-tip-card">
-                <span class="score-entry-tip-card__eyebrow">Teacher Tips</span>
+                <span class="score-entry-tip-card__eyebrow">Upload Guide</span>
                 <h2><?php echo score_entry_esc($pageTitle); ?></h2>
                 <ul>
                     <?php foreach($heroTips as $tip){ ?>
@@ -305,7 +305,7 @@ if($selectedAssignment){
             <?php } else { ?>
             <div class="score-entry-empty-state">
                 <h3>No subject assignments found</h3>
-                <p>Your assigned upload sheets will appear here once classes, subjects, and year-based sessions have been linked to your account.</p>
+                <p>Your upload sheets will appear here after your classes and subjects have been assigned.</p>
             </div>
             <?php } ?>
         </section>
@@ -328,7 +328,7 @@ if($selectedAssignment){
             <?php if(!$selectedAssignment){ ?>
             <div class="score-entry-empty-state">
                 <h3>Choose an assignment to begin</h3>
-                <p>Select any subject card on the left to open its upload sheet. The selected class, session, and subject will stay in place after every upload so teachers can keep working without losing context.</p>
+                <p>Select a class and subject from the list to open the correct upload sheet.</p>
             </div>
             <?php } else { ?>
                 <div class="score-entry-sheet-summary">
@@ -352,7 +352,7 @@ if($selectedAssignment){
                 <?php } elseif(count($pendingStudents) === 0){ ?>
                 <div class="score-entry-empty-state">
                     <h3>All <?php echo score_entry_esc(strtolower($scoreLabel)); ?> records are already saved</h3>
-                    <p>Every registered student in this sheet already has a saved score. You can review the report, open the template builder, or switch to another assignment from the left.</p>
+                    <p>Every registered student in this sheet already has a saved score. You can review the report, download the template again, or switch to another assignment.</p>
                     <div class="score-entry-empty-state__actions">
                         <a class="score-entry-link-button" href="<?php echo score_entry_esc($scoresReportUrl); ?>"><i class="fa fa-line-chart"></i> View Saved Scores</a>
                         <a class="score-entry-link-button" href="<?php echo score_entry_esc($manualEntryUrl); ?>"><i class="fa fa-pencil"></i> Manual Entry</a>
@@ -363,8 +363,8 @@ if($selectedAssignment){
                 <div class="score-upload-grid">
                     <section class="score-upload-card">
                         <span class="score-entry-section__eyebrow">Workbook Upload</span>
-                        <h3>Upload completed <?php echo score_entry_esc(strtolower($scoreLabel)); ?> sheet</h3>
-                        <p class="score-upload-lead">Download the template, fill the last score column, then upload one completed workbook for this subject and session.</p>
+                        <h3>Upload Completed <?php echo score_entry_esc($scoreLabel); ?> Sheet</h3>
+                        <p class="score-upload-lead">Download the template, enter the scores, and upload the completed workbook for this class, subject, and session.</p>
 
                         <form
                             method="post"

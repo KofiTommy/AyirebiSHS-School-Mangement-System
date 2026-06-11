@@ -477,8 +477,7 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
 }
 
 $application = ($accessAuthorized && $application) ? online_admission_get_application_by_id($con, $application["applicationid"]) : null;
-$assignedHouse = ($application) ? online_admission_assign_house_for_application($con, $application, $postedStudent) : null;
-$application = ($application) ? online_admission_get_application_by_id($con, $application["applicationid"]) : null;
+$assignedHouse = ($application) ? online_admission_application_assigned_house($con, $application) : null;
 $isLocked = oa_application_is_locked($application);
 $applicationLockMessage = $isLocked ? oa_application_lock_message($application) : "";
 $paystackConfig = online_admission_paystack_config();

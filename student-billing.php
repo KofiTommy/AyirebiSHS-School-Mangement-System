@@ -375,8 +375,8 @@ if ($scopeIsSelected && $scopeIsAllowed) {
         <section class="sb-hero">
             <div class="sb-hero__copy">
                 <span class="sb-kicker"><i class="fa fa-credit-card"></i> Student Billing</span>
-                <h1>Bill students by real class scope, not by repeated item rows.</h1>
-                <p>Choose a class and batch once, review each student's semester billing summary, and bill only the pending items. The page now respects teacher item filters, avoids empty transactions, and stays readable on phones.</p>
+                <h1>Bill Students by Class and Batch</h1>
+                <p>Select a class and batch, review each student's semester billing summary, and bill only the pending items.</p>
                 <div class="sb-hero__chips">
                     <span class="sb-chip"><i class="fa fa-building"></i> Scope: <?php echo $scopeIsSelected ? sb_esc($selectedClassLabel . ' / ' . $selectedBatchLabel) : 'Select a class and batch'; ?></span>
                     <span class="sb-chip"><i class="fa fa-lock"></i> Assigned scope enforcement</span>
@@ -413,8 +413,8 @@ if ($scopeIsSelected && $scopeIsAllowed) {
                     <div class="sb-panel-head">
                         <div>
                             <span class="sb-panel-kicker">Scope Filters</span>
-                            <h2>Choose a billing class scope</h2>
-                            <p>Pick the class and batch you want to work on. The results will show each student's term billing summary, not a repeated item-by-item billing action.</p>
+                            <h2>Choose Class and Batch</h2>
+                            <p>Select the class and batch you want to bill. The results will show each student's semester billing summary for that scope.</p>
                         </div>
                     </div>
 
@@ -464,9 +464,9 @@ if ($scopeIsSelected && $scopeIsAllowed) {
                 <section class="sb-surface">
                     <div class="sb-panel-head">
                         <div>
-                            <span class="sb-panel-kicker">Billing Directory</span>
-                            <h2>Review pending bills semester by semester</h2>
-                            <p>Each student card shows the billing summary for the selected class and batch. Bill one semester scope at a time, and print bills only when items have already been created.</p>
+                            <span class="sb-panel-kicker">Billing List</span>
+                            <h2>Student Billing Summary</h2>
+                            <p>Review each student's semester billing summary, bill the pending items, and print existing bills where available.</p>
                         </div>
                         <span class="sb-panel-tag"><i class="fa fa-users"></i> <?php echo number_format((int)$visibleStudentCount); ?> student<?php echo ($visibleStudentCount === 1 ? '' : 's'); ?></span>
                     </div>

@@ -163,7 +163,7 @@ $resultSummaryText = $selectedBatchId !== "" || $selectedClassId !== ""
     <section class="continuing-hero">
         <div class="continuing-hero__copy">
             <span class="continuing-kicker"><i class="fa fa-users"></i> Continuing Students</span>
-            <h1>Review active student continuity.</h1>
+            <h1>Continuing Students</h1>
             <div class="continuing-hero__chips">
                 <span class="continuing-chip"><i class="fa fa-calendar-check-o"></i> <?php echo continuing_students_esc($selectedBatchLabel); ?></span>
                 <span class="continuing-chip"><i class="fa fa-graduation-cap"></i> <?php echo continuing_students_esc($selectedClassLabel); ?></span>
@@ -202,7 +202,7 @@ $resultSummaryText = $selectedBatchId !== "" || $selectedClassId !== ""
     <section class="continuing-panel continuing-filter-panel">
         <div class="continuing-panel__head">
             <div>
-                <h2>Filter The List</h2>
+                <h2>Filter Students</h2>
                 <p>Pick the semester batch you want to review, then narrow down to one class if needed.</p>
             </div>
             <div class="continuing-panel__tag">
@@ -272,7 +272,7 @@ $resultSummaryText = $selectedBatchId !== "" || $selectedClassId !== ""
         <?php if ($totalStudents > 0) { ?>
         <div class="continuing-results-meta">
             <p><strong id="continuing-visible-count"><?php echo (int)$totalStudents; ?></strong> of <?php echo (int)$totalStudents; ?> students visible</p>
-            <p>Tap a row on mobile to read it comfortably, then open the transcript directly from the action button.</p>
+            <p>Use the action button to open any student's transcript.</p>
         </div>
 
         <div class="continuing-table-wrap">
