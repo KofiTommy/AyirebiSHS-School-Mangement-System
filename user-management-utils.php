@@ -379,7 +379,7 @@ function um_module_catalog(){
             'label' => 'Billing',
             'group' => 'Finance',
             'description' => 'Class fee collection and payment access.',
-            'scripts' => array('payments.php','class-billing.php','teacher-billing-assignment.php','student-billing.php','group-student-billing.php','rebill-group-student.php','print-student-bills.php','display-class-bill.php')
+            'scripts' => array('payments.php','class-billing.php','teacher-billing-assignment.php','student-billing.php','group-student-billing.php','print-student-bills.php','display-class-bill.php')
         ),
         'accounts_finance' => array(
             'label' => 'Accounts And Finance',

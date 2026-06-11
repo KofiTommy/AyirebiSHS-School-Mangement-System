@@ -1,457 +1,609 @@
 <?php
 session_start();
-$_SESSION['Message']="";
+if (!isset($_SESSION['Message'])) {
+    $_SESSION['Message'] = "";
+}
 include("check-login.php");
 include("dbstring.php");
 include("teacher-billing-utils.php");
 ensure_teacher_billing_table($con);
+ensure_teacher_billing_item_table($con);
 teacher_billing_enforce_page_access($con);
+
 $__teacherBillingUserId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
 $__teacherBillingIsAdmin = teacher_billing_is_admin();
 $__teacherBillingScopeClasses = teacher_billing_class_options($con);
 $__teacherBillingScopeBatches = teacher_billing_batch_options($con);
 $__teacherBillingHasScope = (count($__teacherBillingScopeClasses) > 0 && count($__teacherBillingScopeBatches) > 0);
+
+if (!function_exists('sb_esc')) {
+    function sb_esc($value)
+    {
+        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+if (!function_exists('sb_flash_html')) {
+    function sb_flash_html($tone, $message)
+    {
+        $tone = trim((string)$tone);
+        $allowed = array('success', 'error', 'warning', 'info');
+        if (!in_array($tone, $allowed, true)) {
+            $tone = 'info';
+        }
+
+        $icon = 'fa-info-circle';
+        if ($tone === 'success') {
+            $icon = 'fa-check-circle';
+        } elseif ($tone === 'error') {
+            $icon = 'fa-exclamation-circle';
+        } elseif ($tone === 'warning') {
+            $icon = 'fa-exclamation-triangle';
+        }
+
+        return "<div class='sb-flash sb-flash--" . $tone . "'><span class='sb-flash__icon'><i class='fa " . $icon . "'></i></span><div class='sb-flash__body'>" . $message . "</div></div>";
+    }
+}
+
+if (!function_exists('sb_money')) {
+    function sb_money($amount)
+    {
+        $symbol = isset($_SESSION['SYMBOL']) ? (string)$_SESSION['SYMBOL'] : '';
+        return trim($symbol . ' ' . number_format((float)$amount, 2));
+    }
+}
+
+if (!function_exists('sb_status_badge_html')) {
+    function sb_status_badge_html($tone, $label)
+    {
+        $tone = trim((string)$tone);
+        return "<span class='sb-badge sb-badge--" . sb_esc($tone) . "'>" . sb_esc($label) . "</span>";
+    }
+}
+
+$classOptionsById = array();
+foreach ($__teacherBillingScopeClasses as $classRow) {
+    $classOptionsById[(string)$classRow['class_entryid']] = $classRow;
+}
+$batchOptionsById = array();
+foreach ($__teacherBillingScopeBatches as $batchRow) {
+    $batchOptionsById[(string)$batchRow['batchid']] = $batchRow;
+}
+
+$selectedClassId = isset($_REQUEST['class_entryid']) ? trim((string)$_REQUEST['class_entryid']) : '';
+$selectedBatchId = isset($_REQUEST['batchid']) ? trim((string)$_REQUEST['batchid']) : '';
+$selectedClassLabel = isset($classOptionsById[$selectedClassId]) ? (string)$classOptionsById[$selectedClassId]['class_name'] : '';
+$selectedBatchLabel = isset($batchOptionsById[$selectedBatchId]) ? (string)$batchOptionsById[$selectedBatchId]['batch'] : '';
+$scopeIsSelected = ($selectedClassId !== '' && $selectedBatchId !== '');
+$scopeIsAllowed = true;
+$pageMessage = isset($_SESSION['Message']) ? (string)$_SESSION['Message'] : "";
+$_SESSION['Message'] = "";
+
+if (isset($_POST['bill_scope'])) {
+    $selectedClassId = isset($_POST['class_entryid']) ? trim((string)$_POST['class_entryid']) : $selectedClassId;
+    $selectedBatchId = isset($_POST['batchid']) ? trim((string)$_POST['batchid']) : $selectedBatchId;
+    $billStudentId = isset($_POST['student_userid']) ? trim((string)$_POST['student_userid']) : '';
+    $billTermName = isset($_POST['termname']) ? (int)$_POST['termname'] : 0;
+
+    if (!$__teacherBillingIsAdmin && !teacher_billing_is_assigned($con, $__teacherBillingUserId, $selectedClassId, $selectedBatchId, $billTermName)) {
+        $_SESSION['Message'] = sb_flash_html('error', 'You are not assigned billing access for that class, batch, and semester.');
+    } else {
+        $billResult = teacher_billing_bill_student_scope(
+            $con,
+            $billStudentId,
+            $selectedClassId,
+            $selectedBatchId,
+            $billTermName,
+            $__teacherBillingUserId,
+            $__teacherBillingUserId
+        );
+
+        $studentLabel = $billStudentId !== '' ? "<strong>" . sb_esc($billStudentId) . "</strong>" : 'this student';
+        if ($billResult['tone'] === 'success') {
+            $_SESSION['Message'] = sb_flash_html(
+                'success',
+                "Billing completed for " . $studentLabel . ". Added <strong>" . number_format((int)$billResult['inserted_count']) . "</strong> item(s) worth <strong>" . sb_esc(sb_money($billResult['inserted_amount'])) . "</strong>." .
+                ($billResult['transactionid'] !== '' ? " Transaction: <strong>" . sb_esc($billResult['transactionid']) . "</strong>." : '')
+            );
+        } elseif ($billResult['tone'] === 'warning') {
+            $_SESSION['Message'] = sb_flash_html(
+                'warning',
+                $billResult['message'] .
+                ($billResult['inserted_count'] > 0 ? " Added <strong>" . number_format((int)$billResult['inserted_count']) . "</strong> item(s)." : "")
+            );
+        } elseif ($billResult['tone'] === 'info') {
+            $_SESSION['Message'] = sb_flash_html('info', $billResult['message']);
+        } else {
+            $_SESSION['Message'] = sb_flash_html('error', $billResult['message']);
+        }
+    }
+
+    $redirectParams = array();
+    if ($selectedClassId !== '') {
+        $redirectParams['class_entryid'] = $selectedClassId;
+    }
+    if ($selectedBatchId !== '') {
+        $redirectParams['batchid'] = $selectedBatchId;
+    }
+    header("location:student-billing.php" . (!empty($redirectParams) ? '?' . http_build_query($redirectParams) : '') . '#student-billing-results');
+    exit();
+}
+
+if ($scopeIsSelected && !$__teacherBillingIsAdmin && !teacher_billing_is_assigned_pair($con, $__teacherBillingUserId, $selectedClassId, $selectedBatchId)) {
+    $scopeIsAllowed = false;
+    $pageMessage = sb_flash_html('error', 'You are not assigned billing access for that class and batch.');
+}
+
+$studentCards = array();
+$termItemRowsByTerm = array();
+$visibleScopeCount = 0;
+$visibleStudentCount = 0;
+$totalBillableAmount = 0.0;
+$totalBilledAmount = 0.0;
+$totalPendingAmount = 0.0;
+$studentsWithPendingScopes = 0;
+
+if ($scopeIsSelected && $scopeIsAllowed) {
+    $allowedTerms = $__teacherBillingIsAdmin
+        ? array()
+        : teacher_billing_terms_for_pair($con, $__teacherBillingUserId, $selectedClassId, $selectedBatchId);
+
+    $studentRows = array();
+    $studentIds = array();
+    $selectedClassIdEsc = mysqli_real_escape_string($con, $selectedClassId);
+    $selectedBatchIdEsc = mysqli_real_escape_string($con, $selectedBatchId);
+
+    $studentSql = "SELECT DISTINCT su.userid, su.firstname, su.othernames, su.surname
+        FROM tblsystemuser su
+        INNER JOIN tblclass cl ON su.userid=cl.userid
+        WHERE cl.class_entryid='$selectedClassIdEsc'
+          AND cl.batchid='$selectedBatchIdEsc'
+          AND cl.status='active'
+          AND su.systemtype='Student'
+        ORDER BY su.firstname ASC, su.surname ASC, su.othernames ASC";
+    $studentRes = mysqli_query($con, $studentSql);
+    if ($studentRes) {
+        while ($studentRow = mysqli_fetch_array($studentRes, MYSQLI_ASSOC)) {
+            $studentRows[] = $studentRow;
+            $studentIds[] = (string)$studentRow['userid'];
+        }
+    }
+
+    $studentTermsById = array();
+    if (!empty($studentIds)) {
+        $studentIdsSql = array();
+        foreach ($studentIds as $studentId) {
+            $studentIdsSql[] = "'" . mysqli_real_escape_string($con, $studentId) . "'";
+        }
+        $termSql = "SELECT DISTINCT userid, termname
+            FROM tbltermregistry
+            WHERE class_entryid='$selectedClassIdEsc'
+              AND batchid='$selectedBatchIdEsc'
+              AND userid IN (" . implode(",", $studentIdsSql) . ")
+            ORDER BY termname ASC";
+        $termRes = mysqli_query($con, $termSql);
+        if ($termRes) {
+            while ($termRow = mysqli_fetch_array($termRes, MYSQLI_ASSOC)) {
+                $studentId = (string)$termRow['userid'];
+                $termName = (int)$termRow['termname'];
+                if ($termName <= 0) {
+                    continue;
+                }
+                if (!$__teacherBillingIsAdmin && !in_array($termName, $allowedTerms, true)) {
+                    continue;
+                }
+                if (!isset($studentTermsById[$studentId])) {
+                    $studentTermsById[$studentId] = array();
+                }
+                $studentTermsById[$studentId][$termName] = $termName;
+            }
+        }
+    }
+
+    $allTerms = array();
+    foreach ($studentTermsById as $studentTermSet) {
+        foreach ($studentTermSet as $termName) {
+            $allTerms[$termName] = $termName;
+        }
+    }
+    ksort($allTerms);
+
+    $allItemPriceIds = array();
+    foreach ($allTerms as $termName) {
+        $termItemRows = teacher_billing_scope_itemprice_rows_for_user(
+            $con,
+            $__teacherBillingUserId,
+            $selectedClassId,
+            $selectedBatchId,
+            $termName
+        );
+        if (!empty($termItemRows)) {
+            $termItemRowsByTerm[$termName] = $termItemRows;
+            foreach ($termItemRows as $termItemRow) {
+                $itemPriceId = trim((string)($termItemRow['itempriceid'] ?? ''));
+                if ($itemPriceId !== '') {
+                    $allItemPriceIds[$itemPriceId] = $itemPriceId;
+                }
+            }
+        }
+    }
+
+    $billedByStudent = array();
+    if (!empty($studentIds) && !empty($allItemPriceIds)) {
+        $studentIdsSql = array();
+        foreach ($studentIds as $studentId) {
+            $studentIdsSql[] = "'" . mysqli_real_escape_string($con, $studentId) . "'";
+        }
+        $itemIdsSql = array();
+        foreach ($allItemPriceIds as $itemPriceId) {
+            $itemIdsSql[] = "'" . mysqli_real_escape_string($con, $itemPriceId) . "'";
+        }
+        $billedSql = "SELECT userid, itempriceid, datetimebilled
+            FROM tblbilling
+            WHERE userid IN (" . implode(",", $studentIdsSql) . ")
+              AND itempriceid IN (" . implode(",", $itemIdsSql) . ")";
+        $billedRes = mysqli_query($con, $billedSql);
+        if ($billedRes) {
+            while ($billedRow = mysqli_fetch_array($billedRes, MYSQLI_ASSOC)) {
+                $studentId = (string)$billedRow['userid'];
+                $itemPriceId = (string)$billedRow['itempriceid'];
+                if (!isset($billedByStudent[$studentId])) {
+                    $billedByStudent[$studentId] = array();
+                }
+                $billedByStudent[$studentId][$itemPriceId] = $billedRow;
+            }
+        }
+    }
+
+    foreach ($studentRows as $studentRow) {
+        $studentId = (string)$studentRow['userid'];
+        $studentFullName = trim((string)$studentRow['firstname'] . " " . (string)$studentRow['othernames'] . " " . (string)$studentRow['surname']);
+        $studentScopes = array();
+        $studentPendingAmount = 0.0;
+        $studentPendingScopes = 0;
+        $studentBillableAmount = 0.0;
+        $studentBilledAmount = 0.0;
+
+        if (isset($studentTermsById[$studentId])) {
+            $studentTerms = array_values($studentTermsById[$studentId]);
+            sort($studentTerms);
+            foreach ($studentTerms as $termName) {
+                if (!isset($termItemRowsByTerm[$termName])) {
+                    continue;
+                }
+
+                $scopeItems = array();
+                $totalItems = 0;
+                $billedItems = 0;
+                $pendingItems = 0;
+                $scopeTotalAmount = 0.0;
+                $scopeBilledAmount = 0.0;
+                $scopePendingAmount = 0.0;
+                $latestBilledAt = '';
+
+                foreach ($termItemRowsByTerm[$termName] as $itemRow) {
+                    $itemPriceId = trim((string)($itemRow['itempriceid'] ?? ''));
+                    $price = isset($itemRow['price']) ? (float)$itemRow['price'] : 0.0;
+                    $billRow = isset($billedByStudent[$studentId][$itemPriceId]) ? $billedByStudent[$studentId][$itemPriceId] : null;
+                    $isBilled = is_array($billRow);
+                    $billedAt = $isBilled ? trim((string)($billRow['datetimebilled'] ?? '')) : '';
+
+                    $totalItems++;
+                    $scopeTotalAmount += $price;
+                    if ($isBilled) {
+                        $billedItems++;
+                        $scopeBilledAmount += $price;
+                        if ($billedAt !== '' && ($latestBilledAt === '' || strcmp($billedAt, $latestBilledAt) > 0)) {
+                            $latestBilledAt = $billedAt;
+                        }
+                    } else {
+                        $pendingItems++;
+                        $scopePendingAmount += $price;
+                    }
+
+                    $scopeItems[] = array(
+                        'itemname' => (string)$itemRow['itemname'],
+                        'price' => $price,
+                        'is_billed' => $isBilled,
+                        'billed_at' => $billedAt,
+                    );
+                }
+
+                if ($totalItems <= 0) {
+                    continue;
+                }
+
+                if ($pendingItems > 0) {
+                    $studentPendingScopes++;
+                }
+                $studentPendingAmount += $scopePendingAmount;
+                $studentBillableAmount += $scopeTotalAmount;
+                $studentBilledAmount += $scopeBilledAmount;
+
+                $studentScopes[] = array(
+                    'termname' => $termName,
+                    'items' => $scopeItems,
+                    'total_items' => $totalItems,
+                    'billed_items' => $billedItems,
+                    'pending_items' => $pendingItems,
+                    'total_amount' => $scopeTotalAmount,
+                    'billed_amount' => $scopeBilledAmount,
+                    'pending_amount' => $scopePendingAmount,
+                    'latest_billed_at' => $latestBilledAt,
+                );
+            }
+        }
+
+        if (!empty($studentScopes)) {
+            $studentSearch = strtolower(trim($studentFullName . " " . $studentId . " " . $selectedClassLabel . " " . $selectedBatchLabel));
+            $studentCards[] = array(
+                'userid' => $studentId,
+                'fullname' => $studentFullName !== '' ? $studentFullName : $studentId,
+                'search' => $studentSearch,
+                'scopes' => $studentScopes,
+                'pending_amount' => $studentPendingAmount,
+                'pending_scope_count' => $studentPendingScopes,
+                'total_amount' => $studentBillableAmount,
+                'billed_amount' => $studentBilledAmount,
+            );
+
+            $visibleStudentCount++;
+            $visibleScopeCount += count($studentScopes);
+            $totalBillableAmount += $studentBillableAmount;
+            $totalBilledAmount += $studentBilledAmount;
+            $totalPendingAmount += $studentPendingAmount;
+            if ($studentPendingScopes > 0) {
+                $studentsWithPendingScopes++;
+            }
+        }
+    }
+}
 ?>
-
-
-<?php
-//@$_ClassId=$_POST['classid'];
-@$_UserId=$_GET['user_id'];
-@$_Class=$_GET['class_entryid'];
-@$_Batch=$_GET['batch_id'];
-@$_Term=$_GET['term_id'];
-@$_Recordedby=$_SESSION['USERID'];
-//echo $_SESSION['USERID'];
-
-if(isset($_GET['user_id'])){
-teacher_billing_enforce_scope_or_redirect($con, trim((string)$_Class), trim((string)$_Batch), (int)$_Term);
-//Create payment container
-include("code.php");
-@$_Payment_Id=$code;
-@$_Transaction_Code=$transaction_id;
-@$_TransId=0;
-
-$_SQL_Payment=mysqli_query($con,"INSERT INTO tbltransaction(transactionid,userid,datetimepayment,recordedby,status)
-	VALUES('$_Transaction_Code','$_UserId',NOW(),'$_SESSION[USERID]','active')");
-if($_SQL_Payment){
-$_TransId=$_Transaction_Code;
-}
-
-$_SQL_EXECUTE_2=mysqli_query($con,"SELECT * FROM tbltermregistry tr 
-				INNER JOIN tblitemprice ip ON tr.class_entryid=ip.class_entryid AND tr.termname=ip.term
-				INNER JOIN tblitem itm ON ip.itemid=itm.itemid
-				INNER JOIN tblclassentry ce ON ce.class_entryid=tr.class_entryid
-				WHERE tr.userid='$_UserId' AND ip.class_entryid='$_Class' AND ip.term='$_Term' AND ip.batch='$_Batch' AND ip.status='active' AND itm.status='active'");
-
-while($row_b=mysqli_fetch_array($_SQL_EXECUTE_2,MYSQLI_ASSOC))
-{
-include("code.php");
-@$_BillId=$code;
-
-//Check if the bill is duplicated
-$_SQL_CHECK=mysqli_query($con,"SELECT * FROM tblbilling bi INNER JOIN tblitemprice ip ON bi.itempriceid=ip.itempriceid
-INNER JOIN tblitem itm ON itm.itemid=ip.itemid
- WHERE bi.userid='$_UserId' AND bi.itempriceid='$row_b[itempriceid]'");
-if(mysqli_num_rows($_SQL_CHECK)>0)
-{
-	if($row_item=mysqli_fetch_array($_SQL_CHECK,MYSQLI_ASSOC)){
-	@$_ItemName=$row_item['itemname'];
-	}
-	
-$_SESSION['Message']=$_SESSION['Message']."<div style='color:red;text-align:left;background-color:white;padding:5px;'><i class='fa fa-check' style='color:red'></i> $_ItemName already billed</div>";
-}
-else{
-$_SQL_EXECUTE=mysqli_query($con,"INSERT INTO tblbilling(billid,userid,itempriceid,transactionid,cost,datetimebilled,recordedby,status,referenceid)
-	VALUES('$_BillId','$_UserId','$row_b[itempriceid]','$_TransId','$row_b[price]',NOW(),'$_Recordedby','active','$_SESSION[SCHOOLACCOUNT]')");
-if($_SQL_EXECUTE){
-
-$_SQL_B=mysqli_query($con,"INSERT INTO accountingbookentries(accountId,cr,created,createdBy,dr,modifiedBy,narration,particulars,refAccountId,transactionId)
-VALUES('$_SESSION[SCHOOLACCOUNT]','$row_b[price]',NOW(),'$_Recordedby',0,'','Bills','Bills','$_UserId','$_TransId')");
-if($_SQL_B){}
-
-	$_SQL_CHECK_1=mysqli_query($con,"SELECT * FROM tblbilling bi INNER JOIN tblitemprice ip ON bi.itempriceid=ip.itempriceid
-INNER JOIN tblitem itm ON itm.itemid=ip.itemid
- WHERE bi.userid='$_UserId' AND bi.itempriceid='$row_b[itempriceid]'");
-if(mysqli_num_rows($_SQL_CHECK_1)>0)
-{
-	if($row_item_1=mysqli_fetch_array($_SQL_CHECK_1,MYSQLI_ASSOC)){
-	@$_ItemName_1=$row_item_1['itemname'];
-	}
-
-
-	$_SESSION['Message']=$_SESSION['Message']."<div style='color:green;text-align:left;background-color:white;padding:5px;'><i class='fa fa-check' style='color:green'></i> $_ItemName_1 Successfully Billed</div>";
-	}
-
-	else{
-		$_Error=mysqli_error($con);
-		$_SESSION['Message']=$_SESSION['Message']."<div style='color:red'>$_ItemName_1 failed to bill,$_Error</div>";
-	}
-}
-else{
-	$_Error=mysqli_error($con);
-	$_SESSION['Message']=$_SESSION['Message']."<div style='color:red'>No item billed,$_Error</div>";
-}
-}
-
-}
-}
-?>
-
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<?php
-include("links.php");
-?>
-
-<script>
-  var rnd;
-function getItemID()
-{
-rnd=Math.floor( Math.random()*100000000);
-document.getElementById("item-id").value=rnd;
-}
-</script>
-
-<script type="text/javascript">
-var gbatch;
-function getBatch()
-{
-gbatch=getElementById("batch").value;
- //return _batch;  
-}
-function getStudentBill(str)
-{
-	if(str=="")
-  {
-  
-  document.getElementById("search-result").innerHTML="";
-  return;
-  }
-  else
-  {
-    if(window.XMLHttpRequest)
-    {
-      xmlhttp = new XMLHttpRequest();
-    }
-    else
-    {
-      xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-    }
-    xmlhttp.onreadystatechange = function()
-    {
-      if(this.readyState==4 && this.status==200)
-      {
-        document.getElementById("search-result").innerHTML = this.responseText;
-      }
-    };
-    xmlhttp.open("GET","display-class-bill.php?search-bill="+str+"&batch="+gbatch,true);
-    xmlhttp.send();
-  }
-}
-</script>
+<?php include("links.php"); ?>
+<link rel="stylesheet" href="css/student-billing.css">
+<script src="scripts/student-billing.js" defer></script>
 </head>
-<body>
-	<div class="header">
-		<!--<img src="images/logo.png" width="100px" height="100px" alt="logo"/>-->
-	<?php
-	include("menu.php");
-	?>		
-	</div>
-<div class="main-platform" style="">
-	<br/>
-	<table width="100%">
-		<tr>
-			<!--
-			<td valign="top" width="30%" align="center">
-				<div class="form-entry" align="left">
-			
-			<h3>Student Billing 
-				</h3>
-			<br/>
-			<form method="post" id="formID" name="formID" action="student-billing.php">
-			<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.systemtype='Student' ORDER BY su.firstname");
-
-			echo "<select id='userid' name='userid' class='validate[required]'>";
-			echo "<option value=''>Select Student</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[userid]'>$row[firstname] $row[othernames] $row[surname]($row[userid]) </option>";
-				}
-				
-			echo "</select><br/><br/>";
-			?>
-
-
-			<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
-
-			echo "<select id='class' name='class' class='validate[required]'>";
-			echo "<option value=''>Select Class</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
-				}
-				
-			echo "</select><br/><br/>";
-			?>
-
-			<?php	
-			$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
-
-			echo "<select id='batch' name='batch' class='validate[required]'>";
-			echo "<option value=''>Select Batch</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					echo "<option value='$row[batchid]'>$row[batch]</option>";
-				}
-				
-			echo "</select><br/><br/>";
-			?>
-
-
-			<select id="term" name="term" class="validate[required]">
-				<option value="" >Select Semester</option>
-				<option value="1">1</option>
-				<option value="2">2</option>
-				
-			</select><br/><br/>
-
-			<div align="center"><button class="button-save" id="bill_student" name="bill_student"><i class="fa fa-plus"></i> BILL STUDENT</button></div>
-		</form>
+<body class="student-billing-page">
+<div class="header">
+<?php include("menu.php"); ?>
 </div>
-</td>
--->
-<td width="100%">
-<div class="form-entry">
-<?php if(!$__teacherBillingIsAdmin && !$__teacherBillingHasScope){ ?>
-<div style="margin-bottom:12px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;padding:10px;">
-No billing class has been assigned yet. Ask admin to open <strong>Teacher Billing Assignment</strong> under Billing and assign your class, batch, and semester.
-</div>
-<?php } ?>
-<form id="formID" name="formID" method="post">
-<?php	
-include("dbstring.php");
-echo "<fieldset><legend>FIND STUDENTS</legend>";		
-echo "<table>";
-echo "<tr>";
-echo "<td>";
-$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
-$_ClassOptions = $__teacherBillingScopeClasses;
-echo "<select id='class_entryid' name='class_entryid' class='validate[required]'>";
-echo "<option value=''>Select Class</option>";
-foreach($_ClassOptions as $row){
-echo "<option value='".$row['class_entryid']."'>".$row['class_name']."</option>";
-}
-echo "</select>";
-echo "</td>";
-echo "<td>";
-$_BatchOptions = $__teacherBillingScopeBatches;
-echo "<select id='batchid' name='batchid' class='validate[required]'>";
-echo "<option value=''>Select Batch</option>";
-foreach($_BatchOptions as $row){
-echo "<option value='".$row['batchid']."'>".$row['batch']."</option>";
-}
-echo "</select>";
-echo "</td>";
-echo "<td>";
-echo "<button class='button-show' id='show_semester' name='show_semester'><i class='fa fa-search' style='color:white'></i> SHOW</button> ";
-echo "</td>";
-echo "</tr>";
-echo "</table>";
-echo "</fieldset>";
-?>
-</form>
-				<?php
-				echo $_SESSION['Message'];
-				@$_Class_EntryId=$_POST["class_entryid"];
-				@$_Batch_Id=$_POST["batchid"];
-				if(isset($_POST["show_semester"]))
-				{
-				if(!$__teacherBillingIsAdmin && !teacher_billing_is_assigned_pair($con, $__teacherBillingUserId, trim((string)$_Class_EntryId), trim((string)$_Batch_Id))){
-				echo "<div style='color:red;text-align:center;background-color:white;padding:8px;'>You are not assigned billing access for that class and batch.</div>";
-				}
-				else{
-				$_AllowedTerms = $__teacherBillingIsAdmin ? array(1,2) : teacher_billing_terms_for_pair($con, $__teacherBillingUserId, trim((string)$_Class_EntryId), trim((string)$_Batch_Id));
-				@$_Overall_Total=0;
-				//$_SQL_EXECUTE_1=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.systemtype='Student' ORDER BY su.firstname");
-				$_SQL_EXECUTE_1=mysqli_query($con,"SELECT * FROM tblsystemuser su INNER JOIN tblclass cl ON su.userid=cl.userid 
-				WHERE cl.batchid='$_Batch_Id' AND cl.class_entryid='$_Class_EntryId' AND su.systemtype='Student' ORDER BY su.firstname ASC");
+<div class="main-platform">
+    <main class="sb-shell">
+        <section class="sb-hero">
+            <div class="sb-hero__copy">
+                <span class="sb-kicker"><i class="fa fa-credit-card"></i> Student Billing</span>
+                <h1>Bill students by real class scope, not by repeated item rows.</h1>
+                <p>Choose a class and batch once, review each student's semester billing summary, and bill only the pending items. The page now respects teacher item filters, avoids empty transactions, and stays readable on phones.</p>
+                <div class="sb-hero__chips">
+                    <span class="sb-chip"><i class="fa fa-building"></i> Scope: <?php echo $scopeIsSelected ? sb_esc($selectedClassLabel . ' / ' . $selectedBatchLabel) : 'Select a class and batch'; ?></span>
+                    <span class="sb-chip"><i class="fa fa-lock"></i> Assigned scope enforcement</span>
+                    <span class="sb-chip"><i class="fa fa-print"></i> Per-scope bill print</span>
+                </div>
+            </div>
+            <div class="sb-stats">
+                <article class="sb-stat">
+                    <span>Students Visible</span>
+                    <strong><?php echo number_format((int)$visibleStudentCount); ?></strong>
+                    <small>Students with at least one billable semester in the selected scope.</small>
+                </article>
+                <article class="sb-stat">
+                    <span>Billing Scopes</span>
+                    <strong><?php echo number_format((int)$visibleScopeCount); ?></strong>
+                    <small>Student-semester billing summaries currently on the page.</small>
+                </article>
+                <article class="sb-stat">
+                    <span>Billed Amount</span>
+                    <strong><?php echo sb_esc(sb_money($totalBilledAmount)); ?></strong>
+                    <small>Total billed amount across the visible student scopes.</small>
+                </article>
+                <article class="sb-stat sb-stat--accent">
+                    <span>Pending Amount</span>
+                    <strong><?php echo sb_esc(sb_money($totalPendingAmount)); ?></strong>
+                    <small><?php echo number_format((int)$studentsWithPendingScopes); ?> student<?php echo ($studentsWithPendingScopes === 1 ? '' : 's'); ?> still have pending bill items.</small>
+                </article>
+            </div>
+        </section>
 
-				echo "<table style='background-color:white'>";
-				echo "<caption>STUDENTS BILLING</caption>";
-				echo "<thead><th>Class</th><th>Item</th><th>Amount</th><th>Status</th><th>Billed Date/Time</th><th>Action</th></thead>";
-				echo "<tbody>";
-				
-				while($row_1=mysqli_fetch_array($_SQL_EXECUTE_1,MYSQLI_ASSOC)){
-				$_UserID=$row_1['userid'];
+        <div class="sb-layout">
+            <aside class="sb-sidebar">
+                <section class="sb-surface">
+                    <div class="sb-panel-head">
+                        <div>
+                            <span class="sb-panel-kicker">Scope Filters</span>
+                            <h2>Choose a billing class scope</h2>
+                            <p>Pick the class and batch you want to work on. The results will show each student's term billing summary, not a repeated item-by-item billing action.</p>
+                        </div>
+                    </div>
 
-				echo "<tr style='background-color:#eee;border-bottom:1px solid gray;font-weight:bold'>";
-				echo "<td colspan='6'>";
-				echo strtoupper($row_1['firstname']." ".$row_1['othernames']." ".$row_1['surname']."(".$row_1['userid'].")");
-				echo "</td>";
-				echo "</tr>";
+                    <?php if ($pageMessage !== '') { ?>
+                    <div class="sb-message-stack"><?php echo $pageMessage; ?></div>
+                    <?php } ?>
 
-		$_SQL_CR=mysqli_query($con,"SELECT * FROM tblclass cl 
-		WHERE cl.class_entryid='$_Class_EntryId' AND cl.batchid='$_Batch_Id' AND cl.userid='$row_1[userid]'");
-		while($row_cr=mysqli_fetch_array($_SQL_CR,MYSQLI_ASSOC)){
-			//Get all the classes regisetred for the studenet
-			$_Class_Reg_ID=$row_cr['class_entryid'];
-			@$_Class_Inner="";
+                    <?php if (!$__teacherBillingIsAdmin && !$__teacherBillingHasScope) { ?>
+                    <div class="sb-inline-note sb-inline-note--warning">
+                        <i class="fa fa-info-circle"></i>
+                        <span>No billing class has been assigned yet. Ask admin to open <strong>Teacher Billing Assignment</strong> and assign your class, batch, and semester.</span>
+                    </div>
+                    <?php } ?>
 
-			$_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce WHERE ce.class_entryid='$_Class_Reg_ID' ORDER BY ce.class_name ASC");
-			while($row_class=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC))
-			{
-			////echo "<tr>";
-			//echo "<td colspan='4' align='left' style='font-weight:bold'>";
-			$_Class_Inner =strtoupper($row_class['class_name']);
-			//echo "</td>";
-			//echo "</tr>";
+                    <form method="get" action="student-billing.php" class="sb-form">
+                        <div class="sb-form-grid">
+                            <label class="sb-field">
+                                <span>Class</span>
+                                <select id="class_entryid" name="class_entryid">
+                                    <option value="">Select Class</option>
+                                    <?php foreach ($__teacherBillingScopeClasses as $classOption) { ?>
+                                    <option value="<?php echo sb_esc($classOption['class_entryid']); ?>"<?php echo ($selectedClassId === (string)$classOption['class_entryid'] ? ' selected' : ''); ?>><?php echo sb_esc($classOption['class_name']); ?></option>
+                                    <?php } ?>
+                                </select>
+                            </label>
 
-		$_SQL_TERM=mysqli_query($con,"SELECT * FROM tbltermregistry tr 
-		WHERE tr.class_entryid='$row_class[class_entryid]' AND tr.batchid='$_Batch_Id' 
-		AND tr.userid='$row_1[userid]' ORDER BY tr.termname ASC");
-			while($row_tr=mysqli_fetch_array($_SQL_TERM,MYSQLI_ASSOC))
-			{
-			if(!$__teacherBillingIsAdmin && !in_array((int)$row_tr['termname'], $_AllowedTerms, true)){
-				continue;
-			}
-			@$_Bactch_Inner="";
-			$_SQL_BATCH=mysqli_query($con,"SELECT * FROM tblbatch bch WHERE bch.batchid='$row_tr[batchid]'");
-			echo "<form method='post' action='student-billing.php'>";
+                            <label class="sb-field">
+                                <span>Batch</span>
+                                <select id="batchid" name="batchid">
+                                    <option value="">Select Batch</option>
+                                    <?php foreach ($__teacherBillingScopeBatches as $batchOption) { ?>
+                                    <option value="<?php echo sb_esc($batchOption['batchid']); ?>"<?php echo ($selectedBatchId === (string)$batchOption['batchid'] ? ' selected' : ''); ?>><?php echo sb_esc($batchOption['batch']); ?></option>
+                                    <?php } ?>
+                                </select>
+                            </label>
+                        </div>
 
-			echo "<tr>";
-			echo "<td colspan='6' align='left' style='background-color:#fff;font-weight:bold'>";
-			echo  $_Class_Inner ;
-			echo "<input type='hidden' id='class_id' name='class_id' value='$row_class[class_entryid]' />";
-			echo "<input type='hidden' id='term_id' name='term_id' value='$row_tr[termname]' />";
-			echo "</td>";
-			echo "</tr>";
+                        <div class="sb-actions">
+                            <button class="sb-btn sb-btn--primary" type="submit"><i class="fa fa-search"></i> Show Students</button>
+                            <a class="sb-btn sb-btn--secondary" href="student-billing.php"><i class="fa fa-undo"></i> Clear</a>
+                        </div>
+                    </form>
+                </section>
+            </aside>
 
-			while($row_batch=mysqli_fetch_array($_SQL_BATCH,MYSQLI_ASSOC))
-			{
-			//echo "<tr>";
-			////echo "<td colspan='4' align='left' style='font-weight:bold'>";
-			$_Bactch_Inner = strtoupper($row_batch['batch']);
-			//echo "</td>";
-			//echo "</tr>";
-			echo "<tr>";
-			echo "<td colspan='6' style='background-color:#fff;font-weight:bold'>";
-			echo "Semester: ".$row_tr['termname'];
-			echo "</td>";
-			echo "</tr>";
+            <section class="sb-main" id="student-billing-results">
+                <section class="sb-surface">
+                    <div class="sb-panel-head">
+                        <div>
+                            <span class="sb-panel-kicker">Billing Directory</span>
+                            <h2>Review pending bills semester by semester</h2>
+                            <p>Each student card shows the billing summary for the selected class and batch. Bill one semester scope at a time, and print bills only when items have already been created.</p>
+                        </div>
+                        <span class="sb-panel-tag"><i class="fa fa-users"></i> <?php echo number_format((int)$visibleStudentCount); ?> student<?php echo ($visibleStudentCount === 1 ? '' : 's'); ?></span>
+                    </div>
 
-			echo "<tr>";
+                    <?php if ($scopeIsSelected && $scopeIsAllowed && !empty($studentCards)) { ?>
+                    <div class="sb-toolbar">
+                        <label class="sb-search">
+                            <i class="fa fa-search"></i>
+                            <input type="search" placeholder="Search student name or ID" data-student-search>
+                        </label>
+                        <div class="sb-toolbar__summary">
+                            <strong><?php echo sb_esc($selectedClassLabel . ' / ' . $selectedBatchLabel); ?></strong>
+                            <span><?php echo number_format((int)$visibleScopeCount); ?> term scope<?php echo ($visibleScopeCount === 1 ? '' : 's'); ?> ready for review.</span>
+                        </div>
+                    </div>
 
-			echo "<td colspan='6' align='left' style='background-color:#eef;font-weight:bold'>";
-			echo "Batch:".$_Bactch_Inner;
-			//echo "<input type='hidden' id='class_id' name='class_id' value='$row_class[class_entryid]' />";
-			//echo "<input type='hidden' id='term_id' name='term_id' value='$row_tr[termname]' />";
-			echo "</td>";
-			echo "</tr>";
+                    <div class="sb-student-grid">
+                        <?php foreach ($studentCards as $studentCard) { ?>
+                        <article class="sb-student-card" data-student-card data-search="<?php echo sb_esc($studentCard['search']); ?>">
+                            <div class="sb-student-card__head">
+                                <div class="sb-student-card__identity">
+                                    <h3><?php echo sb_esc($studentCard['fullname']); ?></h3>
+                                    <p><?php echo sb_esc($studentCard['userid']); ?></p>
+                                </div>
+                                <div class="sb-student-card__meta">
+                                    <?php echo $studentCard['pending_scope_count'] > 0 ? sb_status_badge_html('warning', number_format((int)$studentCard['pending_scope_count']) . ' pending scope' . ($studentCard['pending_scope_count'] === 1 ? '' : 's')) : sb_status_badge_html('success', 'Fully billed'); ?>
+                                    <span class="sb-student-card__amount"><?php echo sb_esc(sb_money($studentCard['pending_amount'])); ?> pending</span>
+                                </div>
+                            </div>
 
-			
-				$_SQL_EXECUTE_2=mysqli_query($con,"SELECT * FROM tbltermregistry tr 
-				INNER JOIN tblitemprice ip ON tr.class_entryid=ip.class_entryid AND tr.termname=ip.term
-				INNER JOIN tblitem itm ON ip.itemid=itm.itemid
-				INNER JOIN tblclassentry ce ON ce.class_entryid=tr.class_entryid
-				INNER JOIN tblbatch b ON ip.batch=b.batchid
-				WHERE tr.userid='$_UserID' AND ip.class_entryid='$row_class[class_entryid]' AND ip.term='$row_tr[termname]' AND ip.batch='$row_tr[batchid]' AND ip.status='active' AND itm.status='active' ");
+                            <div class="sb-scope-list">
+                                <?php foreach ($studentCard['scopes'] as $scope) { ?>
+                                <section class="sb-scope-card">
+                                    <div class="sb-scope-card__head">
+                                        <div>
+                                            <h4>Semester <?php echo sb_esc($scope['termname']); ?></h4>
+                                            <p><?php echo number_format((int)$scope['total_items']); ?> item<?php echo ($scope['total_items'] === 1 ? '' : 's'); ?>, <?php echo number_format((int)$scope['pending_items']); ?> pending</p>
+                                        </div>
+                                        <div class="sb-scope-card__status">
+                                            <?php
+                                            if ($scope['pending_items'] > 0) {
+                                                echo sb_status_badge_html('warning', 'Pending ' . number_format((int)$scope['pending_items']));
+                                            } else {
+                                                echo sb_status_badge_html('success', 'Fully billed');
+                                            }
+                                            ?>
+                                        </div>
+                                    </div>
 
-				@$_Total_Amount=0;
-				
-					while($row_2=mysqli_fetch_array($_SQL_EXECUTE_2,MYSQLI_ASSOC))
-					{
-					echo "<tr>";
-					//echo "<td align='center'>";
-					//echo $row_2['class_name'];
-					//echo "</td>";
+                                    <div class="sb-scope-stats">
+                                        <div class="sb-scope-stat">
+                                            <span>Total</span>
+                                            <strong><?php echo sb_esc(sb_money($scope['total_amount'])); ?></strong>
+                                        </div>
+                                        <div class="sb-scope-stat">
+                                            <span>Billed</span>
+                                            <strong><?php echo sb_esc(sb_money($scope['billed_amount'])); ?></strong>
+                                        </div>
+                                        <div class="sb-scope-stat">
+                                            <span>Pending</span>
+                                            <strong><?php echo sb_esc(sb_money($scope['pending_amount'])); ?></strong>
+                                        </div>
+                                        <div class="sb-scope-stat">
+                                            <span>Last Billed</span>
+                                            <strong><?php echo $scope['latest_billed_at'] !== '' ? sb_esc($scope['latest_billed_at']) : 'Not yet'; ?></strong>
+                                        </div>
+                                    </div>
 
-					//echo "<td align='center'>";
-					//echo $row_2['term'];
-					//echo "</td>";
+                                    <details class="sb-scope-details">
+                                        <summary>View billed items</summary>
+                                        <div class="sb-item-list">
+                                            <?php foreach ($scope['items'] as $scopeItem) { ?>
+                                            <div class="sb-item-row">
+                                                <div class="sb-item-row__identity">
+                                                    <strong><?php echo sb_esc($scopeItem['itemname']); ?></strong>
+                                                    <small><?php echo sb_esc(sb_money($scopeItem['price'])); ?></small>
+                                                </div>
+                                                <div class="sb-item-row__status">
+                                                    <?php
+                                                    if (!empty($scopeItem['is_billed'])) {
+                                                        echo sb_status_badge_html('success', 'Billed');
+                                                        if ($scopeItem['billed_at'] !== '') {
+                                                            echo "<small>" . sb_esc($scopeItem['billed_at']) . "</small>";
+                                                        }
+                                                    } else {
+                                                        echo sb_status_badge_html('danger', 'Pending');
+                                                    }
+                                                    ?>
+                                                </div>
+                                            </div>
+                                            <?php } ?>
+                                        </div>
+                                    </details>
 
-					echo "<td>";
-					//echo $row_2['batch'];
-					echo "</td>";
+                                    <div class="sb-scope-actions">
+                                        <form method="post" action="student-billing.php?class_entryid=<?php echo urlencode($selectedClassId); ?>&batchid=<?php echo urlencode($selectedBatchId); ?>#student-billing-results">
+                                            <input type="hidden" name="class_entryid" value="<?php echo sb_esc($selectedClassId); ?>">
+                                            <input type="hidden" name="batchid" value="<?php echo sb_esc($selectedBatchId); ?>">
+                                            <input type="hidden" name="student_userid" value="<?php echo sb_esc($studentCard['userid']); ?>">
+                                            <input type="hidden" name="termname" value="<?php echo (int)$scope['termname']; ?>">
+                                            <button class="sb-btn sb-btn--primary" type="submit" name="bill_scope" <?php echo ($scope['pending_items'] > 0 ? '' : 'disabled'); ?> onclick="return confirm('Bill the pending items for <?php echo sb_esc($studentCard['fullname']); ?> in semester <?php echo (int)$scope['termname']; ?>?');">
+                                                <i class="fa fa-plus"></i> Bill Pending Items
+                                            </button>
+                                        </form>
 
-					echo "<td>";
-					echo $row_2['itemname'];
-					echo "</td>";
+                                        <?php if ($scope['billed_items'] > 0) { ?>
+                                        <a class="sb-btn sb-btn--secondary" target="_blank" href="print-student-bills.php?user_id=<?php echo urlencode($studentCard['userid']); ?>&class_entryid=<?php echo urlencode($selectedClassId); ?>&batch_id=<?php echo urlencode($selectedBatchId); ?>&term_id=<?php echo (int)$scope['termname']; ?>">
+                                            <i class="fa fa-print"></i> Print Bills
+                                        </a>
+                                        <?php } ?>
+                                    </div>
+                                </section>
+                                <?php } ?>
+                            </div>
+                        </article>
+                        <?php } ?>
+                    </div>
 
-
-					echo "<td align='center'>";
-					echo $row_2['price'];
-					echo "</td>";
-
-					echo "<td align='center'>";
-					//echo $row_2['itempriceid'];
-					$_SQL_BILL=mysqli_query($con,"SELECT * FROM tblbilling bi WHERE bi.userid='$_UserID' AND bi.itempriceid='$row_2[itempriceid]'");
-					if(mysqli_num_rows($_SQL_BILL)>0)
-					{
-						$_Total_Amount=$_Total_Amount+$row_2['price'];
-					
-						echo " <i class='fa fa-check' style='color:green'></i>";
-					}
-					else{
-						echo "<strong style='color:red'>Not Billed</strong>";
-					}
-					echo "</td>";
-
-					echo "<td colspan='1' align='center'>";
-					$_SQL_BILL_DATE=mysqli_query($con,"SELECT * FROM tblbilling bi WHERE bi.userid='$_UserID' AND bi.itempriceid='$row_2[itempriceid]'");
-					if($row_bill=mysqli_fetch_array($_SQL_BILL_DATE,MYSQLI_ASSOC))
-					{
-					echo $row_bill['datetimebilled'];
-					}
-					
-					echo "</td>";	
-
-					echo "<td align='center'>";
-					if($__teacherBillingIsAdmin || teacher_billing_is_assigned($con, $__teacherBillingUserId, $row_class['class_entryid'], $row_batch['batchid'], $row_tr['termname'])){
-						echo "<a onclick=\"javascript:return confirm('Do you want to Bill?');\"  href='student-billing.php?user_id=$row_1[userid]&batch_id=$row_batch[batchid]&class_entryid=$row_class[class_entryid]&term_id=$row_tr[termname]'><i class='fa fa-plus'></i></a>";
-					}else{
-						echo "<i class='fa fa-lock' style='color:#9ca3af'></i>";
-					}
-					echo "</td>";
-					echo "</tr>";
-					}
-				}
-					echo "<tr style='background-color:#fff;'>";
-					echo "<td colspan='2' align='right'>";
-					echo "TOTAL:";
-					echo "</td>";
-					echo "<td>";
-					echo $_SESSION['SYMBOL']." ". $_Total_Amount;
-					$_Overall_Total=$_Overall_Total+$_Total_Amount;
-					echo "</td>";
-					
-					echo "<td colspan='3'>";
-					echo "</td>";
-
-					echo "</tr>";
-				}
-				echo "<tr style='background-color:#eee;'>";
-					echo "<td colspan='2' align='right'>";
-					echo "OVERALL TOTAL:";
-					echo "</td>";
-					echo "<td>";
-					echo $_SESSION['SYMBOL']." ". $_Overall_Total;
-					echo "</td>";
-
-					echo "<td colspan='3'>";
-					echo "</td>";
-					
-					echo "</tr>";
-				}
-			}
-		}	
-echo "</tbody>";
-echo "</table>";
-}
-}
-?>
-</div>
-</td>
-</tr>
-</table>
+                    <div class="sb-empty-state sb-empty-state--inline" data-student-empty hidden>
+                        <h3>No students match this search</h3>
+                        <p>Try a different student name or clear the search box.</p>
+                    </div>
+                    <?php } elseif ($scopeIsSelected && $scopeIsAllowed) { ?>
+                    <div class="sb-empty-state">
+                        <h3>No billable student scopes were found</h3>
+                        <p>The selected class and batch do not currently have students with active term billing items that match your billing scope.</p>
+                    </div>
+                    <?php } else { ?>
+                    <div class="sb-empty-state">
+                        <h3>Select a class and batch to begin</h3>
+                        <p>Once you choose a billing scope, this page will show each student's semester billing summary and pending amount.</p>
+                    </div>
+                    <?php } ?>
+                </section>
+            </section>
+        </div>
+    </main>
 </div>
 </body>
 </html>

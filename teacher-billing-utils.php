@@ -258,7 +258,7 @@ function teacher_billing_current_user_can_use_pages($con){
         return false;
     }
     $scriptName = isset($_SERVER['PHP_SELF']) ? basename((string)$_SERVER['PHP_SELF']) : '';
-    return ($scriptName === 'payments.php');
+    return in_array($scriptName, array('payments.php', 'student-billing.php', 'print-student-bills.php'), true);
 }
 }
 
@@ -566,6 +566,294 @@ function teacher_billing_itemprice_is_allowed($con, $teacherId, $classId, $batch
         return true;
     }
     return in_array($itemPriceId, $allowed, true);
+}
+}
+
+if(!function_exists('teacher_billing_generate_bill_id')){
+function teacher_billing_generate_bill_id(){
+    $code = '';
+    @include(__DIR__.DIRECTORY_SEPARATOR.'code.php');
+    if(isset($GLOBALS['code']) && trim((string)$GLOBALS['code']) !== ''){
+        $code = trim((string)$GLOBALS['code']);
+    }elseif(isset($code) && trim((string)$code) !== ''){
+        $code = trim((string)$code);
+    }
+    if($code === ''){
+        $code = 'BILL'.date('YmdHis').mt_rand(100,999);
+    }
+    return $code;
+}
+}
+
+if(!function_exists('teacher_billing_generate_transaction_id')){
+function teacher_billing_generate_transaction_id(){
+    $transactionId = '';
+    @include(__DIR__.DIRECTORY_SEPARATOR.'code.php');
+    if(isset($GLOBALS['transaction_id']) && trim((string)$GLOBALS['transaction_id']) !== ''){
+        $transactionId = trim((string)$GLOBALS['transaction_id']);
+    }elseif(isset($transaction_id) && trim((string)$transaction_id) !== ''){
+        $transactionId = trim((string)$transaction_id);
+    }
+    if($transactionId === ''){
+        $transactionId = 'TRX'.date('YmdHis').mt_rand(100,999);
+    }
+    return $transactionId;
+}
+}
+
+if(!function_exists('teacher_billing_student_registered_for_scope')){
+function teacher_billing_student_registered_for_scope($con, $studentId, $classId, $batchId, $termName){
+    $studentIdEsc = mysqli_real_escape_string($con, trim((string)$studentId));
+    $classIdEsc = mysqli_real_escape_string($con, trim((string)$classId));
+    $batchIdEsc = mysqli_real_escape_string($con, trim((string)$batchId));
+    $termName = (int)$termName;
+    if($studentIdEsc === '' || $classIdEsc === '' || $batchIdEsc === '' || $termName <= 0){
+        return false;
+    }
+    $sql = "SELECT userid
+        FROM tbltermregistry
+        WHERE userid='$studentIdEsc'
+          AND class_entryid='$classIdEsc'
+          AND batchid='$batchIdEsc'
+          AND termname='$termName'
+        LIMIT 1";
+    $res = mysqli_query($con, $sql);
+    return ($res && mysqli_num_rows($res) > 0);
+}
+}
+
+if(!function_exists('teacher_billing_scope_itemprice_rows_for_user')){
+function teacher_billing_scope_itemprice_rows_for_user($con, $teacherId, $classId, $batchId, $termName){
+    $rows = teacher_billing_scope_itemprice_rows($con, $classId, $batchId, $termName);
+    if(teacher_billing_is_admin()){
+        return $rows;
+    }
+    $teacherId = trim((string)$teacherId);
+    if($teacherId === ''){
+        return $rows;
+    }
+    $allowedIds = teacher_billing_allowed_itemprice_ids($con, $teacherId, $classId, $batchId, $termName);
+    if(empty($allowedIds)){
+        return $rows;
+    }
+    $allowedMap = array();
+    foreach($allowedIds as $allowedId){
+        $allowedId = trim((string)$allowedId);
+        if($allowedId !== ''){
+            $allowedMap[$allowedId] = true;
+        }
+    }
+    $filtered = array();
+    foreach($rows as $row){
+        $itemPriceId = trim((string)($row['itempriceid'] ?? ''));
+        if($itemPriceId !== '' && isset($allowedMap[$itemPriceId])){
+            $filtered[] = $row;
+        }
+    }
+    return $filtered;
+}
+}
+
+if(!function_exists('teacher_billing_billed_item_map')){
+function teacher_billing_billed_item_map($con, $studentId, $itemPriceIds){
+    $map = array();
+    $studentIdEsc = mysqli_real_escape_string($con, trim((string)$studentId));
+    if($studentIdEsc === ''){
+        return $map;
+    }
+    $itemIdsSql = array();
+    foreach((array)$itemPriceIds as $itemPriceId){
+        $itemPriceId = trim((string)$itemPriceId);
+        if($itemPriceId !== ''){
+            $itemIdsSql[] = "'".mysqli_real_escape_string($con, $itemPriceId)."'";
+        }
+    }
+    if(empty($itemIdsSql)){
+        return $map;
+    }
+    $sql = "SELECT billid,itempriceid,datetimebilled,cost
+        FROM tblbilling
+        WHERE userid='$studentIdEsc'
+          AND itempriceid IN (".implode(",", $itemIdsSql).")";
+    $res = mysqli_query($con, $sql);
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $itemPriceId = trim((string)($row['itempriceid'] ?? ''));
+            if($itemPriceId !== ''){
+                $map[$itemPriceId] = $row;
+            }
+        }
+    }
+    return $map;
+}
+}
+
+if(!function_exists('teacher_billing_student_scope_summary')){
+function teacher_billing_student_scope_summary($con, $studentId, $classId, $batchId, $termName, $teacherId = ''){
+    $itemRows = teacher_billing_scope_itemprice_rows_for_user($con, $teacherId, $classId, $batchId, $termName);
+    $itemIds = array();
+    foreach($itemRows as $itemRow){
+        $itemPriceId = trim((string)($itemRow['itempriceid'] ?? ''));
+        if($itemPriceId !== ''){
+            $itemIds[] = $itemPriceId;
+        }
+    }
+    $billedMap = teacher_billing_billed_item_map($con, $studentId, $itemIds);
+
+    $summary = array(
+        'items' => array(),
+        'total_items' => 0,
+        'billed_items' => 0,
+        'pending_items' => 0,
+        'total_amount' => 0.0,
+        'billed_amount' => 0.0,
+        'pending_amount' => 0.0,
+        'latest_billed_at' => '',
+        'has_billable_items' => !empty($itemRows),
+    );
+
+    foreach($itemRows as $itemRow){
+        $itemPriceId = trim((string)($itemRow['itempriceid'] ?? ''));
+        $price = isset($itemRow['price']) ? (float)$itemRow['price'] : 0.0;
+        $billRow = isset($billedMap[$itemPriceId]) ? $billedMap[$itemPriceId] : null;
+        $isBilled = is_array($billRow);
+        $billedAt = $isBilled ? trim((string)($billRow['datetimebilled'] ?? '')) : '';
+
+        $summary['total_items']++;
+        $summary['total_amount'] += $price;
+        if($isBilled){
+            $summary['billed_items']++;
+            $summary['billed_amount'] += $price;
+            if($billedAt !== '' && ($summary['latest_billed_at'] === '' || strcmp($billedAt, $summary['latest_billed_at']) > 0)){
+                $summary['latest_billed_at'] = $billedAt;
+            }
+        }else{
+            $summary['pending_items']++;
+            $summary['pending_amount'] += $price;
+        }
+
+        $itemRow['is_billed'] = $isBilled;
+        $itemRow['billed_at'] = $billedAt;
+        $summary['items'][] = $itemRow;
+    }
+
+    return $summary;
+}
+}
+
+if(!function_exists('teacher_billing_bill_student_scope')){
+function teacher_billing_bill_student_scope($con, $studentId, $classId, $batchId, $termName, $recordedBy = '', $teacherId = ''){
+    $studentId = trim((string)$studentId);
+    $classId = trim((string)$classId);
+    $batchId = trim((string)$batchId);
+    $termName = (int)$termName;
+    $recordedBy = trim((string)$recordedBy);
+    $teacherId = trim((string)$teacherId);
+
+    $result = array(
+        'ok' => false,
+        'tone' => 'error',
+        'message' => 'Billing could not be completed.',
+        'transactionid' => '',
+        'inserted_count' => 0,
+        'skipped_count' => 0,
+        'inserted_amount' => 0.0,
+    );
+
+    if($studentId === '' || $classId === '' || $batchId === '' || $termName <= 0){
+        $result['message'] = 'Student, class, batch, and semester are required.';
+        return $result;
+    }
+
+    if(!teacher_billing_is_admin()){
+        if($teacherId === ''){
+            $teacherId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+        }
+        if(!teacher_billing_is_assigned($con, $teacherId, $classId, $batchId, $termName)){
+            $result['message'] = 'You are not assigned billing access for that class, batch, and semester.';
+            return $result;
+        }
+    }
+
+    if(!teacher_billing_student_registered_for_scope($con, $studentId, $classId, $batchId, $termName)){
+        $result['tone'] = 'warning';
+        $result['message'] = 'This student is not registered for that billing scope.';
+        return $result;
+    }
+
+    if($recordedBy === ''){
+        $recordedBy = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+    }
+
+    $summary = teacher_billing_student_scope_summary($con, $studentId, $classId, $batchId, $termName, $teacherId);
+    if(!$summary['has_billable_items']){
+        $result['tone'] = 'warning';
+        $result['message'] = 'No active billable items were found for this billing scope.';
+        return $result;
+    }
+
+    if($summary['pending_items'] <= 0){
+        $result['ok'] = true;
+        $result['tone'] = 'info';
+        $result['message'] = 'This student is already fully billed for the selected scope.';
+        $result['skipped_count'] = (int)$summary['billed_items'];
+        return $result;
+    }
+
+    $recordedByEsc = mysqli_real_escape_string($con, $recordedBy);
+    $studentIdEsc = mysqli_real_escape_string($con, $studentId);
+    $schoolAccount = isset($_SESSION['SCHOOLACCOUNT']) ? trim((string)$_SESSION['SCHOOLACCOUNT']) : '';
+    $schoolAccountEsc = mysqli_real_escape_string($con, $schoolAccount);
+    $transactionId = teacher_billing_generate_transaction_id();
+    $transactionIdEsc = mysqli_real_escape_string($con, $transactionId);
+    $insertTransaction = mysqli_query($con, "INSERT INTO tbltransaction(transactionid,userid,datetimepayment,recordedby,status)
+        VALUES('$transactionIdEsc','$studentIdEsc',NOW(),'$recordedByEsc','active')");
+    if(!$insertTransaction){
+        $result['message'] = 'Billing could not start because the transaction record failed to save.';
+        return $result;
+    }
+
+    $insertFailures = 0;
+    foreach($summary['items'] as $itemRow){
+        if(!empty($itemRow['is_billed'])){
+            continue;
+        }
+
+        $billId = teacher_billing_generate_bill_id();
+        $billIdEsc = mysqli_real_escape_string($con, $billId);
+        $itemPriceIdEsc = mysqli_real_escape_string($con, trim((string)($itemRow['itempriceid'] ?? '')));
+        $price = isset($itemRow['price']) ? (float)$itemRow['price'] : 0.0;
+        $priceEsc = mysqli_real_escape_string($con, (string)$price);
+
+        $insertBill = mysqli_query($con, "INSERT INTO tblbilling(billid,userid,itempriceid,transactionid,cost,datetimebilled,recordedby,status,referenceid)
+            VALUES('$billIdEsc','$studentIdEsc','$itemPriceIdEsc','$transactionIdEsc','$priceEsc',NOW(),'$recordedByEsc','active','$schoolAccountEsc')");
+        if($insertBill){
+            $result['inserted_count']++;
+            $result['inserted_amount'] += $price;
+            @mysqli_query($con, "INSERT INTO accountingbookentries(accountId,cr,created,createdBy,dr,modifiedBy,narration,particulars,refAccountId,transactionId)
+                VALUES('$schoolAccountEsc','$priceEsc',NOW(),'$recordedByEsc',0,'','Bills','Bills','$studentIdEsc','$transactionIdEsc')");
+        }else{
+            $insertFailures++;
+        }
+    }
+
+    if($result['inserted_count'] <= 0){
+        @mysqli_query($con, "DELETE FROM tbltransaction WHERE transactionid='$transactionIdEsc'");
+        $result['tone'] = 'warning';
+        $result['message'] = ($insertFailures > 0)
+            ? 'No new bills were saved for this student scope.'
+            : 'This student is already fully billed for the selected scope.';
+        return $result;
+    }
+
+    $result['ok'] = true;
+    $result['tone'] = ($insertFailures > 0) ? 'warning' : 'success';
+    $result['transactionid'] = $transactionId;
+    $result['skipped_count'] = (int)$summary['billed_items'];
+    $result['message'] = ($insertFailures > 0)
+        ? 'Billing completed with a few issues. Some items were billed, but not every pending item was saved.'
+        : 'Pending billing items were added successfully for this student.';
+    return $result;
 }
 }
 ?>
