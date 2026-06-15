@@ -5,6 +5,7 @@ include("check-login.php");
 include("dbstring.php");
 include("counselling-utils.php");
 ensure_counselling_tables($con);
+counselling_process_due_reminders($con);
 
 if(!(counselling_is_student() || counselling_is_teacher())){
     header("location:".counselling_landing_page());
@@ -125,6 +126,29 @@ function gc_request_schedule_text($requestRow, $prefix = 'scheduled'){
 if(!function_exists('gc_case_link')){
 function gc_case_link($requestId){
     return 'guidance-counselling.php?case='.rawurlencode((string)$requestId);
+}
+}
+
+if(!function_exists('gc_append_case_message')){
+function gc_append_case_message($con, $requestId, $senderId, $senderRole, $messageText){
+    $requestId = trim((string)$requestId);
+    $senderId = trim((string)$senderId);
+    $senderRole = trim((string)$senderRole);
+    $messageText = trim((string)$messageText);
+    if(!$con || $requestId === '' || $senderId === '' || $senderRole === '' || $messageText === ''){
+        return false;
+    }
+    include("code.php");
+    $messageIdEsc = mysqli_real_escape_string($con, trim((string)$code));
+    $requestIdEsc = mysqli_real_escape_string($con, $requestId);
+    $senderIdEsc = mysqli_real_escape_string($con, $senderId);
+    $senderRoleEsc = mysqli_real_escape_string($con, substr($senderRole, 0, 20));
+    $messageEsc = mysqli_real_escape_string($con, $messageText);
+    return mysqli_query($con, "INSERT INTO tblcounsellingmessage(
+            messageid, requestid, senderid, senderrole, messagetext, datetimeentry, status
+        ) VALUES(
+            '$messageIdEsc', '$requestIdEsc', '$senderIdEsc', '$senderRoleEsc', '$messageEsc', NOW(), 'active'
+        )") ? true : false;
 }
 }
 
@@ -251,6 +275,167 @@ if($isStudentView && isset($_POST['submit_counselling_request'])){
     gc_redirect($sql ? '?case='.rawurlencode(trim((string)$code)) : '');
 }
 
+if($isTeacherView && isset($_POST['create_counselling_session'])){
+    $studentId = isset($_POST['studentid']) ? trim((string)$_POST['studentid']) : '';
+    $category = isset($_POST['category']) ? trim((string)$_POST['category']) : '';
+    $sessionMode = isset($_POST['sessionmode']) ? trim((string)$_POST['sessionmode']) : '';
+    $urgency = isset($_POST['urgency']) ? trim((string)$_POST['urgency']) : 'normal';
+    $subjectLine = isset($_POST['subjectline']) ? trim((string)$_POST['subjectline']) : '';
+    $scheduledDate = isset($_POST['scheduled_date']) ? trim((string)$_POST['scheduled_date']) : '';
+    $scheduledTime = isset($_POST['scheduled_time']) ? trim((string)$_POST['scheduled_time']) : '';
+    $scheduledEndTime = isset($_POST['scheduled_endtime']) ? trim((string)$_POST['scheduled_endtime']) : '';
+    $meetingLink = isset($_POST['meetinglink']) ? trim((string)$_POST['meetinglink']) : '';
+    $venue = isset($_POST['venue']) ? trim((string)$_POST['venue']) : '';
+    $concern = isset($_POST['concern']) ? trim((string)$_POST['concern']) : '';
+
+    if($studentId === '' || $category === '' || $sessionMode === '' || $scheduledDate === '' || $scheduledTime === ''){
+        $_SESSION['Message'] = gc_flash_html('error', 'Select the student, category, session type, date, and time before saving the session.');
+        gc_redirect();
+    }
+    if($concern === ''){
+        $_SESSION['Message'] = gc_flash_html('error', 'Add a short note so the student knows why the session was arranged.');
+        gc_redirect();
+    }
+    if($sessionMode === 'online' && $meetingLink === ''){
+        $_SESSION['Message'] = gc_flash_html('error', 'Add the meeting link for an online counselling session.');
+        gc_redirect();
+    }
+    if(!counselling_teacher_can_manage_student($con, $currentUserId, $studentId)){
+        $_SESSION['Message'] = gc_flash_html('error', 'That student is not available under your counselling assignment.');
+        gc_redirect();
+    }
+
+    $assignment = counselling_resolve_student_assignment($con, $studentId);
+    if(!$assignment || trim((string)(isset($assignment['counsellorid']) ? $assignment['counsellorid'] : '')) !== $currentUserId){
+        $_SESSION['Message'] = gc_flash_html('error', 'The selected student does not currently route to your counselling scope.');
+        gc_redirect();
+    }
+
+    include("code.php");
+    $requestId = trim((string)$code);
+    $requestIdEsc = mysqli_real_escape_string($con, $requestId);
+    $studentIdEsc = mysqli_real_escape_string($con, $studentId);
+    $counsellorIdEsc = mysqli_real_escape_string($con, $currentUserId);
+    $assignmentId = trim((string)(isset($assignment['assignmentid']) ? $assignment['assignmentid'] : ''));
+    $assignmentIdSql = $assignmentId !== '' ? "'".mysqli_real_escape_string($con, $assignmentId)."'" : 'NULL';
+    $categoryEsc = mysqli_real_escape_string($con, substr($category, 0, 40));
+    $sessionModeEsc = mysqli_real_escape_string($con, substr($sessionMode, 0, 20));
+    $urgencyEsc = mysqli_real_escape_string($con, substr($urgency, 0, 20));
+    $subjectLineSql = $subjectLine !== '' ? "'".mysqli_real_escape_string($con, substr($subjectLine, 0, 120))."'" : 'NULL';
+    $concernEsc = mysqli_real_escape_string($con, $concern);
+    $scheduledDateEsc = mysqli_real_escape_string($con, $scheduledDate);
+    $scheduledTimeEsc = mysqli_real_escape_string($con, $scheduledTime);
+    $scheduledEndTimeSql = $scheduledEndTime !== '' ? "'".mysqli_real_escape_string($con, $scheduledEndTime)."'" : 'NULL';
+    $meetingLinkSql = $meetingLink !== '' ? "'".mysqli_real_escape_string($con, substr($meetingLink, 0, 255))."'" : 'NULL';
+    $venueSql = $venue !== '' ? "'".mysqli_real_escape_string($con, substr($venue, 0, 150))."'" : 'NULL';
+    $recordedByEsc = mysqli_real_escape_string($con, $currentUserId);
+
+    $sql = mysqli_query($con, "INSERT INTO tblcounsellingrequest(
+            requestid, studentid, counsellorid, assignmentid, category, sessionmode, urgency, subjectline,
+            concern, preferred_date, preferred_time, scheduled_date, scheduled_time, scheduled_endtime,
+            meetinglink, venue, status, createdat, updatedat, recordedby
+        ) VALUES(
+            '$requestIdEsc', '$studentIdEsc', '$counsellorIdEsc', $assignmentIdSql, '$categoryEsc', '$sessionModeEsc', '$urgencyEsc', $subjectLineSql,
+            '$concernEsc', '$scheduledDateEsc', '$scheduledTimeEsc', '$scheduledDateEsc', '$scheduledTimeEsc', $scheduledEndTimeSql,
+            $meetingLinkSql, $venueSql, 'accepted', NOW(), NOW(), '$recordedByEsc'
+        )");
+    if($sql){
+        $studentLabel = trim((string)(isset($assignment['student_scope']['class_name']) ? $assignment['student_scope']['class_name'] : ''));
+        $autoMessage = "The counsellor arranged this session for ".counselling_format_date($scheduledDate)." at ".counselling_format_time($scheduledTime).".";
+        if($studentLabel !== ''){
+            $autoMessage .= " Please review the meeting details and respond if you need a different time.";
+        }
+        gc_append_case_message($con, $requestId, $currentUserId, 'teacher', $autoMessage);
+    }
+
+    $_SESSION['Message'] = $sql
+        ? gc_flash_html('success', 'Counselling session created and shared with the student.')
+        : gc_flash_html('error', 'The counselling session could not be created.');
+    gc_redirect($sql ? '?case='.rawurlencode($requestId).'&schedule_date='.rawurlencode($scheduledDate) : '');
+}
+
+if($isStudentView && isset($_POST['student_manage_counselling_case'])){
+    $requestId = isset($_POST['requestid']) ? trim((string)$_POST['requestid']) : '';
+    $caseAction = strtolower(trim((string)(isset($_POST['student_case_action']) ? $_POST['student_case_action'] : '')));
+    $requestedDate = isset($_POST['requested_date']) ? trim((string)$_POST['requested_date']) : '';
+    $requestedTime = isset($_POST['requested_time']) ? trim((string)$_POST['requested_time']) : '';
+    $requestedEndTime = isset($_POST['requested_endtime']) ? trim((string)$_POST['requested_endtime']) : '';
+    $requestNote = isset($_POST['request_note']) ? trim((string)$_POST['request_note']) : '';
+    $caseQuery = '?case='.rawurlencode($requestId);
+
+    $requestRow = counselling_request_row($con, $requestId);
+    if(!$requestRow || !counselling_user_can_view_request($con, $requestId, $currentUserId, 'student')){
+        $_SESSION['Message'] = gc_flash_html('error', 'That counselling case could not be updated.');
+        gc_redirect();
+    }
+    if(!counselling_request_active(isset($requestRow['status']) ? $requestRow['status'] : '')){
+        $_SESSION['Message'] = gc_flash_html('warning', 'This case is already closed.');
+        gc_redirect($caseQuery);
+    }
+    if(!in_array($caseAction, array('reschedule', 'cancel'), true)){
+        $_SESSION['Message'] = gc_flash_html('error', 'Choose whether you want to reschedule or cancel the appointment.');
+        gc_redirect($caseQuery);
+    }
+    if($caseAction === 'reschedule' && ($requestedDate === '' || $requestedTime === '')){
+        $_SESSION['Message'] = gc_flash_html('error', 'Select the new date and time before sending the reschedule request.');
+        gc_redirect($caseQuery);
+    }
+
+    $requestIdEsc = mysqli_real_escape_string($con, $requestId);
+    $recordedByEsc = mysqli_real_escape_string($con, $currentUserId);
+    $statusEsc = mysqli_real_escape_string($con, $caseAction === 'cancel' ? 'cancelled' : 'rescheduled');
+    $requestedDateSql = $requestedDate !== '' ? "'".mysqli_real_escape_string($con, $requestedDate)."'" : 'NULL';
+    $requestedTimeSql = $requestedTime !== '' ? "'".mysqli_real_escape_string($con, $requestedTime)."'" : 'NULL';
+    $requestedEndTimeSql = $requestedEndTime !== '' ? "'".mysqli_real_escape_string($con, $requestedEndTime)."'" : 'NULL';
+
+    if($caseAction === 'cancel'){
+        $sql = mysqli_query($con, "UPDATE tblcounsellingrequest
+            SET status='$statusEsc',
+                updatedat=NOW(),
+                recordedby='$recordedByEsc'
+            WHERE requestid='$requestIdEsc'
+              AND studentid='$recordedByEsc'");
+        if($sql){
+            $message = "The student cancelled this counselling appointment.";
+            if($requestNote !== ''){
+                $message .= " Note: ".$requestNote;
+            }
+            gc_append_case_message($con, $requestId, $currentUserId, 'student', $message);
+        }
+        $_SESSION['Message'] = $sql
+            ? gc_flash_html('success', 'The counselling appointment has been cancelled.')
+            : gc_flash_html('error', 'The appointment could not be cancelled.');
+        gc_redirect($caseQuery);
+    }
+
+    $sql = mysqli_query($con, "UPDATE tblcounsellingrequest
+        SET status='$statusEsc',
+            preferred_date=$requestedDateSql,
+            preferred_time=$requestedTimeSql,
+            scheduled_date=$requestedDateSql,
+            scheduled_time=$requestedTimeSql,
+            scheduled_endtime=$requestedEndTimeSql,
+            counsellorremindersentat=NULL,
+            counsellorreminderstatus=NULL,
+            counsellorreminderattemptat=NULL,
+            updatedat=NOW(),
+            recordedby='$recordedByEsc'
+        WHERE requestid='$requestIdEsc'
+          AND studentid='$recordedByEsc'");
+    if($sql){
+        $message = "The student requested a new counselling time for ".counselling_format_date($requestedDate)." at ".counselling_format_time($requestedTime).".";
+        if($requestNote !== ''){
+            $message .= " Note: ".$requestNote;
+        }
+        gc_append_case_message($con, $requestId, $currentUserId, 'student', $message);
+    }
+
+    $_SESSION['Message'] = $sql
+        ? gc_flash_html('success', 'Your new counselling time has been shared with the counsellor.')
+        : gc_flash_html('error', 'The appointment could not be rescheduled.');
+    gc_redirect($sql ? '?case='.rawurlencode($requestId) : $caseQuery);
+}
+
 if(isset($_POST['send_counselling_message'])){
     $requestId = isset($_POST['requestid']) ? trim((string)$_POST['requestid']) : '';
     $messageText = isset($_POST['messagetext']) ? trim((string)$_POST['messagetext']) : '';
@@ -308,7 +493,7 @@ if($isTeacherView && isset($_POST['update_counselling_case'])){
         $_SESSION['Message'] = gc_flash_html('error', 'That counselling case could not be updated.');
         gc_redirect();
     }
-    if(!in_array($status, array('pending', 'accepted', 'rescheduled', 'completed', 'declined'), true)){
+    if(!in_array($status, array('pending', 'accepted', 'rescheduled', 'completed', 'declined', 'cancelled'), true)){
         $_SESSION['Message'] = gc_flash_html('error', 'Choose a valid case status.');
         gc_redirect($caseQuery);
     }
@@ -321,6 +506,20 @@ if($isTeacherView && isset($_POST['update_counselling_case'])){
         gc_redirect($caseQuery);
     }
 
+    $previousStatus = strtolower(trim((string)(isset($requestRow['status']) ? $requestRow['status'] : 'pending')));
+    $previousScheduledDate = trim((string)(isset($requestRow['scheduled_date']) ? $requestRow['scheduled_date'] : ''));
+    $previousScheduledTime = trim((string)(isset($requestRow['scheduled_time']) ? $requestRow['scheduled_time'] : ''));
+    $previousScheduledEndTime = trim((string)(isset($requestRow['scheduled_endtime']) ? $requestRow['scheduled_endtime'] : ''));
+    $resetReminderState = false;
+    if(in_array($status, array('accepted', 'rescheduled'), true)){
+        if($previousStatus !== $status
+            || $previousScheduledDate !== $scheduledDate
+            || $previousScheduledTime !== $scheduledTime
+            || $previousScheduledEndTime !== $scheduledEndTime){
+            $resetReminderState = true;
+        }
+    }
+
     $requestIdEsc = mysqli_real_escape_string($con, $requestId);
     $statusEsc = mysqli_real_escape_string($con, $status);
     $sessionModeEsc = mysqli_real_escape_string($con, substr($sessionMode, 0, 20));
@@ -331,6 +530,10 @@ if($isTeacherView && isset($_POST['update_counselling_case'])){
     $venueSql = $venue !== '' ? "'".mysqli_real_escape_string($con, substr($venue, 0, 150))."'" : 'NULL';
     $statusNoteSql = $statusNote !== '' ? "'".mysqli_real_escape_string($con, $statusNote)."'" : 'NULL';
     $recordedByEsc = mysqli_real_escape_string($con, $currentUserId);
+    $reminderResetSql = $resetReminderState ? ",
+            counsellorremindersentat=NULL,
+            counsellorreminderstatus=NULL,
+            counsellorreminderattemptat=NULL" : "";
 
     $sql = mysqli_query($con, "UPDATE tblcounsellingrequest
         SET status='$statusEsc',
@@ -342,7 +545,7 @@ if($isTeacherView && isset($_POST['update_counselling_case'])){
             venue=$venueSql,
             statusnote=$statusNoteSql,
             updatedat=NOW(),
-            recordedby='$recordedByEsc'
+            recordedby='$recordedByEsc'".$reminderResetSql."
         WHERE requestid='$requestIdEsc'
           AND counsellorid='$recordedByEsc'");
 
@@ -361,6 +564,7 @@ $teacherRequestRows = $isTeacherView ? counselling_counsellor_request_rows($con,
 $caseRows = $isStudentView ? $studentRequestRows : $teacherRequestRows;
 $caseCounts = counselling_case_counts($caseRows);
 $teacherAssignmentSummary = $isTeacherView ? counselling_teacher_assignment_summary($con, $currentUserId) : array();
+$teacherStudentOptions = $isTeacherView ? counselling_counsellor_student_rows($con, $currentUserId) : array();
 $scheduleDate = $isTeacherView ? gc_normalize_date(isset($_GET['schedule_date']) ? $_GET['schedule_date'] : '', date('Y-m-d')) : '';
 $scheduleWeekStart = $isTeacherView ? date('Y-m-d', strtotime('monday this week', strtotime($scheduleDate))) : '';
 $scheduleWeekEnd = $isTeacherView ? date('Y-m-d', strtotime($scheduleWeekStart.' +6 days')) : '';
@@ -398,6 +602,7 @@ $heroSummary = $isStudentView
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" href="css/guidance-counselling.css">
+<script src="scripts/guidance-counselling.js" defer></script>
 </head>
 <body class="guidance-counselling-page guidance-counselling-page--<?php echo counselling_esc($viewerRole); ?>">
 <div class="header">
@@ -570,14 +775,14 @@ $heroSummary = $isStudentView
                         <div>
                             <span class="gc-panel-kicker">My Cases</span>
                             <h2>Request History</h2>
-                            <p>Follow the status of each counselling request and continue the private conversation inside the selected case.</p>
+                            <p>Follow your counselling requests, sessions arranged for you by the counsellor, and the private conversation inside each case.</p>
                         </div>
                     </div>
 
                     <?php if(empty($studentRequestRows)){ ?>
                     <div class="gc-empty-state">
                         <h3>No counselling request yet</h3>
-                        <p>Your submitted counselling requests will appear here after you send the first one.</p>
+                        <p>Your submitted requests and counsellor-arranged sessions will appear here after the first case is opened.</p>
                     </div>
                     <?php } else { ?>
                     <div class="gc-case-grid">
@@ -613,7 +818,7 @@ $heroSummary = $isStudentView
                             <div><span>Venue / Link</span><strong><?php echo counselling_esc(gc_request_location_text($selectedCase)); ?></strong></div>
                         </div>
                         <div class="gc-note-box">
-                            <span>Request Note</span>
+                            <span>Case Note</span>
                             <p><?php echo nl2br(counselling_esc($selectedCase['concern'])); ?></p>
                         </div>
                         <?php if(trim((string)$selectedCase['statusnote']) !== ''){ ?>
@@ -621,6 +826,47 @@ $heroSummary = $isStudentView
                             <span>Counsellor Note</span>
                             <p><?php echo nl2br(counselling_esc($selectedCase['statusnote'])); ?></p>
                         </div>
+                        <?php } ?>
+                        <?php if(counselling_request_active($selectedCase['status'])){ ?>
+                        <section class="gc-thread">
+                            <div class="gc-thread__header">
+                                <h3>Appointment Change</h3>
+                            </div>
+                            <form method="post" action="<?php echo counselling_esc(gc_case_link($selectedCase['requestid'])); ?>" class="gc-form gc-form--appointment" data-action-form>
+                                <input type="hidden" name="requestid" value="<?php echo counselling_esc((string)$selectedCase['requestid']); ?>">
+                                <div class="gc-form-grid">
+                                    <label class="gc-field gc-field--action">
+                                        <span>Appointment Action</span>
+                                        <select name="student_case_action" data-action-select>
+                                            <option value="reschedule">Request Another Day</option>
+                                            <option value="cancel">Cancel This Appointment</option>
+                                        </select>
+                                    </label>
+                                    <label class="gc-field" data-reschedule-only>
+                                        <span>New Date</span>
+                                        <input type="date" name="requested_date" value="<?php echo counselling_esc((string)$selectedCase['scheduled_date']); ?>">
+                                    </label>
+                                </div>
+                                <div class="gc-inline-note gc-inline-note--action" data-action-note>
+                                    Choose <strong>Request Another Day</strong> to suggest a new meeting time. Choose <strong>Cancel This Appointment</strong> to close this appointment.
+                                </div>
+                                <div class="gc-form-grid" data-reschedule-grid>
+                                    <label class="gc-field" data-reschedule-only>
+                                        <span>New Time</span>
+                                        <input type="time" name="requested_time" value="<?php echo counselling_esc(trim((string)$selectedCase['scheduled_time']) !== '' ? substr((string)$selectedCase['scheduled_time'], 0, 5) : ''); ?>">
+                                    </label>
+                                    <label class="gc-field" data-reschedule-only>
+                                        <span>End Time</span>
+                                        <input type="time" name="requested_endtime" value="<?php echo counselling_esc(trim((string)$selectedCase['scheduled_endtime']) !== '' ? substr((string)$selectedCase['scheduled_endtime'], 0, 5) : ''); ?>">
+                                    </label>
+                                </div>
+                                <label class="gc-field">
+                                    <span>Reason</span>
+                                    <textarea name="request_note" rows="3" placeholder="Explain briefly why you need a new date or why you are cancelling."></textarea>
+                                </label>
+                                <button class="gc-btn gc-btn--secondary" type="submit" name="student_manage_counselling_case" data-action-submit><i class="fa fa-calendar-times-o"></i> Send Appointment Request</button>
+                            </form>
+                        </section>
                         <?php } ?>
 
                         <section class="gc-thread">
@@ -765,9 +1011,105 @@ $heroSummary = $isStudentView
                 <section class="gc-surface">
                     <div class="gc-panel-head">
                         <div>
+                            <span class="gc-panel-kicker">Organise Session</span>
+                            <h2>Create A Counselling Session</h2>
+                            <p>Arrange a counselling appointment yourself when you need to call in a student instead of waiting for the student to request one.</p>
+                        </div>
+                    </div>
+                    <?php if(empty($teacherStudentOptions)){ ?>
+                    <div class="gc-empty-state gc-empty-state--inline">
+                        <h3>No student available yet</h3>
+                        <p>Students in your counselling scope will appear here once they are assigned to you.</p>
+                    </div>
+                    <?php } else { ?>
+                    <form method="post" action="guidance-counselling.php" class="gc-form">
+                        <label class="gc-field">
+                            <span>Student ID</span>
+                            <input type="text" name="studentid" list="gc-student-list" placeholder="Enter or search student ID" required>
+                            <datalist id="gc-student-list">
+                                <?php foreach($teacherStudentOptions as $studentOption){ ?>
+                                <option value="<?php echo counselling_esc((string)$studentOption['userid']); ?>"><?php echo counselling_esc(counselling_person_name($studentOption)); ?></option>
+                                <?php } ?>
+                            </datalist>
+                        </label>
+                        <div class="gc-form-grid">
+                            <label class="gc-field">
+                                <span>Category</span>
+                                <select name="category" required>
+                                    <option value="">Select Category</option>
+                                    <option value="academic">Academic Support</option>
+                                    <option value="personal">Personal Support</option>
+                                    <option value="welfare">Welfare</option>
+                                    <option value="discipline">Discipline</option>
+                                    <option value="bullying">Bullying</option>
+                                    <option value="career">Career Guidance</option>
+                                    <option value="health">Health</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </label>
+                            <label class="gc-field">
+                                <span>Session Type</span>
+                                <select name="sessionmode" required>
+                                    <option value="">Select Session Type</option>
+                                    <option value="in_person">In Person</option>
+                                    <option value="phone">Phone</option>
+                                    <option value="online">Online</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="gc-form-grid">
+                            <label class="gc-field">
+                                <span>Urgency</span>
+                                <select name="urgency">
+                                    <option value="normal">Normal</option>
+                                    <option value="low">Low</option>
+                                    <option value="high">High</option>
+                                </select>
+                            </label>
+                            <label class="gc-field">
+                                <span>Subject</span>
+                                <input type="text" name="subjectline" maxlength="120" placeholder="Short case title">
+                            </label>
+                        </div>
+                        <div class="gc-form-grid">
+                            <label class="gc-field">
+                                <span>Scheduled Date</span>
+                                <input type="date" name="scheduled_date" required>
+                            </label>
+                            <label class="gc-field">
+                                <span>Scheduled Time</span>
+                                <input type="time" name="scheduled_time" required>
+                            </label>
+                        </div>
+                        <div class="gc-form-grid">
+                            <label class="gc-field">
+                                <span>End Time</span>
+                                <input type="time" name="scheduled_endtime">
+                            </label>
+                            <label class="gc-field">
+                                <span>Venue</span>
+                                <input type="text" name="venue" placeholder="Office, phone number, or meeting place">
+                            </label>
+                        </div>
+                        <label class="gc-field">
+                            <span>Meeting Link</span>
+                            <input type="url" name="meetinglink" placeholder="https://...">
+                        </label>
+                        <label class="gc-field">
+                            <span>Session Note</span>
+                            <textarea name="concern" rows="4" placeholder="Explain why the student is being called in and what the session will cover." required></textarea>
+                        </label>
+                        <button class="gc-btn gc-btn--primary" type="submit" name="create_counselling_session"><i class="fa fa-plus-circle"></i> Create Session</button>
+                    </form>
+                    <?php } ?>
+                </section>
+
+                <section class="gc-surface">
+                    <div class="gc-panel-head">
+                        <div>
                             <span class="gc-panel-kicker">Assigned Cases</span>
                             <h2>Counselling Requests</h2>
-                            <p>Open a case to confirm the session, exchange private messages, and review the student’s academic record.</p>
+                            <p>Open a case to confirm the session, adjust the schedule, exchange private messages, and review the student's academic record.</p>
                         </div>
                     </div>
                     <?php if(empty($teacherRequestRows)){ ?>
@@ -816,7 +1158,7 @@ $heroSummary = $isStudentView
                     </div>
 
                     <div class="gc-note-box">
-                        <span>Student Request Note</span>
+                        <span>Case Note</span>
                         <p><?php echo nl2br(counselling_esc($selectedCase['concern'])); ?></p>
                     </div>
 
@@ -832,6 +1174,7 @@ $heroSummary = $isStudentView
                                     <option value="rescheduled"<?php echo trim((string)$selectedCase['status']) === 'rescheduled' ? ' selected' : ''; ?>>Rescheduled</option>
                                     <option value="completed"<?php echo trim((string)$selectedCase['status']) === 'completed' ? ' selected' : ''; ?>>Completed</option>
                                     <option value="declined"<?php echo trim((string)$selectedCase['status']) === 'declined' ? ' selected' : ''; ?>>Declined</option>
+                                    <option value="cancelled"<?php echo trim((string)$selectedCase['status']) === 'cancelled' ? ' selected' : ''; ?>>Cancelled</option>
                                 </select>
                             </label>
                             <label class="gc-field">

@@ -17,6 +17,7 @@ ensure_house_tables($con);
 ensure_voting_tables($con);
 ensure_teacher_billing_table($con);
 ensure_counselling_tables($con);
+counselling_process_due_reminders($con);
 if(!(isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==="user" && $_SESSION['SYSTEMTYPE']==="Teacher")){
     header("location:".class_teacher_landing_page());
     exit();
@@ -201,6 +202,18 @@ $teacherBillingAssignments = $teacherHasBillingModule ? teacher_billing_fetch_as
 $teacherBillingScopeCount = count($teacherBillingAssignments);
 $teacherCounsellingSummary = counselling_teacher_assignment_summary($con, $teacherId);
 $teacherHasCounsellingAccess = ((int)$teacherCounsellingSummary['total_scope_count']) > 0;
+$teacherCounsellingSoonRows = $teacherHasCounsellingAccess ? counselling_dashboard_notification_rows($con, $teacherId, 'teacher', 15) : array();
+$teacherCounsellingSoonCount = count($teacherCounsellingSoonRows);
+$teacherCounsellingSoonMessage = "";
+if($teacherCounsellingSoonCount > 0){
+    $teacherNextCounselling = $teacherCounsellingSoonRows[0];
+    $teacherNextStudent = counselling_person_name($teacherNextCounselling);
+    $teacherNextTime = counselling_format_time(isset($teacherNextCounselling['scheduled_time']) ? $teacherNextCounselling['scheduled_time'] : '');
+    $teacherNextDate = counselling_format_date(isset($teacherNextCounselling['scheduled_date']) ? $teacherNextCounselling['scheduled_date'] : '');
+    $teacherCounsellingSoonMessage = $teacherCounsellingSoonCount > 1
+        ? "Counselling reminder: You have ".number_format((int)$teacherCounsellingSoonCount)." meetings due within the next 15 minutes. Next is with ".$teacherNextStudent." at ".$teacherNextTime." on ".$teacherNextDate.". Open Guidance & Counselling."
+        : "Counselling reminder: Your meeting with ".$teacherNextStudent." starts at ".$teacherNextTime." on ".$teacherNextDate.". Open Guidance & Counselling.";
+}
 
 $classTeacherRoles = array();
 $classTeacherLookup = array();
@@ -470,6 +483,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
 <div class="header"><?php include("menu.php"); ?></div>
 <main class="teacher-shell">
 <?php if($flashMessage !== ""){ ?><div class="teacher-flash"><?php echo $flashMessage; ?></div><?php } ?>
+<?php if($teacherCounsellingSoonMessage !== ""){ ?><div class="teacher-flash"><?php echo td_alert("warning", $teacherCounsellingSoonMessage); ?></div><?php } ?>
 
 <section class="teacher-hero">
     <div class="teacher-hero__copy">
@@ -527,7 +541,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <?php } ?>
         <a class="teacher-action-card" href="terminal-report.php"><span class="teacher-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Reports</h3></a>
         <?php if($teacherHasCounsellingAccess){ ?>
-        <a class="teacher-action-card" href="guidance-counselling.php"><span class="teacher-action-card__icon"><i class="fa fa-heartbeat"></i></span><h3>Counselling Cases<?php if((int)$teacherCounsellingSummary['pending_count'] > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherCounsellingSummary['pending_count']; ?> Pending</span><?php } ?></h3><p>Review student counselling requests, reply privately, and confirm the next session.</p></a>
+        <a class="teacher-action-card" href="guidance-counselling.php"><span class="teacher-action-card__icon"><i class="fa fa-heartbeat"></i></span><h3>Counselling Cases<?php if($teacherCounsellingSoonCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherCounsellingSoonCount; ?> Soon</span><?php } ?><?php if((int)$teacherCounsellingSummary['pending_count'] > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherCounsellingSummary['pending_count']; ?> Pending</span><?php } ?></h3><p><?php echo $teacherCounsellingSoonCount > 0 ? "A counselling meeting starts soon. Open the case now and prepare for the session." : "Review student counselling requests, reply privately, and confirm the next session."; ?></p></a>
         <?php } ?>
         <a class="teacher-action-card" href="lesson-timetable-report.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Lesson Timetable</h3><p>Open your weekly lesson schedule and check today’s teaching periods quickly.</p></a>
         <a class="teacher-action-card" href="online-class.php"><span class="teacher-action-card__icon"><i class="fa fa-video-camera"></i></span><h3>Online Class</h3><p>Schedule a live class link for the right students and manage it from one page.</p></a>

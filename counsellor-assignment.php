@@ -293,6 +293,7 @@ $_SESSION['Message'] = '';
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" href="css/counsellor-assignment.css">
+<script src="scripts/counsellor-assignment.js" defer></script>
 </head>
 <body class="counsellor-assignment-page">
 <div class="header">

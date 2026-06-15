@@ -8,9 +8,12 @@ include("company.php");
 include_once("semester-registry-utils.php");
 include_once("voting-utils.php");
 include_once("report-approval-utils.php");
+include_once("counselling-utils.php");
 ensure_class_teacher_table($con);
 ensure_house_tables($con);
 ensure_voting_tables($con);
+ensure_counselling_tables($con);
+counselling_process_due_reminders($con);
 
 if(!house_master_is_student()){
     header("location:".house_master_landing_page());
@@ -381,6 +384,18 @@ if(($currentClassLabel === "" || $currentBatchLabel === "") && $latestReportOpti
     }
 }
 $currentSemesterLabel = $latestReportOption ? sd_term($latestReportOption['termname']) : "No semester selected";
+$studentCounsellingSoonRows = counselling_dashboard_notification_rows($con, $studentId, 'student', 15);
+$studentCounsellingSoonCount = count($studentCounsellingSoonRows);
+$studentCounsellingSoonMessage = "";
+if($studentCounsellingSoonCount > 0){
+    $studentNextCounselling = $studentCounsellingSoonRows[0];
+    $studentCounsellorName = counselling_person_name($studentNextCounselling);
+    $studentCounsellingTime = counselling_format_time(isset($studentNextCounselling['scheduled_time']) ? $studentNextCounselling['scheduled_time'] : '');
+    $studentCounsellingDate = counselling_format_date(isset($studentNextCounselling['scheduled_date']) ? $studentNextCounselling['scheduled_date'] : '');
+    $studentCounsellingSoonMessage = $studentCounsellingSoonCount > 1
+        ? "Counselling reminder: You have ".number_format((int)$studentCounsellingSoonCount)." sessions starting within the next 15 minutes. Next is with ".$studentCounsellorName." at ".$studentCounsellingTime." on ".$studentCounsellingDate.". Open Guidance & Counselling."
+        : "Counselling reminder: Your session with ".$studentCounsellorName." starts at ".$studentCounsellingTime." on ".$studentCounsellingDate.". Open Guidance & Counselling.";
+}
 
 $financeBilled = 0.0;
 $financePaid = 0.0;
@@ -621,6 +636,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
 <div class="header"><?php include("menu.php"); ?></div>
 <main class="student-shell">
 <?php if($flashMessage !== ""){ ?><div class="student-flash"><?php echo $flashMessage; ?></div><?php } ?>
+<?php if($studentCounsellingSoonMessage !== ""){ ?><div class="student-flash"><?php echo sd_alert("warning", $studentCounsellingSoonMessage); ?></div><?php } ?>
 
 <section class="student-hero">
     <div class="student-hero__copy">
@@ -663,7 +679,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <a class="student-action-card student-action-card--report" href="individual-terminal-report.php"><span class="student-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Report</h3></a>
         <a class="student-action-card student-action-card--finance" href="account-statements.php"><span class="student-action-card__icon"><i class="fa fa-money"></i></span><h3>Account Statement</h3></a>
         <a class="student-action-card student-action-card--exeat" href="student-exeat-request.php"><span class="student-action-card__icon"><i class="fa fa-file"></i></span><h3>Request Exeat</h3></a>
-        <a class="student-action-card student-action-card--counselling" href="guidance-counselling.php"><span class="student-action-card__icon"><i class="fa fa-heartbeat"></i></span><h3>Guidance &amp; Counselling</h3><p>Book a private session with your dedicated counsellor and track the case here.</p></a>
+        <a class="student-action-card student-action-card--counselling" href="guidance-counselling.php"><span class="student-action-card__icon"><i class="fa fa-heartbeat"></i></span><h3>Guidance &amp; Counselling<?php if($studentCounsellingSoonCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$studentCounsellingSoonCount; ?> Soon</span><?php } ?></h3><p><?php echo $studentCounsellingSoonCount > 0 ? "Your counselling session starts soon. Open the case to review the meeting details." : "Book a private session with your dedicated counsellor and track the case here."; ?></p></a>
         <a class="student-action-card student-action-card--exam" href="examinationtimetablereport.php"><span class="student-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Exam Timetable</h3></a>
         <a class="student-action-card student-action-card--timetable" href="lesson-timetable-report.php"><span class="student-action-card__icon"><i class="fa fa-clock-o"></i></span><h3>Lesson Timetable</h3></a>
         <a class="student-action-card student-action-card--online" href="online-class.php"><span class="student-action-card__icon"><i class="fa fa-video-camera"></i></span><h3>Join Class</h3><p>Open live class links shared by your teachers for your class.</p></a>

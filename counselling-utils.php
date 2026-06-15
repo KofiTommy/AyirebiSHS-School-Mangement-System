@@ -50,7 +50,8 @@ function counselling_status_meta($status){
         'accepted' => array('label' => 'Accepted', 'class' => 'accepted'),
         'rescheduled' => array('label' => 'Rescheduled', 'class' => 'rescheduled'),
         'completed' => array('label' => 'Completed', 'class' => 'completed'),
-        'declined' => array('label' => 'Declined', 'class' => 'declined')
+        'declined' => array('label' => 'Declined', 'class' => 'declined'),
+        'cancelled' => array('label' => 'Cancelled', 'class' => 'cancelled')
     );
     return isset($map[$status]) ? $map[$status] : array('label' => 'Open', 'class' => 'neutral');
 }
@@ -142,7 +143,7 @@ function ensure_counselling_tables($con){
     if(!$con){
         return;
     }
-    if(function_exists('xschool_schema_cache_is_fresh') && xschool_schema_cache_is_fresh('schema_counselling_v1', 43200)){
+    if(function_exists('xschool_schema_cache_is_fresh') && xschool_schema_cache_is_fresh('schema_counselling_v2', 43200)){
         return;
     }
 
@@ -180,6 +181,9 @@ function ensure_counselling_tables($con){
         meetinglink VARCHAR(255) NULL,
         venue VARCHAR(150) NULL,
         statusnote TEXT NULL,
+        counsellorremindersentat DATETIME NULL,
+        counsellorreminderstatus VARCHAR(60) NULL,
+        counsellorreminderattemptat DATETIME NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'pending',
         createdat DATETIME NOT NULL,
         updatedat DATETIME NULL,
@@ -189,6 +193,19 @@ function ensure_counselling_tables($con){
         INDEX idx_counsellingrequest_created (createdat),
         INDEX idx_counsellingrequest_schedule (scheduled_date, scheduled_time)
     )");
+
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblcounsellingrequest LIKE 'counsellorremindersentat'");
+    if(!$columnRes || mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblcounsellingrequest ADD COLUMN counsellorremindersentat DATETIME NULL AFTER statusnote");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblcounsellingrequest LIKE 'counsellorreminderstatus'");
+    if(!$columnRes || mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblcounsellingrequest ADD COLUMN counsellorreminderstatus VARCHAR(60) NULL AFTER counsellorremindersentat");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblcounsellingrequest LIKE 'counsellorreminderattemptat'");
+    if(!$columnRes || mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblcounsellingrequest ADD COLUMN counsellorreminderattemptat DATETIME NULL AFTER counsellorreminderstatus");
+    }
 
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblcounsellingmessage (
         messageid VARCHAR(40) NOT NULL PRIMARY KEY,
@@ -203,8 +220,152 @@ function ensure_counselling_tables($con){
     )");
 
     if(function_exists('xschool_schema_cache_mark')){
-        xschool_schema_cache_mark('schema_counselling_v1');
+        xschool_schema_cache_mark('schema_counselling_v2');
     }
+}
+}
+
+if(!function_exists('counselling_normalize_phone')){
+function counselling_normalize_phone($value){
+    $value = trim((string)$value);
+    if($value === ''){
+        return '';
+    }
+    return preg_replace('/\s+/', '', $value);
+}
+}
+
+if(!function_exists('counselling_schedule_datetime')){
+function counselling_schedule_datetime($row){
+    $dateValue = trim((string)(isset($row['scheduled_date']) ? $row['scheduled_date'] : ''));
+    $timeValue = trim((string)(isset($row['scheduled_time']) ? $row['scheduled_time'] : ''));
+    if($dateValue === '' || $timeValue === ''){
+        return '';
+    }
+    return $dateValue.' '.$timeValue;
+}
+}
+
+if(!function_exists('counselling_due_counsellor_sms_rows')){
+function counselling_due_counsellor_sms_rows($con, $minutesAhead = 15){
+    $rows = array();
+    if(!$con){
+        return $rows;
+    }
+    $minutesAhead = max(1, (int)$minutesAhead);
+    $windowStart = date('Y-m-d H:i:s', strtotime('-3 minutes'));
+    $windowEnd = date('Y-m-d H:i:s', strtotime('+'.$minutesAhead.' minutes'));
+    $retryAt = date('Y-m-d H:i:s', strtotime('-5 minutes'));
+    $windowStartEsc = mysqli_real_escape_string($con, $windowStart);
+    $windowEndEsc = mysqli_real_escape_string($con, $windowEnd);
+    $retryAtEsc = mysqli_real_escape_string($con, $retryAt);
+
+    $sql = mysqli_query($con, "SELECT
+            cr.*,
+            student.firstname AS student_firstname,
+            student.surname AS student_surname,
+            student.othernames AS student_othernames,
+            counsellor.firstname AS counsellor_firstname,
+            counsellor.surname AS counsellor_surname,
+            counsellor.othernames AS counsellor_othernames,
+            counsellor.mobile AS counsellor_mobile
+        FROM tblcounsellingrequest cr
+        INNER JOIN tblsystemuser student ON student.userid=cr.studentid
+        INNER JOIN tblsystemuser counsellor ON counsellor.userid=cr.counsellorid
+        WHERE cr.status IN ('accepted', 'rescheduled')
+          AND cr.scheduled_date IS NOT NULL
+          AND cr.scheduled_time IS NOT NULL
+          AND cr.counsellorremindersentat IS NULL
+          AND (cr.counsellorreminderattemptat IS NULL OR cr.counsellorreminderattemptat <= '$retryAtEsc')
+          AND TIMESTAMP(cr.scheduled_date, cr.scheduled_time) BETWEEN '$windowStartEsc' AND '$windowEndEsc'
+        ORDER BY TIMESTAMP(cr.scheduled_date, cr.scheduled_time) ASC");
+    if($sql){
+        while($row = mysqli_fetch_array($sql, MYSQLI_ASSOC)){
+            $row['student_name'] = trim((string)$row['student_firstname'].' '.(string)$row['student_othernames'].' '.(string)$row['student_surname']);
+            $row['counsellor_name'] = trim((string)$row['counsellor_firstname'].' '.(string)$row['counsellor_othernames'].' '.(string)$row['counsellor_surname']);
+            $rows[] = $row;
+        }
+    }
+    return $rows;
+}
+}
+
+if(!function_exists('counselling_mark_counsellor_sms_attempt')){
+function counselling_mark_counsellor_sms_attempt($con, $requestId, $status, $sent = false){
+    $requestId = trim((string)$requestId);
+    if(!$con || $requestId === ''){
+        return false;
+    }
+    $requestIdEsc = mysqli_real_escape_string($con, $requestId);
+    $statusEsc = mysqli_real_escape_string($con, trim((string)$status));
+    $updates = array(
+        "counsellorreminderattemptat=NOW()",
+        "counsellorreminderstatus='$statusEsc'"
+    );
+    if($sent){
+        $updates[] = "counsellorremindersentat=NOW()";
+    }
+    return mysqli_query($con, "UPDATE tblcounsellingrequest SET ".implode(',', $updates)." WHERE requestid='$requestIdEsc' LIMIT 1") ? true : false;
+}
+}
+
+if(!function_exists('counselling_counsellor_sms_message')){
+function counselling_counsellor_sms_message($requestRow){
+    $studentName = trim((string)(isset($requestRow['student_name']) ? $requestRow['student_name'] : 'Student'));
+    if($studentName === ''){
+        $studentName = 'Student';
+    }
+    $timeText = counselling_format_time(isset($requestRow['scheduled_time']) ? $requestRow['scheduled_time'] : '');
+    $dateText = counselling_format_date(isset($requestRow['scheduled_date']) ? $requestRow['scheduled_date'] : '');
+    $modeText = trim((string)(isset($requestRow['sessionmode']) ? $requestRow['sessionmode'] : ''));
+    if($modeText === 'in_person'){
+        $modeText = 'In-person';
+    }elseif($modeText === 'online'){
+        $modeText = 'Online';
+    }elseif($modeText === 'phone'){
+        $modeText = 'Phone';
+    }else{
+        $modeText = 'Counselling';
+    }
+    return "Counselling reminder: Your session with ".$studentName." starts at ".$timeText." on ".$dateText.". Mode: ".$modeText.". Please open the counselling dashboard.";
+}
+}
+
+if(!function_exists('counselling_process_due_reminders')){
+function counselling_process_due_reminders($con, $minutesAhead = 15){
+    static $done = false;
+    $summary = array('processed' => 0, 'sent' => 0, 'failed' => 0, 'no_phone' => 0);
+    if($done || !$con){
+        return $summary;
+    }
+    $done = true;
+
+    $rows = counselling_due_counsellor_sms_rows($con, $minutesAhead);
+    foreach($rows as $row){
+        $summary['processed']++;
+        $requestId = trim((string)(isset($row['requestid']) ? $row['requestid'] : ''));
+        if($requestId === ''){
+            continue;
+        }
+        $phone = counselling_normalize_phone(isset($row['counsellor_mobile']) ? $row['counsellor_mobile'] : '');
+        if($phone === ''){
+            counselling_mark_counsellor_sms_attempt($con, $requestId, 'NO_PHONE', true);
+            $summary['no_phone']++;
+            continue;
+        }
+        $message = counselling_counsellor_sms_message($row);
+        $resultCode = '';
+        $sent = function_exists('send_bulk_sms_message') ? send_bulk_sms_message($phone, $message, $resultCode) : false;
+        if($sent){
+            counselling_mark_counsellor_sms_attempt($con, $requestId, trim((string)$resultCode) !== '' ? trim((string)$resultCode) : 'SENT', true);
+            $summary['sent']++;
+        }else{
+            counselling_mark_counsellor_sms_attempt($con, $requestId, trim((string)$resultCode) !== '' ? trim((string)$resultCode) : 'FAILED', false);
+            $summary['failed']++;
+        }
+    }
+
+    return $summary;
 }
 }
 
@@ -351,6 +512,83 @@ function counselling_teacher_has_assignment($con, $teacherId){
           AND status='active'
         LIMIT 1");
     return ($sql && mysqli_num_rows($sql) > 0);
+}
+}
+
+if(!function_exists('counselling_teacher_can_manage_student')){
+function counselling_teacher_can_manage_student($con, $teacherId, $studentId){
+    $teacherId = trim((string)$teacherId);
+    $studentId = trim((string)$studentId);
+    if(!$con || $teacherId === '' || $studentId === ''){
+        return false;
+    }
+    $assignment = counselling_resolve_student_assignment($con, $studentId);
+    return $assignment && trim((string)(isset($assignment['counsellorid']) ? $assignment['counsellorid'] : '')) === $teacherId;
+}
+}
+
+if(!function_exists('counselling_counsellor_student_rows')){
+function counselling_counsellor_student_rows($con, $teacherId){
+    $rows = array();
+    $teacherId = trim((string)$teacherId);
+    if(!$con || $teacherId === ''){
+        return $rows;
+    }
+
+    $teacherIdEsc = mysqli_real_escape_string($con, $teacherId);
+    $schoolAssigned = false;
+    $schoolSql = mysqli_query($con, "SELECT assignmentid
+        FROM tblcounsellorassignment
+        WHERE counsellorid='$teacherIdEsc'
+          AND assignmenttype='school'
+          AND status='active'
+        LIMIT 1");
+    if($schoolSql && mysqli_num_rows($schoolSql) > 0){
+        $schoolAssigned = true;
+    }
+
+    if($schoolAssigned){
+        $sql = mysqli_query($con, "SELECT userid, firstname, surname, othernames
+            FROM tblsystemuser
+            WHERE systemtype='Student'
+              AND status='active'
+            ORDER BY firstname ASC, othernames ASC, surname ASC, userid ASC");
+    }else{
+        $sql = mysqli_query($con, "SELECT DISTINCT su.userid, su.firstname, su.surname, su.othernames
+            FROM tblsystemuser su
+            WHERE su.systemtype='Student'
+              AND su.status='active'
+              AND (
+                    su.userid IN (
+                        SELECT ca.studentid
+                        FROM tblcounsellorassignment ca
+                        WHERE ca.counsellorid='$teacherIdEsc'
+                          AND ca.assignmenttype='student'
+                          AND ca.status='active'
+                          AND ca.studentid IS NOT NULL
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM tblclass cl
+                        INNER JOIN tblcounsellorassignment ca2
+                            ON ca2.classid=cl.class_entryid
+                           AND ca2.batchid=cl.batchid
+                           AND ca2.assignmenttype='class'
+                           AND ca2.counsellorid='$teacherIdEsc'
+                           AND ca2.status='active'
+                        WHERE cl.userid=su.userid
+                          AND cl.status='active'
+                    )
+              )
+            ORDER BY su.firstname ASC, su.othernames ASC, su.surname ASC, su.userid ASC");
+    }
+
+    if($sql){
+        while($row = mysqli_fetch_array($sql, MYSQLI_ASSOC)){
+            $rows[] = $row;
+        }
+    }
+    return $rows;
 }
 }
 
@@ -512,7 +750,7 @@ function counselling_counsellor_timetable_rows($con, $teacherId, $fromDate, $toD
         WHERE cr.counsellorid='$teacherIdEsc'
           AND cr.scheduled_date IS NOT NULL
           AND cr.scheduled_date BETWEEN '$fromDateEsc' AND '$toDateEsc'
-          AND cr.status <> 'declined'
+          AND cr.status NOT IN ('declined', 'cancelled')
         ORDER BY
             cr.scheduled_date ASC,
             COALESCE(cr.scheduled_time, '23:59:59') ASC,
@@ -524,6 +762,61 @@ function counselling_counsellor_timetable_rows($con, $teacherId, $fromDate, $toD
                 ELSE 5
             END ASC,
             cr.createdat ASC");
+    if($sql){
+        while($row = mysqli_fetch_array($sql, MYSQLI_ASSOC)){
+            $rows[] = $row;
+        }
+    }
+    return $rows;
+}
+}
+
+if(!function_exists('counselling_dashboard_notification_rows')){
+function counselling_dashboard_notification_rows($con, $userId, $role, $minutesAhead = 15){
+    $rows = array();
+    $userId = trim((string)$userId);
+    $role = strtolower(trim((string)$role));
+    if(!$con || $userId === '' || !in_array($role, array('teacher', 'student'), true)){
+        return $rows;
+    }
+
+    $minutesAhead = max(1, (int)$minutesAhead);
+    $windowStart = date('Y-m-d H:i:s', strtotime('-5 minutes'));
+    $windowEnd = date('Y-m-d H:i:s', strtotime('+'.$minutesAhead.' minutes'));
+    $windowStartEsc = mysqli_real_escape_string($con, $windowStart);
+    $windowEndEsc = mysqli_real_escape_string($con, $windowEnd);
+    $userIdEsc = mysqli_real_escape_string($con, $userId);
+
+    if($role === 'teacher'){
+        $sql = mysqli_query($con, "SELECT
+                cr.*,
+                su.firstname,
+                su.surname,
+                su.othernames
+            FROM tblcounsellingrequest cr
+            INNER JOIN tblsystemuser su ON su.userid=cr.studentid
+            WHERE cr.counsellorid='$userIdEsc'
+              AND cr.status IN ('accepted', 'rescheduled')
+              AND cr.scheduled_date IS NOT NULL
+              AND cr.scheduled_time IS NOT NULL
+              AND TIMESTAMP(cr.scheduled_date, cr.scheduled_time) BETWEEN '$windowStartEsc' AND '$windowEndEsc'
+            ORDER BY TIMESTAMP(cr.scheduled_date, cr.scheduled_time) ASC");
+    }else{
+        $sql = mysqli_query($con, "SELECT
+                cr.*,
+                su.firstname,
+                su.surname,
+                su.othernames
+            FROM tblcounsellingrequest cr
+            INNER JOIN tblsystemuser su ON su.userid=cr.counsellorid
+            WHERE cr.studentid='$userIdEsc'
+              AND cr.status IN ('accepted', 'rescheduled')
+              AND cr.scheduled_date IS NOT NULL
+              AND cr.scheduled_time IS NOT NULL
+              AND TIMESTAMP(cr.scheduled_date, cr.scheduled_time) BETWEEN '$windowStartEsc' AND '$windowEndEsc'
+            ORDER BY TIMESTAMP(cr.scheduled_date, cr.scheduled_time) ASC");
+    }
+
     if($sql){
         while($row = mysqli_fetch_array($sql, MYSQLI_ASSOC)){
             $rows[] = $row;
@@ -609,7 +902,8 @@ function counselling_case_counts($rows){
         'accepted' => 0,
         'rescheduled' => 0,
         'completed' => 0,
-        'declined' => 0
+        'declined' => 0,
+        'cancelled' => 0
     );
     foreach($rows as $row){
         $status = strtolower(trim((string)(isset($row['status']) ? $row['status'] : 'pending')));
