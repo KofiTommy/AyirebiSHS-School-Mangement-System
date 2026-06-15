@@ -945,7 +945,7 @@ $schoolLogoPath = sh_resolve_school_logo(isset($_Logo) ? $_Logo : "");
                                         <td data-label="Grade"><span class="student-transcript-grade"><?php echo sh_esc($subjectRow["grade"]); ?></span></td>
                                         <td data-label="Result">
                                             <span class="student-transcript-result <?php echo !empty($subjectRow["passed"]) ? "is-pass" : "is-fail"; ?>">
-                                                <?php echo !empty($subjectRow["passed"]) ? "Pass" : "Needs Review"; ?>
+                                                <?php echo !empty($subjectRow["passed"]) ? "Pass" : "Fail"; ?>
                                             </span>
                                         </td>
                                     </tr>

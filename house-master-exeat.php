@@ -440,7 +440,7 @@ if($_SQL){
             <div class="he-hero__copy">
                 <span class="he-kicker"><i class="fa fa-random"></i> Exeat Desk</span>
                 <h1>House Exeat Management</h1>
-                <p>Review student exeat requests, grant urgent approvals, and record return check-ins from a cleaner mobile-friendly workspace.</p>
+                <p>Review student exeat requests, approve them, and record return check-ins.</p>
                 <div class="he-chip-row">
                     <span class="he-chip he-chip--neutral"><i class="fa fa-user-circle"></i> <?php echo house_exeat_esc($_TeacherDisplayName); ?></span>
                     <span class="he-chip he-chip--info"><i class="fa fa-shield"></i> <?php echo house_exeat_esc($_RoleLabel); ?></span>

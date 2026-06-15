@@ -571,8 +571,8 @@ $_SemesterLabel = $_SemesterScope !== "" ? "Semester ".$_SemesterScope : "All Se
 <section class="scores-report-hero">
     <div class="scores-report-hero__copy">
         <span class="scores-report-kicker">Score Reports</span>
-        <h1>Review and manage score entries with a cleaner mobile-friendly workspace.</h1>
-        <p>Pick a subject on the left, filter by academic year, and work inside one clearer score report area on the right.</p>
+        <h1>Review and manage score entries.</h1>
+        <p>Select a subject and academic year to review the score report.</p>
         <div class="scores-report-hero__stats">
             <article class="scores-report-stat-card">
                 <span>Viewer</span>

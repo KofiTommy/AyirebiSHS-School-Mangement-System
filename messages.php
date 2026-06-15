@@ -521,7 +521,7 @@ if($__SystemType === 'Student'){
                 <div class="messages-hero__copy">
                     <span class="messages-kicker"><?php echo msg_esc($__RoleLabel); ?></span>
                     <h1>School Messages</h1>
-                    <p>Send updates, review your own posts, and follow the shared message board from one cleaner, mobile-friendly workspace.</p>
+                    <p>Send updates, review your posts, and follow the message board.</p>
                 </div>
                 <div class="messages-stats">
                     <article class="messages-stat">

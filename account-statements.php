@@ -1,6 +1,38 @@
 <?php
 session_start();
 $_SESSION['Message']="";
+
+if(!function_exists('account_statement_resolve_school_logo_path')){
+    function account_statement_resolve_school_logo_path($logoValue){
+        $logoValue = trim((string)$logoValue);
+        $candidates = array();
+
+        if($logoValue !== ''){
+            $candidates[] = "images/logo/".$logoValue;
+            $candidates[] = "images/".$logoValue;
+            $candidates[] = "logo/".$logoValue;
+            $candidates[] = $logoValue;
+        }
+
+        $candidates[] = "images/logo.png";
+        $candidates[] = "images/logo.jpeg";
+        $candidates[] = "logo/logo.png";
+        $candidates[] = "logo/logo.jpeg";
+
+        foreach($candidates as $candidate){
+            $candidate = str_replace("\\", "/", trim((string)$candidate));
+            if($candidate === ''){
+                continue;
+            }
+            $fullPath = __DIR__.DIRECTORY_SEPARATOR.str_replace("/", DIRECTORY_SEPARATOR, $candidate);
+            if(file_exists($fullPath)){
+                return $fullPath;
+            }
+        }
+
+        return '';
+    }
+}
 ?>
 
 <?php
@@ -32,7 +64,10 @@ $pdf->SetFont('Arial','B',18);
 //Background color of header//
 //Heading of the pdf
 // Logo
-     $pdf->Image('images/logo.jpeg',$width_cell[0]+$width_cell[1],3,22);
+$statementLogoPath = account_statement_resolve_school_logo_path(isset($_Logo) ? $_Logo : '');
+if($statementLogoPath !== ''){
+     $pdf->Image($statementLogoPath,$width_cell[0]+$width_cell[1],3,22);
+}
      $pdf->Ln(15);
 
 $p=10;
@@ -323,7 +358,10 @@ if(mysqli_num_rows(mysqli_query($con,$_SQL_EXECUTE_SP))>0)
 //Background color of header//
 //Heading of the pdf
 // Logo
-     $pdf->Image('images/bnf.jpg',10,8,18);
+$statementLogoPath = account_statement_resolve_school_logo_path(isset($_Logo) ? $_Logo : '');
+if($statementLogoPath !== ''){
+     $pdf->Image($statementLogoPath,10,8,18);
+}
       $pdf->Ln(15);
 
 $p=10;
@@ -563,346 +601,365 @@ if($_SQL_EXECUTE){
 }
 ?>
 
-<html>
-<head>
 <?php
-include("links.php");
+if(!function_exists('account_stmt_esc')){
+    function account_stmt_esc($value){
+        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+if(!function_exists('account_stmt_money')){
+    function account_stmt_money($amount){
+        $symbol = (isset($_SESSION['SYMBOL']) && trim((string)$_SESSION['SYMBOL']) !== '') ? trim((string)$_SESSION['SYMBOL']) : 'GHC';
+        return $symbol.' '.number_format((float)$amount, 2);
+    }
+}
+
+if(!function_exists('account_stmt_datetime')){
+    function account_stmt_datetime($value){
+        $timestamp = strtotime((string)$value);
+        return $timestamp ? date('d M Y, H:i', $timestamp) : (string)$value;
+    }
+}
+
+$accountStatementUserId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+$accountStatementUserIdEsc = mysqli_real_escape_string($con, $accountStatementUserId);
+$accountStatementFlash = trim((string)$_SESSION['Message']);
+$accountStatementProfile = array(
+    'name' => $accountStatementUserId,
+    'userid' => $accountStatementUserId
+);
+$accountStatementSummary = array(
+    'classes' => 0,
+    'periods' => 0,
+    'billed' => 0.0,
+    'paid' => 0.0,
+    'balance' => 0.0,
+    'latest_payment' => ''
+);
+$accountStatementGroups = array();
+
+if($accountStatementUserId !== ''){
+    $_SQL_STUDENT_PROFILE = mysqli_query($con, "SELECT firstname, othernames, surname, userid FROM tblsystemuser WHERE userid='$accountStatementUserIdEsc' LIMIT 1");
+    if($_SQL_STUDENT_PROFILE && $rowStudentProfile = mysqli_fetch_array($_SQL_STUDENT_PROFILE, MYSQLI_ASSOC)){
+        $studentNameParts = array();
+        foreach(array('firstname', 'othernames', 'surname') as $nameField){
+            $nameValue = isset($rowStudentProfile[$nameField]) ? trim((string)$rowStudentProfile[$nameField]) : '';
+            if($nameValue !== ''){
+                $studentNameParts[] = $nameValue;
+            }
+        }
+        $accountStatementProfile['name'] = trim(implode(' ', $studentNameParts)) !== '' ? trim(implode(' ', $studentNameParts)) : $accountStatementUserId;
+        $accountStatementProfile['userid'] = trim((string)$rowStudentProfile['userid']) !== '' ? trim((string)$rowStudentProfile['userid']) : $accountStatementUserId;
+    }
+
+    $_SQL_CLASSES = mysqli_query($con, "SELECT c.class_entryid, c.batchid, c.datetimeentry, ce.class_name, bt.batch
+        FROM tblclass c
+        LEFT JOIN tblclassentry ce ON ce.class_entryid=c.class_entryid
+        LEFT JOIN tblbatch bt ON bt.batchid=c.batchid
+        WHERE c.userid='$accountStatementUserIdEsc'
+        ORDER BY c.datetimeentry DESC");
+
+    if($_SQL_CLASSES){
+        while($rowClassReg = mysqli_fetch_array($_SQL_CLASSES, MYSQLI_ASSOC)){
+            $classEntryId = isset($rowClassReg['class_entryid']) ? trim((string)$rowClassReg['class_entryid']) : '';
+            $batchId = isset($rowClassReg['batchid']) ? trim((string)$rowClassReg['batchid']) : '';
+            if($classEntryId === '' || $batchId === ''){
+                continue;
+            }
+
+            $classKey = $classEntryId.'|'.$batchId;
+            if(!isset($accountStatementGroups[$classKey])){
+                $accountStatementGroups[$classKey] = array(
+                    'class_name' => trim((string)$rowClassReg['class_name']) !== '' ? trim((string)$rowClassReg['class_name']) : 'Class Record',
+                    'batch_label' => trim((string)$rowClassReg['batch']),
+                    'class_entryid' => $classEntryId,
+                    'batchid' => $batchId,
+                    'statements' => array()
+                );
+            }
+
+            $classEntryIdEsc = mysqli_real_escape_string($con, $classEntryId);
+            $batchIdEsc = mysqli_real_escape_string($con, $batchId);
+            $_SQL_TERMS = mysqli_query($con, "SELECT DISTINCT tr.termname, tr.class_entryid, tr.batchid, bt.batch
+                FROM tbltermregistry tr
+                LEFT JOIN tblbatch bt ON bt.batchid=tr.batchid
+                WHERE tr.class_entryid='$classEntryIdEsc'
+                  AND tr.userid='$accountStatementUserIdEsc'
+                  AND tr.batchid='$batchIdEsc'
+                ORDER BY tr.termname ASC");
+
+            if(!$_SQL_TERMS){
+                continue;
+            }
+
+            while($rowTerm = mysqli_fetch_array($_SQL_TERMS, MYSQLI_ASSOC)){
+                $termName = isset($rowTerm['termname']) ? trim((string)$rowTerm['termname']) : '';
+                if($termName === ''){
+                    continue;
+                }
+                $termNameEsc = mysqli_real_escape_string($con, $termName);
+                $amountToPay = 0.0;
+                $subtotalPaid = 0.0;
+                $latestPayment = '';
+                $paymentRows = array();
+                $transactionCount = 0;
+                $statementItems = array();
+
+                $_SQL_BILLED = mysqli_query($con, "SELECT COALESCE(SUM(ip.price),0) AS Total_Amount
+                    FROM tblbilling bi
+                    INNER JOIN tblitemprice ip ON bi.itempriceid=ip.itempriceid
+                    WHERE bi.userid='$accountStatementUserIdEsc'
+                      AND ip.class_entryid='$classEntryIdEsc'
+                      AND ip.term='$termNameEsc'
+                      AND ip.batch='$batchIdEsc'");
+                if($_SQL_BILLED && $rowBilled = mysqli_fetch_array($_SQL_BILLED, MYSQLI_ASSOC)){
+                    $amountToPay = (float)$rowBilled['Total_Amount'];
+                }
+
+                $_SQL_PAYMENTS = mysqli_query($con, "SELECT itm.itemname, pm.payment, pm.datetimepayment
+                    FROM tblbilling bi
+                    INNER JOIN tblsystemuser su ON bi.userid=su.userid
+                    INNER JOIN tblitemprice ip ON bi.itempriceid=ip.itempriceid
+                    INNER JOIN tblitem itm ON ip.itemid=itm.itemid
+                    INNER JOIN tblclassentry ce ON ip.class_entryid=ce.class_entryid
+                    INNER JOIN tblbatch b ON ip.batch=b.batchid
+                    INNER JOIN tblpayment pm ON pm.billid=bi.billid
+                    WHERE bi.userid='$accountStatementUserIdEsc'
+                      AND ip.class_entryid='$classEntryIdEsc'
+                      AND ip.term='$termNameEsc'
+                      AND ip.batch='$batchIdEsc'
+                    ORDER BY pm.datetimepayment DESC");
+
+                if($_SQL_PAYMENTS){
+                    while($rowPayment = mysqli_fetch_array($_SQL_PAYMENTS, MYSQLI_ASSOC)){
+                        $paymentAmount = isset($rowPayment['payment']) ? (float)$rowPayment['payment'] : 0.0;
+                        $paymentDate = isset($rowPayment['datetimepayment']) ? trim((string)$rowPayment['datetimepayment']) : '';
+                        $paymentItem = isset($rowPayment['itemname']) ? trim((string)$rowPayment['itemname']) : 'Billing Item';
+                        $paymentRows[] = array(
+                            'itemname' => $paymentItem,
+                            'payment' => $paymentAmount,
+                            'datetimepayment' => $paymentDate
+                        );
+                        $subtotalPaid += $paymentAmount;
+                        $transactionCount++;
+                        if($paymentDate !== '' && ($latestPayment === '' || strtotime($paymentDate) > strtotime($latestPayment))){
+                            $latestPayment = $paymentDate;
+                        }
+                        $statementItems[] = strtolower($paymentItem);
+                    }
+                }
+
+                $balance = $amountToPay - $subtotalPaid;
+                if($balance < 0){
+                    $balance = 0.0;
+                }
+
+                if($latestPayment !== '' && ($accountStatementSummary['latest_payment'] === '' || strtotime($latestPayment) > strtotime($accountStatementSummary['latest_payment']))){
+                    $accountStatementSummary['latest_payment'] = $latestPayment;
+                }
+
+                $statusTone = 'pending';
+                $statusLabel = 'No Payment';
+                if($amountToPay > 0 && $balance <= 0){
+                    $statusTone = 'settled';
+                    $statusLabel = 'Settled';
+                }elseif($subtotalPaid > 0){
+                    $statusTone = 'partial';
+                    $statusLabel = 'Part Paid';
+                }
+
+                $accountStatementGroups[$classKey]['statements'][] = array(
+                    'termname' => $termName,
+                    'batchid' => $batchId,
+                    'batch_label' => trim((string)$rowTerm['batch']) !== '' ? trim((string)$rowTerm['batch']) : trim((string)$rowClassReg['batch']),
+                    'amount_to_pay' => $amountToPay,
+                    'subtotal_paid' => $subtotalPaid,
+                    'balance' => $balance,
+                    'transaction_count' => $transactionCount,
+                    'latest_payment' => $latestPayment,
+                    'payment_rows' => $paymentRows,
+                    'search_terms' => implode(' ', $statementItems),
+                    'status_tone' => $statusTone,
+                    'status_label' => $statusLabel
+                );
+
+                $accountStatementSummary['periods']++;
+                $accountStatementSummary['billed'] += $amountToPay;
+                $accountStatementSummary['paid'] += $subtotalPaid;
+                $accountStatementSummary['balance'] += $balance;
+            }
+        }
+    }
+}
+
+$accountStatementGroups = array_values(array_filter($accountStatementGroups, function($group){
+    return !empty($group['statements']);
+}));
+$accountStatementSummary['classes'] = count($accountStatementGroups);
 ?>
-
-<script type="text/javascript">
-function SearchItem(str)
-{
-  if(str=="")
-  {
-  document.getElementById("search-result").innerHTML="";
-  return;
-  }
-  else
-  {
-    if(window.XMLHttpRequest)
-    {
-      xmlhttp = new XMLHttpRequest();
-    }
-    else
-    {
-      xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-    }
-    xmlhttp.onreadystatechange = function()
-    {
-      if(this.readyState==4 && this.status==200)
-      {
-        document.getElementById("search-result").innerHTML = this.responseText;
-      }
-    };
-    xmlhttp.open("GET","display-student.php?search-item="+str,true);
-    xmlhttp.send();
-  }
-}
-</script>
-
-
-<script>
-  var rnd;
-function getItemID()
-{
-rnd=Math.floor( Math.random()*100000000);
-document.getElementById("item-id").value=rnd;
-}
-</script>
-
-<script type="text/javascript">
-var gbatch;
-function getBatch()
-{
-gbatch=getElementById("batch").value;
- //return _batch;  
-}
-function getStudentBill(str)
-{
-	if(str=="")
-  {
-  
-  document.getElementById("search-result").innerHTML="";
-  return;
-  }
-  else
-  {
-    if(window.XMLHttpRequest)
-    {
-      xmlhttp = new XMLHttpRequest();
-    }
-    else
-    {
-      xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-    }
-    xmlhttp.onreadystatechange = function()
-    {
-      if(this.readyState==4 && this.status==200)
-      {
-        document.getElementById("search-result").innerHTML = this.responseText;
-      }
-    };
-    xmlhttp.open("GET","display-class-bill.php?search-bill="+str+"&batch="+gbatch,true);
-    xmlhttp.send();
-  }
-}
-</script>
-
-<style type="text/css">
-#search-item{
-	text-align: center;
-	background-color: white;
-	border-bottom: 1px solid orange;
-}
-</style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<?php include("links.php"); ?>
+<link rel="stylesheet" type="text/css" href="css/account-statements.css">
 </head>
-<body>
-	<div class="header">
-		<!--<img src="images/logo.png" width="100px" height="100px" alt="logo"/>-->
-	<?php
-	include("menu.php");
-	?>		
-	</div><br/>
-<div class="form-entry" style="">
-	
-	<table width="100%">
-		<tr>
+<body class="account-statements-page">
+    <div class="header">
+    <?php include("menu.php"); ?>
+    </div>
 
-			<td width="100%">
-				<?php
-				echo "<div style='padding:8px;color:green'>$_SESSION[Message]</div>";
-				?>
-<?php
-include("dbstring.php");
-echo "<table style='background-color:white'>";
-echo "<caption>ACCOUNT STATEMENTS</caption>";
-echo "<thead><th>*</th><th>ITEM</th><th>PAID</th><th colspan='1'>DATE/TIME PAID</th></thead>";
-echo "<tbody>";
+    <main class="account-shell">
+        <?php if($accountStatementFlash !== ''){ ?>
+        <div class="account-flash"><?php echo $_SESSION['Message']; ?></div>
+        <?php } ?>
 
-$_SQL_CR=mysqli_query($con,"SELECT * FROM tblclass WHERE userid='$_SESSION[USERID]'");
-while($row_cr=mysqli_fetch_array($_SQL_CR,MYSQLI_ASSOC)){
-//Get all the classes regisetred for the studenet
-$_Class_Reg_ID=$row_cr['class_entryid'];
+        <section class="account-hero">
+            <div class="account-hero__copy">
+                <span class="account-hero__eyebrow">Account Statement</span>
+                <h1>Account Statements</h1>
+                <p>Check billed items, payments, and balances for each class and semester.</p>
+            </div>
+            <aside class="account-hero__profile">
+                <span class="account-hero__label">Student Record</span>
+                <strong><?php echo account_stmt_esc($accountStatementProfile['name']); ?></strong>
+                <small><?php echo account_stmt_esc($accountStatementProfile['userid']); ?></small>
+                <div class="account-hero__meta">
+                    <div><span>Classes</span><strong><?php echo number_format((int)$accountStatementSummary['classes']); ?></strong></div>
+                    <div><span>Statements</span><strong><?php echo number_format((int)$accountStatementSummary['periods']); ?></strong></div>
+                </div>
+            </aside>
+        </section>
 
-$_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce WHERE ce.class_entryid='$_Class_Reg_ID' ORDER BY ce.class_name ASC");
-while($row_class=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC))
-{
+        <section class="account-summary-grid">
+            <article class="account-summary-card account-summary-card--billed">
+                <span>Total Billed</span>
+                <strong><?php echo account_stmt_esc(account_stmt_money($accountStatementSummary['billed'])); ?></strong>
+            </article>
+            <article class="account-summary-card account-summary-card--paid">
+                <span>Total Paid</span>
+                <strong><?php echo account_stmt_esc(account_stmt_money($accountStatementSummary['paid'])); ?></strong>
+            </article>
+            <article class="account-summary-card account-summary-card--balance">
+                <span>Outstanding</span>
+                <strong><?php echo account_stmt_esc(account_stmt_money($accountStatementSummary['balance'])); ?></strong>
+            </article>
+            <article class="account-summary-card account-summary-card--latest">
+                <span>Latest Payment</span>
+                <strong><?php echo account_stmt_esc($accountStatementSummary['latest_payment'] !== '' ? account_stmt_datetime($accountStatementSummary['latest_payment']) : 'No payment yet'); ?></strong>
+            </article>
+        </section>
 
-echo "<tr>";
-echo "<td colspan='6' align='left' style='font-weight:bold'>";
-echo strtoupper($row_class['class_name']);
-echo "</td>";
-echo "</tr>";
+        <section class="account-toolbar">
+            <div class="account-toolbar__field">
+                <label for="account_statement_search">Search statements</label>
+                <input type="search" id="account_statement_search" placeholder="Search class, semester, batch, item, or status" data-account-search>
+            </div>
+            <div class="account-toolbar__hint">
+                <strong data-account-visible-count><?php echo number_format((int)$accountStatementSummary['periods']); ?></strong>
+                <span>statement<?php echo ((int)$accountStatementSummary['periods'] === 1 ? '' : 's'); ?> shown</span>
+            </div>
+        </section>
 
-@$_Total_Amount=0;
-@$_Total_Balance=0;
-@$_Total_Amount_Paid=0;
+        <?php if(empty($accountStatementGroups)){ ?>
+        <section class="account-empty-state">
+            <h2>No account statement has been generated yet</h2>
+            <p>Once your school bills and payments are recorded, your class and semester statements will appear here.</p>
+        </section>
+        <?php } else { ?>
+            <?php foreach($accountStatementGroups as $classGroup){ ?>
+            <section class="account-class-section" data-account-class-section>
+                <div class="account-class-section__header">
+                    <div>
+                        <span class="account-class-section__eyebrow">Class</span>
+                        <h2><?php echo account_stmt_esc($classGroup['class_name']); ?></h2>
+                        <p><?php echo count($classGroup['statements']); ?> semester statement<?php echo (count($classGroup['statements']) === 1 ? '' : 's'); ?><?php echo trim((string)$classGroup['batch_label']) !== '' ? ' in '.account_stmt_esc($classGroup['batch_label']) : ''; ?>.</p>
+                    </div>
+                </div>
 
-$_SQL_TERM=mysqli_query($con,"SELECT * FROM tbltermregistry tr WHERE tr.class_entryid='$row_class[class_entryid]' AND tr.userid='$_SESSION[USERID]' AND tr.batchid='$row_cr[batchid]' ORDER BY tr.termname ASC");
-while($row_tr=mysqli_fetch_array($_SQL_TERM,MYSQLI_ASSOC))
-{
-echo "<form method='post' action='account-statements.php'>";
+                <div class="account-statement-grid">
+                    <?php foreach($classGroup['statements'] as $statement){ ?>
+                    <?php
+                        $statementSearch = strtolower(trim($classGroup['class_name'].' '.$statement['termname'].' '.$statement['batch_label'].' '.$statement['status_label'].' '.$statement['search_terms']));
+                    ?>
+                    <article class="account-statement-card account-statement-card--<?php echo account_stmt_esc($statement['status_tone']); ?>" data-account-statement-card data-search="<?php echo account_stmt_esc($statementSearch); ?>">
+                        <div class="account-statement-card__header">
+                            <div>
+                                <span class="account-statement-card__eyebrow">Semester <?php echo account_stmt_esc($statement['termname']); ?></span>
+                                <h3><?php echo account_stmt_esc($classGroup['class_name']); ?></h3>
+                                <p><?php echo account_stmt_esc($statement['batch_label'] !== '' ? $statement['batch_label'] : 'Academic year not set'); ?></p>
+                            </div>
+                            <span class="account-status-pill account-status-pill--<?php echo account_stmt_esc($statement['status_tone']); ?>"><?php echo account_stmt_esc($statement['status_label']); ?></span>
+                        </div>
 
-echo "<tr>";
-echo "<td colspan='6' align='left' style='background-color:#ede;font-weight:bold'>";
-echo "Semester: ". $row_tr['termname'];
-echo "<input type='hidden' id='class_id' name='class_id' value='$row_class[class_entryid]' />";
-echo "<input type='hidden' id='term_id' name='term_id' value='$row_tr[termname]' />";
-echo "<input type='hidden' id='batch_id' name='batch_id' value='$row_tr[batchid]' />";
-echo "</td>";
-echo "</tr>";
+                        <div class="account-meta-grid">
+                            <div class="account-meta-card">
+                                <span>Amount Billed</span>
+                                <strong><?php echo account_stmt_esc(account_stmt_money($statement['amount_to_pay'])); ?></strong>
+                            </div>
+                            <div class="account-meta-card">
+                                <span>Total Paid</span>
+                                <strong><?php echo account_stmt_esc(account_stmt_money($statement['subtotal_paid'])); ?></strong>
+                            </div>
+                            <div class="account-meta-card">
+                                <span>Balance</span>
+                                <strong><?php echo account_stmt_esc(account_stmt_money($statement['balance'])); ?></strong>
+                            </div>
+                            <div class="account-meta-card">
+                                <span>Payment Entries</span>
+                                <strong><?php echo number_format((int)$statement['transaction_count']); ?></strong>
+                            </div>
+                        </div>
 
-$_SQL_BIL=mysqli_query($con,"SELECT SUM(ip.price) AS Total_Amount FROM tblbilling bi INNER JOIN tblitemprice ip ON bi.itempriceid=ip.itempriceid WHERE bi.userid='$_SESSION[USERID]' AND ip.class_entryid='$row_tr[class_entryid]' AND ip.term='$row_tr[termname]' AND ip.batch='$row_tr[batchid]'");
-if($row_b=mysqli_fetch_array($_SQL_BIL,MYSQLI_ASSOC)){
-echo "<tr>";
-echo "<td colspan='2' align='right' style='background-color:#ede;font-weight:bold'>";
-echo  "AMOUNT TO PAY";
-echo "</td>";
+                        <?php if(!empty($statement['payment_rows'])){ ?>
+                        <div class="account-table-wrap">
+                            <table class="account-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Item</th>
+                                        <th>Paid</th>
+                                        <th>Date / Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach($statement['payment_rows'] as $index => $paymentRow){ ?>
+                                    <tr>
+                                        <td><?php echo $index + 1; ?></td>
+                                        <td><?php echo account_stmt_esc($paymentRow['itemname']); ?></td>
+                                        <td><?php echo account_stmt_esc(account_stmt_money($paymentRow['payment'])); ?></td>
+                                        <td><?php echo account_stmt_esc(account_stmt_datetime($paymentRow['datetimepayment'])); ?></td>
+                                    </tr>
+                                    <?php } ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php } else { ?>
+                        <div class="account-empty-inline">
+                            <p>No payment has been recorded for this semester yet.</p>
+                        </div>
+                        <?php } ?>
 
-echo "<td colspan='2' align='left' style='background-color:#ede;font-weight:bold'>";
-echo $_SESSION['SYMBOL']." ". $row_b['Total_Amount'];
-echo "</td>";
-echo "</tr>";
-}
-				
-$_SQL_EXECUTE_3=mysqli_query($con,"SELECT * FROM tblbilling bi INNER JOIN tblsystemuser su 
-ON bi.userid=su.userid INNER JOIN tblitemprice ip ON bi.itempriceid=ip.itempriceid
-INNER JOIN tblitem itm ON ip.itemid=itm.itemid
-INNER JOIN tblclassentry ce ON ip.class_entryid=ce.class_entryid
-INNER JOIN tblbatch b ON ip.batch=b.batchid
-INNER JOIN tblpayment pm ON pm.billid=bi.billid
-WHERE bi.userid='$_SESSION[USERID]' AND ip.class_entryid='$row_class[class_entryid]' AND ip.term='$row_tr[termname]' AND ip.batch='$row_tr[batchid]' ORDER BY pm.datetimepayment DESC");
-$_SQL_EXECUTE_3_r=$_SQL_EXECUTE_3;
+                        <div class="account-statement-card__footer">
+                            <div class="account-statement-card__latest">
+                                <span>Latest Payment</span>
+                                <strong><?php echo account_stmt_esc($statement['latest_payment'] !== '' ? account_stmt_datetime($statement['latest_payment']) : 'No payment yet'); ?></strong>
+                            </div>
+                            <form method="post" action="account-statements.php" class="account-print-form">
+                                <input type="hidden" name="class_id" value="<?php echo account_stmt_esc($classGroup['class_entryid']); ?>">
+                                <input type="hidden" name="term_id" value="<?php echo account_stmt_esc($statement['termname']); ?>">
+                                <input type="hidden" name="batch_id" value="<?php echo account_stmt_esc($statement['batchid']); ?>">
+                                <button class="account-print-btn" type="submit" name="print_all_bill"><i class="fa fa-print"></i> Print Semester Statement</button>
+                            </form>
+                        </div>
+                    </article>
+                    <?php } ?>
+                </div>
+            </section>
+            <?php } ?>
+        <?php } ?>
+    </main>
 
-	/*if(mysqli_num_rows($_SQL_EXECUTE_3_r)<=00){
-		echo "<div style='color:red;padding:10px;background-color:white;text-align:center'>There is no bills</div>";
-	}
-	else{
-		*/
-				
-				/*if($row_p_r=mysqli_fetch_array($_SQL_EXECUTE_3_r,MYSQLI_ASSOC)){
-				echo "<tr>";
-				echo "<td colspan='1' style='background-color:#eed;border-bottom:1px solid orange;color:blue;font-weight:bold' align='right'>";				
-				echo "Class:";
-				echo "</td>";
-				echo "<td colspan='1' style='background-color:#eed;border-bottom:1px solid orange;color:blue;font-weight:bold'>";
-				//echo $row_p_r['firstname']." ".$row_p_r['othernames']." ".$row_p_r['surname']." (". $row_p_r['userid'].")";
-				echo $row_p_r['class_name'];
-				echo "</td>";
-				echo "<td colspan='1' style='background-color:#eed;border-bottom:1px solid orange;color:blue;font-weight:bold' align='right'>";				
-				echo "Term:";
-				echo "</td>";
-				echo "<td colspan='1' style='background-color:#eed;border-bottom:1px solid orange;color:blue;font-weight:bold'>";
-				echo $row_p_r['term'];
-				echo "</td>";
-				echo "<td colspan='1' style='background-color:#eed;border-bottom:1px solid orange;color:blue;font-weight:bold' align='right'>";				
-				echo "Batch:";
-				echo "</td>";
-				echo "<td colspan='2' style='background-color:#eed;border-bottom:1px solid orange;color:blue;font-weight:bold'>";				
-				echo $row_p_r['batch'];
-				echo "</td>";	
-
-				echo "</tr>";
-				}
-				*/
-				@$serial=0;
-				@$_Total_Amount_single=0;
-				@$_Total_Amount_Paid_Single=0;
-				@$_Total_Balance_Single=0;
-
-				while($row_p=mysqli_fetch_array($_SQL_EXECUTE_3,MYSQLI_ASSOC)){
-				echo "<form id='formID' name='formID' method='post'>";
-				
-				echo "<tr>";
-				//echo "<td align='center'>";
-				echo "<input type='hidden' id='userid' name='userid' value='$row_p[userid]' />";
-				//echo "</td>";
-
-				echo "<td align='center'>";
-				echo $serial=$serial+1;
-				echo "</td>";
-
-				/*echo "<td align='center'>";
-				echo $row_p['class_name'];
-				echo "</td>";
-
-				echo "<td align='center'>";
-				echo $row_p['term'];
-				echo "</td>";
-
-				echo "<td align='center'>";
-				echo $row_p['batch'];
-				echo "</td>";
-				*/
-
-				echo "<td>";
-				echo "<input type='hidden' id='item-price-id' name='item-price-id' value='$row_p[itempriceid]' />";
-				echo "<input type='hidden' id='transactioncode' name='transactioncode' value='$row_p[transactionid]' />";
-				echo $row_p['itemname'];
-				echo "</td>";
-
-				/*echo "<td align='center'>";
-				//echo $row_p['price'];
-				$_Total_Amount=$_Total_Amount+$row_p['price'];
-
-				$_Total_Amount_single=$_Total_Amount_single+$row_p['price'];
-				
-				echo "</td>";
-        */
-
-				echo "<td align='center'>";
-				echo $row_p['payment'];
-				$_Total_Amount_Paid=$_Total_Amount_Paid+$row_p['payment'];
-				$_Total_Amount_Paid_Single=$_Total_Amount_Paid_Single+$row_p['payment'];
-				
-				echo "</td>";
-
-				/*echo "<td align='center'>";
-				//echo $row_p['payment'];
-				$_Balance=$row_p['price']-$row_p['payment'];
-				$_Total_Balance=$_Total_Balance+$_Balance;
-				$_Total_Balance_Single=$_Total_Balance_Single+$_Balance;
-				
-				//echo $_Balance;
-				echo "</td>";
-        */
-
-				echo "<td align='center'>";
-        echo $row_p['datetimepayment'];
-				//echo "<button class='button-pay'  id='print_bill' name='print_bill'><i class='fa fa-plus' style='color:white'></i> PRINT</button>";
-				echo "</td>";
-
-				//echo "<td align='center'>";
-				//echo "</td>";
-
-
-				echo "</tr>";
-				//echo "</form>";
-				}
-				echo "<tr style='background-color:#fff;color:darkgreen;border-top:1px solid gray;font-weight:bold'>";
-				echo "<td colspan='2' align='right'>";
-				echo "Sub Total:";
-				echo "</td>";
-				//echo "<td colspan='1' align='center'>";
-				//echo  $_Total_Amount_single;
-				//echo "</td>";
-
-				echo "<td colspan='1' align='center'>";
-				echo  $_Total_Amount_Paid_Single;
-				echo "</td>";
-
-			//	echo "<td colspan='1' align='center'>";
-			//	echo  $_Total_Balance_Single;
-			//	echo "</td>";
-
-				echo "<td align='center'>";
-
-				echo "<button class='button-pay'  id='print_all_bill' name='print_all_bill'><i class='fa fa-print' style='color:white'></i> Print All</button>";
-				echo "</td>";
-				
-				echo "</tr>";
-
-		echo "</form>";
-			}
-				echo "<tr style='background-color:#ffeedd;color:blue;font-weight:bold'>";
-				echo "<td colspan='2' align='right'>";
-				echo "GRAND TOTAL:";
-				echo "</td>";
-				//echo "<td colspan='1' align='center'>";
-				//echo $_SESSION['SYMBOL']." ". $_Total_Amount;
-				//echo "</td>";
-
-				echo "<td colspan='1' align='center'>";
-				echo $_SESSION['SYMBOL']." ". $_Total_Amount_Paid;
-				echo "</td>";
-
-				//echo "<td colspan='1' align='center'>";
-				//echo $_SESSION['SYMBOL']." ". $_Total_Balance;
-				//echo "</td>";
-
-				//echo "<td align='center' width='10%'>";
-				//echo "<button class='button-pay'  id='print_all_bill' name='print_all_bill'><i class='fa fa-print' style='color:white'></i> Print All</button>";
-				//echo "</td>";
-				
-				//}
-				//}				
-				
-			
-
-      echo "</tr>";
-    }
-  }
-        echo "</tbody>";
-        echo "</table>";
-        
-				?>
-
-			</td>
-		</tr>
-
-	</table>		
-		<br/><br/><br/>
-
-</div>
+    <script src="scripts/account-statements.js"></script>
 </body>
 </html>

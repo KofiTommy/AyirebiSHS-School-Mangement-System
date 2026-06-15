@@ -24,15 +24,19 @@ if(!isset($con)){
     include_once("dbstring.php");
 }
 include_once("user-management-utils.php");
+include_once("counselling-utils.php");
 $_TeacherExtraAccessLinks = array();
 $_ShowTeacherAttendanceLinks = false;
+$_ShowTeacherCounsellingLink = false;
 if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
    $_SESSION['ACCESSLEVEL'] === "user" &&
    $_SESSION['SYSTEMTYPE'] === "Teacher"){
     include_once("class-teacher-utils.php");
     ensure_class_teacher_table($con);
+    ensure_counselling_tables($con);
     $_TeacherExtraAccessLinks = um_teacher_extra_nav_links($con, $_SESSION['USERID']);
     $_ShowTeacherAttendanceLinks = class_teacher_has_any_assignment($con, $_SESSION['USERID']);
+    $_ShowTeacherCounsellingLink = counselling_teacher_has_assignment($con, $_SESSION['USERID']);
 }
 ?>
 <style>
@@ -265,6 +269,10 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher"){
 <?php menuboard_section_start('Resources', 'fa-calendar'); ?>
 <a href="lesson-timetable-report.php"><i class="fa fa-calendar"></i> Lesson Timetable</a>
 <a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
+<?php if($_ShowTeacherCounsellingLink){ ?>
+<a href="guidance-counselling.php"><i class="fa fa-heartbeat"></i> Counselling Cases</a>
+<?php } ?>
+<a href="online-class.php"><i class="fa fa-video-camera"></i> Online Class</a>
 <a href="download-classscore-template.php"><i class="fa fa-download"></i> Class Score Template</a>
 <a href="download-examscore-template.php"><i class="fa fa-download"></i> Exam Score Template</a>
 <a href="download-classexamscore-template.php"><i class="fa fa-download"></i> Class/Exam Score Template</a>
@@ -293,6 +301,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 <a href="lesson-timetable-report.php"><i class="fa fa-clock-o"></i> Lesson Timetable</a>
 <a href="examinationtimetablereport.php"><i class="fa fa-folder-o"></i> Exam Time Table Report</a>
 <a href="individual-terminal-report.php"><i class="fa fa-folder-o"></i> Examination Report</a>
+<a href="online-class.php"><i class="fa fa-video-camera"></i> Join Online Class</a>
 <a href="student-attendance-report.php"><i class="fa fa-bar-chart"></i> My Attendance</a>
 <?php menuboard_section_end(); ?>
 
@@ -308,6 +317,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 
 <?php menuboard_section_start('Welfare', 'fa-life-ring'); ?>
 <a href="student-exeat-request.php"><i class="fa fa-file"></i> Request Exeat</a>
+<a href="guidance-counselling.php"><i class="fa fa-heartbeat"></i> Guidance &amp; Counselling</a>
 <?php menuboard_section_end(); ?>
 <?php
 }
@@ -391,6 +401,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a href="student-house-assignment.php"><i class="fa fa-users"></i> Student House Assignment</a>
 <a href="senior-house-assignment.php"><i class="fa fa-star"></i> Senior House Assignment</a>
 <a href="senior-house-dashboard.php"><i class="fa fa-dashboard"></i> Senior House Dashboard</a>
+<a href="counsellor-assignment.php"><i class="fa fa-heartbeat"></i> Counsellor Assignment</a>
 <?php menuboard_section_end(); ?>
 
 <?php menuboard_section_start('Admissions & Communication', 'fa-bullhorn'); ?>
@@ -480,6 +491,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <a href="student-house-assignment.php"><i class="fa fa-users"></i> Student House Assignment</a>
 <a href="senior-house-assignment.php"><i class="fa fa-star"></i> Senior House Assignment</a>
 <a href="senior-house-dashboard.php"><i class="fa fa-dashboard"></i> Senior House Dashboard</a>
+<a href="counsellor-assignment.php"><i class="fa fa-heartbeat"></i> Counsellor Assignment</a>
 <?php menuboard_section_end(); ?>
 
 <?php menuboard_section_start('Admissions & Communication', 'fa-bullhorn'); ?>

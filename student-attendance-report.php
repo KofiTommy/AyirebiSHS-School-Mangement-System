@@ -135,7 +135,7 @@ if($dailyPeak <= 0){
                 <?php if($isStudentViewer){ ?>
                 <article><strong>1. Pick Dates</strong><span>Choose the period you want to review, then reload the summary.</span></article>
                 <article><strong>2. Read The Graph</strong><span>The trend bar shows how your attendance looked on each school day.</span></article>
-                <article><strong>3. Print If Needed</strong><span>Use the print button when you need a clean attendance summary.</span></article>
+                <article><strong>3. Print If Needed</strong><span>Use the print button when you need an attendance summary.</span></article>
                 <?php }else{ ?>
                 <article><strong>1. Select Class</strong><span>Choose the class-teacher assignment you want to review.</span></article>
                 <article><strong>2. Set The Period</strong><span>Load any date range to compare attendance from one time to another.</span></article>

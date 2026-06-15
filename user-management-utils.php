@@ -718,6 +718,7 @@ function um_baseline_scripts_for_role($roleKey){
             'download-examscore-template.php',
             'download-classexamscore-template.php',
             'lesson-timetable-report.php',
+            'online-class.php',
             'teacher-course-registration.php',
             'online-voting.php',
             'online-voting-paystack-init.php',
@@ -744,6 +745,7 @@ function um_baseline_scripts_for_role($roleKey){
             'messages.php',
             'student-attendance-report.php',
             'lesson-timetable-report.php',
+            'online-class.php',
             'student-course-registration.php',
             'online-voting.php',
             'online-voting-paystack-init.php'

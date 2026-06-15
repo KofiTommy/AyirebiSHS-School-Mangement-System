@@ -154,7 +154,7 @@ if ($_SQL_EXECUTE) {
             <div class="teacher-directory-hero__copy">
                 <span class="teacher-directory-eyebrow">Staff Directory</span>
                 <h1>Teachers List</h1>
-                <p>Review the full teacher directory, search quickly, and print a clean staff list whenever you need it.</p>
+                <p>Review the full teacher directory, search quickly, and print a staff list when needed.</p>
             </div>
             <div class="teacher-directory-hero__actions">
                 <a href="register-teacher.php" class="teacher-directory-link">

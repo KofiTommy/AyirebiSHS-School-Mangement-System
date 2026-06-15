@@ -659,7 +659,7 @@ function examanalysisRankPrintClass(sectionId, titleText){
 <div class="rankdash-shell">
 	<div class="rankdash-hero">
 		<h1>Exams Analysis Ranking</h1>
-		<p>Load a batch, review each current class ranking, and print one class at a time when you need a cleaner handout.</p>
+		<p>Load a batch, review each current class ranking, and print one class at a time.</p>
 		<div class="rankdash-badges">
 			<span class="rankdash-badge"><i class="fa fa-filter"></i> Batch-based ranking</span>
 			<span class="rankdash-badge"><i class="fa fa-users"></i> Current class placement first</span>

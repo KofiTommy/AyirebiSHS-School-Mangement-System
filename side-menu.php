@@ -8,13 +8,16 @@ if(!isset($con)){
 include_once("house-master-utils.php");
 include_once("class-teacher-utils.php");
 include_once("user-management-utils.php");
+include_once("counselling-utils.php");
 ensure_house_tables($con);
 ensure_class_teacher_table($con);
+ensure_counselling_tables($con);
 $_ShowHouseMasterLinks = false;
 $_ShowSeniorHouseLinks = false;
 $_HouseMasterDashboardLabel = "House Master Dashboard";
 $_TeacherExtraAccessLinks = array();
 $_ShowTeacherAttendanceLinks = false;
+$_ShowTeacherCounsellingLink = false;
 if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
    $_SESSION['ACCESSLEVEL'] === "user" &&
    $_SESSION['SYSTEMTYPE'] === "Teacher"){
@@ -23,6 +26,7 @@ if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
   $_HouseMasterDashboardLabel = house_master_dashboard_label($con, $_SESSION['USERID']);
   $_TeacherExtraAccessLinks = um_teacher_extra_nav_links($con, $_SESSION['USERID']);
   $_ShowTeacherAttendanceLinks = class_teacher_has_any_assignment($con, $_SESSION['USERID']);
+  $_ShowTeacherCounsellingLink = counselling_teacher_has_assignment($con, $_SESSION['USERID']);
 }
 $_ShowExeatManagerLinks = $_ShowHouseMasterLinks || $_ShowSeniorHouseLinks;
 echo "<h2 style='color:dodgerblue;margin-top:-30px;'>$_CompanyName</h2>";
@@ -92,6 +96,10 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher")
       <div class="dropdown-content">
         <a href="lesson-timetable-report.php"><i class="fa fa-calendar" ></i> Lesson Timetable</a>
         <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
+        <?php if($_ShowTeacherCounsellingLink){ ?>
+        <a href="guidance-counselling.php"><i class="fa fa-heartbeat" ></i> Counselling Cases</a>
+        <?php } ?>
+        <a href="online-class.php"><i class="fa fa-video-camera" ></i> Online Class</a>
         <a href="online-voting.php"><i class="fa fa-trophy" ></i> Online Voting</a>
       </div>
     </li>
@@ -118,6 +126,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student")
         <a href="lesson-timetable-report.php"><i class="fa fa-clock-o" ></i> Lesson Timetable</a>
         <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
         <a href="individual-terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>
+        <a href="online-class.php"><i class="fa fa-video-camera" ></i> Join Online Class</a>
         <a href="student-attendance-report.php"><i class="fa fa-bar-chart" ></i> My Attendance</a>
       </div>
     </li>
@@ -142,6 +151,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student")
       <a href="#" class="dropbtn"><i class="fa fa-life-ring" ></i> Welfare</a>
       <div class="dropdown-content">
         <a href="student-exeat-request.php"><i class="fa fa-file" ></i> Request Exeat</a>
+        <a href="guidance-counselling.php"><i class="fa fa-heartbeat" ></i> Guidance &amp; Counselling</a>
       </div>
     </li>
 
@@ -248,6 +258,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
       <a href="student-house-assignment.php"><i class="fa fa-users" ></i> Student House Assignment</a>
       <a href="senior-house-assignment.php"><i class="fa fa-star" ></i> Senior House Assignment</a>
       <a href="senior-house-dashboard.php"><i class="fa fa-dashboard" ></i> Senior House Dashboard</a>
+      <a href="counsellor-assignment.php"><i class="fa fa-heartbeat" ></i> Counsellor Assignment</a>
     </div>
   </li>
 
@@ -361,6 +372,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
       <a href="student-house-assignment.php"><i class="fa fa-users" ></i> Student House Assignment</a>
       <a href="senior-house-assignment.php"><i class="fa fa-star" ></i> Senior House Assignment</a>
       <a href="senior-house-dashboard.php"><i class="fa fa-dashboard" ></i> Senior House Dashboard</a>
+      <a href="counsellor-assignment.php"><i class="fa fa-heartbeat" ></i> Counsellor Assignment</a>
     </div>
   </li>
 

@@ -408,7 +408,7 @@ if(isset($_SESSION['Message']) && trim((string)$_SESSION['Message']) !== ""){
     <?php if($existingWindow){ ?>
     <section class="cr-section">
         <div class="cr-section__header">
-            <div><span class="cr-panel__eyebrow">Live Summary</span><h2><?php echo cra_safe($existingWindow['class_name']); ?> registration snapshot</h2></div>
+            <div><span class="cr-panel__eyebrow">Class Summary</span><h2><?php echo cra_safe($existingWindow['class_name']); ?> registration summary</h2></div>
             <div class="cr-section__actions">
                 <a class="cr-secondary-button" href="<?php echo cra_safe("course-registration-admin.php?window=".$existingWindow['windowid']."&export=courses"); ?>"><i class="fa fa-download"></i> Download Course List</a>
                 <a class="cr-secondary-button" href="<?php echo cra_safe("course-registration-admin.php?window=".$existingWindow['windowid']."&export=students"); ?>"><i class="fa fa-download"></i> Download Student List</a>

@@ -141,7 +141,7 @@ $nextLessonRow = lesson_timetable_find_next_row($todayList, $todayName);
         <div class="lesson-hero__copy">
             <span class="lesson-eyebrow"><i class="fa fa-calendar-o"></i> Lesson Timetable Report</span>
             <h1><?php echo $isTeacherView ? 'My weekly teaching planner' : ($isStudentView ? 'My class lesson timetable' : 'Lesson timetable overview'); ?></h1>
-            <p><?php echo $isTeacherView ? 'See your teaching week in a cleaner planner view that works well on your phone, in class, or before assembly.' : ($isStudentView ? 'Follow your class timetable, see the lesson you should be in right now, and check what comes next without guessing.' : 'Review the live school timetable in a cleaner weekly planner that stays readable on desktop and mobile.'); ?></p>
+                <p><?php echo $isTeacherView ? 'See your teaching week on your phone or computer.' : ($isStudentView ? 'Follow your class timetable, see the lesson you should be in right now, and check what comes next.' : 'Review the school timetable on desktop or mobile.'); ?></p>
             <div class="lesson-hero__chips">
                 <span class="lesson-hero-chip"><i class="fa fa-clone"></i> <?php echo lesson_timetable_escape($activeBatchLabel); ?></span>
                 <span class="lesson-hero-chip"><i class="fa fa-calendar-check-o"></i> <?php echo lesson_timetable_escape($activeYearLabel); ?></span>
@@ -169,7 +169,7 @@ $nextLessonRow = lesson_timetable_find_next_row($todayList, $todayName);
         <div class="lesson-card__header">
             <div>
                 <h2>Filter Timetable</h2>
-                <p><?php echo $isStudentView ? 'Choose the registered class session you want to view. The timetable will stay limited to your own lessons.' : 'Use the filters below to focus on the class, academic year, semester, and teacher you want to review.'; ?></p>
+                <p><?php echo $isStudentView ? 'Select the registered class session you want to view.' : 'Select the class, academic year, semester, and teacher you want to view.'; ?></p>
             </div>
             <span class="lesson-pill"><?php echo lesson_timetable_escape($activeTeacherLabel); ?></span>
         </div>

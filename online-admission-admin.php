@@ -78,7 +78,7 @@ function aa_house_route_key($house){
 function aa_house_route_label($house){
     $profile = aa_house_profile($house);
     if($profile["gender"] === "" || $profile["residence"] === ""){
-        return "Needs clearer name";
+        return "Name needs attention";
     }
     return $profile["gender"]." ".$profile["residence"];
 }
@@ -880,7 +880,7 @@ if(isset($_POST["save_manual_admission"])){
 
                     $flashMessage = aa_alert("error", "The manual admission form could not be saved right now.");
                 }else{
-                    $flashMessage = aa_alert("error", "The admission workspace could not be prepared for this student right now.");
+                    $flashMessage = aa_alert("error", "The admission record could not be prepared for this student right now.");
                 }
             }else{
                 $flashMessage = aa_alert("error", "The posted student record was saved, but it could not be reopened right now.");
@@ -1762,7 +1762,7 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
         <div>
             <span class="rs-kicker"><i class="fa fa-globe"></i> Online Admission Control</span>
             <h1>Online admission dashboard</h1>
-            <p>Handle setup, downloads, intake, and application review from one clean, mobile-friendly control panel.</p>
+            <p>Handle setup, downloads, intake, and application review here.</p>
             <div class="rs-pills">
                 <span>Setup</span>
                 <span>Intake</span>
@@ -2078,7 +2078,7 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                     </div>
                     <div class="aa-search-actions">
                         <a href="<?php echo aa_esc(aa_admin_url(array("export" => "houses"), "#admission-houses")); ?>" class="aa-link"><i class="fa fa-file-excel-o"></i> Download Excel</a>
-                        <a href="house-entry.php" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-external-link"></i> Open Full House Management</a>
+                        <a href="house-entry.php" class="aa-link aa-link--ghost aa-link--inline"><i class="fa fa-external-link"></i> House Management</a>
                     </div>
                 </div>
 

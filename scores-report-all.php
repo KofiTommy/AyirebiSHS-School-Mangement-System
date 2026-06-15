@@ -198,7 +198,7 @@ $_AdminSemesterLabel = $_FilterTerm !== "" ? "Semester ".$_FilterTerm : "All Sem
 <section class="scores-report-hero">
     <div class="scores-report-hero__copy">
         <span class="scores-report-kicker">Admin Score Reports</span>
-        <h1>Filter, review, and confirm student scores from one clearer admin workspace.</h1>
+        <h1>Filter, review, and confirm student scores.</h1>
         <p>Use the left filters to narrow the exact batch, class, subject, and semester you want, then review the score breakdown in the report area.</p>
         <div class="scores-report-hero__stats">
             <article class="scores-report-stat-card">

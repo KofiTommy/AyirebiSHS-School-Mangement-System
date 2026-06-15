@@ -164,7 +164,7 @@ document.getElementById("staff-id").value=rnd;
                 <div>
                     <span class="branch-kicker">Branch Workspace</span>
                     <h1>Select the branch you want to open.</h1>
-                    <p>Choose a branch, update logos, and manage background branding from a cleaner, mobile-friendly admin screen.</p>
+                    <p>Choose a branch, update logos, and manage background branding.</p>
                 </div>
             </div>
 
@@ -220,7 +220,7 @@ document.getElementById("staff-id").value=rnd;
                     <div class="branch-upload-form__copy">
                         <span class="branch-upload-form__eyebrow">Branding</span>
                         <h3>Update background image</h3>
-                        <p>Upload a fresh background photo for this company workspace.</p>
+                        <p>Upload a background photo for this company.</p>
                     </div>
                     <div class="branch-upload-row">
                         <input class="branch-file-input" type="file" name="backgroundphoto" accept="image/*" required>

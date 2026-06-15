@@ -9,12 +9,14 @@ include("house-master-utils.php");
 include_once("semester-registry-utils.php");
 include_once("voting-utils.php");
 include_once("teacher-billing-utils.php");
+include_once("counselling-utils.php");
 ensure_class_teacher_table($con);
 ensure_duty_roster_tables($con);
 ensure_student_attendance_tables($con);
 ensure_house_tables($con);
 ensure_voting_tables($con);
 ensure_teacher_billing_table($con);
+ensure_counselling_tables($con);
 if(!(isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==="user" && $_SESSION['SYSTEMTYPE']==="Teacher")){
     header("location:".class_teacher_landing_page());
     exit();
@@ -197,6 +199,8 @@ $attendanceSummary = student_attendance_teacher_dashboard_summary($con, $teacher
 $teacherHasBillingModule = teacher_billing_teacher_has_module($con, $teacherId);
 $teacherBillingAssignments = $teacherHasBillingModule ? teacher_billing_fetch_assignments($con, $teacherId) : array();
 $teacherBillingScopeCount = count($teacherBillingAssignments);
+$teacherCounsellingSummary = counselling_teacher_assignment_summary($con, $teacherId);
+$teacherHasCounsellingAccess = ((int)$teacherCounsellingSummary['total_scope_count']) > 0;
 
 $classTeacherRoles = array();
 $classTeacherLookup = array();
@@ -505,7 +509,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
 
 <section class="teacher-section">
     <div class="teacher-section__heading">
-        <div><span class="teacher-section__eyebrow">Quick Actions</span><h2>Move straight into today's work</h2></div>
+        <div><span class="teacher-section__eyebrow">Teacher Tools</span><h2>Open today's tools</h2></div>
     </div>
     <div class="teacher-quick-grid">
         <a class="teacher-action-card" href="view-teacher-subject.php"><span class="teacher-action-card__icon"><i class="fa fa-search"></i></span><h3>Assigned Subjects</h3></a>
@@ -522,12 +526,16 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <a class="teacher-action-card" href="student-terminal-data.php"><span class="teacher-action-card__icon"><i class="fa fa-commenting"></i></span><h3>Student Remarks</h3></a>
         <?php } ?>
         <a class="teacher-action-card" href="terminal-report.php"><span class="teacher-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Reports</h3></a>
+        <?php if($teacherHasCounsellingAccess){ ?>
+        <a class="teacher-action-card" href="guidance-counselling.php"><span class="teacher-action-card__icon"><i class="fa fa-heartbeat"></i></span><h3>Counselling Cases<?php if((int)$teacherCounsellingSummary['pending_count'] > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherCounsellingSummary['pending_count']; ?> Pending</span><?php } ?></h3><p>Review student counselling requests, reply privately, and confirm the next session.</p></a>
+        <?php } ?>
         <a class="teacher-action-card" href="lesson-timetable-report.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Lesson Timetable</h3><p>Open your weekly lesson schedule and check today’s teaching periods quickly.</p></a>
+        <a class="teacher-action-card" href="online-class.php"><span class="teacher-action-card__icon"><i class="fa fa-video-camera"></i></span><h3>Online Class</h3><p>Schedule a live class link for the right students and manage it from one page.</p></a>
         <a class="teacher-action-card" href="scores-report.php"><span class="teacher-action-card__icon"><i class="fa fa-line-chart"></i></span><h3>Scores Report</h3><p>Check reporting summaries and score outputs for your classes.</p></a>
         <?php if($teacherHasBillingModule){ ?>
         <a class="teacher-action-card" href="payments.php"><span class="teacher-action-card__icon"><i class="fa fa-credit-card"></i></span><h3>Class Payments<?php if($teacherBillingScopeCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherBillingScopeCount; ?> Scope<?php echo ((int)$teacherBillingScopeCount === 1 ? "" : "s"); ?></span><?php } ?></h3><p><?php echo $teacherBillingScopeCount > 0 ? "Open the payment view for the class fee-collection scopes assigned to you." : "Open class payments. Admin still needs to assign your fee-collection class scope."; ?></p></a>
         <?php } ?>
-        <a class="teacher-action-card" href="online-voting.php"><?php if($teacherVotingSnapshot && !empty($teacherVotingSnapshot["contest"])){ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo td_esc($teacherVotingSnapshot["contest"]["title"]); ?> is <?php echo td_esc(strtolower(voting_status_label($teacherVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Open the contest board when the next school voting event goes live.</p><?php } ?></a>
+        <a class="teacher-action-card" href="online-voting.php"><?php if($teacherVotingSnapshot && !empty($teacherVotingSnapshot["contest"])){ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo td_esc($teacherVotingSnapshot["contest"]["title"]); ?> is <?php echo td_esc(strtolower(voting_status_label($teacherVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Voting details will appear when a contest is available.</p><?php } ?></a>
         <a class="teacher-action-card" href="messages.php"><span class="teacher-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the wider message board when you need more than the dashboard preview."; ?></p></a>
     </div>
 </section>
@@ -535,8 +543,8 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
 <?php if($teacherVotingSnapshot && !empty($teacherVotingSnapshot["contest"])){ ?>
 <section class="teacher-section teacher-voting-section">
     <div class="teacher-section__heading">
-        <div><span class="teacher-section__eyebrow">Live Voting</span><h2>Current contest snapshot</h2></div>
-        <a class="teacher-panel__link" href="online-voting.php">Open Voting Board</a>
+        <div><span class="teacher-section__eyebrow">Voting</span><h2>Current voting update</h2></div>
+        <a class="teacher-panel__link" href="online-voting.php">View Voting</a>
     </div>
     <div class="teacher-voting-card">
         <div class="teacher-voting-card__summary">
@@ -615,7 +623,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         </form>
 
         <div class="teacher-performance-scope">
-            <strong>Current Scope:</strong> <?php echo td_esc($teacherPerformanceYear); ?> Academic Year
+            <strong>Selected Year:</strong> <?php echo td_esc($teacherPerformanceYear); ?> Academic Year
             <?php if($teacherPerformancePreviousYear !== null){ ?>
             <span>Compared with <?php echo td_esc($teacherPerformancePreviousYear); ?></span>
             <?php } ?>
@@ -824,7 +832,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
     <section class="teacher-panel" id="teacher-messages">
         <div class="teacher-panel__header">
             <div><span class="teacher-panel__eyebrow">Message Center</span><h2>Send and manage your messages</h2></div>
-            <a class="teacher-panel__link" href="messages.php">Open Full Message Board<?php if($messageUnreadCount > 0){ ?><span class="teacher-panel__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></a>
+            <a class="teacher-panel__link" href="messages.php">View Messages<?php if($messageUnreadCount > 0){ ?><span class="teacher-panel__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></a>
         </div>
         <form method="post" action="teacher-page.php#teacher-messages" class="teacher-message-form">
             <label for="message">Write a message</label>

@@ -188,7 +188,7 @@ if(isset($_POST["verify_posting"]) && $branchId !== ""){
                 header("location:online-admission.php");
                 exit();
             }
-            $flashMessage = oa_alert("error", "Your posting was verified, but the admission workspace could not be prepared right now. Please try again.");
+            $flashMessage = oa_alert("error", "Your posting was verified, but the admission record could not be prepared right now. Please try again.");
         }else{
             $flashMessage = oa_alert("warning", "We could not verify your placement with those details. Check your BECE index number, date of birth, and admission year, or contact the school for support.");
         }

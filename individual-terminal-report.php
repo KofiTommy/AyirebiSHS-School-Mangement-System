@@ -12,6 +12,12 @@ semester_registry_ensure_academic_year_column($con);
 @$_position_obj=new Position;
 @$_position_obj_1=new Position;
 @$_class_position_obj=new ClassPosition;
+
+if(!function_exists('itr_esc')){
+    function itr_esc($value){
+        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    }
+}
 ?>
 
 <?php
@@ -36,7 +42,7 @@ if(isset($_POST["print_terminal_report"]))
       }
       $_ReportApprovalMeta = report_approval_scope_meta($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
       if(report_approval_is_student_user() && $_ReportApprovalMeta['required'] && !$_ReportApprovalMeta['allowed']){
-          $_ReportApprovalMessage = "<div style='margin:12px 0;padding:12px 14px;border-radius:14px;background:#fff7ed;border:1px solid rgba(194,65,12,0.14);color:#c2410c;font-weight:600;'>This class report is waiting for admin approval. Students can only view it after approval.</div>";
+          $_ReportApprovalMessage = "<div style='margin:12px 0;padding:12px 14px;border-radius:14px;background:#fff7ed;border:1px solid rgba(194,65,12,0.14);color:#c2410c;font-weight:600;'>This report is not yet available. Please wait for approval.</div>";
       }else{
       include("config.php");
       include("company.php");
@@ -478,270 +484,247 @@ if(isset($_GET["delete_mark"]))
 
 
 
+<?php
+$_SelectedBatchId = isset($_POST['batchid']) ? trim((string)$_POST['batchid']) : '';
+$_SelectedAcademicYear = isset($_POST['academicyear']) ? trim((string)$_POST['academicyear']) : '';
+$_SelectedTermId = isset($_POST['termid']) ? trim((string)$_POST['termid']) : '';
+$_SelectedClassId = isset($_POST['classid']) ? trim((string)$_POST['classid']) : '';
+$_SelectedTermLabel = '';
+$_SelectedClassLabel = '';
+$_SelectedBatchLabel = '';
+$_BatchOptions = array();
+$_AcademicYearOptions = array();
+$_ClassOptions = array();
+$_SelectedScopeApprovalMeta = report_approval_scope_meta($con, $_SelectedBatchId, $_SelectedAcademicYear, $_SelectedTermId, $_SelectedClassId);
+$_DisableStudentPrint = report_approval_is_student_user() && $_SelectedScopeApprovalMeta['required'] && !$_SelectedScopeApprovalMeta['allowed'];
+
+$_SQL_BATCH_OPTIONS = mysqli_query($con, "SELECT batchid,batch FROM tblbatch ORDER BY datetimeentry DESC");
+if($_SQL_BATCH_OPTIONS){
+    while($rowBatch = mysqli_fetch_array($_SQL_BATCH_OPTIONS, MYSQLI_ASSOC)){
+        $_BatchOptions[] = $rowBatch;
+        if($_SelectedBatchId !== '' && $_SelectedBatchId === (string)$rowBatch['batchid']){
+            $_SelectedBatchLabel = $rowBatch['batch'];
+        }
+    }
+}
+
+$_YearWhereSql = "";
+if($_SelectedBatchId !== ''){
+    $_SelectedBatchIdEsc = mysqli_real_escape_string($con, $_SelectedBatchId);
+    $_YearWhereSql = " WHERE batchid='$_SelectedBatchIdEsc' ";
+}
+$_SQL_YEAR_OPT = mysqli_query($con, "
+    SELECT DISTINCT academic_year FROM (
+        SELECT CASE
+            WHEN TRIM(COALESCE(academicyear,''))<>'' THEN academicyear
+            ELSE YEAR(datetimeentry)
+        END AS academic_year
+        FROM tblschoolinfo
+        $_YearWhereSql
+        UNION
+        SELECT YEAR(datetimeentry) AS academic_year
+        FROM tblsubjectassignment
+        $_YearWhereSql
+    ) year_options
+    WHERE academic_year IS NOT NULL AND academic_year<>''
+    ORDER BY academic_year DESC
+");
+if($_SQL_YEAR_OPT){
+    while($rowYear = mysqli_fetch_array($_SQL_YEAR_OPT, MYSQLI_ASSOC)){
+        $_AcademicYearOptions[] = (string)$rowYear['academic_year'];
+    }
+}
+
+if($_SelectedBatchId !== ''){
+    $_SQL_CLASS_OPT = mysqli_query($con, "SELECT DISTINCT ce.class_entryid,ce.class_name
+        FROM tbltermregistry tr
+        INNER JOIN tblclassentry ce ON tr.class_entryid=ce.class_entryid
+        WHERE tr.userid='$_SESSION[USERID]'
+          AND tr.batchid='".mysqli_real_escape_string($con, $_SelectedBatchId)."'
+          ".($_SelectedAcademicYear !== "" ? " AND ".semester_registry_resolved_year_sql("tr")."='".mysqli_real_escape_string($con, $_SelectedAcademicYear)."'" : "")."
+        ORDER BY ce.class_name ASC");
+}else{
+    $_SQL_CLASS_OPT = mysqli_query($con, "SELECT class_entryid,class_name FROM tblclassentry ORDER BY class_name ASC");
+}
+if($_SQL_CLASS_OPT){
+    while($rowClass = mysqli_fetch_array($_SQL_CLASS_OPT, MYSQLI_ASSOC)){
+        $_ClassOptions[] = $rowClass;
+        if($_SelectedClassId !== '' && $_SelectedClassId === (string)$rowClass['class_entryid']){
+            $_SelectedClassLabel = $rowClass['class_name'];
+        }
+    }
+}
+
+if($_SelectedTermId !== ""){
+    $_SelectedTermLabel = ($_SelectedAcademicYear !== "" ? $_SelectedAcademicYear." | " : "")."Semester ".$_SelectedTermId;
+}
+
+$_ItrFlashMessage = trim((string)$_SESSION['Message']);
+$_ItrScopeSelected = ($_SelectedBatchId !== '' || $_SelectedAcademicYear !== '' || $_SelectedTermId !== '' || $_SelectedClassId !== '');
+$_ItrStatusTone = 'neutral';
+$_ItrStatusLabel = 'Choose a report scope to continue.';
+if($_SelectedClassId !== '' && $_SelectedTermId !== '' && $_SelectedAcademicYear !== ''){
+    if($_SelectedScopeApprovalMeta['required']){
+        $_ItrStatusTone = $_SelectedScopeApprovalMeta['allowed'] ? 'approved' : 'pending';
+        $_ItrStatusLabel = $_SelectedScopeApprovalMeta['status_label'];
+    }else{
+        $_ItrStatusTone = 'info';
+        $_ItrStatusLabel = 'This report can be printed once the marks and remarks are ready.';
+    }
+}elseif($_ItrScopeSelected){
+    $_ItrStatusTone = 'info';
+    $_ItrStatusLabel = 'Finish selecting your academic year, semester, and class to print the report.';
+}
+?>
 <html>
 <head>
-<?php
-include("links.php");
-?>
+<?php include("links.php"); ?>
+<link rel="stylesheet" type="text/css" href="css/individual-terminal-report.css">
 </head>
-<body>
+<body class="itr-page">
 	<div class="header">
-		<!--<img src="images/logo.png" width="100px" height="100px" alt="logo"/>-->
-	<?php
-	include("menu.php");
-	?>		
+	<?php include("menu.php"); ?>
 	</div>
-<div class="main-platform" style="background-color:white">
-<table width="100%">
-<tr>
-<td width="30%">
-<div class="form-entry">
-<form id="formID" name="formID" method="post" action="individual-terminal-report.php">
-	<h4>EXAMINATION REPORT GENERATION</h4>
-<?php	
-include("dbstring.php");
-/*$_SQL_2=mysqli_query($con,"SELECT * FROM tbltermregistry tr 
-	INNER JOIN tblsubjectassignment sa ON tr.batchid=sa.batchid AND tr.termname=sa.termname
-	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
-	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
-	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
-	WHERE tr.userid='$_SESSION[USERID]' ORDER BY tr.termname ASC");
 
-echo "<select id='classid' name='classid' class='validate[required]'>";
-	echo "<option value=''>Select Subject</option>";
-	while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-	echo "<option value='$row[class_entryid]'>$row[class_name]:Term: $row[termname] : $row[subject]</option>";
-	}
-echo "</select><br/><br/>";
-*/
-echo "<fieldset><legend>BATCH</legend>";
-	$_SelectedTermLabel = "";
-	$_SelectedBatchId = isset($_POST['batchid']) ? $_POST['batchid'] : '';
-	$_SQL_2=mysqli_query($con,"SELECT batchid,batch FROM tblbatch ORDER BY datetimeentry DESC");
+    <main class="itr-shell">
+        <?php if($_ItrFlashMessage !== ''){ ?>
+        <div class="itr-flash"><?php echo $_SESSION['Message']; ?></div>
+        <?php } ?>
 
-			echo "<select id='batchid' name='batchid' class='validate[required]'>";
-			echo "<option value=''>Select Academic Year (Batch)</option>";
-				while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-					$_Sel = ($_SelectedBatchId==$row['batchid']) ? "selected" : "";
-					echo "<option value='$row[batchid]' $_Sel>$row[batch]</option>";
-			}	
-			echo "</select><br/><br/>";
-			$_SelectedAcademicYear = isset($_POST['academicyear']) ? trim((string)$_POST['academicyear']) : '';
-			echo "<select id='academicyear' name='academicyear' class='validate[required]'>";
-			echo "<option value=''>Select Academic Year</option>";
-			$_YearWhereSql = "";
-			if($_SelectedBatchId!==''){
-				$_SelectedBatchIdEsc = mysqli_real_escape_string($con,$_SelectedBatchId);
-				$_YearWhereSql = " WHERE batchid='$_SelectedBatchIdEsc' ";
-			}
-			$_SQL_YEAR_OPT=mysqli_query($con,"
-				SELECT DISTINCT academic_year FROM (
-					SELECT CASE
-						WHEN TRIM(COALESCE(academicyear,''))<>'' THEN academicyear
-						ELSE YEAR(datetimeentry)
-					END AS academic_year
-					FROM tblschoolinfo
-					$_YearWhereSql
-					UNION
-					SELECT YEAR(datetimeentry) AS academic_year
-					FROM tblsubjectassignment
-					$_YearWhereSql
-				) year_options
-				WHERE academic_year IS NOT NULL AND academic_year<>''
-				ORDER BY academic_year DESC
-			");
-			if($_SQL_YEAR_OPT){
-				while($row_year=mysqli_fetch_array($_SQL_YEAR_OPT,MYSQLI_ASSOC)){
-					$_SelYear = ($_SelectedAcademicYear===(string)$row_year['academic_year']) ? "selected" : "";
-					echo "<option value='$row_year[academic_year]' $_SelYear>$row_year[academic_year]</option>";
-				}
-			}
-			echo "</select><br/><br/>";
-			$_SelectedTermId = isset($_POST['termid']) ? $_POST['termid'] : '';
-			if($_SelectedTermId!==""){
-				$_SelectedTermLabel = ($_SelectedAcademicYear!=="" ? $_SelectedAcademicYear." | " : "")."Semester ".$_SelectedTermId;
-			}
-			echo "<select id='termid' name='termid' class='validate[required]'>";
-			echo "<option value=''>Select Semester</option>";
-			echo "<option value='1' ".($_SelectedTermId==='1' ? "selected" : "").">1</option>";
-			echo "<option value='2' ".($_SelectedTermId==='2' ? "selected" : "").">2</option>";
-			echo "<option value='3' ".($_SelectedTermId==='3' ? "selected" : "").">3</option>";
-			echo "</select><br/><br/>";
+        <section class="itr-hero">
+            <div class="itr-hero__copy">
+                <span class="itr-kicker">Student Results</span>
+                <h1>Individual Terminal Report</h1>
+                <p>Select the academic year, semester, and class to print your terminal report.</p>
+            </div>
+            <aside class="itr-hero-card">
+                <span class="itr-hero-card__label">Status</span>
+                <strong><?php echo itr_esc($_ItrStatusLabel); ?></strong>
+                <small><?php echo $_DisableStudentPrint ? 'Printing is locked until approval is complete.' : 'Print becomes available as soon as the selected scope is ready.'; ?></small>
+            </aside>
+        </section>
 
-			$_SelectedClassId = isset($_POST['classid']) ? $_POST['classid'] : '';
-			$_SelectedClassLabel = "";
-			if($_SelectedBatchId!=""){
-				$_SQL_CLASS_OPT=mysqli_query($con,"SELECT DISTINCT ce.class_entryid,ce.class_name
-					FROM tbltermregistry tr
-					INNER JOIN tblclassentry ce ON tr.class_entryid=ce.class_entryid
-					WHERE tr.userid='$_SESSION[USERID]'
-					  AND tr.batchid='".mysqli_real_escape_string($con,$_SelectedBatchId)."'
-					  ".($_SelectedAcademicYear!=="" ? " AND ".semester_registry_resolved_year_sql("tr")."='".mysqli_real_escape_string($con,$_SelectedAcademicYear)."'" : "")."
-					ORDER BY ce.class_name ASC");
-			}else{
-				$_SQL_CLASS_OPT=mysqli_query($con,"SELECT class_entryid,class_name FROM tblclassentry ORDER BY class_name ASC");
-			}
-			echo "<select id='classid' name='classid' class='validate[required]'>";
-			echo "<option value=''>Select Class</option>";
-			while($row_cls=mysqli_fetch_array($_SQL_CLASS_OPT,MYSQLI_ASSOC)){
-				$_SelClass = ($_SelectedClassId==$row_cls['class_entryid']) ? "selected" : "";
-				echo "<option value='$row_cls[class_entryid]' $_SelClass>$row_cls[class_name]</option>";
-				if($_SelectedClassId!="" && $_SelectedClassId==$row_cls['class_entryid']){
-					$_SelectedClassLabel = $row_cls['class_name'];
-				}
-			}
-			echo "</select><br/><br/>";
-			$_SelectedScopeApprovalMeta = report_approval_scope_meta($con, $_SelectedBatchId, $_SelectedAcademicYear, $_SelectedTermId, $_SelectedClassId);
-			if($_SelectedClassId!=='' && $_SelectedTermId!=='' && $_SelectedAcademicYear!=='' && $_SelectedScopeApprovalMeta['required']){
-				$_ApprovalBg = $_SelectedScopeApprovalMeta['allowed'] ? "#ecfdf3" : "#fff7ed";
-				$_ApprovalBorder = $_SelectedScopeApprovalMeta['allowed'] ? "rgba(22,101,52,0.14)" : "rgba(194,65,12,0.14)";
-				$_ApprovalColor = $_SelectedScopeApprovalMeta['allowed'] ? "#166534" : "#c2410c";
-				echo "<div style='margin:0 0 10px;padding:10px 12px;border-radius:14px;background:".$_ApprovalBg.";border:1px solid ".$_ApprovalBorder.";color:".$_ApprovalColor.";font-weight:600;'>".$_SelectedScopeApprovalMeta['status_label']."</div>";
-			}
-			$_DisableStudentPrint = report_approval_is_student_user() && $_SelectedScopeApprovalMeta['required'] && !$_SelectedScopeApprovalMeta['allowed'];
-			echo "<button class='button-print' id='print_terminal_report' name='print_terminal_report' ".($_DisableStudentPrint ? "disabled style='opacity:0.6;cursor:not-allowed;'" : "")."><i class='fa fa-print'></i> ".($_DisableStudentPrint ? "Awaiting Approval" : "Print Report")."</button>";
-			if($_SelectedTermLabel!=""){
-				echo "<div style='margin-top:8px;padding:6px 8px;background:#eef6ff;border:1px solid #bcd;color:#0b63ce;font-weight:600;'>Selected: ".$_SelectedTermLabel.(($_SelectedClassLabel!="" ? " | Class: ".$_SelectedClassLabel : ""))."</div>";
-			}
-			if($_ReportApprovalMessage!=""){
-				echo $_ReportApprovalMessage;
-			}
-			echo "</fieldset>";
-?>
+        <div class="itr-layout">
+            <section class="itr-panel itr-panel--form">
+                <div class="itr-panel__heading">
+                    <div class="itr-panel__icon"><i class="fa fa-filter"></i></div>
+                    <div>
+                        <h2>Select Report</h2>
+                        <p>Select the class report you want to print.</p>
+                    </div>
+                </div>
 
-<!--<label>* Total Score</label>
-<input type="number" id="totalscore" name="totalscore" value="" placeholder="Total Score" class="validate[required,custom[number]]"/><br/><br/>
--->
+                <form id="formID" name="formID" method="post" action="individual-terminal-report.php" class="itr-form">
+                    <div class="itr-fieldset">
+                        <div class="itr-field">
+                            <label for="batchid">Batch</label>
+                            <select id="batchid" name="batchid" class="validate[required]">
+                                <option value="">Select Academic Year (Batch)</option>
+                                <?php foreach($_BatchOptions as $rowBatch){ ?>
+                                <option value="<?php echo itr_esc($rowBatch['batchid']); ?>"<?php echo ($_SelectedBatchId === (string)$rowBatch['batchid'] ? ' selected' : ''); ?>><?php echo itr_esc($rowBatch['batch']); ?></option>
+                                <?php } ?>
+                            </select>
+                        </div>
 
-</form>
-</div>
-</td>
-<td width="70%">
-	<!--
-	<div class="form-entry">
-	<form id="formID2" name="formID2" method="post" action="individual-terminal-report.php">
-<?php
-echo $_SESSION['Message'];
-include("dbstring.php");
-$_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$_SESSION[USERID]' AND su.systemtype='Student'  ORDER BY su.userid");
+                        <div class="itr-field">
+                            <label for="academicyear">Academic Year</label>
+                            <select id="academicyear" name="academicyear" class="validate[required]">
+                                <option value="">Select Academic Year</option>
+                                <?php foreach($_AcademicYearOptions as $academicYearOption){ ?>
+                                <option value="<?php echo itr_esc($academicYearOption); ?>"<?php echo ($_SelectedAcademicYear === (string)$academicYearOption ? ' selected' : ''); ?>><?php echo itr_esc($academicYearOption); ?></option>
+                                <?php } ?>
+                            </select>
+                        </div>
 
-echo "<table width='100%' style='background-color:white'>";
-echo "<caption>";
-echo "Examination Report";
-echo "</caption>";
-echo "<thead><th>SUBJECT</th><th>CLASS</th><th>SEMESTER</th><th>*</th><th>TYPE</th><th>MARK</th><th>POSITION</th></thead>";
-echo "<tbody>";
-if($row_us=mysqli_fetch_array($_SQL_USER,MYSQLI_ASSOC))
-{
-$_SQL_SU=mysqli_query($con,"SELECT * FROM tblsubject");
-while($row_rsu=mysqli_fetch_array($_SQL_SU,MYSQLI_ASSOC)){
+                        <div class="itr-field">
+                            <label for="termid">Semester</label>
+                            <select id="termid" name="termid" class="validate[required]">
+                                <option value="">Select Semester</option>
+                                <option value="1"<?php echo ($_SelectedTermId === '1' ? ' selected' : ''); ?>>1</option>
+                                <option value="2"<?php echo ($_SelectedTermId === '2' ? ' selected' : ''); ?>>2</option>
+                                <option value="3"<?php echo ($_SelectedTermId === '3' ? ' selected' : ''); ?>>3</option>
+                            </select>
+                        </div>
 
-//SUBJECT
-echo "<tr style='background-color:#cff;font-weight:bold'>";
-//echo "<td colspan='1'></td>";
-echo "<td align='left' colspan='7'>";
-echo strtoupper($row_rsu['subject']);
-echo "</td></tr>";
+                        <div class="itr-field">
+                            <label for="classid">Class</label>
+                            <select id="classid" name="classid" class="validate[required]">
+                                <option value="">Select Class</option>
+                                <?php foreach($_ClassOptions as $rowClass){ ?>
+                                <option value="<?php echo itr_esc($rowClass['class_entryid']); ?>"<?php echo ($_SelectedClassId === (string)$rowClass['class_entryid'] ? ' selected' : ''); ?>><?php echo itr_esc($rowClass['class_name']); ?></option>
+                                <?php } ?>
+                            </select>
+                        </div>
+                    </div>
 
-$_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
-	ON ce.class_entryid=tr.class_entryid GROUP BY tr.class_entryid");
-if(mysqli_num_rows($_SQL_CLASS)==0){
+                    <div class="itr-status-card itr-status-card--<?php echo itr_esc($_ItrStatusTone); ?>">
+                        <i class="fa fa-info-circle"></i>
+                        <span><?php echo itr_esc($_ItrStatusLabel); ?></span>
+                    </div>
 
-}else{
-while($row_ce=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
-echo "<tr style='background-color:#fee;font-weight:bold'>";
-echo "<td colspan='1'></td>";
-echo "<td align='left' colspan='6'>";
-echo strtoupper($row_ce['class_name']);
-echo "</td></tr>";
+                    <?php if($_SelectedTermLabel !== ''){ ?>
+                    <div class="itr-selected-scope">
+                        <i class="fa fa-check-circle"></i>
+                        <span>Selected: <?php echo itr_esc($_SelectedTermLabel); ?><?php echo ($_SelectedClassLabel !== '' ? ' | Class: '.itr_esc($_SelectedClassLabel) : ''); ?></span>
+                    </div>
+                    <?php } ?>
 
-for($k=1;$k<3;$k++)
-{
-	$_SQL_EXECUTE=mysqli_query($con,"SELECT *,su.userid FROM tblmark mk 
-		INNER JOIN tblsystemuser su ON mk.userid=su.userid
-		INNER JOIN tblsubjectassignment sa ON mk.assignmentid=sa.assignmentid
-		INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid
-		INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
-		INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
-		WHERE su.userid='$row_us[userid]' AND sub.subjectid='$row_rsu[subjectid]' 
-		AND ce.class_entryid='$row_ce[class_entryid]' AND sa.termname='$k'
-		ORDER BY su.userid ASC");
+                    <?php if($_ReportApprovalMessage !== ''){ ?>
+                    <div class="itr-approval-note"><?php echo $_ReportApprovalMessage; ?></div>
+                    <?php } ?>
 
-if(mysqli_num_rows($_SQL_EXECUTE)==0){
+                    <div class="itr-actions">
+                        <button class="itr-btn itr-btn--primary" id="print_terminal_report" name="print_terminal_report" <?php echo $_DisableStudentPrint ? 'disabled' : ''; ?>>
+                            <i class="fa fa-print"></i>
+                            <?php echo $_DisableStudentPrint ? 'Awaiting Approval' : 'Print Report'; ?>
+                        </button>
+                    </div>
+                </form>
+            </section>
 
-}else{
-	echo "<tr style='background-color:#dee;font-weight:bold'>";
-	echo "<td colspan='2'></td>";
-	echo "<td colspan='5'>";
-	echo "Semester: ".$k;
-	echo "</td></tr>";
+            <section class="itr-panel itr-panel--info">
+                <div class="itr-panel__heading">
+                    <div class="itr-panel__icon itr-panel__icon--alt"><i class="fa fa-file-text-o"></i></div>
+                    <div>
+                        <h2>Report Summary</h2>
+                        <p>Check the selected report before printing.</p>
+                    </div>
+                </div>
 
-	@$_TotalMark=0;
-	@$_getAssignment_Id=0;
-	@$serial=0;
-	while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
-	$_getAssignment_Id=$row['assignmentid'];
+                <div class="itr-summary-grid">
+                    <article class="itr-summary-card">
+                        <span>Batch</span>
+                        <strong><?php echo itr_esc($_SelectedBatchLabel !== '' ? $_SelectedBatchLabel : 'Not selected'); ?></strong>
+                    </article>
+                    <article class="itr-summary-card">
+                        <span>Academic Year</span>
+                        <strong><?php echo itr_esc($_SelectedAcademicYear !== '' ? $_SelectedAcademicYear : 'Not selected'); ?></strong>
+                    </article>
+                    <article class="itr-summary-card">
+                        <span>Semester</span>
+                        <strong><?php echo itr_esc($_SelectedTermId !== '' ? 'Semester '.$_SelectedTermId : 'Not selected'); ?></strong>
+                    </article>
+                    <article class="itr-summary-card">
+                        <span>Class</span>
+                        <strong><?php echo itr_esc($_SelectedClassLabel !== '' ? $_SelectedClassLabel : 'Not selected'); ?></strong>
+                    </article>
+                </div>
 
-	echo "<tr>";
-	echo "<td colspan='3' align='right'>";
-	//echo "<a onclick=\"javascript:return confirm('Do you to delete mark?')\" href='terminal-report.php?delete_mark=$row[markid]'><i class='fa fa-times' style='color:red'></i></a>";
-	echo "</td>";
+                <div class="itr-guide-card">
+                    <h3>Report Details</h3>
+                    <p>The report includes subject scores, class position, attendance, house details, conduct, promotion remarks, and the school sign-off section.</p>
+                </div>
 
-	echo "<td align='center' width='5%' colspan='1'>";
-	echo $serial=$serial+1;
-	echo "</td>";
-
-	/*echo "<td align='left' width='20%'>";
-	echo $row['subject'];
-	echo "</td>";
-	*/
-	echo "<td align='left' width='15%'>";
-	echo $row['testtype'];
-	echo "</td>";
-
-	echo "<td align='center' width='15%'>";
-	echo $row['mark'];
-	$_TotalMark=$_TotalMark+$row['mark'];
-	echo "</td>";
-
-	echo "</tr>";
-	}	
-	echo "<tr style='background-color:#fed;font-weight:bold'>";
-	echo "<td colspan='4'>";
-	echo "</td>";
-
-	echo "<td align='right' colspan='1'>";
-	echo "TOTAL:";
-	echo "</td>";
-	echo "<td align='center'>";
-	echo $_TotalMark;
-	echo "</td>";
-
-	echo "<td align='center' width='5%'>";
-	 //Get the positions
-	
-	 @$_Final_Position=0;
-	$_position_obj_1->setPosition($_getAssignment_Id,$_TotalMark);
-	$_Final_Position= $_position_obj_1->getPosition();
-	echo $_Final_Position;
-	echo "</td>";
-
-	echo "</tr>";
-	}
-	}
-	}
-}
-}
-}
-echo "</tbody>";
-echo "</table>";
-?>
-</form>
-</div>
--->
-</td>
-</tr>
-</table>
-</div>
+                <div class="itr-guide-card">
+                    <h3>Before Printing</h3>
+                    <ul class="itr-checklist">
+                        <li>Make sure you selected the correct academic year and semester.</li>
+                        <li>Confirm the class matches the period you want to print.</li>
+                        <li>If approval is required, wait until the report status changes to approved.</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+    </main>
 </body>
 </html>

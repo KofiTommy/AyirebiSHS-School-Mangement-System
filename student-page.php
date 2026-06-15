@@ -627,10 +627,10 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <span class="student-kicker"><?php echo sd_esc($portalTitle); ?></span>
         <h1>Welcome back, <?php echo sd_esc($studentShortName); ?>.</h1>
         <div class="student-stat-grid">
-            <article class="student-stat-card"><span>Registered Classes</span><strong><?php echo (int)$classCount; ?></strong></article>
-            <article class="student-stat-card"><span>Report Options</span><strong><?php echo (int)$availableReportCount; ?></strong></article>
-            <article class="student-stat-card"><span>Pending Exeat</span><strong><?php echo (int)$exeatPending; ?></strong></article>
-            <article class="student-stat-card"><span>Balance</span><strong><?php echo sd_esc(sd_money($financeBalance)); ?></strong></article>
+            <article class="student-stat-card student-stat-card--classes"><span>Registered Classes</span><strong><?php echo (int)$classCount; ?></strong></article>
+            <article class="student-stat-card student-stat-card--reports"><span>Report Options</span><strong><?php echo (int)$availableReportCount; ?></strong></article>
+            <article class="student-stat-card student-stat-card--exeat"><span>Pending Exeat</span><strong><?php echo (int)$exeatPending; ?></strong></article>
+            <article class="student-stat-card student-stat-card--finance"><span>Balance</span><strong><?php echo sd_esc(sd_money($financeBalance)); ?></strong></article>
         </div>
     </div>
     <aside class="student-profile-card">
@@ -657,29 +657,31 @@ $reportPreview = array_slice($reportOptions, 0, 6);
 
 <section class="student-section">
     <div class="student-section__heading">
-        <div><span class="student-section__eyebrow">Quick Actions</span><h2>Jump straight into your student tools</h2></div>
+        <div><span class="student-section__eyebrow">Student Tools</span><h2>Open your student tools</h2></div>
     </div>
     <div class="student-quick-grid">
-        <a class="student-action-card" href="individual-terminal-report.php"><span class="student-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Report</h3></a>
-        <a class="student-action-card" href="account-statements.php"><span class="student-action-card__icon"><i class="fa fa-money"></i></span><h3>Account Statement</h3></a>
-        <a class="student-action-card" href="student-exeat-request.php"><span class="student-action-card__icon"><i class="fa fa-file"></i></span><h3>Request Exeat</h3></a>
-        <a class="student-action-card" href="examinationtimetablereport.php"><span class="student-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Exam Timetable</h3></a>
-        <a class="student-action-card" href="lesson-timetable-report.php"><span class="student-action-card__icon"><i class="fa fa-clock-o"></i></span><h3>Lesson Timetable</h3></a>
-        <a class="student-action-card" href="student-course-registration.php"><span class="student-action-card__icon"><i class="fa fa-list-alt"></i></span><h3>Course Registration</h3><p>Choose your semester courses from the class list when the school opens registration.</p></a>
-        <a class="student-action-card" href="student-attendance-report.php"><span class="student-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>My Attendance</h3></a>
-        <a class="student-action-card" href="online-voting.php"><?php if($studentVotingSnapshot && !empty($studentVotingSnapshot["contest"])){ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo sd_esc($studentVotingSnapshot["contest"]["title"]); ?> is <?php echo sd_esc(strtolower(voting_status_label($studentVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Open the contest board when the next school voting event goes live.</p><?php } ?></a>
-        <a class="student-action-card" href="messages.php"><span class="student-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the full message board when you need your full conversation view."; ?></p></a>
-        <a class="student-action-card" href="edit-account.php"><span class="student-action-card__icon"><i class="fa fa-id-card"></i></span><h3>Profile Settings</h3></a>
-        <a class="student-action-card" href="uploaduser-image.php"><span class="student-action-card__icon"><i class="fa fa-image"></i></span><h3>Profile Image</h3></a>
-        <a class="student-action-card" href="logout.php"><span class="student-action-card__icon"><i class="fa fa-power-off"></i></span><h3>Sign Out</h3></a>
+        <a class="student-action-card student-action-card--report" href="individual-terminal-report.php"><span class="student-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Report</h3></a>
+        <a class="student-action-card student-action-card--finance" href="account-statements.php"><span class="student-action-card__icon"><i class="fa fa-money"></i></span><h3>Account Statement</h3></a>
+        <a class="student-action-card student-action-card--exeat" href="student-exeat-request.php"><span class="student-action-card__icon"><i class="fa fa-file"></i></span><h3>Request Exeat</h3></a>
+        <a class="student-action-card student-action-card--counselling" href="guidance-counselling.php"><span class="student-action-card__icon"><i class="fa fa-heartbeat"></i></span><h3>Guidance &amp; Counselling</h3><p>Book a private session with your dedicated counsellor and track the case here.</p></a>
+        <a class="student-action-card student-action-card--exam" href="examinationtimetablereport.php"><span class="student-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Exam Timetable</h3></a>
+        <a class="student-action-card student-action-card--timetable" href="lesson-timetable-report.php"><span class="student-action-card__icon"><i class="fa fa-clock-o"></i></span><h3>Lesson Timetable</h3></a>
+        <a class="student-action-card student-action-card--online" href="online-class.php"><span class="student-action-card__icon"><i class="fa fa-video-camera"></i></span><h3>Join Class</h3><p>Open live class links shared by your teachers for your class.</p></a>
+        <a class="student-action-card student-action-card--course" href="student-course-registration.php"><span class="student-action-card__icon"><i class="fa fa-list-alt"></i></span><h3>Course Registration</h3><p>Choose your semester courses from the class list when the school opens registration.</p></a>
+        <a class="student-action-card student-action-card--attendance" href="student-attendance-report.php"><span class="student-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>My Attendance</h3></a>
+        <a class="student-action-card student-action-card--voting" href="online-voting.php"><?php if($studentVotingSnapshot && !empty($studentVotingSnapshot["contest"])){ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo sd_esc($studentVotingSnapshot["contest"]["title"]); ?> is <?php echo sd_esc(strtolower(voting_status_label($studentVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Voting details will appear when a contest is available.</p><?php } ?></a>
+        <a class="student-action-card student-action-card--messages" href="messages.php"><span class="student-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the message board to read or send messages."; ?></p></a>
+        <a class="student-action-card student-action-card--profile" href="edit-account.php"><span class="student-action-card__icon"><i class="fa fa-id-card"></i></span><h3>Profile Settings</h3></a>
+        <a class="student-action-card student-action-card--profile-image" href="uploaduser-image.php"><span class="student-action-card__icon"><i class="fa fa-image"></i></span><h3>Profile Image</h3></a>
+        <a class="student-action-card student-action-card--logout" href="logout.php"><span class="student-action-card__icon"><i class="fa fa-power-off"></i></span><h3>Sign Out</h3></a>
     </div>
 </section>
 
 <?php if($studentVotingSnapshot && !empty($studentVotingSnapshot["contest"])){ ?>
 <section class="student-section student-voting-section">
     <div class="student-section__heading">
-        <div><span class="student-section__eyebrow">Live Voting</span><h2>Current contest snapshot</h2></div>
-        <a class="student-panel__link" href="online-voting.php">Open Voting Board</a>
+        <div><span class="student-section__eyebrow">Voting</span><h2>Current voting update</h2></div>
+        <a class="student-panel__link" href="online-voting.php">View Voting</a>
     </div>
     <div class="student-voting-card">
         <div class="student-voting-card__summary">
@@ -707,8 +709,8 @@ $reportPreview = array_slice($reportOptions, 0, 6);
     <div class="student-panel-stack student-panel-stack--main">
     <section class="student-panel student-panel--wide">
         <div class="student-panel__header">
-            <div><span class="student-panel__eyebrow">Academic Snapshot</span><h2>Report-ready semesters and current learning context</h2></div>
-            <a class="student-panel__link" href="individual-terminal-report.php">Open Full Report Tool</a>
+            <div><span class="student-panel__eyebrow">Academic Record</span><h2>Available reports and current class record</h2></div>
+            <a class="student-panel__link" href="individual-terminal-report.php">View Reports</a>
         </div>
         <div class="student-summary-grid">
             <article class="student-summary-card"><span>Current Class</span><strong><?php echo sd_esc($currentClassLabel !== "" ? $currentClassLabel : "Not Yet Registered"); ?></strong></article>
@@ -718,7 +720,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         </div>
 
         <?php if($reportApprovalPendingCount > 0){ ?>
-        <div class="student-inline-note"><?php echo sd_esc($reportApprovalPendingCount); ?> semester report(s) are waiting for admin approval before students can print them.</div>
+        <div class="student-inline-note"><?php echo sd_esc($reportApprovalPendingCount); ?> semester report(s) are awaiting approval.</div>
         <?php } ?>
 
         <?php if(count($reportPreview) > 0){ ?>
@@ -742,14 +744,14 @@ $reportPreview = array_slice($reportOptions, 0, 6);
             <?php } ?>
         </div>
         <?php } else { ?>
-        <div class="student-empty-state"><h3>No report options yet</h3></div>
+        <div class="student-empty-state"><h3>No reports available yet</h3></div>
         <?php } ?>
     </section>
 
     <section class="student-panel student-panel--wide">
         <div class="student-panel__header">
-            <div><span class="student-panel__eyebrow">Subject Performance</span><h2>Track how your subjects are going</h2></div>
-            <a class="student-panel__link" href="individual-terminal-report.php">Open Terminal Report</a>
+            <div><span class="student-panel__eyebrow">Subject Performance</span><h2>See your subject performance</h2></div>
+            <a class="student-panel__link" href="individual-terminal-report.php">View Report</a>
         </div>
         <form method="get" action="student-page.php" class="student-performance-toolbar">
             <div class="student-performance-toolbar__field">
@@ -766,7 +768,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         </form>
 
         <div class="student-performance-scope">
-            <strong>Current Scope:</strong> <?php echo sd_esc($studentPerformanceYear); ?> Academic Year
+            <strong>Selected Year:</strong> <?php echo sd_esc($studentPerformanceYear); ?> Academic Year
             <?php if($studentPerformancePreviousYear !== null){ ?>
             <span>Compared with <?php echo sd_esc($studentPerformancePreviousYear); ?></span>
             <?php } ?>
@@ -858,7 +860,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
     </div>
 
     <div class="student-panel-stack">
-        <section class="student-panel">
+        <section class="student-panel student-panel--accent student-panel--engagement">
             <div class="student-panel__header">
                 <div><span class="student-panel__eyebrow">Engagement</span><h2>Stay active on your student portal</h2></div>
             </div>
@@ -915,7 +917,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
             </div>
         </section>
 
-        <section class="student-panel">
+        <section class="student-panel student-panel--accent student-panel--registrations">
             <div class="student-panel__header">
                 <div><span class="student-panel__eyebrow">Registrations</span><h2>My classes and years</h2></div>
             </div>
@@ -933,10 +935,10 @@ $reportPreview = array_slice($reportOptions, 0, 6);
             <?php } ?>
         </section>
 
-        <section class="student-panel">
+        <section class="student-panel student-panel--accent student-panel--house">
             <div class="student-panel__header">
                 <div><span class="student-panel__eyebrow">House And Exeat</span><h2>Current house and latest requests</h2></div>
-                <a class="student-panel__link" href="student-exeat-request.php">Open Exeat Page</a>
+                <a class="student-panel__link" href="student-exeat-request.php">View Exeat</a>
             </div>
             <div class="student-house-card">
                 <div class="student-house-card__row"><span>House</span><strong><?php echo sd_esc($houseName); ?></strong></div>
@@ -963,10 +965,10 @@ $reportPreview = array_slice($reportOptions, 0, 6);
             <?php } ?>
         </section>
 
-        <section class="student-panel">
+        <section class="student-panel student-panel--accent student-panel--finance">
             <div class="student-panel__header">
-                <div><span class="student-panel__eyebrow">Finance Snapshot</span><h2>Account balance at a glance</h2></div>
-                <a class="student-panel__link" href="account-statements.php">Open Account Statements</a>
+                <div><span class="student-panel__eyebrow">Finance</span><h2>Account balance</h2></div>
+                <a class="student-panel__link" href="account-statements.php">View Statements</a>
             </div>
             <div class="student-finance-grid">
                 <div class="student-finance-card"><span>Total Billed</span><strong><?php echo sd_esc(sd_money($financeBilled)); ?></strong></div>
@@ -982,10 +984,10 @@ $reportPreview = array_slice($reportOptions, 0, 6);
 </div>
 
 <div class="student-layout student-layout--messages">
-    <section class="student-panel" id="student-messages">
+    <section class="student-panel student-panel--accent student-panel--messages" id="student-messages">
         <div class="student-panel__header">
             <div><span class="student-panel__eyebrow">Message Center</span><h2>Send and manage your messages</h2></div>
-            <a class="student-panel__link" href="messages.php">Open Full Message Board<?php if($messageUnreadCount > 0){ ?><span class="student-panel__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></a>
+            <a class="student-panel__link" href="messages.php">View Messages<?php if($messageUnreadCount > 0){ ?><span class="student-panel__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></a>
         </div>
         <form method="post" action="student-page.php#student-messages" class="student-message-form">
             <label for="message">Write a message</label>

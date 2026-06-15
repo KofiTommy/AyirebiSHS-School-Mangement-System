@@ -197,7 +197,7 @@ function toggleAllStudents(source){
 <div class="sha-page-header">
 <p class="sha-page-header__eyebrow">House Management</p>
 <h3>Student House Assignment</h3>
-<p class="sha-page-header__copy">Assign students to houses safely, load students by class or batch, and review active house placements in one cleaner workspace.</p>
+<p class="sha-page-header__copy">Assign students to houses, load students by class or batch, and review active house placements.</p>
 </div>
 <?php if($_FlashMessage !== ""){ echo $_FlashMessage; } ?>
 

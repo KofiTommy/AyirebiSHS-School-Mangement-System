@@ -382,8 +382,8 @@ if($currentRow){
     <section class="rs-hero">
         <div>
             <span class="rs-kicker"><i class="fa fa-pencil-square-o"></i> Account Editor</span>
-            <h1>Update registered users with a cleaner mobile form.</h1>
-            <p>The original edit fields are still here, but the page now follows the same clearer flow as the student registration form. You can also replace the profile picture safely while updating the record.</p>
+            <h1>Update Registered Users</h1>
+            <p>Edit user details and update the profile picture when needed.</p>
             <div class="rs-pills">
                 <span>Mobile friendly</span>
                 <span>Photo upload ready</span>
@@ -409,7 +409,7 @@ if($currentRow){
                 <div>
                     <span class="rs-kicker rs-kicker--dark">User Form</span>
                     <h2>Edit Registered User</h2>
-                    <p>The same user record is being updated, only with a cleaner step-by-step layout.</p>
+                    <p>You are updating the selected user record.</p>
                 </div>
                 <div class="rs-id-chip">
                     <span>Editing ID</span>

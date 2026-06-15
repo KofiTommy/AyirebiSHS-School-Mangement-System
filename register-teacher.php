@@ -219,7 +219,7 @@ $signedInName=isset($_SESSION["FULLNAME"]) ? trim((string)$_SESSION["FULLNAME"])
     <section class="rs-hero">
         <div>
             <span class="rs-kicker"><i class="fa fa-id-badge"></i> Staff Onboarding</span>
-            <h1>Register teachers in one cleaner, faster flow.</h1>
+            <h1>Register teachers</h1>
             <p>The screen now follows the actual onboarding sequence better: photo and identity first, then personal details, support contacts, and login setup in one responsive page.</p>
             <div class="rs-pills">
                 <span>Mobile friendly</span>
@@ -247,7 +247,7 @@ $signedInName=isset($_SESSION["FULLNAME"]) ? trim((string)$_SESSION["FULLNAME"])
                 <div>
                     <span class="rs-kicker rs-kicker--dark">Teacher Form</span>
                     <h2>New Teacher Registration</h2>
-                    <p>The save flow is preserved, but the page now uses clearer sections, better spacing, and an easier phone layout.</p>
+                    <p>Enter the teacher details below and save the record.</p>
                 </div>
                 <div class="rs-id-chip">
                     <span>Generated ID</span>

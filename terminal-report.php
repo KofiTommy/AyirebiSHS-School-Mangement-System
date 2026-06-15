@@ -552,7 +552,7 @@ include("links.php");
 		<div>
 			<span class="tr-kicker">Academic Reports</span>
 			<h1>Terminal Report</h1>
-			<p>Generate, review, approve, and print student terminal reports from one clean workspace.</p>
+			<p>Generate, review, approve, and print student terminal reports.</p>
 		</div>
 		<div class="tr-hero-card">
 			<i class="fa fa-file-text-o"></i>

@@ -1451,7 +1451,7 @@ include("links.php");
                                     <span class="system-change-icon"><i class="fa fa-bell"></i></span>
                                     <div>
                                         <h3>System Change Notifications</h3>
-                                        <p>Track teacher and student account changes in one clean audit view.</p>
+                                        <p>Track teacher and student account changes in the audit view.</p>
                                     </div>
                                 </div>
                                 <div class="system-change-actions">
@@ -1631,7 +1631,7 @@ include("links.php");
                             </form>
 
                             <div style="margin-bottom:12px;padding:10px 12px;border:1px solid #dbeafe;background:#eff6ff;border-radius:14px;color:#1e3a8a;font-size:0.92rem;">
-                                <strong>Current Scope:</strong> <?php echo htmlspecialchars($_PerfScopeLabel); ?>
+                                <strong>Selected Year:</strong> <?php echo htmlspecialchars($_PerfScopeLabel); ?>
                             </div>
 
                             <div class="cards-side" style="margin-bottom:12px;">

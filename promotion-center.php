@@ -312,7 +312,7 @@ if ($_SQL_LOG_COUNT && $_ROW_LOG_COUNT = mysqli_fetch_array($_SQL_LOG_COUNT, MYS
         <div class="promotion-center-hero__copy">
             <span class="promotion-center-kicker">Academic Rollover</span>
             <h1>Promotion Center</h1>
-            <p>Preview class movement, promote students safely, and archive completed academic records from one workspace.</p>
+            <p>Review class movement, promote students, and archive completed records.</p>
         </div>
         <div class="promotion-center-stats">
             <article class="promotion-center-stat">

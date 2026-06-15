@@ -600,7 +600,7 @@ foreach($contestList as $contestRow){
         <div class="vote-hero__copy">
             <span class="vote-hero__eyebrow">Contest Voting</span>
             <h1>Online Voting Manager</h1>
-            <p>Open contests, publish candidates, set price per vote, and monitor live standings from one mobile-friendly control room.</p>
+            <p>Open contests, publish candidates, set price per vote, and monitor live standings.</p>
         </div>
         <div class="vote-hero__stats">
             <article><span>Live Contests</span><strong><?php echo number_format((int)$contestStats["live_count"]); ?></strong></article>
