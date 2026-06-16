@@ -379,6 +379,25 @@ body.guidance-counselling-page {
     line-height: 1.6;
 }
 
+.gc-inline-note--picker {
+    margin-top: -2px;
+}
+
+.gc-student-directory {
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, rgba(240, 246, 253, 0.98), rgba(236, 248, 244, 0.96));
+    border: 1px solid rgba(18, 48, 75, 0.08);
+}
+
+.gc-student-directory__filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
 .gc-form--appointment.is-cancel-mode [data-reschedule-only],
 .gc-form--appointment.is-cancel-mode [data-reschedule-grid] {
     display: none;
@@ -426,6 +445,19 @@ body.guidance-counselling-page {
     background: linear-gradient(135deg, #b44a4a, #d06c42);
     color: #fff;
     box-shadow: 0 12px 24px rgba(180, 74, 74, 0.2);
+}
+
+.gc-field select[size] {
+    min-height: 400px;
+    padding: 10px;
+    background-image: none;
+    white-space: normal;
+    font-weight: 500;
+    line-height: 1.45;
+}
+
+.gc-field select[size] option {
+    padding: 10px 12px;
 }
 
 .gc-case-grid {
@@ -893,6 +925,7 @@ body.guidance-counselling-page {
         padding: 20px 18px;
     }
 
+    .gc-student-directory__filters,
     .gc-stats,
     .gc-form-grid,
     .gc-detail-grid,
@@ -929,6 +962,10 @@ body.guidance-counselling-page {
 
     .gc-score-table {
         min-width: 0;
+    }
+
+    .gc-field select[size] {
+        min-height: 320px;
     }
 
     .gc-score-table thead {

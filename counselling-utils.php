@@ -548,13 +548,57 @@ function counselling_counsellor_student_rows($con, $teacherId){
     }
 
     if($schoolAssigned){
-        $sql = mysqli_query($con, "SELECT userid, firstname, surname, othernames
-            FROM tblsystemuser
-            WHERE systemtype='Student'
-              AND status='active'
-            ORDER BY firstname ASC, othernames ASC, surname ASC, userid ASC");
+        $sql = mysqli_query($con, "SELECT
+                su.userid,
+                su.firstname,
+                su.surname,
+                su.othernames,
+                (
+                    SELECT ce.class_name
+                    FROM tblclass cl
+                    LEFT JOIN tblclassentry ce ON ce.class_entryid=cl.class_entryid
+                    WHERE cl.userid=su.userid
+                      AND cl.status='active'
+                    ORDER BY cl.datetimeentry DESC
+                    LIMIT 1
+                ) AS class_name,
+                (
+                    SELECT bh.batch
+                    FROM tblclass cl
+                    LEFT JOIN tblbatch bh ON bh.batchid=cl.batchid
+                    WHERE cl.userid=su.userid
+                      AND cl.status='active'
+                    ORDER BY cl.datetimeentry DESC
+                    LIMIT 1
+                ) AS batch
+            FROM tblsystemuser su
+            WHERE su.systemtype='Student'
+              AND su.status='active'
+            ORDER BY su.surname ASC, su.firstname ASC, su.othernames ASC, su.userid ASC");
     }else{
-        $sql = mysqli_query($con, "SELECT DISTINCT su.userid, su.firstname, su.surname, su.othernames
+        $sql = mysqli_query($con, "SELECT DISTINCT
+                su.userid,
+                su.firstname,
+                su.surname,
+                su.othernames,
+                (
+                    SELECT ce.class_name
+                    FROM tblclass cl
+                    LEFT JOIN tblclassentry ce ON ce.class_entryid=cl.class_entryid
+                    WHERE cl.userid=su.userid
+                      AND cl.status='active'
+                    ORDER BY cl.datetimeentry DESC
+                    LIMIT 1
+                ) AS class_name,
+                (
+                    SELECT bh.batch
+                    FROM tblclass cl
+                    LEFT JOIN tblbatch bh ON bh.batchid=cl.batchid
+                    WHERE cl.userid=su.userid
+                      AND cl.status='active'
+                    ORDER BY cl.datetimeentry DESC
+                    LIMIT 1
+                ) AS batch
             FROM tblsystemuser su
             WHERE su.systemtype='Student'
               AND su.status='active'
@@ -580,7 +624,7 @@ function counselling_counsellor_student_rows($con, $teacherId){
                           AND cl.status='active'
                     )
               )
-            ORDER BY su.firstname ASC, su.othernames ASC, su.surname ASC, su.userid ASC");
+            ORDER BY su.surname ASC, su.firstname ASC, su.othernames ASC, su.userid ASC");
     }
 
     if($sql){

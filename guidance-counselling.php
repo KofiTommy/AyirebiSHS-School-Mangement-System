@@ -565,6 +565,23 @@ $caseRows = $isStudentView ? $studentRequestRows : $teacherRequestRows;
 $caseCounts = counselling_case_counts($caseRows);
 $teacherAssignmentSummary = $isTeacherView ? counselling_teacher_assignment_summary($con, $currentUserId) : array();
 $teacherStudentOptions = $isTeacherView ? counselling_counsellor_student_rows($con, $currentUserId) : array();
+$teacherHasSchoolScope = $isTeacherView && isset($teacherAssignmentSummary['school_scope_count']) && (int)$teacherAssignmentSummary['school_scope_count'] > 0;
+$teacherStudentClasses = array();
+$teacherStudentBatches = array();
+if($isTeacherView && !empty($teacherStudentOptions)){
+    foreach($teacherStudentOptions as $_TeacherStudentOption){
+        $_StudentClassName = trim((string)(isset($_TeacherStudentOption['class_name']) ? $_TeacherStudentOption['class_name'] : ''));
+        $_StudentBatchName = trim((string)(isset($_TeacherStudentOption['batch']) ? $_TeacherStudentOption['batch'] : ''));
+        if($_StudentClassName !== ''){
+            $teacherStudentClasses[$_StudentClassName] = $_StudentClassName;
+        }
+        if($_StudentBatchName !== ''){
+            $teacherStudentBatches[$_StudentBatchName] = $_StudentBatchName;
+        }
+    }
+    natcasesort($teacherStudentClasses);
+    natcasesort($teacherStudentBatches);
+}
 $scheduleDate = $isTeacherView ? gc_normalize_date(isset($_GET['schedule_date']) ? $_GET['schedule_date'] : '', date('Y-m-d')) : '';
 $scheduleWeekStart = $isTeacherView ? date('Y-m-d', strtotime('monday this week', strtotime($scheduleDate))) : '';
 $scheduleWeekEnd = $isTeacherView ? date('Y-m-d', strtotime($scheduleWeekStart.' +6 days')) : '';
@@ -1013,7 +1030,7 @@ $heroSummary = $isStudentView
                         <div>
                             <span class="gc-panel-kicker">Organise Session</span>
                             <h2>Create A Counselling Session</h2>
-                            <p>Arrange a counselling appointment yourself when you need to call in a student instead of waiting for the student to request one.</p>
+                            <p><?php echo counselling_esc($teacherHasSchoolScope ? 'Arrange a counselling appointment for any active student in the school when you need to call in a student directly.' : 'Arrange a counselling appointment yourself when you need to call in a student instead of waiting for the student to request one.'); ?></p>
                         </div>
                     </div>
                     <?php if(empty($teacherStudentOptions)){ ?>
@@ -1023,15 +1040,54 @@ $heroSummary = $isStudentView
                     </div>
                     <?php } else { ?>
                     <form method="post" action="guidance-counselling.php" class="gc-form">
-                        <label class="gc-field">
-                            <span>Student ID</span>
-                            <input type="text" name="studentid" list="gc-student-list" placeholder="Enter or search student ID" required>
-                            <datalist id="gc-student-list">
-                                <?php foreach($teacherStudentOptions as $studentOption){ ?>
-                                <option value="<?php echo counselling_esc((string)$studentOption['userid']); ?>"><?php echo counselling_esc(counselling_person_name($studentOption)); ?></option>
-                                <?php } ?>
-                            </datalist>
-                        </label>
+                        <div class="gc-student-directory" data-student-directory data-student-scope-label="<?php echo counselling_esc($teacherHasSchoolScope ? 'active students in the whole school' : 'students in your counselling scope'); ?>" data-student-placeholder="<?php echo counselling_esc($teacherHasSchoolScope ? 'Select Student From Whole School' : 'Select Student From List'); ?>">
+                            <div class="gc-student-directory__filters">
+                                <label class="gc-field">
+                                    <span><?php echo counselling_esc($teacherHasSchoolScope ? 'Search All Active Students' : 'Search Student'); ?></span>
+                                    <input type="search" data-student-filter placeholder="<?php echo counselling_esc($teacherHasSchoolScope ? 'Search the whole school by name, ID, class, or batch' : 'Search by name, ID, class, or batch'); ?>" autocomplete="off">
+                                </label>
+                                <label class="gc-field">
+                                    <span>Class Filter</span>
+                                    <select data-student-class-filter>
+                                        <option value="">All Classes</option>
+                                        <?php foreach($teacherStudentClasses as $_TeacherStudentClass){ ?>
+                                        <option value="<?php echo counselling_esc(strtolower((string)$_TeacherStudentClass)); ?>"><?php echo counselling_esc((string)$_TeacherStudentClass); ?></option>
+                                        <?php } ?>
+                                    </select>
+                                </label>
+                                <label class="gc-field">
+                                    <span>Batch Filter</span>
+                                    <select data-student-batch-filter>
+                                        <option value="">All Batches</option>
+                                        <?php foreach($teacherStudentBatches as $_TeacherStudentBatch){ ?>
+                                        <option value="<?php echo counselling_esc(strtolower((string)$_TeacherStudentBatch)); ?>"><?php echo counselling_esc((string)$_TeacherStudentBatch); ?></option>
+                                        <?php } ?>
+                                    </select>
+                                </label>
+                            </div>
+                            <label class="gc-field">
+                                <span><?php echo counselling_esc($teacherHasSchoolScope ? 'All Active Students' : 'Student List'); ?></span>
+                                <select name="studentid" size="14" data-student-select required>
+                                    <option value=""><?php echo counselling_esc($teacherHasSchoolScope ? 'Select Student From Whole School' : 'Select Student From List'); ?></option>
+                                    <?php foreach($teacherStudentOptions as $studentOption){ ?>
+                                    <?php
+                                        $studentName = counselling_person_name($studentOption);
+                                        $studentScopeText = trim((string)(isset($studentOption['class_name']) ? $studentOption['class_name'] : ''));
+                                        $studentBatchText = trim((string)(isset($studentOption['batch']) ? $studentOption['batch'] : ''));
+                                        $studentMetaText = trim($studentScopeText.($studentBatchText !== '' ? ' · '.$studentBatchText : ''));
+                                        $studentSearchText = strtolower(trim((string)$studentOption['userid'].' '.$studentName.' '.$studentMetaText));
+                                    ?>
+                                    <option value="<?php echo counselling_esc((string)$studentOption['userid']); ?>" data-search="<?php echo counselling_esc($studentSearchText); ?>" data-class="<?php echo counselling_esc(strtolower($studentScopeText)); ?>" data-batch="<?php echo counselling_esc(strtolower($studentBatchText)); ?>">
+                                        <?php echo counselling_esc($studentName.' - '.(string)$studentOption['userid'].($studentMetaText !== '' ? ' - '.$studentMetaText : '')); ?>
+                                    </option>
+                                    <?php } ?>
+                                </select>
+                            </label>
+                            <div class="gc-inline-note gc-inline-note--picker">
+                                <i class="fa fa-search"></i>
+                                <span data-student-picker-status>Showing all <?php echo number_format((int)count($teacherStudentOptions)); ?> <?php echo counselling_esc($teacherHasSchoolScope ? 'active students in the whole school' : 'students in your counselling scope'); ?>.</span>
+                            </div>
+                        </div>
                         <div class="gc-form-grid">
                             <label class="gc-field">
                                 <span>Category</span>
