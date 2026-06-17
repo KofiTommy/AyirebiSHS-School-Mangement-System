@@ -1,222 +1,331 @@
 <?php
 session_start();
-$_SESSION['Message']="";
-?>
-
-<?php
 include("dbstring.php");
 
-@$_UserID=$_POST['userid'];
-@$_Firstname=$_POST['firstname'];
-@$_Surname=$_POST['surname'];
-@$_Othernames=$_POST['othernames'];
-@$_Gender=$_POST['gender'];
-@$_Birthday=$_POST['birthday'];
-@$_Age=$_POST['age'];
-@$_PostalAddress=$_POST['postaladdress'];
-@$_HomeAddress=$_POST['homeaddress'];
-@$_HomeTown=$_POST['hometown'];
-@$_Email=$_POST['email'];
-@$_Mobile=$_POST['mobile'];
+if (!function_exists("view_class_registry_esc")) {
+function view_class_registry_esc($value)
+{
+    return htmlspecialchars((string)$value, ENT_QUOTES, "UTF-8");
+}
+}
 
-@$_Religion=$_POST['religion'];
-@$_Relationship=$_POST['relationship'];
-@$_Nextofkin_fullname=$_POST['nextoffullname'];
-@$_Nextofcontact=$_POST['nextofkincontact'];
-@$_Username=$_POST['username'];
-@$_Password=md5($_POST['password']);
-@$_AccessLevel="user";
-@$_SystemType="Student";
-@$_Filename=$_POST['filename'];
+if (!function_exists("view_class_registry_lower")) {
+function view_class_registry_lower($value)
+{
+    $value = (string)$value;
+    return function_exists("mb_strtolower") ? mb_strtolower($value, "UTF-8") : strtolower($value);
+}
+}
 
-if(isset($_POST['register_user'])){
-$_SQL_EXECUTE=mysqli_query($con,"INSERT INTO tblsystemuser(userid,firstname,surname,othernames,gender,birthday,age,postaladdress,homeaddress,hometown,religion,relationship,nextofkin_fullname,nextofkin_contact,email,mobile,registereddatetime,status,username,password,accesslevel,systemtype,branchid)
-	VALUES('$_UserID','$_Firstname','$_Surname','$_Othernames','$_Gender',STR_TO_DATE('$_Birthday','%d-%m-%Y'),'$_Age','$_PostalAddress','$_HomeAddress','$_HomeTown','$_Religion','$_Relationship','$_Nextofkin_fullname','$_Nextofcontact','$_Email','$_Mobile',NOW(),'active','$_Username','$_Password','$_AccessLevel','$_SystemType','$_SESSION[BRANCHID]')");
-if($_SQL_EXECUTE){
-$_SESSION['Message']="<div style='color:green;text-align:center'>Teacher/Student Information Successfully Saved</div>";
+if (!function_exists("view_class_registry_name")) {
+function view_class_registry_name($row)
+{
+    $parts = array(
+        isset($row["firstname"]) ? trim((string)$row["firstname"]) : "",
+        isset($row["othernames"]) ? trim((string)$row["othernames"]) : "",
+        isset($row["surname"]) ? trim((string)$row["surname"]) : "",
+    );
+    $name = trim(implode(" ", array_filter($parts, "strlen")));
+    if ($name !== "") {
+        return $name;
+    }
+    return isset($row["userid"]) ? trim((string)$row["userid"]) : "Student";
 }
-else{
-	$_Error=mysqli_error($con);
-	$_SESSION['Message']="<div style='color:red'>Teacher/Student Information Failed to save,Error:$_Error</div>";
+}
+
+if (!function_exists("view_class_registry_format_datetime")) {
+function view_class_registry_format_datetime($value)
+{
+    $value = trim((string)$value);
+    if ($value === "") {
+        return "Not recorded";
+    }
+    $time = strtotime($value);
+    return $time ? date("d M Y, H:i", $time) : $value;
 }
 }
+
+$flashHtml = isset($_SESSION["Message"]) ? (string)$_SESSION["Message"] : "";
+$_SESSION["Message"] = "";
+
+$selectedBatchId = isset($_POST["batchid"]) ? trim((string)$_POST["batchid"]) : "";
+$shouldLoadRecords = isset($_POST["show_class"]) && $selectedBatchId !== "";
+
+$batchOptions = array();
+$batchQuery = mysqli_query($con, "SELECT batchid, batch, status FROM tblbatch ORDER BY batch DESC");
+if ($batchQuery) {
+    while ($row = mysqli_fetch_array($batchQuery, MYSQLI_ASSOC)) {
+        $batchOptions[] = $row;
+    }
+}
+
+$selectedBatchLabel = "Batch not selected";
+foreach ($batchOptions as $batchOption) {
+    if ($selectedBatchId === trim((string)$batchOption["batchid"])) {
+        $selectedBatchLabel = trim((string)$batchOption["batch"]);
+        break;
+    }
+}
+
+$registryRows = array();
+$studentMap = array();
+$classMap = array();
+$latestRecordedAt = "";
+
+if ($shouldLoadRecords) {
+    $selectedBatchIdEsc = mysqli_real_escape_string($con, $selectedBatchId);
+    $sql = "SELECT
+                cl.classid,
+                cl.userid,
+                cl.datetimeentry,
+                su.firstname,
+                su.surname,
+                su.othernames,
+                ce.class_name,
+                bh.batch,
+                bh.batchid
+            FROM tblclass cl
+            INNER JOIN tblsystemuser su ON su.userid=cl.userid
+            LEFT JOIN tblclassentry ce ON ce.class_entryid=cl.class_entryid
+            LEFT JOIN tblbatch bh ON bh.batchid=cl.batchid
+            WHERE cl.batchid='$selectedBatchIdEsc'
+              AND cl.status='active'
+              AND su.systemtype='Student'
+            ORDER BY ce.class_name ASC, su.firstname ASC, su.othernames ASC, su.surname ASC, cl.datetimeentry DESC";
+    $registryQuery = mysqli_query($con, $sql);
+    if ($registryQuery) {
+        while ($row = mysqli_fetch_array($registryQuery, MYSQLI_ASSOC)) {
+            $registryRows[] = $row;
+            $studentId = trim((string)(isset($row["userid"]) ? $row["userid"] : ""));
+            $className = trim((string)(isset($row["class_name"]) ? $row["class_name"] : ""));
+            if ($studentId !== "") {
+                $studentMap[$studentId] = true;
+            }
+            if ($className !== "") {
+                $classMap[$className] = true;
+            }
+            $recordedAt = trim((string)(isset($row["datetimeentry"]) ? $row["datetimeentry"] : ""));
+            if ($recordedAt !== "" && ($latestRecordedAt === "" || strtotime($recordedAt) > strtotime($latestRecordedAt))) {
+                $latestRecordedAt = $recordedAt;
+            }
+        }
+    }
+}
+
+$totalRecords = count($registryRows);
+$totalStudents = count($studentMap);
+$classCount = count($classMap);
+$latestRecordedLabel = $latestRecordedAt !== "" ? view_class_registry_format_datetime($latestRecordedAt) : "No records yet";
+$resultSummaryText = !$shouldLoadRecords
+    ? "Choose a batch to review active student class placements."
+    : ($totalRecords > 0
+        ? "Showing active class registrations for the selected batch."
+        : "No active class registrations were found for the selected batch.");
 ?>
-
-<?php
-include("dbstring.php");
-include("code.php");
-@$_MessageId=$code;
-@$_Message=$_POST['message'];
-
-if(isset($_POST["send_message"])){
-$_SQL=mysqli_query($con,"INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby)
-VALUES('$_MessageId','$_Message',NOW(),'active','$_SESSION[USERID]')");
-if($_SQL){
-$_SESSION['Message']="<div style='color:green;padding:10px;'>Message Successfully Submitted</di>";
-}
-else{
-	$_Error=mysqli_error($con);
-	$_SESSION['Message']="<div style='color:red;padding:10px;'>Message failed to submit</div>";
-}
-}
-?>
-
-<?php
-if(isset($_GET["delete_message"])){
-$_SQL_D=mysqli_query($con,"DELETE FROM tblmessages WHERE messageid='$_GET[delete_message]'");
-if($_SQL_D){
-	$_SESSION['Message']="<div style='color:red;padding:10px;'>Message Successfully Deleted</di>";
-}
-else{
-	$_Error=mysqli_error($con);
-	$_SESSION['Message']="<div style='color:red;padding:10px;'>Message failed to delete</div>";
-}
-}
-?>
-
 <html>
 <head>
-<?php
-include("links.php");
-?>
-
+<?php include("links.php"); ?>
+<link rel="stylesheet" type="text/css" href="css/view-class-registry.css">
+<script type="text/javascript" src="scripts/view-class-registry.js" defer></script>
 </head>
 
-<body class="body-style">
-	<!--Header-->
-	
-	<div class="header">
-		<!--<img src="images/logo.png" width="100px" height="100px" alt="logo"/>-->
-	<?php
-	include("menu.php");
-	?>		
-	<?php
-	//include("side-menu.php");
-	?>
-	</div>
-<div class="main-platform" align="center" >
-	<?php
-	echo $_SESSION["Message"];
-	?>
-<table border="0" width="100%">
-<tr>
-
-<td width="100%" valign="top">
-<div class="form-entry" align="left">
-<form id="formID" name="formID" method="post">
-<?php	
-include("dbstring.php");
-echo "<fieldset><legend>BATCH</legend>";		
-echo "<table>";
-echo "<tr>";
-echo "<td>";
-$_SQL_2=mysqli_query($con,"SELECT * FROM tblbatch");
-
-echo "<select id='batchid' name='batchid' class='validate[required]'>";
-echo "<option value=''>Select Batch</option>";
-while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-echo "<option value='$row[batchid]'>$row[batch]</option>";
-}
-echo "</select>";
-echo "</td>";
-echo "<td>";
-echo "<button class='button-show' id='show_class' name='show_class'><i class='fa fa-search' style='color:white'></i> SHOW</button> ";
-echo "</td>";
-echo "</tr>";
-echo "</table>";
-echo "</fieldset>";
-?>
-</form>
-				<?php
-				echo $_SESSION['Message'];
-				@$_BatchID=$_POST["batchid"];
-				if(isset($_POST["show_class"]))
-				{
-				include("dbstring.php");
-				$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsystemuser su INNER JOIN tblclass cl ON su.userid=cl.userid 
-				WHERE cl.batchid='$_BatchID' AND cl.status='active' AND su.systemtype='Student' ORDER BY su.firstname ASC");
-
-				//Registered clients
-				echo "<table width='100%' style='background-color:white'>";
-				echo "<caption>STUDENT CLASS REGISTRATION</caption>";
-				echo "<thead><th>*</th><th colspan=1>TASK</th><th>STUDENT</th><th>CLASS</th><th>BATCH</th><th>ENTRY DATE/TIME</th></thead>";
-				echo "<tbody>";
-				@$serial=0;
-
-				while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
-				echo "<tr>";
-				echo "<td align='center'>";
-				echo $serial=$serial+1 .".";
-				echo "</td>";
-
-				echo "<td align='center' ><a title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'<i class='fa fa-plus' style='color:royalblue'></i></a></td>";
-				echo "<td colspan='4' style='background-color:#ffffff;border-bottom:0px solid gray'>$row[firstname] $row[othernames] $row[surname] ($row[userid])</td>";
-			
-				echo "</tr>";
-				
-				$_SQL_CLASS=mysqli_query($con,"SELECT *,cl.datetimeentry FROM tblclass cl 
-				INNER JOIN tblclassentry ce ON cl.class_entryid=ce.class_entryid
-				INNER JOIN tblbatch bh ON cl.batchid=bh.batchid
-				 WHERE cl.userid='$row[userid]' AND cl.status='active' ORDER BY ce.class_name ASC");
-				while($row_cl=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
-				echo "<tr style='background-color:#ffffff;border-bottom:1px solid gray'>";
-			
-				echo "<td colspan='1'>";
-				echo "</td>";
-
-				echo "<td align='center'><a onclick=\"javascript:return confirm('Do you want to remove class?')\" title='Remove class $row_cl[class_name]' href='upload-class-registry.php?delete_class=$row_cl[classid]'<i class='fa fa-trash-o' style='color:red'></i></a></td>";
-				echo "<td colspan='1' align='right'>";
-				echo "Class:";
-				echo "</td>";
-				echo "<td colspan='1'>";
-				echo $row_cl['class_name'];
-				echo "</td>";
-
-				echo "<td colspan='1'>";
-				echo $row_cl['batch'];
-				echo "</td>";
-
-				echo "<td colspan='1' align='center'>";
-				echo $row_cl['datetimeentry'];
-				echo "</td>";
-
-				echo "</tr>";
-				}
-			}
-				echo "</tbody>";
-				echo "</table>";
-			}
-?>
+<body class="body-style view-class-registry-page">
+<div class="header">
+<?php include("menu.php"); ?>
 </div>
-</td>
-</tr>
-</table>
 
-	
-  <br/><br/>
-<button onclick="topFunction()" id="myBtn" title="Go to top">Top</button> 
+<main class="main-platform registry-view-shell">
+    <section class="registry-view-hero">
+        <div class="registry-view-hero__copy">
+            <span class="registry-view-kicker"><i class="fa fa-folder-open-o"></i> Student Records</span>
+            <h1>View Class Registry</h1>
+            <p>Review active class registration records by batch, search through the student list quickly, and open or remove entries from one place.</p>
+            <div class="registry-view-hero__chips">
+                <span class="registry-view-chip"><i class="fa fa-calendar"></i> <?php echo view_class_registry_esc($selectedBatchLabel); ?></span>
+                <span class="registry-view-chip"><i class="fa fa-check-circle"></i> Active records only</span>
+            </div>
+        </div>
 
- <script>
-//Get the button
-var mybutton = document.getElementById("myBtn");
+        <div class="registry-view-hero__actions">
+            <a href="class-registry.php" class="registry-view-btn registry-view-btn--ghost"><i class="fa fa-users"></i> Class Registry</a>
+            <a href="upload-class-registry.php" class="registry-view-btn registry-view-btn--light"><i class="fa fa-arrow-circle-up"></i> Upload Registry</a>
+            <a href="view-class-registry.php" class="registry-view-btn registry-view-btn--light"><i class="fa fa-refresh"></i> Reset View</a>
+        </div>
 
-// When the user scrolls down 20px from the top of the document, show the button
-window.onscroll = function() {scrollFunction()};
+        <div class="registry-view-stats">
+            <article class="registry-view-stat">
+                <span>Students</span>
+                <strong><?php echo (int)$totalStudents; ?></strong>
+                <small>Unique students in the current result set.</small>
+            </article>
+            <article class="registry-view-stat">
+                <span>Class Records</span>
+                <strong><?php echo (int)$totalRecords; ?></strong>
+                <small>Active registry entries returned for the selected batch.</small>
+            </article>
+            <article class="registry-view-stat">
+                <span>Classes Covered</span>
+                <strong><?php echo (int)$classCount; ?></strong>
+                <small>Distinct classes represented in the active list.</small>
+            </article>
+            <article class="registry-view-stat">
+                <span>Latest Recorded</span>
+                <strong><?php echo view_class_registry_esc($shouldLoadRecords ? $latestRecordedLabel : "Pending"); ?></strong>
+                <small><?php echo $shouldLoadRecords ? "Most recent active registry timestamp." : "Select a batch to load records."; ?></small>
+            </article>
+        </div>
+    </section>
 
-function scrollFunction() {
-  if (document.body.scrollTop > 50 || document.documentElement.scrollTop > 50) {
-    mybutton.style.display = "block";
-  } else {
-    mybutton.style.display = "none";
-  }
-}
+    <?php if ($flashHtml !== "") { ?>
+    <div class="registry-view-message-stack"><?php echo $flashHtml; ?></div>
+    <?php } ?>
 
-// When the user clicks on the button, scroll to the top of the document
-function topFunction() {
-  document.body.scrollTop = 0;
-  document.documentElement.scrollTop = 0;
-}
-</script>
-</div>
+    <section class="registry-view-panel registry-view-filter-panel">
+        <div class="registry-view-panel__head">
+            <div>
+                <h2>Filter Registry</h2>
+                <p>Select the batch you want to inspect, then load the active class records for that period.</p>
+            </div>
+            <div class="registry-view-panel__tag">
+                <i class="fa fa-filter"></i> Batch Filter
+            </div>
+        </div>
+
+        <form method="post" action="view-class-registry.php" class="registry-view-filter-grid">
+            <label for="batchid">
+                <span>Batch</span>
+                <select id="batchid" name="batchid" required>
+                    <option value="">Select Batch</option>
+                    <?php foreach ($batchOptions as $batchOption) { ?>
+                    <option value="<?php echo view_class_registry_esc($batchOption["batchid"]); ?>"<?php echo $selectedBatchId === trim((string)$batchOption["batchid"]) ? " selected" : ""; ?>>
+                        <?php echo view_class_registry_esc($batchOption["batch"]); ?><?php echo trim((string)$batchOption["status"]) !== "" ? " (".view_class_registry_esc($batchOption["status"]).")" : ""; ?>
+                    </option>
+                    <?php } ?>
+                </select>
+            </label>
+
+            <div class="registry-view-filter-actions">
+                <button type="submit" class="registry-view-btn registry-view-btn--primary" name="show_class"><i class="fa fa-search"></i> Load Records</button>
+                <a href="view-class-registry.php" class="registry-view-btn registry-view-btn--secondary"><i class="fa fa-times"></i> Clear</a>
+            </div>
+        </form>
+    </section>
+
+    <section class="registry-view-panel registry-view-results-panel">
+        <div class="registry-view-panel__head registry-view-panel__head--results">
+            <div>
+                <h2>Class Registry Records</h2>
+                <p><?php echo view_class_registry_esc($resultSummaryText); ?></p>
+            </div>
+
+            <div class="registry-view-search-block">
+                <label for="registry-view-search">Quick Search</label>
+                <div class="registry-view-search-field">
+                    <i class="fa fa-search"></i>
+                    <input
+                        type="search"
+                        id="registry-view-search"
+                        placeholder="Search by student name, ID, class, batch or date"
+                        <?php echo $totalRecords === 0 ? "disabled" : ""; ?>
+                    >
+                </div>
+            </div>
+        </div>
+
+        <?php if ($shouldLoadRecords) { ?>
+        <div class="registry-view-active-filters">
+            <span class="registry-view-filter-pill"><i class="fa fa-calendar"></i> <?php echo view_class_registry_esc($selectedBatchLabel); ?></span>
+            <span class="registry-view-filter-pill"><i class="fa fa-clock-o"></i> Latest record: <?php echo view_class_registry_esc($latestRecordedLabel); ?></span>
+            <span class="registry-view-filter-pill"><i class="fa fa-folder-open-o"></i> Active registry only</span>
+        </div>
+        <?php } ?>
+
+        <?php if (!$shouldLoadRecords) { ?>
+        <div class="registry-view-empty-state">
+            <i class="fa fa-filter"></i>
+            <h3>Choose a batch to view class registry records.</h3>
+            <p>Once you select a batch and load it, the active student class records will appear here with quick search and action buttons.</p>
+        </div>
+        <?php } elseif ($totalRecords > 0) { ?>
+        <div class="registry-view-results-meta">
+            <p><strong id="registry-view-visible-count"><?php echo (int)$totalRecords; ?></strong> of <?php echo (int)$totalRecords; ?> records visible</p>
+            <p>Open a student record or remove a class entry from the active registry when needed.</p>
+        </div>
+
+        <div class="registry-view-table-wrap">
+            <table class="registry-view-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Student</th>
+                        <th>Class</th>
+                        <th>Batch</th>
+                        <th>Recorded</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="registry-view-body">
+                    <?php foreach ($registryRows as $index => $row) {
+                        $studentId = trim((string)(isset($row["userid"]) ? $row["userid"] : ""));
+                        $studentName = view_class_registry_name($row);
+                        $className = trim((string)(isset($row["class_name"]) ? $row["class_name"] : ""));
+                        $batchName = trim((string)(isset($row["batch"]) ? $row["batch"] : ""));
+                        $recordedAt = view_class_registry_format_datetime(isset($row["datetimeentry"]) ? $row["datetimeentry"] : "");
+                        $searchIndex = view_class_registry_lower($studentName." ".$studentId." ".$className." ".$batchName." ".$recordedAt);
+                    ?>
+                    <tr class="registry-view-row" data-search="<?php echo view_class_registry_esc($searchIndex); ?>">
+                        <td data-label="#"><?php echo (int)($index + 1); ?></td>
+                        <td data-label="Student">
+                            <div class="registry-view-student-cell">
+                                <strong><?php echo view_class_registry_esc($studentName); ?></strong>
+                                <small><?php echo $studentId !== "" ? view_class_registry_esc($studentId) : "No ID"; ?></small>
+                            </div>
+                        </td>
+                        <td data-label="Class">
+                            <span class="registry-view-table-pill"><?php echo $className !== "" ? view_class_registry_esc($className) : "N/A"; ?></span>
+                        </td>
+                        <td data-label="Batch"><?php echo $batchName !== "" ? view_class_registry_esc($batchName) : "N/A"; ?></td>
+                        <td data-label="Recorded"><?php echo view_class_registry_esc($recordedAt); ?></td>
+                        <td data-label="Actions">
+                            <div class="registry-view-actions">
+                                <?php if ($studentId !== "") { ?>
+                                <a href="class-registry.php?view_user=<?php echo urlencode($studentId); ?>" class="registry-view-link-btn" title="Open student registry">
+                                    <i class="fa fa-folder-open-o"></i>
+                                    <span>Open Student</span>
+                                </a>
+                                <?php } ?>
+                                <?php if (trim((string)(isset($row["classid"]) ? $row["classid"] : "")) !== "") { ?>
+                                <a
+                                    href="upload-class-registry.php?delete_class=<?php echo urlencode((string)$row["classid"]); ?>"
+                                    class="registry-view-link-btn registry-view-link-btn--danger"
+                                    title="Remove class record"
+                                    onclick="return confirm('Do you want to remove this class record?');"
+                                >
+                                    <i class="fa fa-trash-o"></i>
+                                    <span>Remove</span>
+                                </a>
+                                <?php } ?>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php } ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="registry-view-search-empty" class="registry-view-empty-state registry-view-empty-state--search" hidden>
+            <i class="fa fa-search"></i>
+            <h3>No registry records match this search.</h3>
+            <p>Try a broader student name, class, ID, batch, or recorded date and the list will update immediately.</p>
+        </div>
+        <?php } else { ?>
+        <div class="registry-view-empty-state">
+            <i class="fa fa-folder-open-o"></i>
+            <h3>No active class registry records were found.</h3>
+            <p>Check the selected batch again, or confirm that students have been registered into active classes for that batch.</p>
+        </div>
+        <?php } ?>
+    </section>
+</main>
 </body>
 </html>
