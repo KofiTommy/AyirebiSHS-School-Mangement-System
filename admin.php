@@ -43,7 +43,43 @@ include("links.php");
     background: radial-gradient(circle at 0% 0%, rgba(213, 155, 45, 0.22) 0%, transparent 24%),
                 radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.18) 0%, transparent 28%),
                 linear-gradient(180deg, var(--bg-2), var(--bg-1));
+    position: relative;
+    min-height: 100vh;
+    isolation: isolate;
     overflow-x: hidden;
+}
+
+.body-style::before,
+.body-style::after {
+    content: "";
+    position: fixed;
+    pointer-events: none;
+    z-index: 0;
+    border-radius: 999px;
+    filter: blur(18px);
+    opacity: 0.6;
+}
+
+.body-style::before {
+    top: 84px;
+    left: -8vw;
+    width: 32vw;
+    height: 32vw;
+    min-width: 260px;
+    min-height: 260px;
+    background: radial-gradient(circle at 35% 35%, rgba(213, 155, 45, 0.3) 0%, rgba(213, 155, 45, 0.14) 36%, transparent 72%);
+    animation: dashboardBlobFloat 18s ease-in-out infinite alternate;
+}
+
+.body-style::after {
+    right: -10vw;
+    bottom: 4vh;
+    width: 36vw;
+    height: 36vw;
+    min-width: 300px;
+    min-height: 300px;
+    background: radial-gradient(circle at 45% 45%, rgba(14, 165, 233, 0.24) 0%, rgba(15, 118, 110, 0.14) 40%, transparent 76%);
+    animation: dashboardBlobDrift 24s ease-in-out infinite alternate;
 }
 
 .header {
@@ -52,6 +88,8 @@ include("links.php");
     backdrop-filter: blur(8px);
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
     padding: 12px 20px;
+    position: relative;
+    z-index: 1;
 }
 
 .main-platform {
@@ -60,6 +98,8 @@ include("links.php");
     padding: 6px 18px 8px;
     box-sizing: border-box;
     overflow-x: clip;
+    position: relative;
+    z-index: 1;
 }
 
 .main-platform > h2 {
@@ -897,6 +937,24 @@ include("links.php");
     50% {
         transform: scale(1.04);
         box-shadow: 0 0 0 7px rgba(185, 28, 28, 0);
+    }
+}
+
+@keyframes dashboardBlobFloat {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    100% {
+        transform: translate3d(5vw, 3vh, 0) scale(1.08);
+    }
+}
+
+@keyframes dashboardBlobDrift {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    100% {
+        transform: translate3d(-6vw, -4vh, 0) scale(1.1);
     }
 }
 

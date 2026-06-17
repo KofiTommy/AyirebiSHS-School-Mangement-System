@@ -23,6 +23,43 @@ include("links.php");
     background: radial-gradient(circle at 0% 0%, #fef3c7 0%, transparent 24%),
                 radial-gradient(circle at 100% 0%, #dbeafe 0%, transparent 28%),
                 linear-gradient(180deg, var(--bg-2), var(--bg-1));
+    position: relative;
+    min-height: 100vh;
+    isolation: isolate;
+    overflow-x: hidden;
+}
+
+.body-style::before,
+.body-style::after {
+    content: "";
+    position: fixed;
+    pointer-events: none;
+    z-index: 0;
+    border-radius: 999px;
+    filter: blur(18px);
+    opacity: 0.58;
+}
+
+.body-style::before {
+    top: 88px;
+    left: -8vw;
+    width: 30vw;
+    height: 30vw;
+    min-width: 240px;
+    min-height: 240px;
+    background: radial-gradient(circle at 35% 35%, rgba(245, 158, 11, 0.22) 0%, rgba(245, 158, 11, 0.12) 38%, transparent 74%);
+    animation: superDashboardFloat 19s ease-in-out infinite alternate;
+}
+
+.body-style::after {
+    right: -10vw;
+    bottom: 6vh;
+    width: 34vw;
+    height: 34vw;
+    min-width: 280px;
+    min-height: 280px;
+    background: radial-gradient(circle at 45% 45%, rgba(37, 99, 235, 0.2) 0%, rgba(15, 118, 110, 0.1) 42%, transparent 78%);
+    animation: superDashboardDrift 25s ease-in-out infinite alternate;
 }
 
 .header {
@@ -31,12 +68,16 @@ include("links.php");
     backdrop-filter: blur(8px);
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
     padding: 12px 20px;
+    position: relative;
+    z-index: 1;
 }
 
 .main-platform {
     max-width: 1420px;
     margin: 0 auto;
     padding: 20px 18px 28px;
+    position: relative;
+    z-index: 1;
 }
 
 .dashboard-headline {
@@ -110,6 +151,31 @@ include("links.php");
     margin: 0;
     font-size: 0.85rem;
     color: #64748b;
+}
+
+@keyframes superDashboardFloat {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    100% {
+        transform: translate3d(4vw, 3vh, 0) scale(1.07);
+    }
+}
+
+@keyframes superDashboardDrift {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    100% {
+        transform: translate3d(-5vw, -4vh, 0) scale(1.08);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .body-style::before,
+    .body-style::after {
+        animation: none;
+    }
 }
 
 @media (max-width: 980px) {

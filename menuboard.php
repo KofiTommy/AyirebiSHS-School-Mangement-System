@@ -1,13 +1,13 @@
 <?php
 if(!function_exists('menuboard_section_start')){
-function menuboard_section_start($title, $icon = 'fa-folder-open', $open = false){
+function menuboard_section_start($title, $icon = 'fa-folder-open', $open = false, $persistState = true){
     $sectionKey = strtolower(trim((string)$title));
     $sectionKey = preg_replace('/[^a-z0-9]+/', '-', $sectionKey);
     $sectionKey = trim((string)$sectionKey, '-');
     if($sectionKey === ''){
         $sectionKey = 'menu-section';
     }
-    echo "<details class='menuboard-section' data-menuboard-key='".$sectionKey."'".($open ? " open" : "").">";
+    echo "<details class='menuboard-section' data-menuboard-key='".$sectionKey."' data-menuboard-persist='".($persistState ? "1" : "0")."'".($open ? " open" : "").">";
     echo "<summary><span class='menuboard-section__title'><i class='fa ".$icon."'></i> ".$title."</span></summary>";
     echo "<div class='menuboard-section__body'>";
 }
@@ -395,7 +395,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a href="item-bill-report.php"><i class="fa fa-book"></i> Item Bill Report</a>
 <?php menuboard_section_end(); ?>
 
-<?php menuboard_section_start('Campus & Welfare', 'fa-home'); ?>
+<?php menuboard_section_start('Campus & Welfare', 'fa-home', false, false); ?>
 <a href="house-entry.php"><i class="fa fa-home"></i> House Entry</a>
 <a href="house-master-assignment.php"><i class="fa fa-plus"></i> House Master Assignment</a>
 <a href="student-house-assignment.php"><i class="fa fa-users"></i> Student House Assignment</a>
@@ -485,7 +485,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <a href="item-bill-report.php"><i class="fa fa-book"></i> Item Bill Report</a>
 <?php menuboard_section_end(); ?>
 
-<?php menuboard_section_start('Campus & Welfare', 'fa-home'); ?>
+<?php menuboard_section_start('Campus & Welfare', 'fa-home', false, false); ?>
 <a href="house-entry.php"><i class="fa fa-home"></i> House Entry</a>
 <a href="house-master-assignment.php"><i class="fa fa-plus"></i> House Master Assignment</a>
 <a href="student-house-assignment.php"><i class="fa fa-users"></i> Student House Assignment</a>
@@ -563,7 +563,18 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
 
     sections.forEach(function (section) {
         var key = section.getAttribute('data-menuboard-key');
+        var shouldPersist = section.getAttribute('data-menuboard-persist') !== '0';
         if (!key) {
+            return;
+        }
+
+        if (!shouldPersist) {
+            section.open = false;
+            try {
+                window.localStorage.removeItem(storageKeyPrefix + key);
+            } catch (error) {
+                // Ignore storage issues and keep the menu usable.
+            }
             return;
         }
 
@@ -582,7 +593,8 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
     sections.forEach(function (section) {
         section.addEventListener('toggle', function () {
             var key = section.getAttribute('data-menuboard-key');
-            if (key) {
+            var shouldPersist = section.getAttribute('data-menuboard-persist') !== '0';
+            if (key && shouldPersist) {
                 try {
                     window.localStorage.setItem(storageKeyPrefix + key, section.open ? 'open' : 'closed');
                 } catch (error) {
@@ -598,7 +610,8 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
                 if (otherSection !== section) {
                     otherSection.open = false;
                     var otherKey = otherSection.getAttribute('data-menuboard-key');
-                    if (otherKey) {
+                    var otherShouldPersist = otherSection.getAttribute('data-menuboard-persist') !== '0';
+                    if (otherKey && otherShouldPersist) {
                         try {
                             window.localStorage.setItem(storageKeyPrefix + otherKey, 'closed');
                         } catch (error) {
