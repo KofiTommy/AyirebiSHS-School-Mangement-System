@@ -12,8 +12,10 @@ $isTeacher = (
 
 $isAllowed = (
     isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
-    $_SESSION['ACCESSLEVEL'] === "administrator" &&
-    in_array($_SESSION['SYSTEMTYPE'], array("normal_user", "super_user"), true)
+    (
+        ($_SESSION['ACCESSLEVEL'] === "administrator" && in_array($_SESSION['SYSTEMTYPE'], array("normal_user", "super_user"), true)) ||
+        ($_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "Headmaster")
+    )
 );
 
 if(!$isAllowed){
@@ -22,7 +24,7 @@ if(!$isAllowed){
     } elseif(isset($_SESSION['ACCESSLEVEL']) && $_SESSION['ACCESSLEVEL'] === "user" && isset($_SESSION['SYSTEMTYPE']) && $_SESSION['SYSTEMTYPE'] === "Student"){
         header("location:student-page.php");
     } else {
-        header("location:index.php");
+        header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php"));
     }
     exit();
 }

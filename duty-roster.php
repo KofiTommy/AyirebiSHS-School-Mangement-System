@@ -5,9 +5,20 @@ include("check-login.php");
 include("duty-roster-utils.php");
 ensure_duty_roster_tables($con);
 
-if(!duty_roster_can_manage_module($con)){
+if(!duty_roster_can_view_module($con)){
     header("location:".duty_roster_landing_page());
     exit();
+}
+
+$canManageDutyRoster = duty_roster_can_manage_module($con);
+$isHeadmasterViewer = duty_roster_is_headmaster();
+$currentBranchId = isset($_SESSION['BRANCHID']) ? trim((string)$_SESSION['BRANCHID']) : "";
+$dutyBranchFilter = "";
+$dutyRosterJoinBranchFilter = "";
+if($isHeadmasterViewer && $currentBranchId !== ""){
+    $branchEsc = mysqli_real_escape_string($con, $currentBranchId);
+    $dutyBranchFilter = " AND userid IN (SELECT userid FROM tblsystemuser WHERE branchid='$branchEsc' AND systemtype='Teacher')";
+    $dutyRosterJoinBranchFilter = " AND su.branchid='$branchEsc'";
 }
 
 function dr_alert($type, $message){
@@ -71,7 +82,7 @@ $formValues = array(
     "enddate" => $nextWeek['end'],
 );
 
-if(isset($_POST['save_duty'])){
+if($canManageDutyRoster && isset($_POST['save_duty'])){
     $formValues['dutyid'] = trim((string)(isset($_POST['dutyid']) ? $_POST['dutyid'] : ""));
     $formValues['dutygroupid'] = trim((string)(isset($_POST['dutygroupid']) ? $_POST['dutygroupid'] : ""));
     $formValues['userid'] = trim((string)(isset($_POST['userid']) ? $_POST['userid'] : ""));
@@ -241,7 +252,7 @@ if(isset($_POST['save_duty'])){
     }
 }
 
-if(isset($_POST['change_duty_status'])){
+if($canManageDutyRoster && isset($_POST['change_duty_status'])){
     $dutyId = trim((string)(isset($_POST['dutyid']) ? $_POST['dutyid'] : ""));
     $action = trim((string)(isset($_POST['status_action']) ? $_POST['status_action'] : ""));
     if($dutyId !== ""){
@@ -262,7 +273,7 @@ if(isset($_POST['change_duty_status'])){
     exit();
 }
 
-if(isset($_POST['run_due_reminders'])){
+if($canManageDutyRoster && isset($_POST['run_due_reminders'])){
     $runSummary = duty_roster_run_weekly_reminders($con, null, isset($_SESSION['USERID']) ? $_SESSION['USERID'] : "SYSTEM");
     $flashMessage = dr_alert(
         "info",
@@ -270,7 +281,7 @@ if(isset($_POST['run_due_reminders'])){
     );
 }
 
-if(isset($_POST['send_single_reminder'])){
+if($canManageDutyRoster && isset($_POST['send_single_reminder'])){
     $dutyId = trim((string)(isset($_POST['dutyid']) ? $_POST['dutyid'] : ""));
     $reminderType = trim((string)(isset($_POST['reminder_type']) ? $_POST['reminder_type'] : "upcoming_week"));
     $singleResult = duty_roster_send_single_reminder($con, $dutyId, $reminderType, null, isset($_SESSION['USERID']) ? $_SESSION['USERID'] : "SYSTEM");
@@ -292,7 +303,7 @@ if(isset($_POST['send_single_reminder'])){
     exit();
 }
 
-if(isset($_GET['edit_duty'])){
+if($canManageDutyRoster && isset($_GET['edit_duty'])){
     $editDutyId = trim((string)$_GET['edit_duty']);
     if($editDutyId !== ""){
         $editDutyIdEsc = mysqli_real_escape_string($con, $editDutyId);
@@ -334,7 +345,7 @@ if($teacherRes){
 
 $activeNowCount = 0;
 $currentRes = mysqli_query($con, "SELECT COUNT(*) AS total_count FROM tbldutyroster
-    WHERE status='active' AND '$today' BETWEEN startdate AND enddate");
+    WHERE status='active' AND '$today' BETWEEN startdate AND enddate$dutyBranchFilter");
 if($currentRes && $row = mysqli_fetch_array($currentRes, MYSQLI_ASSOC)){
     $activeNowCount = (int)$row['total_count'];
 }
@@ -343,24 +354,43 @@ $nextWeekCount = 0;
 $nextRes = mysqli_query($con, "SELECT COUNT(*) AS total_count FROM tbldutyroster
     WHERE status='active'
       AND enddate >= '$nextWeek[start]'
-      AND startdate <= '$nextWeek[end]'");
+      AND startdate <= '$nextWeek[end]'$dutyBranchFilter");
 if($nextRes && $row = mysqli_fetch_array($nextRes, MYSQLI_ASSOC)){
     $nextWeekCount = (int)$row['total_count'];
 }
 
 $scheduledCount = 0;
 $scheduledRes = mysqli_query($con, "SELECT COUNT(*) AS total_count FROM tbldutyroster
-    WHERE status='active' AND enddate >= '$today'");
+    WHERE status='active' AND enddate >= '$today'$dutyBranchFilter");
 if($scheduledRes && $row = mysqli_fetch_array($scheduledRes, MYSQLI_ASSOC)){
     $scheduledCount = (int)$row['total_count'];
 }
 
 $teacherOnRosterCount = 0;
 $teacherCountRes = mysqli_query($con, "SELECT COUNT(DISTINCT userid) AS total_count FROM tbldutyroster
-    WHERE status='active' AND enddate >= '$today'");
+    WHERE status='active' AND enddate >= '$today'$dutyBranchFilter");
 if($teacherCountRes && $row = mysqli_fetch_array($teacherCountRes, MYSQLI_ASSOC)){
     $teacherOnRosterCount = (int)$row['total_count'];
 }
+
+$todayDutyNames = array();
+$todayDutyRows = mysqli_query($con, "SELECT DISTINCT CONCAT_WS(' ', su.firstname, su.othernames, su.surname) AS teacher_name
+    FROM tbldutyroster dr
+    INNER JOIN tblsystemuser su ON su.userid=dr.userid
+    WHERE dr.status='active'
+      AND '$today' BETWEEN dr.startdate AND dr.enddate$dutyRosterJoinBranchFilter
+    ORDER BY su.firstname ASC, su.surname ASC");
+if($todayDutyRows){
+    while($todayDutyRow = mysqli_fetch_array($todayDutyRows, MYSQLI_ASSOC)){
+        $teacherName = trim((string)$todayDutyRow['teacher_name']);
+        if($teacherName !== ""){
+            $todayDutyNames[] = $teacherName;
+        }
+    }
+}
+$todayDutySummary = count($todayDutyNames) > 0
+    ? duty_roster_team_summary_from_names($todayDutyNames, 4)
+    : "No teacher is currently on duty.";
 
 $dutyRows = array();
 $listSql = "SELECT dr.dutyid,dr.dutygroupid,dr.userid,dr.dutytitle,dr.dutylocation,dr.dutynote,dr.startdate,dr.enddate,dr.status,dr.datetimeentry,
@@ -385,6 +415,7 @@ $listSql = "SELECT dr.dutyid,dr.dutygroupid,dr.userid,dr.dutytitle,dr.dutylocati
                    ) AS last_target_week
             FROM tbldutyroster dr
             INNER JOIN tblsystemuser su ON su.userid=dr.userid
+            WHERE 1=1$dutyRosterJoinBranchFilter
             ORDER BY
                 CASE
                     WHEN dr.status='active' AND '$today' BETWEEN dr.startdate AND dr.enddate THEN 0
@@ -415,9 +446,11 @@ if($listRes){
 
     <section class="duty-roster-hero">
         <div>
-            <span class="duty-roster-kicker">Teacher Operations</span>
-            <h1>Duty roster with weekly reminders.</h1>
-            <p>Assign teachers to duty weeks, surface the reminder on their dashboard, and send SMS notifications for both the current week and the following week without repeating the same alert twice.</p>
+            <span class="duty-roster-kicker"><?php echo ($isHeadmasterViewer ? "School Supervision" : "Teacher Operations"); ?></span>
+            <h1><?php echo ($isHeadmasterViewer ? "Teachers on duty." : "Duty roster with weekly reminders."); ?></h1>
+            <p><?php echo ($isHeadmasterViewer
+                ? "Review the current and upcoming teacher duty schedule for your branch."
+                : "Assign teachers to duty weeks, surface the reminder on their dashboard, and send SMS notifications for both the current week and the following week without repeating the same alert twice."); ?></p>
             <div class="duty-roster-summary-grid">
                 <article class="duty-roster-summary-card"><span>Active This Week</span><strong><?php echo $activeNowCount; ?></strong></article>
                 <article class="duty-roster-summary-card"><span>Starting Next Week</span><strong><?php echo $nextWeekCount; ?></strong></article>
@@ -426,16 +459,21 @@ if($listRes){
             </div>
         </div>
         <aside class="duty-roster-quick-note">
-            <h3>How the reminder flow works</h3>
+            <h3><?php echo ($isHeadmasterViewer ? "Teachers on duty today" : "How the reminder flow works"); ?></h3>
+            <?php if($isHeadmasterViewer){ ?>
+            <p class="duty-roster-helper"><?php echo duty_roster_escape($todayDutySummary); ?></p>
+            <?php } else { ?>
             <ul>
                 <li>Teachers see their current or upcoming duty directly on the dashboard.</li>
                 <li>At the start of each week, one reminder run can notify teachers for this week and next week.</li>
                 <li>Each reminder scope is logged separately, so the same duty will not be sent twice for the same week.</li>
             </ul>
+            <?php } ?>
         </aside>
     </section>
 
     <div class="duty-roster-layout">
+        <?php if($canManageDutyRoster){ ?>
         <section class="duty-roster-panel duty-roster-form-card">
             <div class="duty-roster-panel__head">
                 <div>
@@ -527,6 +565,7 @@ if($listRes){
             </div>
 
         </aside>
+        <?php } ?>
     </div>
 
     <section class="duty-roster-table-card">
@@ -537,7 +576,9 @@ if($listRes){
             </div>
             <div class="duty-roster-muted">Current week: <?php echo duty_roster_escape(duty_roster_format_date($currentWeek['start'])." - ".duty_roster_format_date($currentWeek['end'])); ?></div>
         </div>
-        <p class="duty-roster-helper">This list shows the current phase of each duty, the teacher's phone availability, and the latest reminder status so you can quickly spot what still needs attention.</p>
+        <p class="duty-roster-helper"><?php echo ($canManageDutyRoster
+            ? "This list shows the current phase of each duty, the teacher's phone availability, and the latest reminder status so you can quickly spot what still needs attention."
+            : "This list shows which teachers are on duty, the duty period, and the current duty status."); ?></p>
 
         <?php if(count($dutyRows) > 0){ ?>
         <div class="duty-roster-table-wrap">
@@ -549,7 +590,7 @@ if($listRes){
                         <th>Period</th>
                         <th>Status</th>
                         <th>Latest Reminder</th>
-                        <th>Actions</th>
+                        <?php if($canManageDutyRoster){ ?><th>Actions</th><?php } ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -606,6 +647,7 @@ if($listRes){
                                 <small><?php echo duty_roster_escape($lastReminderText); ?></small>
                             </div>
                         </td>
+                        <?php if($canManageDutyRoster){ ?>
                         <td>
                             <div class="duty-roster-row-actions">
                                 <?php if($hasCurrentWeek){ ?>
@@ -635,6 +677,7 @@ if($listRes){
                                 </form>
                             </div>
                         </td>
+                        <?php } ?>
                     </tr>
                     <?php } ?>
                 </tbody>

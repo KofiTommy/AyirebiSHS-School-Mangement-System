@@ -39,6 +39,9 @@ $_ReturnedTodayRows = array();
 $_Alerts = array();
 $_ViewerId = isset($_SESSION['USERID']) ? (string)$_SESSION['USERID'] : "";
 $_CanManageSeniorHouse = house_master_is_admin();
+$_IsHeadmasterView = isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+    $_SESSION['ACCESSLEVEL'] === "user" &&
+    $_SESSION['SYSTEMTYPE'] === "Headmaster";
 $_StudentSearch = isset($_GET['student_search']) ? trim((string)$_GET['student_search']) : "";
 $_StudentHouseId = isset($_GET['student_houseid']) ? trim((string)$_GET['student_houseid']) : "";
 $_AssignedHouseOptions = array();
@@ -100,9 +103,17 @@ if(house_master_is_teacher()){
         $_ExeatPanelDescription = "Latest exeat requests and return activity across all houses.";
     }
 }
-$_DashboardRoleLabel = $_CanManageSeniorHouse ? "Administrator" : (($_MySeniorAssignment && trim((string)$_MySeniorAssignment['designation']) !== "") ? (string)$_MySeniorAssignment['designation'] : "House Staff");
-$_DashboardScopeLabel = ($_CanManageSeniorHouse || $_IsSeniorTeacherView) ? "All Houses" : "Assigned House Scope";
-$_DashboardModeLabel = $_CanManageSeniorHouse ? "Setup Controls Enabled" : "Operations View";
+if($_IsHeadmasterView){
+    $_PageSubtitle = "Review senior house leadership, student placement, and exeat activity across the school from one leadership view.";
+    $_HouseOverviewDescription = "All houses with current supervision, student load, and exeat return activity.";
+    $_AssignmentPanelTitle = "Student Assignments By House";
+    $_AssignmentPanelDescription = "Current student house placement across the school.";
+    $_AssignmentPanelEmpty = "No active student house assignments were found.";
+    $_ExeatPanelDescription = "Latest exeat requests and return activity across all houses.";
+}
+$_DashboardRoleLabel = $_CanManageSeniorHouse ? "Administrator" : ($_IsHeadmasterView ? "Headmaster" : (($_MySeniorAssignment && trim((string)$_MySeniorAssignment['designation']) !== "") ? (string)$_MySeniorAssignment['designation'] : "House Staff"));
+$_DashboardScopeLabel = ($_CanManageSeniorHouse || $_IsSeniorTeacherView || $_IsHeadmasterView) ? "All Houses" : "Assigned House Scope";
+$_DashboardModeLabel = $_CanManageSeniorHouse ? "Setup Controls Enabled" : ($_IsHeadmasterView ? "Read Only Overview" : "Operations View");
 $_DashboardFilterParts = array();
 if($_StudentHouseId !== "" && isset($_AssignedHouseMap[$_StudentHouseId])){
     $_DashboardFilterParts[] = "House: ".$_AssignedHouseMap[$_StudentHouseId];
@@ -903,6 +914,8 @@ body{
                 }else{
                     if($_CanManageSeniorHouse || $_IsSeniorTeacherView){
                         $_OkMessage = "All active houses currently have supervisors, students are assigned, and there are no pending or overdue exeat backlogs.";
+                    }elseif($_IsHeadmasterView){
+                        $_OkMessage = "Senior house activity is stable right now, with no pending or overdue exeat backlog requiring immediate attention.";
                     }else{
                         $_OkMessage = "Your assigned house students are up to date and there are no pending or overdue exeat backlogs in your current scope.";
                     }

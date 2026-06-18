@@ -8,8 +8,8 @@ include_once("company.php");
 semester_registry_ensure_academic_year_column($con);
 report_approval_ensure_table($con);
 
-if(!report_approval_is_admin_user()){
-    header("location:admin.php");
+if(!report_approval_is_admin_user() && !(function_exists('um_current_user_can_access_module') && um_current_user_can_access_module($con, 'reports'))){
+    header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : 'admin.php'));
     exit();
 }
 

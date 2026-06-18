@@ -8,7 +8,8 @@ function search_esc($v){
 }
 
 $systemType = isset($_SESSION["SYSTEMTYPE"]) ? $_SESSION["SYSTEMTYPE"] : "";
-if(!in_array($systemType, array("super_user", "normal_user"))){
+$isHeadmasterViewer = ($systemType === "Headmaster");
+if(!in_array($systemType, array("super_user", "normal_user", "Headmaster"), true)){
     echo "<div class='search-alert'><i class='fa fa-lock'></i> Access denied.</div>";
     exit;
 }
@@ -73,12 +74,13 @@ if(!$result){
 }
 
 $count = mysqli_num_rows($result);
+$actionColumns = $isHeadmasterViewer ? 2 : 3;
 echo "<div class='search-result-summary'><span>".(int)$count."</span><div><strong>Students Found</strong><p>Showing up to 120 matching records.</p></div></div>";
 echo "<div class='search-table-wrap'>";
 echo "<table class='search-table'>";
 echo "<caption>".(int)$count." Students Found</caption>";
 echo "<thead>";
-echo "<tr><th colspan='3'>Action</th><th>Index Number</th><th>Full Name</th><th>Home Address</th><th>Next of Kin</th><th>Contact</th></tr>";
+echo "<tr><th colspan='".$actionColumns."'>Action</th><th>Index Number</th><th>Full Name</th><th>Home Address</th><th>Next of Kin</th><th>Contact</th></tr>";
 echo "</thead>";
 echo "<tbody>";
 
@@ -90,9 +92,14 @@ while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){
     $fullName = trim($first." ".$other." ".$sur);
 
     echo "<tr>";
-    echo "<td align='center'><a class='search-row-action search-action-money' href='payments.php?userid=".urlencode($userid)."' title='Click for Payment by ".search_esc($first)."'><i class='fa fa-money'></i></a></td>";
-    echo "<td align='center'><a class='search-row-action' href='register_edit.php?edit_user=".urlencode($userid)."' title='Update Profile of ".search_esc($first)."'><i class='fa fa-edit'></i></a></td>";
-    echo "<td align='center'><a class='search-row-action search-action-danger' href='register.php?block_user=".urlencode($userid)."' title='Block ".search_esc($first)."'><i class='fa fa-user'></i></a></td>";
+    if($isHeadmasterViewer){
+        echo "<td align='center'><a class='search-row-action' href='user-profile.php?view_user=".urlencode($userid)."' title='View details for ".search_esc($first)."'><i class='fa fa-eye'></i></a></td>";
+        echo "<td align='center'><a class='search-row-action search-action-money' href='student-history.php?userid=".urlencode($userid)."' title='Open transcript for ".search_esc($first)."'><i class='fa fa-history'></i></a></td>";
+    }else{
+        echo "<td align='center'><a class='search-row-action search-action-money' href='payments.php?userid=".urlencode($userid)."' title='Click for Payment by ".search_esc($first)."'><i class='fa fa-money'></i></a></td>";
+        echo "<td align='center'><a class='search-row-action' href='register_edit.php?edit_user=".urlencode($userid)."' title='Update Profile of ".search_esc($first)."'><i class='fa fa-edit'></i></a></td>";
+        echo "<td align='center'><a class='search-row-action search-action-danger' href='register.php?block_user=".urlencode($userid)."' title='Block ".search_esc($first)."'><i class='fa fa-user'></i></a></td>";
+    }
     echo "<td align='center'>".search_esc($userid)."</td>";
     echo "<td>".search_esc(strtoupper($fullName))."</td>";
     echo "<td>".search_esc($row["homeaddress"])."</td>";
@@ -107,7 +114,7 @@ while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){
         WHERE cl.userid=?
         ORDER BY cl.datetimeentry DESC";
     $classStmt = mysqli_prepare($con, $classSql);
-    echo "<tr><td colspan='8'>";
+    echo "<tr><td colspan='".($actionColumns + 5)."'>";
     if($classStmt){
         mysqli_stmt_bind_param($classStmt, "s", $userid);
         mysqli_stmt_execute($classStmt);
@@ -134,7 +141,7 @@ while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){
 }
 
 if($count === 0){
-    echo "<tr><td colspan='8' class='search-no-match'>No student matched '".search_esc($q)."'.</td></tr>";
+    echo "<tr><td colspan='".($actionColumns + 5)."' class='search-no-match'>No student matched '".search_esc($q)."'.</td></tr>";
 }
 
 echo "</tbody>";

@@ -1,7 +1,8 @@
 <?php
 session_start();
 
-include("dbstring.php");
+include("check-login.php");
+include_once("user-management-utils.php");
 
 @$_UserID=$_POST['userid'];
 @$_Firstname=$_POST['firstname'];
@@ -99,6 +100,28 @@ $contactPhoneLabel = $profileIsTeacher ? "Emergency Contact Number" : "Next Of K
 $profileStatus = $profileRow ? strtolower(trim((string)up_value($profileRow, "status", ""))) : "";
 $profileStatusLabel = ($profileStatus === "active") ? "Active" : (($profileStatus !== "") ? "Blocked" : "--");
 $profileAvatar = $profileRow ? up_avatar_path($profileRow) : "uploads/comm.gif";
+$isAdminViewer = isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+    $_SESSION['ACCESSLEVEL'] === 'administrator' &&
+    in_array($_SESSION['SYSTEMTYPE'], array('normal_user', 'super_user'), true);
+$isHeadmasterViewer = function_exists('um_is_headmaster_user') && um_is_headmaster_user();
+$isOwnProfile = $viewUserId !== "" && isset($_SESSION['USERID']) && trim((string)$_SESSION['USERID']) === $viewUserId;
+$canViewProfile = false;
+
+if($profileRow){
+    if($isAdminViewer || $isOwnProfile){
+        $canViewProfile = true;
+    }elseif($isHeadmasterViewer && ($profileIsStudent || $profileIsTeacher)){
+        $canViewProfile = true;
+    }
+}
+
+if(!$canViewProfile){
+    $_SESSION['Message'] = "<div style='color:red;text-align:center;padding:10px;'>You do not have access to that profile.</div>";
+    header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php"));
+    exit();
+}
+
+$canEditProfile = $isAdminViewer;
 ?>
 
 <html>
@@ -129,7 +152,12 @@ include("links.php");
         </div>
         <div class="user-profile-hero__actions">
             <button type="button" class="user-profile-link" onclick="window.history.back();"><i class="fa fa-arrow-left"></i> Back</button>
+            <?php if($profileIsStudent){ ?>
+            <a href="student-history.php?userid=<?php echo urlencode($viewUserId); ?>" class="user-profile-link"><i class="fa fa-history"></i> Transcript</a>
+            <?php } ?>
+            <?php if($canEditProfile){ ?>
             <a href="register_edit.php?edit_user=<?php echo urlencode($viewUserId); ?>" class="user-profile-link user-profile-link--primary"><i class="fa fa-edit"></i> Edit Profile</a>
+            <?php } ?>
         </div>
     </section>
 

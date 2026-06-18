@@ -393,6 +393,60 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <?php
 
 }
+else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Headmaster"){
+ ?>
+<ul>
+  <li>
+      <a class="active" href="headmaster-page.php"><i class="fa fa-home" ></i> Home</a>
+  </li>
+
+  <li class="dropdown">
+    <a href="#" class="dropbtn"><i class="fa fa-dashboard" ></i> Overview</a>
+    <div class="dropdown-content">
+      <a href="search.php"><i class="fa fa-search" ></i> Search Student</a>
+      <a href="student-history.php"><i class="fa fa-history" ></i> Student Transcript</a>
+      <a href="continuing-students.php"><i class="fa fa-users" ></i> Continuing Students</a>
+      <a href="viewusers.php"><i class="fa fa-users" ></i> Teachers List</a>
+      <a href="duty-roster.php"><i class="fa fa-calendar-check-o" ></i> Teacher On Duty</a>
+      <a href="senior-house-dashboard.php"><i class="fa fa-shield" ></i> Senior House Overview</a>
+      <a href="view-class-registry.php"><i class="fa fa-folder-open" ></i> View Class Registry</a>
+    </div>
+  </li>
+
+  <li class="dropdown">
+    <a href="#" class="dropbtn"><i class="fa fa-graduation-cap" ></i> Academics</a>
+    <div class="dropdown-content">
+      <a href="student-attendance-report.php"><i class="fa fa-bar-chart" ></i> Attendance Summary</a>
+      <a href="terminal-report.php"><i class="fa fa-file-text-o" ></i> Examination Report</a>
+      <a href="internal-exam-analysis.php"><i class="fa fa-bar-chart" ></i> Internal Exams Analysis</a>
+      <a href="waec-analysis.php"><i class="fa fa-line-chart" ></i> WAEC Analysis</a>
+      <a href="lesson-timetable-report.php"><i class="fa fa-calendar" ></i> Lesson Timetable</a>
+      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
+    </div>
+  </li>
+
+  <li class="dropdown">
+    <a href="#" class="dropbtn"><i class="fa fa-money" ></i> Finance</a>
+    <div class="dropdown-content">
+      <a href="daily-report.php"><i class="fa fa-book" ></i> Daily Report</a>
+      <a href="payment-analysis.php"><i class="fa fa-line-chart" ></i> Payment Report</a>
+      <a href="bills-report.php"><i class="fa fa-files-o" ></i> Bills Report</a>
+      <a href="item-bill-report.php"><i class="fa fa-list" ></i> Item Bill Report</a>
+    </div>
+  </li>
+
+  <li class="dropdown">
+    <a href="#" class="dropbtn"><i class="fa fa-bullhorn" ></i> Communication</a>
+    <div class="dropdown-content">
+      <a href="online-admission-admin.php"><i class="fa fa-globe" ></i> Online Admission</a>
+      <a href="messages.php"><i class="fa fa-comments" ></i> Message Box</a>
+      <a href="notification.php"><i class="fa fa-bullhorn" ></i> Send Notification</a>
+    </div>
+  </li>
+</ul>
+
+<?php
+}
 else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
  ?>
 <ul>

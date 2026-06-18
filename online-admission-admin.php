@@ -587,6 +587,19 @@ unset($_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"]);
 $paymentSetting = online_admission_get_payment_setting($con, $branchId);
 $paystackConfig = online_admission_paystack_config();
 $paystackReady = online_admission_paystack_is_ready($paystackConfig);
+$isHeadmasterAdmissionViewer = function_exists('online_admission_is_headmaster') && online_admission_is_headmaster();
+
+if($isHeadmasterAdmissionViewer){
+    $headmasterBlockedAction = ($_SERVER["REQUEST_METHOD"] === "POST")
+        || isset($_GET["edit_application"])
+        || isset($_GET["export"])
+        || isset($_GET["print"])
+        || isset($_GET["houseid"]);
+    if($headmasterBlockedAction){
+        header("location:online-admission-admin.php");
+        exit();
+    }
+}
 
 $selectedApplicationId = trim((string)(isset($_POST["edit_application"]) ? $_POST["edit_application"] : (isset($_GET["edit_application"]) ? $_GET["edit_application"] : "")));
 $editableApplication = null;
@@ -1305,11 +1318,12 @@ if(isset($_POST["clear_admission_year"])){
     }
 }
 
-$stats = array("posted" => 0, "draft" => 0, "submitted" => 0, "reviewed" => 0);
+$stats = array("posted" => 0, "draft" => 0, "submitted" => 0, "reviewed" => 0, "needs_attention" => 0);
 $statsRes = mysqli_query($con, "SELECT
     (SELECT COUNT(*) FROM tbladmissionpostedstudent WHERE branchid='$branchIdEsc' AND status='active') AS posted_total,
     SUM(CASE WHEN status='draft' THEN 1 ELSE 0 END) AS draft_total,
     SUM(CASE WHEN status='submitted' THEN 1 ELSE 0 END) AS submitted_total,
+    SUM(CASE WHEN status='needs_attention' THEN 1 ELSE 0 END) AS needs_attention_total,
     SUM(CASE WHEN status='reviewed' THEN 1 ELSE 0 END) AS reviewed_total
     FROM tblonlineadmissionapplication
     WHERE branchid='$branchIdEsc'");
@@ -1317,6 +1331,7 @@ if($statsRes && ($row = mysqli_fetch_array($statsRes, MYSQLI_ASSOC))){
     $stats["posted"] = (int)$row["posted_total"];
     $stats["draft"] = (int)$row["draft_total"];
     $stats["submitted"] = (int)$row["submitted_total"];
+    $stats["needs_attention"] = (int)$row["needs_attention_total"];
     $stats["reviewed"] = (int)$row["reviewed_total"];
 }
 
@@ -1458,6 +1473,26 @@ $paymentExportRes = mysqli_query($con, "SELECT pay.*, app.firstname, app.surname
     WHERE pay.branchid='$branchIdEsc'
     ORDER BY pay.createdat DESC");
 if($paymentExportRes){ while($row = mysqli_fetch_array($paymentExportRes, MYSQLI_ASSOC)){ $paymentExportSource[] = $row; } }
+
+$paymentSummary = array(
+    "success_total" => 0,
+    "pending_total" => 0,
+    "failed_total" => 0,
+    "success_amount" => 0.0
+);
+$paymentSummaryRes = mysqli_query($con, "SELECT
+    SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) AS success_total,
+    SUM(CASE WHEN status IN('pending','initialized') THEN 1 ELSE 0 END) AS pending_total,
+    SUM(CASE WHEN status IN('failed','abandoned') THEN 1 ELSE 0 END) AS failed_total,
+    COALESCE(SUM(CASE WHEN status='success' THEN amount ELSE 0 END),0) AS success_amount
+    FROM tblonlineadmissionpayment
+    WHERE branchid='$branchIdEsc'");
+if($paymentSummaryRes && ($paymentSummaryRow = mysqli_fetch_array($paymentSummaryRes, MYSQLI_ASSOC))){
+    $paymentSummary["success_total"] = (int)$paymentSummaryRow["success_total"];
+    $paymentSummary["pending_total"] = (int)$paymentSummaryRow["pending_total"];
+    $paymentSummary["failed_total"] = (int)$paymentSummaryRow["failed_total"];
+    $paymentSummary["success_amount"] = (float)$paymentSummaryRow["success_amount"];
+}
 
 $helpRequests = online_admission_get_recent_help_requests($con, $branchId, 20);
 $cycleSummaries = online_admission_list_year_summaries($con, $branchId);
@@ -1757,6 +1792,180 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
 <div class="header"><?php include("menu.php"); ?></div>
 <main class="rs-shell">
     <?php if($flashMessage !== ""){ ?><div class="rs-flash"><?php echo $flashMessage; ?></div><?php } ?>
+    <?php
+    if($isHeadmasterAdmissionViewer){
+        $headmasterRecentPosted = array_slice($postedStudents, 0, 8);
+        $headmasterRecentApplications = array_slice($applications, 0, 6);
+        $headmasterRecentPayments = array_slice($recentPayments, 0, 8);
+        $headmasterSubmissionTotal = (int)$stats["submitted"] + (int)$stats["needs_attention"] + (int)$stats["reviewed"];
+    ?>
+    <section class="rs-hero">
+        <div>
+            <span class="rs-kicker"><i class="fa fa-globe"></i> Headmaster Admission View</span>
+            <h1>Online admission summary</h1>
+            <p>Track recent posted students, submitted forms, payment activity, and the current admission position from one read-only page.</p>
+            <div class="rs-pills">
+                <span><?php echo aa_esc($branchName); ?></span>
+                <span><?php echo aa_esc($activeCycle ? $activeCycle["admissionyear"] : $documentYear); ?></span>
+                <span><?php echo online_admission_portal_is_open($paymentSetting) ? "Portal Open" : "Portal Closed"; ?></span>
+            </div>
+        </div>
+        <aside class="rs-hero-card">
+            <span class="rs-kicker">Current Branch</span>
+            <h2><?php echo aa_esc($branchName); ?></h2>
+            <p><?php echo aa_esc($companyName); ?></p>
+            <div class="rs-metrics">
+                <article><span>Posted</span><strong><?php echo number_format($stats["posted"]); ?></strong></article>
+                <article><span>Submissions</span><strong><?php echo number_format($headmasterSubmissionTotal); ?></strong></article>
+                <article><span>Payments</span><strong><?php echo number_format($paymentTotal); ?></strong></article>
+                <article><span>Collected</span><strong><?php echo aa_esc(aa_money($paymentSummary["success_amount"], $paymentSetting["currency"])); ?></strong></article>
+            </div>
+        </aside>
+    </section>
+
+    <section class="aa-overview-grid">
+        <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Active Admission Year</span>
+            <strong><?php echo aa_esc($activeCycle ? $activeCycle["admissionyear"] : $documentYear); ?></strong>
+            <small><?php echo $activeCycle ? number_format((int)$activeCycle["posted_total"])." posted student record(s)." : "Current branch intake overview."; ?></small>
+        </article>
+        <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Posted Students</span>
+            <strong><?php echo number_format($stats["posted"]); ?></strong>
+            <small>Students currently on the posted admission list.</small>
+        </article>
+        <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Admission Submissions</span>
+            <strong><?php echo number_format($headmasterSubmissionTotal); ?></strong>
+            <small><?php echo number_format($stats["submitted"]); ?> pending review, <?php echo number_format($stats["reviewed"]); ?> reviewed.</small>
+        </article>
+        <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Needs Attention</span>
+            <strong><?php echo number_format($stats["needs_attention"]); ?></strong>
+            <small>Submitted forms flagged for follow-up.</small>
+        </article>
+        <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Successful Payments</span>
+            <strong><?php echo number_format($paymentSummary["success_total"]); ?></strong>
+            <small><?php echo aa_esc(aa_money($paymentSummary["success_amount"], $paymentSetting["currency"])); ?> collected so far.</small>
+        </article>
+        <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Payment Queue</span>
+            <strong><?php echo number_format($paymentSummary["pending_total"]); ?></strong>
+            <small><?php echo number_format($paymentSummary["failed_total"]); ?> failed or abandoned payment attempt(s).</small>
+        </article>
+    </section>
+
+    <div class="aa-main-stack">
+        <section class="rs-panel aa-section">
+            <div class="rs-side-head">
+                <span class="rs-kicker rs-kicker--dark">Posted List</span>
+                <h2>Recent Posted Students</h2>
+                <span class="aa-section-chip aa-section-chip--neutral"><?php echo number_format($stats["posted"]); ?></span>
+            </div>
+            <p class="aa-search-meta">Latest students placed on the admission list for this branch.</p>
+            <div class="aa-table-wrap">
+                <table class="aa-table">
+                    <thead>
+                        <tr>
+                            <th>BECE Index</th>
+                            <th>Student</th>
+                            <th>Programme</th>
+                            <th>Class</th>
+                            <th>Residence</th>
+                            <th>Added On</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if(count($headmasterRecentPosted) > 0){ foreach($headmasterRecentPosted as $student){ ?>
+                        <tr>
+                            <td><?php echo aa_esc($student["beceindexnumber"]); ?></td>
+                            <td><?php echo aa_esc(trim($student["firstname"]." ".$student["othernames"]." ".$student["surname"])); ?></td>
+                            <td><?php echo aa_esc($student["offeredprogram"]); ?></td>
+                            <td><?php echo aa_esc($student["offeredclass"]); ?></td>
+                            <td><?php echo aa_esc($student["residentialstatus"]); ?></td>
+                            <td><?php echo aa_esc(aa_date($student["datetimeentry"], "d M Y, g:i a")); ?></td>
+                        </tr>
+                        <?php } } else { ?>
+                        <tr><td colspan="6">No posted students have been added yet.</td></tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="rs-panel aa-section">
+            <div class="rs-side-head">
+                <span class="rs-kicker rs-kicker--dark">Submissions</span>
+                <h2>Recent Admission Submissions</h2>
+                <span class="aa-section-chip aa-section-chip--success"><?php echo number_format($headmasterSubmissionTotal); ?></span>
+            </div>
+            <div class="aa-app-list">
+                <?php if(count($headmasterRecentApplications) > 0){ foreach($headmasterRecentApplications as $app){ $appPayment = isset($applicationPaymentMap[$app["applicationid"]]) ? $applicationPaymentMap[$app["applicationid"]] : null; ?>
+                <article class="aa-app-card">
+                    <div class="aa-app-card__top">
+                        <div>
+                            <h3><?php echo aa_esc(trim($app["firstname"]." ".$app["othernames"]." ".$app["surname"])); ?></h3>
+                            <p><?php echo aa_esc($app["beceindexnumber"]); ?> · <?php echo aa_esc($app["admissionyear"]); ?></p>
+                        </div>
+                        <span class="<?php echo aa_status_class($app["status"]); ?>"><?php echo aa_esc(online_admission_status_label($app["status"])); ?></span>
+                    </div>
+                    <div class="aa-app-card__meta">
+                        <span><?php echo aa_esc($app["residencetype"] !== "" ? $app["residencetype"] : "Residence pending"); ?></span>
+                        <?php if(isset($applicationAssignedHouseMap[$app["applicationid"]]) && $applicationAssignedHouseMap[$app["applicationid"]] && trim((string)$applicationAssignedHouseMap[$app["applicationid"]]["housename"]) !== ""){ ?><span>House: <?php echo aa_esc($applicationAssignedHouseMap[$app["applicationid"]]["housename"]); ?></span><?php } ?>
+                        <span><?php echo aa_esc($app["guardianname"] !== "" ? $app["guardianname"] : "Guardian pending"); ?></span>
+                        <span><?php echo aa_esc($app["mobile"] !== "" ? $app["mobile"] : "Mobile pending"); ?></span>
+                        <span class="<?php echo $appPayment ? aa_payment_status_class($appPayment["status"]) : "aa-status aa-status--neutral"; ?>"><?php echo aa_esc($appPayment ? online_admission_payment_status_label($appPayment["status"]) : "Payment not started"); ?></span>
+                        <span><?php echo aa_esc(aa_date($app["updatedat"], "d M Y, g:i a")); ?></span>
+                    </div>
+                </article>
+                <?php } } else { ?>
+                <div class="rs-empty"><h3>No admission submissions yet</h3><p>Submitted online admission forms will appear here once students start applying.</p></div>
+                <?php } ?>
+            </div>
+        </section>
+
+        <section class="rs-panel aa-section">
+            <div class="rs-side-head">
+                <span class="rs-kicker rs-kicker--dark">Payments</span>
+                <h2>Recent Admission Payments</h2>
+                <span class="aa-section-chip aa-section-chip--info"><?php echo number_format($paymentTotal); ?></span>
+            </div>
+            <p class="aa-search-meta">Latest payment activity for admission forms in this branch.</p>
+            <div class="aa-table-wrap">
+                <table class="aa-table">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Reference</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Paid</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if(count($headmasterRecentPayments) > 0){ foreach($headmasterRecentPayments as $payment){ ?>
+                        <tr>
+                            <td><?php echo aa_esc(trim($payment["firstname"]." ".$payment["othernames"]." ".$payment["surname"])); ?></td>
+                            <td><?php echo aa_esc($payment["reference"]); ?></td>
+                            <td><?php echo aa_esc(aa_money($payment["amount"], $payment["currency"])); ?></td>
+                            <td><span class="<?php echo aa_payment_status_class($payment["status"]); ?>"><?php echo aa_esc(online_admission_payment_status_label($payment["status"])); ?></span></td>
+                            <td><?php echo aa_esc(aa_date($payment["createdat"], "d M Y, g:i a")); ?></td>
+                            <td><?php echo aa_esc($payment["paidat"] !== "" ? aa_date($payment["paidat"], "d M Y, g:i a") : "Not paid"); ?></td>
+                        </tr>
+                        <?php } } else { ?>
+                        <tr><td colspan="6">No admission payment attempts have been recorded yet.</td></tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</main>
+</body>
+</html>
+<?php exit(); } ?>
 
     <section class="rs-hero">
         <div>

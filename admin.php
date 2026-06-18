@@ -9,6 +9,126 @@ if(isset($_POST['mark_changes_read'])){
     header("Location: admin.php#system-change-notifications");
     exit();
 }
+
+if(!function_exists('admin_dashboard_safe')){
+function admin_dashboard_safe($value){
+    return htmlspecialchars((string)$value, ENT_QUOTES, "UTF-8");
+}
+}
+
+if(!function_exists('admin_dashboard_relative_time')){
+function admin_dashboard_relative_time($value){
+    $timestamp = strtotime((string)$value);
+    if($timestamp === false){
+        return trim((string)$value);
+    }
+    $diff = time() - $timestamp;
+    if($diff < 0){
+        $diff = 0;
+    }
+    if($diff < 60){
+        return "Just now";
+    }
+    if($diff < 3600){
+        return floor($diff / 60)." min ago";
+    }
+    if($diff < 86400){
+        return floor($diff / 3600)." hr ago";
+    }
+    if($diff < 604800){
+        return floor($diff / 86400)." day".(floor($diff / 86400) === 1 ? "" : "s")." ago";
+    }
+    return date("d M Y, g:i a", $timestamp);
+}
+}
+
+if(!function_exists('admin_dashboard_action_label')){
+function admin_dashboard_action_label($actionType){
+    $actionType = strtoupper(trim((string)$actionType));
+    $map = array(
+        "PASSWORD_CHANGE" => "Password Changed",
+        "ADMIN_PASSWORD_RESET" => "Password Reset",
+        "CLASS_SCORE_UPLOAD" => "Class Scores Uploaded",
+        "EXAM_SCORE_UPLOAD" => "Exam Scores Uploaded",
+        "CLASS_EXAM_SCORE_UPLOAD" => "Scores Uploaded",
+        "SCORE_UPLOAD" => "Scores Uploaded",
+        "RESULT_PUBLISH" => "Results Published",
+        "RESULT_APPROVAL" => "Results Approved",
+        "RESULT_REOPEN" => "Results Reopened",
+        "MARK_DELETE" => "Mark Deleted"
+    );
+    if(isset($map[$actionType])){
+        return $map[$actionType];
+    }
+    if($actionType === ""){
+        return "System Activity";
+    }
+    return ucwords(strtolower(str_replace("_", " ", $actionType)));
+}
+}
+
+if(!function_exists('admin_dashboard_activity_icon')){
+function admin_dashboard_activity_icon($actionType, $source = "log"){
+    $actionType = strtoupper(trim((string)$actionType));
+    if($source === "registration"){
+        return ($actionType === "TEACHER") ? "fa-user-plus" : "fa-graduation-cap";
+    }
+    if(strpos($actionType, "PASSWORD") !== false){
+        return "fa-key";
+    }
+    if(strpos($actionType, "UPLOAD") !== false || strpos($actionType, "SCORE") !== false){
+        return "fa-line-chart";
+    }
+    if(strpos($actionType, "RESULT") !== false){
+        return "fa-file-text-o";
+    }
+    if(strpos($actionType, "DELETE") !== false){
+        return "fa-trash-o";
+    }
+    return "fa-history";
+}
+}
+
+if(!function_exists('admin_dashboard_activity_tone')){
+function admin_dashboard_activity_tone($actionType, $source = "log"){
+    $actionType = strtoupper(trim((string)$actionType));
+    if($source === "registration"){
+        return ($actionType === "TEACHER") ? "accent" : "success";
+    }
+    if(strpos($actionType, "PASSWORD") !== false){
+        return "warning";
+    }
+    if(strpos($actionType, "UPLOAD") !== false || strpos($actionType, "SCORE") !== false){
+        return "info";
+    }
+    if(strpos($actionType, "RESULT") !== false){
+        return "success";
+    }
+    if(strpos($actionType, "DELETE") !== false){
+        return "danger";
+    }
+    return "neutral";
+}
+}
+
+if(!function_exists('admin_dashboard_excerpt')){
+function admin_dashboard_excerpt($text, $limit = 150){
+    $text = trim((string)$text);
+    if($text === ""){
+        return "";
+    }
+    if(function_exists('mb_strlen') && function_exists('mb_substr')){
+        if(mb_strlen($text, "UTF-8") <= $limit){
+            return $text;
+        }
+        return rtrim(mb_substr($text, 0, $limit - 1, "UTF-8"))."...";
+    }
+    if(strlen($text) <= $limit){
+        return $text;
+    }
+    return rtrim(substr($text, 0, $limit - 1))."...";
+}
+}
 ?>
 
 <html>
@@ -281,6 +401,273 @@ include("links.php");
     color: #ecfeff;
 }
 
+.recent-activity-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.9fr);
+    gap: 14px;
+    margin: 0 0 16px;
+    align-items: start;
+}
+
+.recent-activity-panel,
+.recent-activity-aside {
+    border: 1px solid rgba(15, 39, 66, 0.1);
+    border-radius: 14px;
+    background:
+        linear-gradient(135deg, rgba(236, 254, 255, 0.5), transparent 38%),
+        linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.recent-activity-panel {
+    padding: 14px;
+}
+
+.recent-activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.recent-activity-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #0f766e;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.recent-activity-header h3 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 1.02rem;
+}
+
+.recent-activity-header p {
+    margin: 6px 0 0;
+    color: #64748b;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    max-width: 580px;
+}
+
+.recent-activity-open {
+    white-space: nowrap;
+}
+
+.recent-activity-list {
+    display: grid;
+    gap: 10px;
+}
+
+.recent-activity-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: start;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.recent-activity-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    border: 1px solid transparent;
+    flex: 0 0 auto;
+}
+
+.recent-activity-icon--info {
+    background: #e0f2fe;
+    color: #0369a1;
+    border-color: #bae6fd;
+}
+
+.recent-activity-icon--success {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #86efac;
+}
+
+.recent-activity-icon--warning {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fcd34d;
+}
+
+.recent-activity-icon--danger {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fca5a5;
+}
+
+.recent-activity-icon--accent {
+    background: #ede9fe;
+    color: #6d28d9;
+    border-color: #c4b5fd;
+}
+
+.recent-activity-icon--neutral {
+    background: #f1f5f9;
+    color: #334155;
+    border-color: #cbd5e1;
+}
+
+.recent-activity-body {
+    min-width: 0;
+}
+
+.recent-activity-topline {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.recent-activity-topline strong {
+    color: #0f172a;
+    font-size: 0.95rem;
+}
+
+.recent-activity-topline time {
+    color: #64748b;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.recent-activity-body p {
+    margin: 0;
+    color: #475569;
+    font-size: 0.84rem;
+    line-height: 1.55;
+}
+
+.recent-activity-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 9px;
+}
+
+.recent-activity-meta span {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 0.74rem;
+    font-weight: 600;
+}
+
+.recent-activity-link {
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 39, 66, 0.1);
+    background: #ffffff;
+    color: #0f2742;
+    text-decoration: none;
+    font-size: 0.77rem;
+    font-weight: 700;
+}
+
+.recent-activity-link:hover {
+    border-color: rgba(15, 118, 110, 0.3);
+    background: #ecfeff;
+}
+
+.recent-activity-empty {
+    padding: 14px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 14px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 0.86rem;
+    text-align: center;
+}
+
+.recent-activity-empty i {
+    display: block;
+    margin-bottom: 8px;
+    color: #0f766e;
+    font-size: 1.1rem;
+}
+
+.recent-activity-aside {
+    padding: 14px;
+}
+
+.recent-activity-aside h4 {
+    margin: 0 0 6px;
+    color: #0f172a;
+    font-size: 0.96rem;
+}
+
+.recent-activity-aside p {
+    margin: 0 0 12px;
+    color: #64748b;
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
+.recent-activity-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.recent-activity-summary-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.94);
+    padding: 12px;
+}
+
+.recent-activity-summary-card span {
+    display: block;
+    color: #64748b;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+}
+
+.recent-activity-summary-card strong {
+    display: block;
+    color: #0f172a;
+    font-size: 1.45rem;
+    line-height: 1.1;
+}
+
+.recent-activity-summary-card small {
+    display: block;
+    margin-top: 6px;
+    color: #475569;
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
 .readiness-card {
     display: flex;
     align-items: center;
@@ -367,6 +754,239 @@ include("links.php");
     margin: 0;
 }
 
+.dashboard-global-search {
+    flex: 1 1 430px;
+    min-width: min(100%, 360px);
+    position: relative;
+}
+
+.dashboard-global-search-form {
+    margin: 0;
+}
+
+.dashboard-global-search-label {
+    display: block;
+    margin: 0 0 6px;
+    color: #475569;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.dashboard-global-search-field {
+    position: relative;
+}
+
+.dashboard-global-search-field > i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--executive-teal);
+    font-size: 0.96rem;
+    pointer-events: none;
+}
+
+.dashboard-global-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid rgba(15, 39, 66, 0.14);
+    border-radius: 999px;
+    padding: 12px 102px 12px 40px;
+    background: #ffffff;
+    color: #0f172a;
+    font-size: 0.92rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.dashboard-global-search-input:focus {
+    outline: none;
+    border-color: rgba(14, 165, 233, 0.65);
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12);
+    background: #f8fafc;
+}
+
+.dashboard-global-search-submit {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: 999px;
+    padding: 9px 16px;
+    background: linear-gradient(135deg, var(--executive-navy) 0%, var(--executive-teal) 100%);
+    color: #ecfeff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.dashboard-global-search-submit:hover {
+    transform: translateY(-50%) translateY(-1px);
+    box-shadow: 0 12px 20px rgba(15, 118, 110, 0.22);
+}
+
+.dashboard-global-search-hint {
+    margin: 6px 0 0;
+    color: #64748b;
+    font-size: 0.78rem;
+}
+
+.dashboard-global-search-results {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    padding: 14px;
+    border: 1px solid rgba(15, 39, 66, 0.12);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 24px 40px rgba(15, 23, 42, 0.14);
+    backdrop-filter: blur(10px);
+    max-height: 520px;
+    overflow-y: auto;
+}
+
+.dashboard-global-search-results[hidden] {
+    display: none !important;
+}
+
+.desktop-search-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.desktop-search-summary strong {
+    display: block;
+    color: #0f172a;
+    font-size: 0.98rem;
+}
+
+.desktop-search-summary span {
+    color: #64748b;
+    font-size: 0.8rem;
+}
+
+.desktop-search-group + .desktop-search-group {
+    margin-top: 14px;
+}
+
+.desktop-search-group-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    color: #1e293b;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.desktop-search-group-title i {
+    color: var(--executive-teal);
+}
+
+.desktop-search-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.desktop-search-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.desktop-search-card__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #0f766e;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.desktop-search-card__title {
+    display: inline-block;
+    color: #0f172a;
+    font-size: 0.98rem;
+    font-weight: 700;
+    text-decoration: none;
+    line-height: 1.35;
+}
+
+.desktop-search-card__title:hover {
+    color: var(--executive-teal);
+}
+
+.desktop-search-card__meta,
+.desktop-search-card__desc {
+    color: #475569;
+    font-size: 0.83rem;
+    line-height: 1.5;
+}
+
+.desktop-search-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.desktop-search-card__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 39, 66, 0.08);
+    background: #ffffff;
+    color: #0f2742;
+    font-size: 0.77rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.desktop-search-card__action:hover {
+    border-color: rgba(15, 118, 110, 0.24);
+    background: #ecfeff;
+}
+
+.desktop-search-feedback {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 14px;
+    background: #f8fafc;
+    color: #334155;
+}
+
+.desktop-search-feedback i {
+    margin-top: 2px;
+    color: var(--executive-teal);
+}
+
+.desktop-search-feedback strong {
+    display: block;
+    color: #0f172a;
+    margin-bottom: 3px;
+}
+
 .quick-action-btn {
     text-decoration: none;
     border: 1px solid rgba(15, 39, 66, 0.1);
@@ -387,7 +1007,7 @@ include("links.php");
 
 .dashboard-status-strip {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
@@ -999,11 +1619,17 @@ include("links.php");
     .perf-toolbar {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+    .recent-activity-shell {
+        grid-template-columns: 1fr;
+    }
     .dashboard-shell {
         grid-template-columns: 1fr;
     }
     .dashboard-top-menu {
         justify-content: flex-start;
+    }
+    .desktop-search-grid {
+        grid-template-columns: 1fr;
     }
 
     .table thead th,
@@ -1051,7 +1677,28 @@ include("links.php");
         padding-right: 10px;
     }
 
+    .dashboard-global-search {
+        min-width: 100%;
+    }
+    .dashboard-global-search-input {
+        padding-right: 94px;
+    }
+    .dashboard-global-search-results {
+        left: -2px;
+        right: -2px;
+        padding: 12px;
+    }
+
     .cards-side {
+        grid-template-columns: 1fr;
+    }
+    .recent-activity-item {
+        grid-template-columns: 1fr;
+    }
+    .recent-activity-link {
+        align-self: flex-start;
+    }
+    .recent-activity-summary-grid {
         grid-template-columns: 1fr;
     }
     .perf-toolbar {
@@ -1471,12 +2118,151 @@ include("links.php");
                         if($_SQL_UNREAD && $row_unread = mysqli_fetch_array($_SQL_UNREAD, MYSQLI_ASSOC)){
                             $_UnreadChangeCount = (int)$row_unread['total_unread'];
                         }
+
+                        $_RecentActivities = array();
+                        $_RecentActivityFeedCount = 0;
+                        $_TodayStudentRegistrations = 0;
+                        $_TodayTeacherRegistrations = 0;
+                        $_WeekRegistrations = 0;
+
+                        $_SQL_RECENT_REG_COUNTS = mysqli_query($con, "SELECT
+                            SUM(CASE WHEN systemtype='Student' AND DATE(registereddatetime)=CURDATE() THEN 1 ELSE 0 END) AS today_students,
+                            SUM(CASE WHEN systemtype='Teacher' AND DATE(registereddatetime)=CURDATE() THEN 1 ELSE 0 END) AS today_teachers,
+                            SUM(CASE WHEN systemtype IN ('Student','Teacher') AND YEARWEEK(registereddatetime,1)=YEARWEEK(CURDATE(),1) THEN 1 ELSE 0 END) AS week_total
+                            FROM tblsystemuser
+                            WHERE status='active'");
+                        if($_SQL_RECENT_REG_COUNTS && $row_reg_counts = mysqli_fetch_array($_SQL_RECENT_REG_COUNTS, MYSQLI_ASSOC)){
+                            $_TodayStudentRegistrations = (int)$row_reg_counts['today_students'];
+                            $_TodayTeacherRegistrations = (int)$row_reg_counts['today_teachers'];
+                            $_WeekRegistrations = (int)$row_reg_counts['week_total'];
+                        }
+
+                        $_SQL_RECENT_LOGS = mysqli_query($con, "SELECT
+                                logid,
+                                actor_userid,
+                                actor_name,
+                                actor_type,
+                                action_type,
+                                target_userid,
+                                details,
+                                page_name,
+                                datetimeentry,
+                                status
+                            FROM tblsystemchangelog
+                            ORDER BY datetimeentry DESC
+                            LIMIT 12");
+                        if($_SQL_RECENT_LOGS && mysqli_num_rows($_SQL_RECENT_LOGS) > 0){
+                            while($row_log_activity = mysqli_fetch_array($_SQL_RECENT_LOGS, MYSQLI_ASSOC)){
+                                $_When = trim((string)$row_log_activity['datetimeentry']);
+                                $_Stamp = strtotime($_When);
+                                if($_Stamp === false){
+                                    continue;
+                                }
+                                $_TargetUserId = trim((string)$row_log_activity['target_userid']);
+                                $_PageName = trim((string)$row_log_activity['page_name']);
+                                $_Link = '';
+                                $_LinkLabel = '';
+                                if($_TargetUserId !== ''){
+                                    $_Link = 'register_edit.php?edit_user='.urlencode($_TargetUserId);
+                                    $_LinkLabel = 'Open Record';
+                                } elseif($_PageName !== '' && preg_match('/^[A-Za-z0-9._-]+\.php$/', $_PageName) && is_file(__DIR__.DIRECTORY_SEPARATOR.$_PageName)){
+                                    $_Link = $_PageName;
+                                    $_LinkLabel = 'Open Page';
+                                }
+
+                                $_ActorName = trim((string)$row_log_activity['actor_name']);
+                                $_ActorUserId = trim((string)$row_log_activity['actor_userid']);
+                                $_ActorLabel = $_ActorName !== '' ? $_ActorName : ($_ActorUserId !== '' ? $_ActorUserId : 'System');
+                                $_ActionType = trim((string)$row_log_activity['action_type']);
+                                $_RecentActivities[] = array(
+                                    'timestamp' => $_Stamp,
+                                    'datetime' => $_When,
+                                    'title' => admin_dashboard_action_label($_ActionType),
+                                    'description' => admin_dashboard_excerpt(trim((string)$row_log_activity['details']) !== '' ? trim((string)$row_log_activity['details']) : admin_dashboard_action_label($_ActionType).' was recorded.'),
+                                    'meta' => array_filter(array(
+                                        trim((string)$row_log_activity['actor_type']) !== '' ? trim((string)$row_log_activity['actor_type']) : 'System',
+                                        $_ActorLabel,
+                                        $_PageName !== '' ? $_PageName : '',
+                                        trim((string)$row_log_activity['status']) !== '' ? ucfirst(trim((string)$row_log_activity['status'])) : ''
+                                    )),
+                                    'icon' => admin_dashboard_activity_icon($_ActionType, 'log'),
+                                    'tone' => admin_dashboard_activity_tone($_ActionType, 'log'),
+                                    'link' => $_Link,
+                                    'link_label' => $_LinkLabel
+                                );
+                            }
+                        }
+
+                        $_SQL_RECENT_REG = mysqli_query($con, "SELECT
+                                userid,
+                                firstname,
+                                othernames,
+                                surname,
+                                systemtype,
+                                registereddatetime
+                            FROM tblsystemuser
+                            WHERE status='active'
+                              AND systemtype IN ('Student','Teacher')
+                              AND registereddatetime IS NOT NULL
+                            ORDER BY registereddatetime DESC
+                            LIMIT 10");
+                        if($_SQL_RECENT_REG && mysqli_num_rows($_SQL_RECENT_REG) > 0){
+                            while($row_reg_activity = mysqli_fetch_array($_SQL_RECENT_REG, MYSQLI_ASSOC)){
+                                $_When = trim((string)$row_reg_activity['registereddatetime']);
+                                $_Stamp = strtotime($_When);
+                                if($_Stamp === false){
+                                    continue;
+                                }
+                                $_Role = trim((string)$row_reg_activity['systemtype']) === 'Teacher' ? 'Teacher' : 'Student';
+                                $_FullName = trim((string)$row_reg_activity['firstname'].' '.$row_reg_activity['othernames'].' '.$row_reg_activity['surname']);
+                                $_RecentActivities[] = array(
+                                    'timestamp' => $_Stamp,
+                                    'datetime' => $_When,
+                                    'title' => 'New '.$_Role.' Registered',
+                                    'description' => admin_dashboard_excerpt(($_FullName !== '' ? $_FullName : (string)$row_reg_activity['userid']).' ('.trim((string)$row_reg_activity['userid']).')'),
+                                    'meta' => array($_Role, 'Registration'),
+                                    'icon' => admin_dashboard_activity_icon($_Role, 'registration'),
+                                    'tone' => admin_dashboard_activity_tone($_Role, 'registration'),
+                                    'link' => 'register_edit.php?edit_user='.urlencode(trim((string)$row_reg_activity['userid'])),
+                                    'link_label' => 'Open Record'
+                                );
+                            }
+                        }
+
+                        if(count($_RecentActivities) > 1){
+                            usort($_RecentActivities, function($left, $right){
+                                return ((int)$right['timestamp']) <=> ((int)$left['timestamp']);
+                            });
+                        }
+                        if(count($_RecentActivities) > 10){
+                            $_RecentActivities = array_slice($_RecentActivities, 0, 10);
+                        }
+                        $_RecentActivityFeedCount = count($_RecentActivities);
                         ?>
 
                         <div class="dashboard-status-strip">
                             <div class="dashboard-status-label">
                                 <i class="fa fa-calendar-check-o"></i>
                                 <span>Active Semesters: <strong><?php echo $activeBatchLabel; ?></strong></span>
+                            </div>
+                            <div class="dashboard-global-search" data-desktop-search>
+                                <form class="dashboard-global-search-form" id="dashboard-global-search-form" autocomplete="off">
+                                    <label class="dashboard-global-search-label" for="dashboard-global-search-input">Desktop Search</label>
+                                    <div class="dashboard-global-search-field">
+                                        <i class="fa fa-search"></i>
+                                        <input
+                                            class="dashboard-global-search-input"
+                                            type="search"
+                                            id="dashboard-global-search-input"
+                                            name="dashboard_global_search"
+                                            placeholder="Search students, staff, classes, batches, or tools"
+                                            aria-label="Search students, staff, classes, batches, or tools"
+                                        >
+                                        <button type="submit" class="dashboard-global-search-submit">Search</button>
+                                    </div>
+                                    <p class="dashboard-global-search-hint">Search students, staff, classes, batches, and key tools from one place.</p>
+                                </form>
+                                <div class="dashboard-global-search-results" id="dashboard-global-search-results" hidden></div>
                             </div>
                             <div class="quick-actions" role="region" aria-label="Academic actions">
                                 <a class="quick-action-btn" href="promotion-center.php"><i class="fa fa-level-up"></i> Promote Students</a>
@@ -1487,6 +2273,7 @@ include("links.php");
                         <div class="dashboard-shell">
                             <div class="dashboard-side-menu" aria-label="Dashboard Sections">
                                 <button type="button" class="dash-side-btn active" data-target="section-overview"><i class="fa fa-dashboard"></i> Overview</button>
+                                <button type="button" class="dash-side-btn" data-target="section-activity"><i class="fa fa-history"></i> Recent Activity</button>
                                 <button type="button" class="dash-side-btn" data-target="section-notifications"><i class="fa fa-bell"></i> Notifications</button>
                             </div>
                             <div class="dashboard-main">
@@ -1608,6 +2395,98 @@ include("links.php");
                                     <p><?php echo number_format($grand_total); ?></p>
                                 </div>
                             </div>
+                        </div>
+                        </div>
+
+                        <div class="dashboard-section" id="section-activity">
+                        <div class="recent-activity-shell">
+                            <section class="recent-activity-panel" role="region" aria-label="Recent Activity">
+                                <div class="recent-activity-header">
+                                    <div>
+                                        <span class="recent-activity-eyebrow"><i class="fa fa-history"></i> Desktop Feed</span>
+                                        <h3>Recent Activity</h3>
+                                        <p>Latest registrations, score work, account changes, and other recent school activity.</p>
+                                    </div>
+                                    <a href="admin.php#system-change-notifications" class="quick-action-btn recent-activity-open"><i class="fa fa-bell"></i> Open Audit</a>
+                                </div>
+
+                                <div class="recent-activity-list">
+                                    <?php
+                                    if($_RecentActivityFeedCount > 0){
+                                        foreach($_RecentActivities as $_Activity){
+                                            $_Tone = trim((string)(isset($_Activity['tone']) ? $_Activity['tone'] : 'neutral'));
+                                            $_Icon = trim((string)(isset($_Activity['icon']) ? $_Activity['icon'] : 'fa-history'));
+                                            $_Title = trim((string)(isset($_Activity['title']) ? $_Activity['title'] : 'Activity'));
+                                            $_Description = trim((string)(isset($_Activity['description']) ? $_Activity['description'] : ''));
+                                            $_DateTime = trim((string)(isset($_Activity['datetime']) ? $_Activity['datetime'] : ''));
+                                            $_Link = trim((string)(isset($_Activity['link']) ? $_Activity['link'] : ''));
+                                            $_LinkLabel = trim((string)(isset($_Activity['link_label']) ? $_Activity['link_label'] : 'Open'));
+                                            $_MetaItems = isset($_Activity['meta']) && is_array($_Activity['meta']) ? $_Activity['meta'] : array();
+
+                                            echo "<article class='recent-activity-item'>";
+                                            echo "<span class='recent-activity-icon recent-activity-icon--".admin_dashboard_safe($_Tone)."'><i class='fa ".admin_dashboard_safe($_Icon)."'></i></span>";
+                                            echo "<div class='recent-activity-body'>";
+                                            echo "<div class='recent-activity-topline'>";
+                                            echo "<strong>".admin_dashboard_safe($_Title)."</strong>";
+                                            echo "<time datetime='".admin_dashboard_safe($_DateTime)."'>".admin_dashboard_safe(admin_dashboard_relative_time($_DateTime))."</time>";
+                                            echo "</div>";
+                                            echo "<p>".admin_dashboard_safe($_Description !== '' ? $_Description : $_Title)."</p>";
+                                            if(count($_MetaItems) > 0){
+                                                echo "<div class='recent-activity-meta'>";
+                                                foreach($_MetaItems as $_MetaItem){
+                                                    echo "<span>".admin_dashboard_safe($_MetaItem)."</span>";
+                                                }
+                                                echo "</div>";
+                                            }
+                                            echo "</div>";
+                                            if($_Link !== ''){
+                                                echo "<a class='recent-activity-link' href='".admin_dashboard_safe($_Link)."'><i class='fa fa-arrow-right'></i> ".admin_dashboard_safe($_LinkLabel)."</a>";
+                                            }
+                                            echo "</article>";
+                                        }
+                                    } else {
+                                        echo "<div class='recent-activity-empty'><i class='fa fa-clock-o'></i>No recent activity is available on the dashboard yet.</div>";
+                                    }
+                                    ?>
+                                </div>
+                            </section>
+
+                            <aside class="recent-activity-aside" aria-label="Recent Activity Summary">
+                                <h4>Activity Summary</h4>
+                                <p>Quick desktop totals for the latest feed and today's registrations.</p>
+                                <div class="recent-activity-summary-grid">
+                                    <div class="recent-activity-summary-card">
+                                        <span>Feed Items</span>
+                                        <strong><?php echo number_format($_RecentActivityFeedCount); ?></strong>
+                                        <small>Latest activity items currently shown on the dashboard.</small>
+                                    </div>
+                                    <div class="recent-activity-summary-card">
+                                        <span>Unread Changes</span>
+                                        <strong><?php echo number_format($_UnreadChangeCount); ?></strong>
+                                        <small>Audit items still waiting for review.</small>
+                                    </div>
+                                    <div class="recent-activity-summary-card">
+                                        <span>Students Today</span>
+                                        <strong><?php echo number_format($_TodayStudentRegistrations); ?></strong>
+                                        <small>Student records added today.</small>
+                                    </div>
+                                    <div class="recent-activity-summary-card">
+                                        <span>Teachers Today</span>
+                                        <strong><?php echo number_format($_TodayTeacherRegistrations); ?></strong>
+                                        <small>Teacher records added today.</small>
+                                    </div>
+                                    <div class="recent-activity-summary-card">
+                                        <span>This Week</span>
+                                        <strong><?php echo number_format($_WeekRegistrations); ?></strong>
+                                        <small>Student and teacher registrations this week.</small>
+                                    </div>
+                                    <div class="recent-activity-summary-card">
+                                        <span>Active Semesters</span>
+                                        <strong><?php echo number_format(count($activeBatchNames)); ?></strong>
+                                        <small>Semester batches currently marked active.</small>
+                                    </div>
+                                </div>
+                            </aside>
                         </div>
                         </div>
 
@@ -1847,6 +2726,101 @@ include("links.php");
 
                             window.addEventListener('hashchange', syncDashboardSectionFromLocation);
                             syncDashboardSectionFromLocation();
+
+                            const desktopSearchWrap = document.querySelector('[data-desktop-search]');
+                            if (desktopSearchWrap) {
+                                const searchForm = document.getElementById('dashboard-global-search-form');
+                                const searchInput = document.getElementById('dashboard-global-search-input');
+                                const searchResults = document.getElementById('dashboard-global-search-results');
+                                let searchTimer = null;
+                                let searchRequestIndex = 0;
+
+                                function setSearchResults(html) {
+                                    if (!searchResults) {
+                                        return;
+                                    }
+                                    searchResults.innerHTML = html;
+                                    searchResults.removeAttribute('hidden');
+                                }
+
+                                function closeSearchResults() {
+                                    if (!searchResults) {
+                                        return;
+                                    }
+                                    searchResults.setAttribute('hidden', 'hidden');
+                                    searchResults.innerHTML = '';
+                                }
+
+                                function runDesktopSearch(forceSearch) {
+                                    if (!searchInput || !searchResults) {
+                                        return;
+                                    }
+                                    const query = searchInput.value.trim();
+                                    if (!query) {
+                                        closeSearchResults();
+                                        return;
+                                    }
+                                    if (query.length < 2 && !forceSearch) {
+                                        setSearchResults("<div class='desktop-search-feedback'><i class='fa fa-search'></i><div><strong>Keep typing</strong><span>Use at least 2 characters to search the desktop.</span></div></div>");
+                                        return;
+                                    }
+
+                                    setSearchResults("<div class='desktop-search-feedback'><i class='fa fa-spinner fa-spin'></i><div><strong>Searching</strong><span>Checking students, staff, classes, batches, and tools.</span></div></div>");
+                                    const requestId = ++searchRequestIndex;
+                                    const xhr = new XMLHttpRequest();
+                                    xhr.onreadystatechange = function () {
+                                        if (xhr.readyState !== 4 || requestId !== searchRequestIndex) {
+                                            return;
+                                        }
+                                        if (xhr.status === 200) {
+                                            setSearchResults(xhr.responseText);
+                                        } else if (xhr.status === 403) {
+                                            setSearchResults("<div class='desktop-search-feedback'><i class='fa fa-lock'></i><div><strong>Access denied</strong><span>You do not have access to desktop search.</span></div></div>");
+                                        } else {
+                                            setSearchResults("<div class='desktop-search-feedback'><i class='fa fa-exclamation-circle'></i><div><strong>Search failed</strong><span>Try again in a moment.</span></div></div>");
+                                        }
+                                    };
+                                    xhr.open('GET', 'admin-global-search.php?q=' + encodeURIComponent(query), true);
+                                    xhr.send();
+                                }
+
+                                if (searchForm) {
+                                    searchForm.addEventListener('submit', function (event) {
+                                        event.preventDefault();
+                                        runDesktopSearch(true);
+                                    });
+                                }
+
+                                if (searchInput) {
+                                    searchInput.addEventListener('input', function () {
+                                        if (searchTimer) {
+                                            clearTimeout(searchTimer);
+                                        }
+                                        searchTimer = setTimeout(function () {
+                                            runDesktopSearch(false);
+                                        }, 220);
+                                    });
+
+                                    searchInput.addEventListener('focus', function () {
+                                        if (searchInput.value.trim() !== '') {
+                                            runDesktopSearch(false);
+                                        }
+                                    });
+
+                                    searchInput.addEventListener('keydown', function (event) {
+                                        if (event.key === 'Escape') {
+                                            closeSearchResults();
+                                            searchInput.blur();
+                                        }
+                                    });
+                                }
+
+                                document.addEventListener('click', function (event) {
+                                    if (!desktopSearchWrap.contains(event.target)) {
+                                        closeSearchResults();
+                                    }
+                                });
+                            }
 
                             if (typeof Chart !== 'function') {
                                 return;

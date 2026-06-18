@@ -1,7 +1,8 @@
 <?php
 session_start();
 
-include("dbstring.php");
+include("check-login.php");
+include_once("user-management-utils.php");
 
 if (!isset($_SESSION['Message'])) {
     $_SESSION['Message'] = "";
@@ -32,6 +33,22 @@ function teacher_list_redirect()
     exit;
 }
 
+$isHeadmasterViewer = function_exists('um_is_headmaster_user') && um_is_headmaster_user();
+$canManageTeachers = function_exists('um_is_admin_manager') && um_is_admin_manager();
+
+if (!$isHeadmasterViewer && !$canManageTeachers) {
+    $_SESSION['Message'] = "<div class='teacher-directory-flash teacher-directory-flash--error'>You do not have access to the teachers list.</div>";
+    header("Location: " . (function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php"));
+    exit;
+}
+
+$branchId = isset($_SESSION['BRANCHID']) ? trim((string)$_SESSION['BRANCHID']) : "";
+$teacherListScope = "";
+if ($branchId !== "") {
+    $branchEsc = mysqli_real_escape_string($con, $branchId);
+    $teacherListScope = " AND branchid='" . $branchEsc . "'";
+}
+
 @$_UserID = $_POST['userid'];
 @$_Firstname = $_POST['firstname'];
 @$_Surname = $_POST['surname'];
@@ -51,7 +68,7 @@ function teacher_list_redirect()
 @$_AccessLevel = "user";
 @$_SystemType = $_POST['systemtype'];
 
-if (isset($_POST['register_user'])) {
+if ($canManageTeachers && isset($_POST['register_user'])) {
     $_SQL_EXECUTE = mysqli_query(
         $con,
         "INSERT INTO tblsystemuser(userid,firstname,surname,othernames,gender,birthday,age,postaladdress,homeaddress,hometown,religion,relationship,nextofkin_fullname,nextofkin_contact,registereddatetime,status,username,password,accesslevel,systemtype)
@@ -67,7 +84,7 @@ if (isset($_POST['register_user'])) {
     teacher_list_redirect();
 }
 
-if (isset($_GET["block_user"])) {
+if ($canManageTeachers && isset($_GET["block_user"])) {
     $_SQL_EXECUTE = mysqli_query($con, "UPDATE tblsystemuser SET status='block' WHERE userid='" . mysqli_real_escape_string($con, $_GET["block_user"]) . "'");
 
     if ($_SQL_EXECUTE) {
@@ -79,7 +96,7 @@ if (isset($_GET["block_user"])) {
     teacher_list_redirect();
 }
 
-if (isset($_GET["unblock_user"])) {
+if ($canManageTeachers && isset($_GET["unblock_user"])) {
     $_SQL_EXECUTE = mysqli_query($con, "UPDATE tblsystemuser SET status='active' WHERE userid='" . mysqli_real_escape_string($con, $_GET["unblock_user"]) . "'");
 
     if ($_SQL_EXECUTE) {
@@ -91,7 +108,7 @@ if (isset($_GET["unblock_user"])) {
     teacher_list_redirect();
 }
 
-if (isset($_GET["delete_user"])) {
+if ($canManageTeachers && isset($_GET["delete_user"])) {
     $_SQL_EXECUTE = mysqli_query($con, "DELETE FROM tblsystemuser WHERE userid='" . mysqli_real_escape_string($con, $_GET["delete_user"]) . "'");
 
     if ($_SQL_EXECUTE) {
@@ -112,7 +129,7 @@ $_ActiveTeacherCount = 0;
 $_BlockedTeacherCount = 0;
 $_TeachingStaffCount = 0;
 
-$_SQL_EXECUTE = mysqli_query($con, "SELECT * FROM tblsystemuser WHERE systemtype='Teacher' ORDER BY firstname ASC, surname ASC, othernames ASC");
+$_SQL_EXECUTE = mysqli_query($con, "SELECT * FROM tblsystemuser WHERE systemtype='Teacher' $teacherListScope ORDER BY firstname ASC, surname ASC, othernames ASC");
 
 if ($_SQL_EXECUTE) {
     while ($row = mysqli_fetch_array($_SQL_EXECUTE, MYSQLI_ASSOC)) {
@@ -154,12 +171,14 @@ if ($_SQL_EXECUTE) {
             <div class="teacher-directory-hero__copy">
                 <span class="teacher-directory-eyebrow">Staff Directory</span>
                 <h1>Teachers List</h1>
-                <p>Review the full teacher directory, search quickly, and print a staff list when needed.</p>
+                <p><?php echo $isHeadmasterViewer ? "Review the teacher directory, open staff profiles, and print the list when needed." : "Review the full teacher directory, search quickly, and print a staff list when needed."; ?></p>
             </div>
             <div class="teacher-directory-hero__actions">
+                <?php if ($canManageTeachers) { ?>
                 <a href="register-teacher.php" class="teacher-directory-link">
                     <i class="fa fa-user-plus"></i> Register Teacher
                 </a>
+                <?php } ?>
                 <button type="button" class="teacher-directory-print-btn" onclick="window.print()">
                     <i class="fa fa-print"></i> Print Teachers List
                 </button>
@@ -265,9 +284,11 @@ if ($_SQL_EXECUTE) {
                                         <a class="teacher-directory-action teacher-directory-action--view" title="View <?php echo teacher_list_safe($_Fullname); ?>" href="user-profile.php?view_user=<?php echo urlencode($row['userid']); ?>">
                                             <i class="fa fa-book"></i><span>View</span>
                                         </a>
+                                        <?php if ($canManageTeachers) { ?>
                                         <a class="teacher-directory-action teacher-directory-action--edit" title="Edit <?php echo teacher_list_safe($_Fullname); ?>" href="register_edit.php?edit_user=<?php echo urlencode($row['userid']); ?>">
                                             <i class="fa fa-edit"></i><span>Edit</span>
                                         </a>
+                                        <?php } ?>
                                     </div>
                                 </td>
                             </tr>

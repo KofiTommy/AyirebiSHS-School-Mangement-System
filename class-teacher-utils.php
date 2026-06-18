@@ -64,13 +64,10 @@ function class_teacher_landing_page(){
     if(class_teacher_is_teacher()){
         return "teacher-page.php";
     }
-    if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "User"){
-        return "user.php";
-    }
     if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "Student"){
         return "student-page.php";
     }
-    return "index.php";
+    return function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php";
 }
 }
 

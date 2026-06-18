@@ -40,10 +40,21 @@ function student_attendance_is_student(){
 }
 }
 
+if(!function_exists('student_attendance_is_headmaster')){
+function student_attendance_is_headmaster(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === "user" &&
+        $_SESSION['SYSTEMTYPE'] === "Headmaster";
+}
+}
+
 if(!function_exists('student_attendance_landing_page')){
 function student_attendance_landing_page(){
     if(student_attendance_is_admin()){
         return ($_SESSION['SYSTEMTYPE'] === "super_user") ? "super.php" : "admin.php";
+    }
+    if(student_attendance_is_headmaster()){
+        return "headmaster-page.php";
     }
     if(student_attendance_is_teacher()){
         return "teacher-page.php";
@@ -51,16 +62,13 @@ function student_attendance_landing_page(){
     if(student_attendance_is_student()){
         return "student-page.php";
     }
-    if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "User"){
-        return "user.php";
-    }
-    return "index.php";
+    return function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php";
 }
 }
 
 if(!function_exists('student_attendance_can_access')){
 function student_attendance_can_access($con = null){
-    if(student_attendance_is_admin()){
+    if(student_attendance_is_admin() || student_attendance_is_headmaster()){
         return true;
     }
     if(student_attendance_is_teacher()){

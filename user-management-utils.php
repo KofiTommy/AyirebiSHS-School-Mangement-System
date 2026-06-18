@@ -397,7 +397,7 @@ function um_module_catalog(){
             'label' => 'Reports',
             'group' => 'Examinations',
             'description' => 'Result reports, terminal reports, and exam analysis.',
-            'scripts' => array('scores-report.php','scores-report-all.php','terminal-report.php','individual-terminal-report.php','student-terminal-data.php','upload-student-remark-data.php','waec-analysis.php','internal-exam-analysis.php','examanalysis-subject.php','examanalysis-rank.php')
+            'scripts' => array('scores-report.php','scores-report-all.php','terminal-report.php','individual-terminal-report.php','student-terminal-data.php','upload-student-remark-data.php','report-approval-board.php','waec-analysis.php','internal-exam-analysis.php','examanalysis-subject.php','examanalysis-rank.php')
         ),
         'examination_timetable' => array(
             'label' => 'Examination Timetable',
@@ -696,6 +696,9 @@ function um_home_link_for_session(){
     if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'Student'){
         return 'student-page.php';
     }
+    if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'Headmaster'){
+        return 'headmaster-page.php';
+    }
     if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'User'){
         return 'user.php';
     }
@@ -749,6 +752,31 @@ function um_baseline_scripts_for_role($roleKey){
             'student-course-registration.php',
             'online-voting.php',
             'online-voting-paystack-init.php'
+        );
+    }
+    if($roleKey === 'headmaster'){
+        return array(
+            'headmaster-page.php',
+            'search.php',
+            'viewusers.php',
+            'duty-roster.php',
+            'senior-house-dashboard.php',
+            'messages.php',
+            'student-history.php',
+            'continuing-students.php',
+            'view-class-registry.php',
+            'student-attendance-report.php',
+            'terminal-report.php',
+            'internal-exam-analysis.php',
+            'waec-analysis.php',
+            'lesson-timetable-report.php',
+            'examinationtimetablereport.php',
+            'daily-report.php',
+            'payment-analysis.php',
+            'bills-report.php',
+            'item-bill-report.php',
+            'online-admission-admin.php',
+            'notification.php'
         );
     }
     return array();
@@ -839,7 +867,7 @@ function um_enforce_current_module_access($con){
     $scriptName = basename((string)(isset($_SERVER['PHP_SELF']) ? $_SERVER['PHP_SELF'] : ''));
     $skipScripts = array(
         'index.php','logout.php','change-password.php','edit-account.php','uploaduser-image.php',
-        'select-branch.php','student-page.php','teacher-page.php','admin.php','super.php','user.php'
+        'select-branch.php','student-page.php','teacher-page.php','admin.php','super.php','user.php','headmaster-page.php'
     );
     if(in_array($scriptName, $skipScripts, true)){
         return;
@@ -884,6 +912,14 @@ function um_is_super_admin_manager(){
 }
 }
 
+if(!function_exists('um_is_headmaster_user')){
+function um_is_headmaster_user(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === 'user' &&
+        $_SESSION['SYSTEMTYPE'] === 'Headmaster';
+}
+}
+
 if(!function_exists('um_role_profiles')){
 function um_role_profiles(){
     return array(
@@ -892,6 +928,13 @@ function um_role_profiles(){
             'accesslevel' => 'user',
             'systemtype' => 'User',
             'description' => 'General office or support account.',
+            'super_only' => false
+        ),
+        'headmaster' => array(
+            'label' => 'Headmaster',
+            'accesslevel' => 'user',
+            'systemtype' => 'Headmaster',
+            'description' => 'Executive school leadership dashboard account.',
             'super_only' => false
         ),
         'branch_admin' => array(
@@ -943,6 +986,9 @@ function um_role_key_from_user($row){
     if($accessLevel === 'user' && $systemType === 'User'){
         return 'office_user';
     }
+    if($accessLevel === 'user' && $systemType === 'Headmaster'){
+        return 'headmaster';
+    }
     if($systemType === 'Teacher'){
         return 'teacher';
     }
@@ -973,7 +1019,9 @@ function um_role_label_from_user($row){
 if(!function_exists('um_generate_userid')){
 function um_generate_userid($roleKey = 'office_user'){
     $prefix = 'USR';
-    if($roleKey === 'branch_admin'){
+    if($roleKey === 'headmaster'){
+        $prefix = 'HDM';
+    }elseif($roleKey === 'branch_admin'){
         $prefix = 'ADM';
     }elseif($roleKey === 'system_admin'){
         $prefix = 'SUP';

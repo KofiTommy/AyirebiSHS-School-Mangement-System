@@ -49,18 +49,29 @@ function online_admission_is_admin(){
 }
 }
 
+if(!function_exists('online_admission_is_headmaster')){
+function online_admission_is_headmaster(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === "user" &&
+        $_SESSION['SYSTEMTYPE'] === "Headmaster";
+}
+}
+
 if(!function_exists('online_admission_landing_page')){
 function online_admission_landing_page(){
     if(online_admission_is_admin()){
         return ($_SESSION['SYSTEMTYPE'] === "super_user") ? "super.php" : "admin.php";
     }
-    return "index.php";
+    if(online_admission_is_headmaster()){
+        return "headmaster-page.php";
+    }
+    return function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php";
 }
 }
 
 if(!function_exists('online_admission_can_manage_portal')){
 function online_admission_can_manage_portal($con = null){
-    if(online_admission_is_admin()){
+    if(online_admission_is_admin() || online_admission_is_headmaster()){
         return true;
     }
     if(!$con || !function_exists('um_current_user_can_access_module')){

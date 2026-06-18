@@ -154,10 +154,7 @@ function house_master_landing_page(){
     if(house_master_is_student()){
         return "student-page.php";
     }
-    if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "User"){
-        return "user.php";
-    }
-    return "index.php";
+    return function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php";
 }
 }
 
@@ -177,6 +174,11 @@ function house_master_can_manage_module($con = null, $moduleKey = ''){
 if(!function_exists('house_master_can_view_senior_dashboard')){
 function house_master_can_view_senior_dashboard($con = null){
     if(house_master_is_admin()){
+        return true;
+    }
+    if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+       $_SESSION['ACCESSLEVEL'] === "user" &&
+       $_SESSION['SYSTEMTYPE'] === "Headmaster"){
         return true;
     }
     if($con && house_master_is_teacher() && isset($_SESSION['USERID'])){

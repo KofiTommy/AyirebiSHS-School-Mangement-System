@@ -505,6 +505,45 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <?php
 
 }
+else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Headmaster"){
+ ?>
+<div class="menuboard-quick-links">
+<a href="search.php"><i class="fa fa-search"></i> Search Student</a>
+<a class="menuboard-home-link" href="headmaster-page.php"><i class="fa fa-home"></i> Home</a>
+</div>
+
+<?php menuboard_section_start('School Overview', 'fa-dashboard', true); ?>
+<a href="student-history.php"><i class="fa fa-history"></i> Student Transcript</a>
+<a href="continuing-students.php"><i class="fa fa-users"></i> Continuing Students</a>
+<a href="viewusers.php"><i class="fa fa-users"></i> Teachers List</a>
+<a href="duty-roster.php"><i class="fa fa-calendar-check-o"></i> Teacher On Duty</a>
+<a href="senior-house-dashboard.php"><i class="fa fa-shield"></i> Senior House Overview</a>
+<a href="view-class-registry.php"><i class="fa fa-folder-open"></i> View Class Registry</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Academic Monitoring', 'fa-graduation-cap'); ?>
+<a href="student-attendance-report.php"><i class="fa fa-bar-chart"></i> Attendance Summary</a>
+<a href="terminal-report.php"><i class="fa fa-file-text-o"></i> Examination Report</a>
+<a href="internal-exam-analysis.php"><i class="fa fa-bar-chart"></i> Internal Exams Analysis</a>
+<a href="waec-analysis.php"><i class="fa fa-line-chart"></i> WAEC Analysis</a>
+<a href="lesson-timetable-report.php"><i class="fa fa-calendar"></i> Lesson Timetable</a>
+<a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Finance & Reports', 'fa-money'); ?>
+<a href="daily-report.php"><i class="fa fa-book"></i> Daily Report</a>
+<a href="payment-analysis.php"><i class="fa fa-line-chart"></i> Payment Report</a>
+<a href="bills-report.php"><i class="fa fa-files-o"></i> Bills Report</a>
+<a href="item-bill-report.php"><i class="fa fa-list"></i> Item Bill Report</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Admissions & Communication', 'fa-bullhorn'); ?>
+<a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
+<a href="notification.php"><i class="fa fa-bullhorn"></i> Send Notification</a>
+<?php menuboard_section_end(); ?>
+<?php
+
+}
 else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
  ?>
 <div class="menuboard-quick-links">

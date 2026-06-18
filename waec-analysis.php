@@ -5,11 +5,12 @@ include("dbstring.php");
 
 $isAllowed = (
     ($_SESSION['ACCESSLEVEL'] == "administrator" && $_SESSION['SYSTEMTYPE'] == "normal_user") ||
-    ($_SESSION['ACCESSLEVEL'] == "administrator" && $_SESSION['SYSTEMTYPE'] == "super_user")
+    ($_SESSION['ACCESSLEVEL'] == "administrator" && $_SESSION['SYSTEMTYPE'] == "super_user") ||
+    ($_SESSION['ACCESSLEVEL'] == "user" && $_SESSION['SYSTEMTYPE'] == "Headmaster")
 );
 
 if(!$isAllowed){
-    header("location:student-page.php");
+    header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : "student-page.php"));
     exit();
 }
 

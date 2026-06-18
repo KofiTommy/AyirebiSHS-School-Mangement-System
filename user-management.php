@@ -538,36 +538,97 @@ foreach($branches as $branchRow){
     $branchLabels[trim((string)$branchRow["branchid"])] = trim((string)$branchRow["location"]);
 }
 
+$activeFilterChips = array();
+if($search !== ""){
+    $activeFilterChips[] = "Search: ".$search;
+}
+if($roleFilter !== "" && $roleFilter !== "all"){
+    if($roleFilter === "teacher"){
+        $activeFilterChips[] = "Role: Teachers";
+    }elseif($roleFilter === "student"){
+        $activeFilterChips[] = "Role: Students";
+    }elseif(isset($allRoleProfiles[$roleFilter])){
+        $activeFilterChips[] = "Role: ".$allRoleProfiles[$roleFilter]["label"];
+    }
+}
+if($statusFilter === "active"){
+    $activeFilterChips[] = "Status: Active";
+}elseif($statusFilter === "block"){
+    $activeFilterChips[] = "Status: Blocked";
+}
+if($isSuperAdmin && $branchFilter !== ""){
+    $activeFilterChips[] = "Branch: ".(isset($branchLabels[$branchFilter]) ? $branchLabels[$branchFilter] : $branchFilter);
+}
+
 ob_start();
 ?>
+                <div class="um-directory-tools">
+                    <div class="um-directory-tools__copy">
+                        <span class="um-section__eyebrow">Account Directory</span>
+                        <h3>Find and manage visible accounts</h3>
+                        <p>Search by login details, filter by role or status, and open only the accounts you need to work on.</p>
+                    </div>
+                    <div class="um-directory-tools__summary">
+                        <span class="um-pill"><?php echo number_format(count($visibleUsers)); ?> Result<?php echo count($visibleUsers) === 1 ? "" : "s"; ?></span>
+                        <?php if(!empty($activeFilterChips)){ ?>
+                        <span class="um-pill"><?php echo number_format(count($activeFilterChips)); ?> Filter<?php echo count($activeFilterChips) === 1 ? "" : "s"; ?> Active</span>
+                        <?php } ?>
+                    </div>
+                </div>
+
+                <?php if(!empty($activeFilterChips)){ ?>
+                <div class="um-active-filters">
+                    <?php foreach($activeFilterChips as $filterChip){ ?>
+                    <span class="um-active-filter"><?php echo umh($filterChip); ?></span>
+                    <?php } ?>
+                    <a class="um-active-filters__clear" href="user-management.php?directory=1#user-directory">Clear Filters</a>
+                </div>
+                <?php } ?>
+
                 <form method="get" action="user-management.php" class="um-filter-bar">
                     <input type="hidden" name="directory" value="1">
-                    <input type="text" name="q" value="<?php echo umh($search); ?>" placeholder="Search by ID, username, name, email, or mobile">
-                    <select name="role">
-                        <option value="all" <?php echo $roleFilter === "all" ? "selected" : ""; ?>>All Roles</option>
-                        <option value="office_user" <?php echo $roleFilter === "office_user" ? "selected" : ""; ?>>Office Users</option>
-                        <?php if($isSuperAdmin){ ?>
-                        <option value="branch_admin" <?php echo $roleFilter === "branch_admin" ? "selected" : ""; ?>>Branch Administrators</option>
-                        <option value="system_admin" <?php echo $roleFilter === "system_admin" ? "selected" : ""; ?>>System Administrators</option>
-                        <?php } ?>
-                        <option value="teacher" <?php echo $roleFilter === "teacher" ? "selected" : ""; ?>>Teachers</option>
-                        <option value="student" <?php echo $roleFilter === "student" ? "selected" : ""; ?>>Students</option>
-                    </select>
-                    <select name="status">
-                        <option value="all" <?php echo $statusFilter === "all" ? "selected" : ""; ?>>All Statuses</option>
-                        <option value="active" <?php echo $statusFilter === "active" ? "selected" : ""; ?>>Active</option>
-                        <option value="block" <?php echo $statusFilter === "block" ? "selected" : ""; ?>>Blocked</option>
-                    </select>
+                    <label class="um-filter-field um-filter-field--search">
+                        <span>Search Accounts</span>
+                        <div class="um-filter-input-wrap">
+                            <i class="fa fa-search"></i>
+                            <input type="text" name="q" value="<?php echo umh($search); ?>" placeholder="Search by ID, username, name, email, or mobile">
+                        </div>
+                    </label>
+                    <label class="um-filter-field">
+                        <span>Role</span>
+                        <select name="role">
+                            <option value="all" <?php echo $roleFilter === "all" ? "selected" : ""; ?>>All Roles</option>
+                            <option value="office_user" <?php echo $roleFilter === "office_user" ? "selected" : ""; ?>>Office Users</option>
+                            <option value="headmaster" <?php echo $roleFilter === "headmaster" ? "selected" : ""; ?>>Headmasters</option>
+                            <?php if($isSuperAdmin){ ?>
+                            <option value="branch_admin" <?php echo $roleFilter === "branch_admin" ? "selected" : ""; ?>>Branch Administrators</option>
+                            <option value="system_admin" <?php echo $roleFilter === "system_admin" ? "selected" : ""; ?>>System Administrators</option>
+                            <?php } ?>
+                            <option value="teacher" <?php echo $roleFilter === "teacher" ? "selected" : ""; ?>>Teachers</option>
+                            <option value="student" <?php echo $roleFilter === "student" ? "selected" : ""; ?>>Students</option>
+                        </select>
+                    </label>
+                    <label class="um-filter-field">
+                        <span>Status</span>
+                        <select name="status">
+                            <option value="all" <?php echo $statusFilter === "all" ? "selected" : ""; ?>>All Statuses</option>
+                            <option value="active" <?php echo $statusFilter === "active" ? "selected" : ""; ?>>Active</option>
+                            <option value="block" <?php echo $statusFilter === "block" ? "selected" : ""; ?>>Blocked</option>
+                        </select>
+                    </label>
                     <?php if($isSuperAdmin){ ?>
-                    <select name="branch">
-                        <option value="" <?php echo $branchFilter === "" ? "selected" : ""; ?>>All Branches</option>
-                        <?php foreach($branches as $branchRow){ ?>
-                        <option value="<?php echo umh($branchRow["branchid"]); ?>" <?php echo $branchFilter === trim((string)$branchRow["branchid"]) ? "selected" : ""; ?>><?php echo umh($branchRow["location"]); ?></option>
-                        <?php } ?>
-                    </select>
+                    <label class="um-filter-field">
+                        <span>Branch</span>
+                        <select name="branch">
+                            <option value="" <?php echo $branchFilter === "" ? "selected" : ""; ?>>All Branches</option>
+                            <?php foreach($branches as $branchRow){ ?>
+                            <option value="<?php echo umh($branchRow["branchid"]); ?>" <?php echo $branchFilter === trim((string)$branchRow["branchid"]) ? "selected" : ""; ?>><?php echo umh($branchRow["location"]); ?></option>
+                            <?php } ?>
+                        </select>
+                    </label>
                     <?php } ?>
                     <div class="um-filter-actions">
-                        <button class="button-edit" type="submit"><i class="fa fa-search"></i> Search</button>
+                        <button class="button-edit" type="submit"><i class="fa fa-search"></i> Apply</button>
                         <a class="um-link-button" href="user-management.php?directory=1#user-directory">Reset</a>
                     </div>
                 </form>
@@ -598,7 +659,7 @@ ob_start();
                         <div class="um-user-card__head">
                             <div class="um-user-card__identity">
                                 <div class="um-user-card__avatar">
-                                    <img src="<?php echo umh($userImage); ?>" alt="<?php echo umh($fullName !== "" ? $fullName : $userRow["userid"]); ?>">
+                                    <img src="<?php echo umh($userImage); ?>" alt="<?php echo umh($fullName !== "" ? $fullName : $userRow["userid"]); ?>" loading="lazy">
                                 </div>
                                 <div class="um-user-card__title">
                                     <h3><?php echo umh($fullName !== "" ? $fullName : $userRow["userid"]); ?></h3>
@@ -737,6 +798,11 @@ include("links.php");
                 </div>
             </section>
 
+            <nav class="um-jump-links" aria-label="User Management Sections">
+                <a class="um-jump-link" href="#account-form"><i class="fa fa-user-plus"></i> Account Form</a>
+                <a class="um-jump-link" href="#user-directory"><i class="fa fa-users"></i> Account Directory</a>
+            </nav>
+
             <?php echo $flashMessage; ?>
 
             <section class="um-stats">
@@ -767,6 +833,7 @@ include("links.php");
                     <div>
                         <span class="um-section__eyebrow"><?php echo $formPermissionOnly ? "Teacher Access" : "Internal Accounts"; ?></span>
                         <h2><?php echo $formPermissionOnly ? "Assign Teacher Privileges" : ($formMode === "update" ? "Update Account" : "Create Account"); ?></h2>
+                        <p class="um-section__hint"><?php echo $formPermissionOnly ? "Review the teacher details below and switch on only the extra modules this teacher should be allowed to open." : "Create office and administrator accounts here, or update an existing account without leaving the page."; ?></p>
                     </div>
                     <?php if($formMode === "update"){ ?>
                     <a class="um-link-button" href="<?php echo umh(um_url(array("edit_user" => null), "#account-form")); ?>">Cancel Edit</a>

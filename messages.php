@@ -370,6 +370,8 @@ if($__SystemType === 'Student'){
     $__RoleLabel = 'Student Message Box';
 } elseif($__SystemType === 'Teacher'){
     $__RoleLabel = 'Teacher Message Box';
+} elseif($__SystemType === 'Headmaster'){
+    $__RoleLabel = 'Headmaster Message Box';
 } elseif($__SystemType === 'User'){
     $__RoleLabel = 'Office Message Box';
 } elseif($__SystemType === 'normal_user' || $__SystemType === 'super_user'){

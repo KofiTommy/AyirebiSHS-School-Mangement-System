@@ -3,8 +3,8 @@ session_start();
 include("dbstring.php");
 include("check-login.php");
 
-if (!isset($_SESSION['ACCESSLEVEL']) || $_SESSION['ACCESSLEVEL'] != "administrator") {
-    header("location:index.php");
+if (!isset($_SESSION['ACCESSLEVEL']) || ($_SESSION['ACCESSLEVEL'] != "administrator" && !(function_exists('um_is_headmaster_user') && um_is_headmaster_user()))) {
+    header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php"));
     exit();
 }
 
