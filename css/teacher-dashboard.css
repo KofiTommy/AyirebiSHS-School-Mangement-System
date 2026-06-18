@@ -87,6 +87,11 @@ body.teacher-dashboard-page {
     z-index: 1;
 }
 
+.teacher-hero__copy {
+    display: flex;
+    flex-direction: column;
+}
+
 .teacher-kicker,
 .teacher-section__eyebrow,
 .teacher-panel__eyebrow,
@@ -129,6 +134,12 @@ body.teacher-dashboard-page {
     font-size: 1rem;
 }
 
+.teacher-hero__utility {
+    display: flex;
+    justify-content: flex-end;
+    margin: 0 0 6px;
+}
+
 .teacher-stat-grid {
     margin-top: 28px;
     display: grid;
@@ -160,6 +171,7 @@ body.teacher-dashboard-page {
 }
 
 .teacher-profile-card {
+    position: relative;
     padding: 22px;
     border-radius: 28px;
     background: rgba(255, 255, 255, 0.14);
@@ -229,6 +241,64 @@ body.teacher-dashboard-page {
     margin-top: 18px;
     display: grid;
     gap: 10px;
+}
+
+.teacher-live-clock {
+    position: static;
+    width: min(100%, 208px);
+    margin: 0;
+}
+
+.teacher-live-clock .xschool-live-clock {
+    --xclock-bg: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.1));
+    --xclock-border: rgba(255,255,255,0.18);
+    --xclock-ink: #ffffff;
+    --xclock-muted: rgba(237, 244, 247, 0.8);
+    --xclock-accent: #ffd899;
+    --xclock-shadow: 0 18px 30px rgba(0, 0, 0, 0.12);
+    min-width: 0;
+    padding: 10px 12px;
+    gap: 4px;
+    border-radius: 18px;
+}
+
+.teacher-live-clock .xschool-live-clock__top {
+    justify-content: flex-end;
+}
+
+.teacher-live-clock .xschool-live-clock__eyebrow {
+    font-size: 0.56rem;
+    letter-spacing: 0.14em;
+    text-align: right;
+}
+
+.teacher-live-clock .xschool-live-clock__status {
+    padding: 3px 7px;
+    font-size: 0.58rem;
+}
+
+.teacher-live-clock .xschool-live-clock__time,
+.teacher-live-clock .xschool-live-clock__date,
+.teacher-live-clock .xschool-live-clock__zone {
+    text-align: right;
+}
+
+.teacher-live-clock .xschool-live-clock__time {
+    font-size: 1.2rem;
+    line-height: 1.05;
+}
+
+.teacher-live-clock .xschool-live-clock__date {
+    font-size: 0.74rem;
+}
+
+.teacher-live-clock .xschool-live-clock__zone {
+    display: none;
+}
+
+.teacher-live-clock .xschool-live-clock__status {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.12);
 }
 
 .teacher-secondary-link,
@@ -1220,6 +1290,23 @@ body.teacher-dashboard-page {
 @media (max-width: 860px) {
     .teacher-shell {
         padding: 18px 16px 30px;
+    }
+    .teacher-hero__utility {
+        justify-content: flex-start;
+    }
+    .teacher-live-clock {
+        width: 100%;
+        max-width: none;
+        margin-top: 4px;
+    }
+    .teacher-live-clock .xschool-live-clock__top {
+        justify-content: space-between;
+    }
+    .teacher-live-clock .xschool-live-clock__eyebrow,
+    .teacher-live-clock .xschool-live-clock__time,
+    .teacher-live-clock .xschool-live-clock__date,
+    .teacher-live-clock .xschool-live-clock__zone {
+        text-align: left;
     }
     .teacher-stat-grid,
     .teacher-profile-meta,

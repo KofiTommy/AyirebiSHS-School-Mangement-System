@@ -66,6 +66,25 @@ body.student-dashboard-page {
     }
 }
 
+@keyframes studentClockAuraSpin {
+    0% {
+        transform: rotate(0deg) scale(1);
+    }
+    100% {
+        transform: rotate(360deg) scale(1.04);
+    }
+}
+
+@keyframes studentClockOrbFloat {
+    0%,
+    100% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+        transform: translate3d(-10px, 8px, 0) scale(1.08);
+    }
+}
+
 .student-shell {
     max-width: 1280px;
     margin: 0 auto;
@@ -180,6 +199,11 @@ body.student-dashboard-page {
     z-index: 1;
 }
 
+.student-hero__copy {
+    display: flex;
+    flex-direction: column;
+}
+
 .student-kicker,
 .student-section__eyebrow,
 .student-panel__eyebrow,
@@ -226,6 +250,97 @@ body.student-dashboard-page {
     color: rgba(236, 244, 247, 0.84);
     line-height: 1.78;
     font-size: 1rem;
+}
+
+.student-hero__utility {
+    display: flex;
+    justify-content: flex-start;
+    margin: 0 0 10px;
+}
+
+.student-live-clock {
+    position: relative;
+    width: min(100%, 300px);
+    isolation: isolate;
+    animation: studentSoftFloat 6.8s ease-in-out infinite;
+}
+
+.student-live-clock::before,
+.student-live-clock::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.student-live-clock::before {
+    inset: -10px;
+    border-radius: 30px;
+    background: conic-gradient(from 0deg, rgba(123, 97, 201, 0.32), rgba(74, 143, 245, 0.28), rgba(14, 163, 140, 0.26), rgba(214, 155, 55, 0.32), rgba(123, 97, 201, 0.32));
+    filter: blur(18px);
+    opacity: 0.76;
+    animation: studentClockAuraSpin 14s linear infinite;
+}
+
+.student-live-clock::after {
+    width: 68px;
+    height: 68px;
+    top: -14px;
+    right: 16px;
+    border-radius: 999px;
+    background: radial-gradient(circle at 32% 32%, rgba(255, 250, 210, 0.98), rgba(246, 197, 98, 0.55) 46%, rgba(255, 255, 255, 0) 72%);
+    opacity: 0.95;
+    animation: studentClockOrbFloat 6.2s ease-in-out infinite;
+}
+
+.student-live-clock .xschool-live-clock {
+    --xclock-bg:
+        linear-gradient(135deg, rgba(26, 52, 109, 0.94), rgba(57, 91, 184, 0.86) 40%, rgba(123, 97, 201, 0.82) 72%, rgba(14, 163, 140, 0.8));
+    --xclock-border: rgba(255, 255, 255, 0.18);
+    --xclock-ink: #ffffff;
+    --xclock-muted: rgba(234, 242, 255, 0.82);
+    --xclock-accent: #ffd86b;
+    --xclock-shadow: 0 24px 50px rgba(13, 33, 67, 0.24);
+    min-width: 0;
+    padding: 16px 18px;
+    gap: 8px;
+    border-radius: 24px;
+    backdrop-filter: blur(14px);
+}
+
+.student-live-clock .xschool-live-clock__eyebrow {
+    font-size: 0.64rem;
+    letter-spacing: 0.16em;
+}
+
+.student-live-clock .xschool-live-clock__status {
+    padding: 5px 10px;
+    font-size: 0.64rem;
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.student-live-clock .xschool-live-clock__time {
+    font-size: clamp(1.9rem, 3.2vw, 2.45rem);
+    letter-spacing: 0.03em;
+    text-shadow: 0 6px 18px rgba(7, 18, 47, 0.24);
+}
+
+.student-live-clock .xschool-live-clock__date {
+    font-size: 0.94rem;
+    color: rgba(242, 247, 255, 0.92);
+}
+
+.student-live-clock .xschool-live-clock__zone {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(245, 249, 255, 0.86);
+    letter-spacing: 0.08em;
 }
 
 .student-stat-grid {
@@ -1603,6 +1718,15 @@ body.student-dashboard-page {
         padding: 18px 16px 30px;
     }
 
+    .student-hero__utility {
+        margin-bottom: 12px;
+    }
+
+    .student-live-clock {
+        width: 100%;
+        max-width: none;
+    }
+
     .student-stat-grid,
     .student-profile-meta,
     .student-summary-grid,
@@ -1817,7 +1941,10 @@ body.student-dashboard-page {
     .student-panel__badge,
     .student-hero::before,
     .student-hero::after,
-    .student-engagement-meter__fill {
+    .student-engagement-meter__fill,
+    .student-live-clock,
+    .student-live-clock::before,
+    .student-live-clock::after {
         animation: none !important;
     }
 

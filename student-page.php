@@ -642,6 +642,19 @@ $reportPreview = array_slice($reportOptions, 0, 6);
     <div class="student-hero__copy">
         <span class="student-kicker"><?php echo sd_esc($portalTitle); ?></span>
         <h1>Welcome back, <?php echo sd_esc($studentShortName); ?>.</h1>
+        <div class="student-hero__utility">
+            <div class="student-live-clock">
+                <div class="xschool-live-clock" data-live-clock>
+                    <div class="xschool-live-clock__top">
+                        <span class="xschool-live-clock__eyebrow">Live Date &amp; Time</span>
+                        <span class="xschool-live-clock__status"><i class="fa fa-circle"></i> Live</span>
+                    </div>
+                    <div class="xschool-live-clock__time" data-live-clock-time>--:--:--</div>
+                    <div class="xschool-live-clock__date" data-live-clock-date>Loading current date</div>
+                    <div class="xschool-live-clock__zone" data-live-clock-zone>Local time</div>
+                </div>
+            </div>
+        </div>
         <div class="student-stat-grid">
             <article class="student-stat-card student-stat-card--classes"><span>Registered Classes</span><strong><?php echo (int)$classCount; ?></strong></article>
             <article class="student-stat-card student-stat-card--reports"><span>Report Options</span><strong><?php echo (int)$availableReportCount; ?></strong></article>

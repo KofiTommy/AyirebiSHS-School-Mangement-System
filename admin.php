@@ -1014,13 +1014,15 @@ include("links.php");
 }
 
 .dashboard-status-strip {
+    position: relative;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
     margin: 0 0 14px;
-    padding: 12px 14px;
+    padding: 10px 236px 10px 14px;
+    min-height: 74px;
     border: 1px solid rgba(15, 39, 66, 0.1);
     border-radius: 14px;
     background:
@@ -1043,6 +1045,68 @@ include("links.php");
 
 .dashboard-status-label i {
     color: var(--executive-teal);
+}
+
+.dashboard-live-clock {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    width: 206px;
+    max-width: calc(100% - 28px);
+    transform: translateY(-50%);
+}
+
+.dashboard-live-clock .xschool-live-clock {
+    --xclock-bg:
+        linear-gradient(135deg, rgba(236, 254, 255, 0.9), rgba(255, 247, 237, 0.92)),
+        #ffffff;
+    --xclock-border: rgba(15, 118, 110, 0.16);
+    --xclock-ink: #0f172a;
+    --xclock-muted: #64748b;
+    --xclock-accent: var(--executive-teal);
+    --xclock-shadow: 0 16px 28px rgba(15, 23, 42, 0.08);
+    min-width: 0;
+    padding: 10px 12px;
+    gap: 4px;
+    border-radius: 16px;
+}
+
+.dashboard-live-clock .xschool-live-clock__eyebrow {
+    font-size: 0.58rem;
+    letter-spacing: 0.14em;
+}
+
+.dashboard-live-clock .xschool-live-clock__status {
+    padding: 3px 7px;
+    font-size: 0.6rem;
+}
+
+.dashboard-live-clock .xschool-live-clock__time {
+    font-size: 1.32rem;
+    line-height: 1.05;
+}
+
+.dashboard-live-clock .xschool-live-clock__date {
+    font-size: 0.76rem;
+}
+
+.dashboard-live-clock .xschool-live-clock__zone {
+    display: none;
+}
+
+@media (max-width: 1260px) {
+    .dashboard-status-strip {
+        padding-right: 14px;
+        padding-top: 84px;
+        min-height: 0;
+        align-items: flex-start;
+    }
+
+    .dashboard-live-clock {
+        top: 10px;
+        right: 14px;
+        transform: none;
+    }
 }
 
 .quick-action-btn:hover {
@@ -2252,6 +2316,17 @@ include("links.php");
                             <div class="dashboard-status-label">
                                 <i class="fa fa-calendar-check-o"></i>
                                 <span>Active Semesters: <strong><?php echo $activeBatchLabel; ?></strong></span>
+                            </div>
+                            <div class="dashboard-live-clock">
+                                <div class="xschool-live-clock" data-live-clock>
+                                    <div class="xschool-live-clock__top">
+                                        <span class="xschool-live-clock__eyebrow">Live Date &amp; Time</span>
+                                        <span class="xschool-live-clock__status"><i class="fa fa-circle"></i> Live</span>
+                                    </div>
+                                    <div class="xschool-live-clock__time" data-live-clock-time>--:--:--</div>
+                                    <div class="xschool-live-clock__date" data-live-clock-date>Loading current date</div>
+                                    <div class="xschool-live-clock__zone" data-live-clock-zone>Local time</div>
+                                </div>
                             </div>
                             <div class="dashboard-global-search" data-desktop-search>
                                 <form class="dashboard-global-search-form" id="dashboard-global-search-form" autocomplete="off">

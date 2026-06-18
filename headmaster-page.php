@@ -504,10 +504,23 @@ include("links.php");
                 <span class="hm-kicker">Headmaster Dashboard</span>
                 <h1><?php echo hm_esc($schoolName); ?></h1>
                 <p>School overview for <?php echo hm_esc($headmasterShortName); ?>. Monitor attendance, results, admissions, finance, and recent school activity from one place.</p>
-                <div class="hm-context">
-                    <span><?php echo hm_esc($branchName); ?></span>
-                    <span><?php echo hm_esc($activeBatchLabel); ?></span>
-                    <span><?php echo hm_esc(date("d M Y")); ?></span>
+                <div class="hm-hero__footer">
+                    <div class="hm-context">
+                        <span><?php echo hm_esc($branchName); ?></span>
+                        <span><?php echo hm_esc($activeBatchLabel); ?></span>
+                        <span><?php echo hm_esc(date("d M Y")); ?></span>
+                    </div>
+                    <div class="hm-live-clock-wrap">
+                        <div class="xschool-live-clock hm-live-clock" data-live-clock>
+                            <div class="xschool-live-clock__top">
+                                <span class="xschool-live-clock__eyebrow">Live Date &amp; Time</span>
+                                <span class="xschool-live-clock__status"><i class="fa fa-circle"></i> Live</span>
+                            </div>
+                            <div class="xschool-live-clock__time" data-live-clock-time>--:--:--</div>
+                            <div class="xschool-live-clock__date" data-live-clock-date>Loading current date</div>
+                            <div class="xschool-live-clock__zone" data-live-clock-zone>Local time</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

@@ -48,6 +48,7 @@ body.hm-page {
 }
 
 .hm-hero {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
     gap: 18px;
@@ -62,6 +63,7 @@ body.hm-page {
 
 .hm-hero--single {
     grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
 }
 
 .hm-kicker,
@@ -87,11 +89,20 @@ body.hm-page {
     line-height: 1.6;
 }
 
-.hm-context {
+.hm-hero__footer {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
     margin-top: 18px;
+}
+
+.hm-context {
+    display: flex;
+    flex: 1 1 320px;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .hm-context span {
@@ -100,6 +111,56 @@ body.hm-page {
     background: rgba(255, 255, 255, 0.14);
     border: 1px solid rgba(255, 255, 255, 0.16);
     font-size: 0.88rem;
+}
+
+.hm-live-clock-wrap {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    width: min(100%, 228px);
+    margin-left: auto;
+}
+
+.hm-live-clock {
+    --xclock-bg: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+    --xclock-border: rgba(255,255,255,0.18);
+    --xclock-ink: #f8fbff;
+    --xclock-muted: rgba(232, 244, 255, 0.78);
+    --xclock-accent: #ffd27a;
+    --xclock-shadow: 0 18px 34px rgba(8, 47, 73, 0.18);
+    width: 100%;
+    min-width: 0;
+    padding: 11px 13px;
+    gap: 4px;
+    border-radius: 18px;
+}
+
+.hm-live-clock .xschool-live-clock__eyebrow {
+    font-size: 0.58rem;
+    letter-spacing: 0.14em;
+}
+
+.hm-live-clock .xschool-live-clock__status {
+    padding: 3px 7px;
+    font-size: 0.58rem;
+}
+
+.hm-live-clock .xschool-live-clock__time {
+    font-size: 1.34rem;
+    line-height: 1.05;
+}
+
+.hm-live-clock .xschool-live-clock__date {
+    font-size: 0.76rem;
+}
+
+.hm-live-clock .xschool-live-clock__zone {
+    display: none;
+}
+
+.hm-live-clock .xschool-live-clock__status {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.1);
 }
 
 .hm-hero__meta {
@@ -634,6 +695,16 @@ body.hm-page .card.total p {
 
     .hm-hero {
         grid-template-columns: 1fr;
+    }
+
+    .hm-hero__footer {
+        align-items: stretch;
+    }
+
+    .hm-live-clock-wrap {
+        width: 100%;
+        justify-content: flex-start;
+        margin-left: 0;
     }
 
     .hm-panel-grid,
