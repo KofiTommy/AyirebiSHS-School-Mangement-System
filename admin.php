@@ -762,6 +762,9 @@ include("links.php");
 
 .dashboard-global-search-form {
     margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .dashboard-global-search-label {
@@ -772,10 +775,13 @@ include("links.php");
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    width: 100%;
+    text-align: center;
 }
 
 .dashboard-global-search-field {
     position: relative;
+    width: 100%;
 }
 
 .dashboard-global-search-field > i {
@@ -832,6 +838,8 @@ include("links.php");
     margin: 6px 0 0;
     color: #64748b;
     font-size: 0.78rem;
+    width: 100%;
+    text-align: center;
 }
 
 .dashboard-global-search-results {
