@@ -2260,7 +2260,7 @@ include("links.php");
                                         >
                                         <button type="submit" class="dashboard-global-search-submit">Search</button>
                                     </div>
-                                    <p class="dashboard-global-search-hint">Search students, staff, classes, batches, and key tools from one place.</p>
+                                    <p class="dashboard-global-search-hint">Search students, staff, classes, batches, tools, and modules from one place.</p>
                                 </form>
                                 <div class="dashboard-global-search-results" id="dashboard-global-search-results" hidden></div>
                             </div>
@@ -2765,7 +2765,7 @@ include("links.php");
                                         return;
                                     }
 
-                                    setSearchResults("<div class='desktop-search-feedback'><i class='fa fa-spinner fa-spin'></i><div><strong>Searching</strong><span>Checking students, staff, classes, batches, and tools.</span></div></div>");
+                                    setSearchResults("<div class='desktop-search-feedback'><i class='fa fa-spinner fa-spin'></i><div><strong>Searching</strong><span>Checking students, staff, classes, batches, tools, and modules.</span></div></div>");
                                     const requestId = ++searchRequestIndex;
                                     const xhr = new XMLHttpRequest();
                                     xhr.onreadystatechange = function () {
