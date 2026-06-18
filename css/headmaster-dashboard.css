@@ -60,6 +60,10 @@ body.hm-page {
     box-shadow: 0 20px 44px rgba(8, 47, 73, 0.24);
 }
 
+.hm-hero--single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .hm-kicker,
 .hm-section__eyebrow {
     display: inline-block;

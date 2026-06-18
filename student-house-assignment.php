@@ -171,13 +171,32 @@ if($_FilterSearch !== ''){
 <?php include("links.php"); ?>
 <link rel="stylesheet" href="css/student-house-assignment.css">
 <style>
+.sha-print-header { display: none; }
+
 @media print {
-    .header, .print-hide, .sha-page-header, .sha-card__title, form, .sha-empty-note { display: none !important; }
-    .print-area { display: block !important; }
-    .main-platform, .form-entry, .sha-card { margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; }
+    body * { visibility: hidden !important; }
+    .print-area, .print-area * { visibility: visible !important; }
+    .print-area {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: #ffffff;
+    }
+    .header, .print-hide, .sha-page-header, .sha-card__title, .sha-empty-note { display: none !important; }
+    #single-assignment form,
+    .sha-filter-form,
+    .sha-form-actions,
+    .sha-inline-form,
+    .sha-inline-tools,
+    .sha-select-all { display: none !important; }
+    .main-platform, .form-entry, .sha-card { margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; background: transparent !important; }
     table { width: 100% !important; }
     .selection-col { display: none !important; }
+    input[type="checkbox"] { display: none !important; }
     .sha-table-wrap { overflow: visible !important; }
+    .sha-print-header { display: block !important; margin-bottom: 14px; }
 }
 </style>
 <script>
@@ -329,24 +348,28 @@ echo "<button type='button' onclick='printStudentListByHouse();'><i class='fa fa
 echo "</div>";
 
 echo "<div class='print-area'>";
+echo "<div class='sha-print-header' id='sha-print-header'>";
 echo "<h4 class='sha-subheading'>Students List</h4>";
+echo "<div class='sha-count-note' id='sha-print-scope'>All loaded students</div>";
+echo "</div>";
 echo "<div class='sha-select-all'><input type='checkbox' onclick='toggleAllStudents(this)' /> Select All Loaded Students</div>";
 echo "<div class='sha-table-wrap'>";
 echo "<table id='loaded-students-table' width='100%' style='background-color:white'>";
-echo "<thead><th class='selection-col'></th><th>Student</th><th>Current House</th></thead>";
+echo "<thead><th class='sha-number-col'>#</th><th class='selection-col'></th><th>Student</th><th>Current House</th></thead>";
 echo "<tbody>";
 $_CountLoaded = 0;
 while($row_bulk=mysqli_fetch_array($_SQL_BULK,MYSQLI_ASSOC)){
     $_CountLoaded++;
     $_RowHouseId = ($row_bulk['currenthouseid'] !== '') ? $row_bulk['currenthouseid'] : '__unassigned__';
     echo "<tr data-houseid='".htmlspecialchars($_RowHouseId)."'>";
+    echo "<td align='center' class='sha-row-number'>".$_CountLoaded."</td>";
     echo "<td class='selection-col' align='center'><input type='checkbox' name='studentids[]' value='".htmlspecialchars($row_bulk['userid'])."' /></td>";
     echo "<td>".htmlspecialchars($row_bulk['firstname']." ".$row_bulk['othernames']." ".$row_bulk['surname'])." (".htmlspecialchars($row_bulk['userid']).")</td>";
     echo "<td align='center'>".htmlspecialchars($row_bulk['currenthouse'])."</td>";
     echo "</tr>";
 }
 if($_CountLoaded === 0){
-    echo "<tr><td colspan='3' align='center'>No students matched your filters.</td></tr>";
+    echo "<tr><td colspan='4' align='center'>No students matched your filters.</td></tr>";
 }
 echo "</tbody>";
 echo "</table>";
@@ -430,15 +453,37 @@ function printStudentListByHouse(){
     if(houseSel){
         selectedHouse = houseSel.value || "";
     }
+    updatePrintHeader(selectedHouse);
     filterLoadedStudentsByHouse(selectedHouse, true);
-    window.print();
-    filterLoadedStudentsByHouse(selectedHouse, false);
+    window.setTimeout(function(){
+        window.print();
+    }, 120);
 }
 
 function loadStudentsBySelectedHouse(){
     var houseSel = document.getElementById("print_houseid");
     var selectedHouse = houseSel ? (houseSel.value || "") : "";
+    updatePrintHeader(selectedHouse);
     filterLoadedStudentsByHouse(selectedHouse, false);
+}
+
+function updatePrintHeader(selectedHouse){
+    var scope = document.getElementById("sha-print-scope");
+    if(!scope){
+        return;
+    }
+    if(selectedHouse === ""){
+        scope.textContent = "All loaded students";
+        return;
+    }
+    var houseSel = document.getElementById("print_houseid");
+    if(!houseSel){
+        scope.textContent = "Selected house";
+        return;
+    }
+    var selectedOption = houseSel.options[houseSel.selectedIndex];
+    var selectedLabel = selectedOption ? (selectedOption.text || "Selected house") : "Selected house";
+    scope.textContent = selectedLabel;
 }
 
 function filterLoadedStudentsByHouse(selectedHouse, forPrint){
@@ -455,25 +500,37 @@ function filterLoadedStudentsByHouse(selectedHouse, forPrint){
         emptyRow = document.createElement("tr");
         emptyRow.id = "loaded-students-empty-row";
         emptyRow.style.display = "none";
-        emptyRow.innerHTML = "<td colspan='3' align='center'>No loaded students are currently in the selected house.</td>";
+        emptyRow.innerHTML = "<td colspan='4' align='center'>No loaded students are currently in the selected house.</td>";
         table.querySelector("tbody").appendChild(emptyRow);
     }
 
+    var numbering = 0;
     for(var i=0;i<rows.length;i++){
         if(rows[i].id === "loaded-students-empty-row"){
             continue;
         }
         var houseId = rows[i].getAttribute("data-houseid") || "";
+        var numberCell = rows[i].querySelector(".sha-row-number");
         if(rows[i].hasAttribute("data-houseid")){
             actualRowCount++;
         }
         if(!rows[i].hasAttribute("data-houseid")){
             rows[i].style.display = (actualRowCount === 0) ? "" : "none";
+            if(numberCell){
+                numberCell.textContent = "";
+            }
         }else if(selectedHouse === "" || houseId === selectedHouse){
             rows[i].style.display = "";
+            numbering++;
+            if(numberCell){
+                numberCell.textContent = numbering;
+            }
             visibleCount++;
         }else{
             rows[i].style.display = "none";
+            if(numberCell){
+                numberCell.textContent = "";
+            }
         }
     }
 
@@ -496,6 +553,10 @@ function filterLoadedStudentsByHouse(selectedHouse, forPrint){
 
     return visibleCount;
 }
+
+document.addEventListener("DOMContentLoaded", function(){
+    updatePrintHeader("");
+});
 </script>
 </body>
 </html>

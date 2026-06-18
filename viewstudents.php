@@ -2,6 +2,66 @@
 session_start();
 $_SESSION['Message']="";
 
+include_once("check-login.php");
+include_once("user-management-utils.php");
+
+if(!function_exists('student_directory_is_headmaster_viewer')){
+function student_directory_is_headmaster_viewer(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === 'user' &&
+        $_SESSION['SYSTEMTYPE'] === 'Headmaster';
+}
+}
+
+if(!function_exists('student_directory_can_access')){
+function student_directory_can_access(){
+    if(!isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE'])){
+        return false;
+    }
+
+    if($_SESSION['ACCESSLEVEL'] === 'administrator' && in_array($_SESSION['SYSTEMTYPE'], array('normal_user', 'super_user'), true)){
+        return true;
+    }
+
+    if($_SESSION['ACCESSLEVEL'] === 'user' && in_array($_SESSION['SYSTEMTYPE'], array('User', 'Headmaster'), true)){
+        return true;
+    }
+
+    return false;
+}
+}
+
+if(!function_exists('student_directory_can_manage_records')){
+function student_directory_can_manage_records(){
+    return !student_directory_is_headmaster_viewer();
+}
+}
+
+if(!function_exists('student_directory_branch_filter_sql')){
+function student_directory_branch_filter_sql($con, $alias = 'su'){
+    if(!student_directory_is_headmaster_viewer()){
+        return '';
+    }
+
+    $branchId = isset($_SESSION['BRANCHID']) ? trim((string)$_SESSION['BRANCHID']) : '';
+    if($branchId === ''){
+        return '';
+    }
+
+    $alias = trim((string)$alias);
+    if($alias === ''){
+        $alias = 'su';
+    }
+
+    return " AND ".$alias.".branchid='".mysqli_real_escape_string($con, $branchId)."'";
+}
+}
+
+if(!student_directory_can_access()){
+    header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : 'index.php'));
+    exit();
+}
+
 if(!function_exists('normalize_gender_label')){
 function normalize_gender_label($gender){
     $g = strtoupper(trim((string)$gender));
@@ -60,6 +120,7 @@ if(!file_exists(__DIR__.'/fpdf181/fpdf.php')){
     exit("Print setup error: PDF library file not found.");
 }
 require(__DIR__.'/fpdf181/fpdf.php');
+$_BranchStudentFilter = student_directory_branch_filter_sql($con, 'su');
 
 @$_BatchID=$_POST["print_batchid"];
 if($_BatchID==""){
@@ -86,6 +147,7 @@ $_SQL_STUDENTS=mysqli_query($con,"
       AND su.status='active'
       AND cl.status='active'
       AND cl.batchid='".mysqli_real_escape_string($con, $_BatchID)."'
+      $_BranchStudentFilter
 ");
 if($_SQL_STUDENTS){
     while($row=mysqli_fetch_array($_SQL_STUDENTS,MYSQLI_ASSOC)){
@@ -244,6 +306,7 @@ if(!file_exists(__DIR__.'/fpdf181/fpdf.php')){
     exit("Print setup error: PDF library file not found.");
 }
 require(__DIR__.'/fpdf181/fpdf.php');
+$_BranchStudentFilter = student_directory_branch_filter_sql($con, 'su');
 
 @$_ClassentryID=$_POST["print_class_id"];
 @$_BatchID=$_POST["print_batchid"];
@@ -295,6 +358,7 @@ $_SQL_STUDENTS=mysqli_query($con,"
       AND cl.status='active'
       AND cl.batchid='".mysqli_real_escape_string($con, $_BatchID)."'
       $_ClassFilter
+      $_BranchStudentFilter
 ");
 if($_SQL_STUDENTS){
     while($row=mysqli_fetch_array($_SQL_STUDENTS,MYSQLI_ASSOC)){
@@ -457,6 +521,7 @@ if(!file_exists(__DIR__.'/fpdf181/fpdf.php')){
 require(__DIR__.'/fpdf181/fpdf.php');
 $pdf = new FPDF();
 $pdf->AddPage();
+$_BranchStudentFilter = student_directory_branch_filter_sql($con, 'su');
 
 $width_cell=array(7,55,20,20,20,20,10,25,15);
 $pdf->SetFont('Arial','B',10);
@@ -506,7 +571,7 @@ if($_ClassentryID=="" || $_BatchID==""){
 
 include("dbstring.php");
 $_SQL_EXECUTE2=mysqli_query($con,"SELECT * FROM tblsystemuser su INNER JOIN tblclass cl 
-ON su.userid=cl.userid WHERE cl.class_entryid='$_ClassentryID'AND cl.batchid='$_BatchID' AND su.systemtype='Student' ORDER BY su.firstname ASC");
+ON su.userid=cl.userid WHERE cl.class_entryid='$_ClassentryID'AND cl.batchid='$_BatchID' AND su.systemtype='Student' $_BranchStudentFilter ORDER BY su.firstname ASC");
 
 //Registered clients
 @$_ClassName="";
@@ -618,7 +683,7 @@ include("dbstring.php");
 @$_SystemType=$_POST['systemtype'];
 @$_Filename=$_POST['filename'];
 
-if(isset($_POST['register_user'])){
+if(isset($_POST['register_user']) && student_directory_can_manage_records()){
 $_SQL_EXECUTE=mysqli_query($con,"INSERT INTO tblsystemuser(userid,firstname,surname,othernames,gender,residencetype,birthday,age,postaladdress,homeaddress,hometown,religion,relationship,beceindexnumber,nextofkin_fullname,nextofkin_contact,registereddatetime,status,username,password,accesslevel,systemtype)
 	VALUES('$_UserID','$_Firstname','$_Surname','$_Othernames','$_Gender','$_ResidenceType',STR_TO_DATE('$_Birthday','%d-%m-%Y'),'$_Age','$_PostalAddress','$_HomeAddress','$_HomeTown','$_Religion','$_Relationship','$_BECEIndexNumber,'$_Nextofkin_fullname','$_Nextofcontact',NOW(),'active','$_Username','$_Password','$_AccessLevel','$_SystemType')");
 if($_SQL_EXECUTE){
@@ -628,13 +693,15 @@ else{
 	$_Error=mysqli_error($con);
 	$_SESSION['Message']="<div style='color:red'>User Information Failed to save,Error:$_Error</div>";
 }
+}elseif(isset($_POST['register_user'])){
+$_SESSION['Message']="<div style='color:red'>You cannot manage student records from this page.</div>";
 }
 ?>
 
 <?php
 include("dbstring.php");
 
-if(isset($_GET["block_user"]))
+if(isset($_GET["block_user"]) && student_directory_can_manage_records())
 {
 $_SQL_EXECUTE=mysqli_query($con,"UPDATE tblsystemuser SET status='block' WHERE userid='$_GET[block_user]'");
 	if($_SQL_EXECUTE){
@@ -644,13 +711,15 @@ $_SQL_EXECUTE=mysqli_query($con,"UPDATE tblsystemuser SET status='block' WHERE u
 		$_Error=mysqli_error($con);
 		$_SESSION['Message']="<div style='color:red'>User failed to block</div>";
 	}
+}elseif(isset($_GET["block_user"])){
+    $_SESSION['Message']="<div style='color:red'>You cannot manage student records from this page.</div>";
 }
 ?>
 
 <?php
 include("dbstring.php");
 
-if(isset($_GET["unblock_user"]))
+if(isset($_GET["unblock_user"]) && student_directory_can_manage_records())
 {
 $_SQL_EXECUTE=mysqli_query($con,"UPDATE tblsystemuser SET status='active' WHERE userid='$_GET[unblock_user]'");
 	if($_SQL_EXECUTE){
@@ -660,13 +729,15 @@ $_SQL_EXECUTE=mysqli_query($con,"UPDATE tblsystemuser SET status='active' WHERE 
 		$_Error=mysqli_error($con);
 		$_SESSION['Message']="<div style='color:red'>User failed to unblock</div>";
 	}
+}elseif(isset($_GET["unblock_user"])){
+    $_SESSION['Message']="<div style='color:red'>You cannot manage student records from this page.</div>";
 }
 ?>
 
 <?php
 include("dbstring.php");
 
-if(isset($_GET["delete_user"]))
+if(isset($_GET["delete_user"]) && student_directory_can_manage_records())
 {
 $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblsystemuser WHERE userid='$_GET[delete_user]'");
 	if($_SQL_EXECUTE){
@@ -676,6 +747,8 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblsystemuser WHERE userid='$_GET[d
 		$_Error=mysqli_error($con);
 		$_SESSION['Message']="<div style='color:red'>User failed to delete</div>";
 	}
+}elseif(isset($_GET["delete_user"])){
+    $_SESSION['Message']="<div style='color:red'>You cannot manage student records from this page.</div>";
 }
 ?>
 
@@ -720,15 +793,37 @@ $_ActiveStudentTotal = 0;
 $_BlockedStudentTotal = 0;
 $_BoardingStudentTotal = 0;
 $_DayStudentTotal = 0;
+$_IsHeadmasterViewer = student_directory_is_headmaster_viewer();
+$_BranchStudentFilter = student_directory_branch_filter_sql($con, 'su');
 
-$_SQL_CLASS_OPTIONS = mysqli_query($con, "SELECT * FROM tblclassentry ORDER BY class_name");
+$_ClassOptionsSql = "SELECT * FROM tblclassentry ORDER BY class_name";
+if($_IsHeadmasterViewer && $_BranchStudentFilter !== ''){
+	$_ClassOptionsSql = "SELECT DISTINCT ce.* FROM tblclassentry ce
+		INNER JOIN tblclass cl ON cl.class_entryid=ce.class_entryid AND cl.status='active'
+		INNER JOIN tblsystemuser su ON su.userid=cl.userid
+		WHERE su.systemtype='Student'
+		  AND su.status='active'
+		  $_BranchStudentFilter
+		ORDER BY ce.class_name";
+}
+$_SQL_CLASS_OPTIONS = mysqli_query($con, $_ClassOptionsSql);
 if($_SQL_CLASS_OPTIONS){
 	while($row=mysqli_fetch_array($_SQL_CLASS_OPTIONS, MYSQLI_ASSOC)){
 		$_ClassOptions[] = $row;
 	}
 }
 
-$_SQL_BATCH_OPTIONS = mysqli_query($con, "SELECT * FROM tblbatch ORDER BY batch ASC");
+$_BatchOptionsSql = "SELECT * FROM tblbatch ORDER BY batch ASC";
+if($_IsHeadmasterViewer && $_BranchStudentFilter !== ''){
+	$_BatchOptionsSql = "SELECT DISTINCT b.* FROM tblbatch b
+		INNER JOIN tblclass cl ON cl.batchid=b.batchid AND cl.status='active'
+		INNER JOIN tblsystemuser su ON su.userid=cl.userid
+		WHERE su.systemtype='Student'
+		  AND su.status='active'
+		  $_BranchStudentFilter
+		ORDER BY b.batch ASC";
+}
+$_SQL_BATCH_OPTIONS = mysqli_query($con, $_BatchOptionsSql);
 if($_SQL_BATCH_OPTIONS){
 	while($row=mysqli_fetch_array($_SQL_BATCH_OPTIONS, MYSQLI_ASSOC)){
 		$_BatchOptions[] = $row;
@@ -747,7 +842,7 @@ if($_ShowStudents && $_SelectedClassentryID !== "" && $_SelectedBatchID !== ""){
 	}
 
 	$_SQL_EXECUTE2 = mysqli_query($con, "SELECT * FROM tblsystemuser su INNER JOIN tblclass cl 
-ON su.userid=cl.userid WHERE cl.class_entryid='".mysqli_real_escape_string($con, $_SelectedClassentryID)."' AND cl.batchid='".mysqli_real_escape_string($con, $_SelectedBatchID)."' AND su.systemtype='Student' ORDER BY su.firstname ASC");
+ON su.userid=cl.userid WHERE cl.class_entryid='".mysqli_real_escape_string($con, $_SelectedClassentryID)."' AND cl.batchid='".mysqli_real_escape_string($con, $_SelectedBatchID)."' AND su.systemtype='Student' $_BranchStudentFilter ORDER BY su.firstname ASC");
 
 	if($_SQL_EXECUTE2){
 		while($row=mysqli_fetch_array($_SQL_EXECUTE2, MYSQLI_ASSOC)){
@@ -967,9 +1062,15 @@ include("menu.php");
 								<a class="student-directory-action student-directory-action--view" title="View <?php echo student_directory_safe($row["firstname"]); ?> (<?php echo student_directory_safe($row["userid"]); ?>)" href="user-profile.php?view_user=<?php echo urlencode((string)$row["userid"]); ?>">
 									<i class="fa fa-book"></i> View
 								</a>
+								<?php if($_IsHeadmasterViewer){ ?>
+								<a class="student-directory-action student-directory-action--edit" title="Open transcript for <?php echo student_directory_safe($row["firstname"]); ?> (<?php echo student_directory_safe($row["userid"]); ?>)" href="student-history.php?userid=<?php echo urlencode((string)$row["userid"]); ?>">
+									<i class="fa fa-history"></i> Transcript
+								</a>
+								<?php } else { ?>
 								<a class="student-directory-action student-directory-action--edit" title="Edit <?php echo student_directory_safe($row["firstname"]); ?> (<?php echo student_directory_safe($row["userid"]); ?>)" href="register_edit.php?edit_user=<?php echo urlencode((string)$row["userid"]); ?>">
 									<i class="fa fa-edit"></i> Edit
 								</a>
+								<?php } ?>
 							</div>
 						</td>
 					</tr>

@@ -758,6 +758,7 @@ function um_baseline_scripts_for_role($roleKey){
         return array(
             'headmaster-page.php',
             'search.php',
+            'viewstudents.php',
             'viewusers.php',
             'duty-roster.php',
             'senior-house-dashboard.php',

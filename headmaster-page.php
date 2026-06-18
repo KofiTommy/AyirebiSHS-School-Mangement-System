@@ -458,6 +458,7 @@ if(empty($attentionItems)){
 
 $quickLinks = array(
     array('module' => 'student_search', 'href' => 'search.php', 'icon' => 'fa-search', 'label' => 'Search Student'),
+    array('module' => '', 'href' => 'viewstudents.php', 'icon' => 'fa-graduation-cap', 'label' => 'View Students'),
     array('module' => '', 'href' => 'viewusers.php', 'icon' => 'fa-users', 'label' => 'Teachers List'),
     array('module' => '', 'href' => 'duty-roster.php', 'icon' => 'fa-calendar-check-o', 'label' => 'Teacher On Duty'),
     array('module' => '', 'href' => 'senior-house-dashboard.php', 'icon' => 'fa-shield', 'label' => 'Senior House Overview'),
@@ -498,7 +499,7 @@ include("links.php");
     </aside>
 
     <section class="hm-main">
-        <section class="hm-hero">
+        <section class="hm-hero hm-hero--single">
             <div class="hm-hero__copy">
                 <span class="hm-kicker">Headmaster Dashboard</span>
                 <h1><?php echo hm_esc($schoolName); ?></h1>
@@ -508,23 +509,6 @@ include("links.php");
                     <span><?php echo hm_esc($activeBatchLabel); ?></span>
                     <span><?php echo hm_esc(date("d M Y")); ?></span>
                 </div>
-            </div>
-            <div class="hm-hero__meta">
-                <article>
-                    <span>Students</span>
-                    <strong><?php echo number_format($studentTotal); ?></strong>
-                    <small>Active student accounts</small>
-                </article>
-                <article>
-                    <span>Teachers</span>
-                    <strong><?php echo number_format($teacherTotal); ?></strong>
-                    <small>Active teaching staff</small>
-                </article>
-                <article>
-                    <span>Classes</span>
-                    <strong><?php echo number_format($classTotal); ?></strong>
-                    <small>Registered class records</small>
-                </article>
             </div>
         </section>
 
@@ -541,13 +525,21 @@ include("links.php");
                         <div class="chart-canvas-wrap">
                             <canvas id="headmasterStudentChart" aria-label="Student distribution by gender and residence"></canvas>
                         </div>
-                        <p class="chart-note">The graph shows student numbers by gender and residence, while the tiles beside it summarize the main school totals.</p>
+                        <p class="chart-note">The graph shows student numbers by gender and residence, while the tiles beside it combine the main school totals in one place.</p>
                     </div>
                 </div>
                 <div class="cards-side">
                     <div class="card total" role="article" aria-label="Total Active Students">
                         <h4><i class="fa fa-users" style="color:#fff; margin-right:4px;"></i>Total Active Students</h4>
                         <p><?php echo number_format($studentTotal); ?></p>
+                    </div>
+                    <div class="card" role="article" aria-label="Active Teachers">
+                        <h4><i class="fa fa-users" style="color:#0f766e; margin-right:4px;"></i>Teachers</h4>
+                        <p><?php echo number_format($teacherTotal); ?></p>
+                    </div>
+                    <div class="card" role="article" aria-label="Registered Classes">
+                        <h4><i class="fa fa-building-o" style="color:#2563eb; margin-right:4px;"></i>Classes</h4>
+                        <p><?php echo number_format($classTotal); ?></p>
                     </div>
                     <div class="card" role="article" aria-label="Boys Day Students">
                         <h4><i class="fa fa-male" style="color:#2563eb; margin-right:4px;"></i>Boys - Day</h4>
@@ -569,14 +561,6 @@ include("links.php");
                         <h4><i class="fa fa-question-circle" style="color:#b45309; margin-right:4px;"></i>No Residence Status</h4>
                         <p><?php echo number_format($studentsNoStatus); ?></p>
                     </div>
-                    <div class="card" role="article" aria-label="Attendance Today">
-                        <h4><i class="fa fa-check-circle" style="color:#0f766e; margin-right:4px;"></i>Attendance Today</h4>
-                        <p><?php echo number_format($attendanceSessionsToday); ?></p>
-                    </div>
-                    <div class="card" role="article" aria-label="Students At Risk">
-                        <h4><i class="fa fa-exclamation-triangle" style="color:#b91c1c; margin-right:4px;"></i>Students At Risk</h4>
-                        <p><?php echo number_format($riskStudents); ?></p>
-                    </div>
                     <div class="card" role="article" aria-label="Reports Awaiting Release">
                         <h4><i class="fa fa-file-text-o" style="color:#d97706; margin-right:4px;"></i>Reports Awaiting Release</h4>
                         <p><?php echo number_format($reportPendingTotal); ?></p>
@@ -588,10 +572,6 @@ include("links.php");
                     <div class="card" role="article" aria-label="Outstanding Fees">
                         <h4><i class="fa fa-money" style="color:#c2410c; margin-right:4px;"></i>Outstanding Fees</h4>
                         <p><?php echo hm_esc(hm_money($outstandingTotal)); ?></p>
-                    </div>
-                    <div class="card" role="article" aria-label="Unread Messages">
-                        <h4><i class="fa fa-envelope-o" style="color:#2563eb; margin-right:4px;"></i>Unread Messages</h4>
-                        <p><?php echo number_format($unreadMessages); ?></p>
                     </div>
                     <div class="card" role="article" aria-label="Pending Admissions">
                         <h4><i class="fa fa-folder-open-o" style="color:#4f46e5; margin-right:4px;"></i>Pending Admissions</h4>
@@ -620,68 +600,8 @@ include("links.php");
             </div>
         </section>
 
-        <div class="hm-panel-grid">
+        <section class="hm-section">
             <section class="hm-panel">
-                <div class="hm-panel__head">
-                    <div>
-                        <span class="hm-section__eyebrow">Action Centre</span>
-                        <h2>Items that need attention</h2>
-                    </div>
-                </div>
-                <div class="hm-alert-list">
-                    <?php foreach($attentionItems as $item){ ?>
-                    <article class="hm-alert-item">
-                        <div class="hm-alert-item__body">
-                            <strong><?php echo hm_esc($item['title']); ?></strong>
-                            <p><?php echo hm_esc($item['detail']); ?></p>
-                        </div>
-                        <?php if(trim((string)$item['href']) !== ''){ ?>
-                        <a class="hm-alert-item__link" href="<?php echo hm_esc($item['href']); ?>"><?php echo hm_esc($item['label']); ?></a>
-                        <?php } ?>
-                    </article>
-                    <?php } ?>
-                </div>
-            </section>
-
-            <section class="hm-panel">
-                <div class="hm-panel__head">
-                    <div>
-                        <span class="hm-section__eyebrow">Today</span>
-                        <h2>School snapshot</h2>
-                    </div>
-                </div>
-                <div class="hm-mini-grid">
-                    <article class="hm-mini-card">
-                        <span>Registers Marked</span>
-                        <strong><?php echo number_format($attendanceSessionsToday); ?></strong>
-                        <small><?php echo number_format($attendanceAwaiting); ?> class assignment<?php echo $attendanceAwaiting === 1 ? '' : 's'; ?> still not marked today.</small>
-                    </article>
-                    <article class="hm-mini-card">
-                        <span>Absent Records</span>
-                        <strong><?php echo number_format((int)$attendanceStatus['absent_total']); ?></strong>
-                        <small><?php echo number_format((int)$attendanceStatus['excused_total']); ?> excused and <?php echo number_format((int)$attendanceStatus['late_total']); ?> late today.</small>
-                    </article>
-                    <article class="hm-mini-card">
-                        <span>Payments Today</span>
-                        <strong><?php echo hm_esc(hm_money($paymentsToday)); ?></strong>
-                        <small>Payments posted to the school account today.</small>
-                    </article>
-                    <article class="hm-mini-card">
-                        <span>Admissions Today</span>
-                        <strong><?php echo number_format($admissionSubmittedToday); ?></strong>
-                        <small>Submitted admission forms received today.</small>
-                    </article>
-                    <article class="hm-mini-card">
-                        <span>Teachers On Duty</span>
-                        <strong><?php echo number_format($dutyTodayCount); ?></strong>
-                        <small><?php echo hm_esc($dutyTodaySummary); ?></small>
-                    </article>
-                </div>
-            </section>
-        </div>
-
-        <div class="hm-panel-grid hm-panel-grid--three">
-            <section class="hm-panel hm-panel--wide">
                 <div class="hm-panel__head">
                     <div>
                         <span class="hm-section__eyebrow">Senior House</span>
@@ -737,61 +657,7 @@ include("links.php");
                     <a href="senior-house-dashboard.php">Open senior house overview</a>
                 </div>
             </section>
-
-            <section class="hm-panel">
-                <div class="hm-panel__head">
-                    <div>
-                        <span class="hm-section__eyebrow">Academic Readiness</span>
-                        <h2>Results and release status</h2>
-                    </div>
-                </div>
-                <div class="hm-data-list">
-                    <div><span>Assigned Subject Entries</span><strong><?php echo number_format($totalAssignedSubjects); ?></strong></div>
-                    <div><span>Entries Submitted</span><strong><?php echo number_format($submittedSubjects); ?></strong></div>
-                    <div><span>Reports Released</span><strong><?php echo number_format($reportApprovedTotal); ?></strong></div>
-                    <div><span>Reports Awaiting Release</span><strong><?php echo number_format($reportPendingTotal); ?></strong></div>
-                </div>
-                <div class="hm-panel__footer">
-                    <a href="terminal-report.php">Open examination report</a>
-                </div>
-            </section>
-
-            <section class="hm-panel">
-                <div class="hm-panel__head">
-                    <div>
-                        <span class="hm-section__eyebrow">Finance</span>
-                        <h2>Billing and collections</h2>
-                    </div>
-                </div>
-                <div class="hm-data-list">
-                    <div><span>Total Billed</span><strong><?php echo hm_esc(hm_money($billingTotal)); ?></strong></div>
-                    <div><span>Total Collected</span><strong><?php echo hm_esc(hm_money($paymentTotal)); ?></strong></div>
-                    <div><span>Outstanding Balance</span><strong><?php echo hm_esc(hm_money($outstandingTotal)); ?></strong></div>
-                    <div><span>Payments Today</span><strong><?php echo hm_esc(hm_money($paymentsToday)); ?></strong></div>
-                </div>
-                <div class="hm-panel__footer">
-                    <a href="payment-analysis.php">Open finance reports</a>
-                </div>
-            </section>
-
-            <section class="hm-panel">
-                <div class="hm-panel__head">
-                    <div>
-                        <span class="hm-section__eyebrow">Admissions</span>
-                        <h2>Online admission status</h2>
-                    </div>
-                </div>
-                <div class="hm-data-list">
-                    <div><span>Submitted</span><strong><?php echo number_format($admissionSubmittedTotal); ?></strong></div>
-                    <div><span>Needs Attention</span><strong><?php echo number_format($admissionNeedsAttentionTotal); ?></strong></div>
-                    <div><span>Reviewed</span><strong><?php echo number_format($admissionReviewedTotal); ?></strong></div>
-                    <div><span>Help Requests</span><strong><?php echo number_format($helpRequestTotal); ?></strong></div>
-                </div>
-                <div class="hm-panel__footer">
-                    <a href="online-admission-admin.php">Open admission desk</a>
-                </div>
-            </section>
-        </div>
+        </section>
 
     </section>
 </main>

@@ -514,6 +514,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Headmaster
 
 <?php menuboard_section_start('School Overview', 'fa-dashboard', true); ?>
 <a href="student-history.php"><i class="fa fa-history"></i> Student Transcript</a>
+<a href="viewstudents.php"><i class="fa fa-graduation-cap"></i> View Students</a>
 <a href="continuing-students.php"><i class="fa fa-users"></i> Continuing Students</a>
 <a href="viewusers.php"><i class="fa fa-users"></i> Teachers List</a>
 <a href="duty-roster.php"><i class="fa fa-calendar-check-o"></i> Teacher On Duty</a>
