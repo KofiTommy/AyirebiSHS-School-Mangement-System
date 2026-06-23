@@ -457,7 +457,6 @@ if(empty($attentionItems)){
 }
 
 $quickLinks = array(
-    array('module' => 'student_search', 'href' => 'search.php', 'icon' => 'fa-search', 'label' => 'Search Student'),
     array('module' => '', 'href' => 'viewstudents.php', 'icon' => 'fa-graduation-cap', 'label' => 'View Students'),
     array('module' => '', 'href' => 'viewusers.php', 'icon' => 'fa-users', 'label' => 'Teachers List'),
     array('module' => '', 'href' => 'duty-roster.php', 'icon' => 'fa-calendar-check-o', 'label' => 'Teacher On Duty'),
@@ -521,6 +520,25 @@ include("links.php");
                             <div class="xschool-live-clock__zone" data-live-clock-zone>Local time</div>
                         </div>
                     </div>
+                </div>
+                <div class="hm-desktop-search" data-hm-desktop-search>
+                    <form class="hm-desktop-search-form" id="hm-desktop-search-form" autocomplete="off">
+                        <label class="hm-desktop-search-label" for="hm-desktop-search-input">School Search</label>
+                        <div class="hm-desktop-search-field">
+                            <i class="fa fa-search"></i>
+                            <input
+                                class="hm-desktop-search-input"
+                                type="search"
+                                id="hm-desktop-search-input"
+                                name="hm_desktop_search"
+                                placeholder="Search students, teachers, classes, batches, or tools"
+                                aria-label="Search students, teachers, classes, batches, or tools"
+                            >
+                            <button type="submit" class="hm-desktop-search-submit">Search</button>
+                        </div>
+                        <p class="hm-desktop-search-hint">Search the school records and key headmaster tools from one place.</p>
+                    </form>
+                    <div class="hm-desktop-search-results" id="hm-desktop-search-results" hidden></div>
                 </div>
             </div>
         </section>
@@ -676,110 +694,201 @@ include("links.php");
 </main>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    if (typeof Chart === 'undefined') {
-        return;
+    var desktopSearchWrap = document.querySelector('[data-hm-desktop-search]');
+    if (desktopSearchWrap) {
+        var searchForm = document.getElementById('hm-desktop-search-form');
+        var searchInput = document.getElementById('hm-desktop-search-input');
+        var searchResults = document.getElementById('hm-desktop-search-results');
+        var searchTimer = null;
+        var searchRequestIndex = 0;
+
+        function setSearchResults(html) {
+            if (!searchResults) {
+                return;
+            }
+            searchResults.innerHTML = html;
+            searchResults.removeAttribute('hidden');
+        }
+
+        function closeSearchResults() {
+            if (!searchResults) {
+                return;
+            }
+            searchResults.setAttribute('hidden', 'hidden');
+            searchResults.innerHTML = '';
+        }
+
+        function runDesktopSearch(forceSearch) {
+            if (!searchInput || !searchResults) {
+                return;
+            }
+            var query = searchInput.value.trim();
+            if (query === '') {
+                closeSearchResults();
+                return;
+            }
+            if (query.length < 2 && !forceSearch) {
+                setSearchResults("<div class='desktop-search-feedback'><i class='fa fa-search'></i><div><strong>Keep typing</strong><span>Use at least 2 characters to search the dashboard.</span></div></div>");
+                return;
+            }
+
+            setSearchResults("<div class='desktop-search-feedback'><i class='fa fa-spinner fa-spin'></i><div><strong>Searching</strong><span>Checking students, teachers, classes, batches, and tools.</span></div></div>");
+            var requestId = ++searchRequestIndex;
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4 || requestId !== searchRequestIndex) {
+                    return;
+                }
+                if (xhr.status === 200) {
+                    setSearchResults(xhr.responseText);
+                } else if (xhr.status === 403) {
+                    setSearchResults("<div class='desktop-search-feedback'><i class='fa fa-lock'></i><div><strong>Access denied</strong><span>You do not have access to dashboard search.</span></div></div>");
+                } else {
+                    setSearchResults("<div class='desktop-search-feedback'><i class='fa fa-exclamation-circle'></i><div><strong>Search failed</strong><span>Try again in a moment.</span></div></div>");
+                }
+            };
+            xhr.open('GET', 'headmaster-global-search.php?q=' + encodeURIComponent(query), true);
+            xhr.send();
+        }
+
+        if (searchForm) {
+            searchForm.addEventListener('submit', function (event) {
+                event.preventDefault();
+                runDesktopSearch(true);
+            });
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                if (searchTimer) {
+                    clearTimeout(searchTimer);
+                }
+                searchTimer = setTimeout(function () {
+                    runDesktopSearch(false);
+                }, 220);
+            });
+
+            searchInput.addEventListener('focus', function () {
+                if (searchInput.value.trim() !== '') {
+                    runDesktopSearch(false);
+                }
+            });
+
+            searchInput.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    closeSearchResults();
+                    searchInput.blur();
+                }
+            });
+        }
+
+        document.addEventListener('click', function (event) {
+            if (!desktopSearchWrap.contains(event.target)) {
+                closeSearchResults();
+            }
+        });
     }
 
-    var studentCanvas = document.getElementById('headmasterStudentChart');
-    if (!studentCanvas) {
-        return;
-    }
+    if (typeof Chart !== 'undefined') {
+        var studentCanvas = document.getElementById('headmasterStudentChart');
+        if (studentCanvas) {
+            var chartContext = studentCanvas.getContext('2d');
+            var existingChart = typeof Chart.getChart === 'function' ? Chart.getChart(studentCanvas) : null;
+            if (existingChart) {
+                existingChart.destroy();
+            }
 
-    var chartContext = studentCanvas.getContext('2d');
-    var existingChart = typeof Chart.getChart === 'function' ? Chart.getChart(studentCanvas) : null;
-    if (existingChart) {
-        existingChart.destroy();
-    }
+            if (window.headmasterStudentChartInstance && typeof window.headmasterStudentChartInstance.destroy === 'function') {
+                window.headmasterStudentChartInstance.destroy();
+            }
 
-    if (window.headmasterStudentChartInstance && typeof window.headmasterStudentChartInstance.destroy === 'function') {
-        window.headmasterStudentChartInstance.destroy();
-    }
+            studentCanvas.style.width = '100%';
+            studentCanvas.style.height = '100%';
 
-    studentCanvas.style.width = '100%';
-    studentCanvas.style.height = '100%';
-
-    window.headmasterStudentChartInstance = new Chart(chartContext, {
-        type: 'line',
-        data: {
-            labels: [
-                ['Boys', 'Day'],
-                ['Boys', 'Boarding'],
-                ['Girls', 'Day'],
-                ['Girls', 'Boarding'],
-                ['No Residence', 'Status']
-            ],
-            datasets: [{
-                label: 'Students',
-                data: [<?php echo $boys_day; ?>, <?php echo $boys_boarding; ?>, <?php echo $girls_day; ?>, <?php echo $girls_boarding; ?>, <?php echo $studentsNoStatus; ?>],
-                borderColor: '#0f766e',
-                backgroundColor: 'rgba(15, 118, 110, 0.14)',
-                pointBackgroundColor: ['#2563eb', '#38bdf8', '#db2777', '#f472b6', '#d59b2d'],
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: 2,
-                pointRadius: 5,
-                pointHoverRadius: 7,
-                borderWidth: 3,
-                tension: 0.35,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            resizeDelay: 150,
-            plugins: {
-                legend: {
-                    display: false
+            window.headmasterStudentChartInstance = new Chart(chartContext, {
+                type: 'line',
+                data: {
+                    labels: [
+                        ['Boys', 'Day'],
+                        ['Boys', 'Boarding'],
+                        ['Girls', 'Day'],
+                        ['Girls', 'Boarding'],
+                        ['No Residence', 'Status']
+                    ],
+                    datasets: [{
+                        label: 'Students',
+                        data: [<?php echo $boys_day; ?>, <?php echo $boys_boarding; ?>, <?php echo $girls_day; ?>, <?php echo $girls_boarding; ?>, <?php echo $studentsNoStatus; ?>],
+                        borderColor: '#0f766e',
+                        backgroundColor: 'rgba(15, 118, 110, 0.14)',
+                        pointBackgroundColor: ['#2563eb', '#38bdf8', '#db2777', '#f472b6', '#d59b2d'],
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        borderWidth: 3,
+                        tension: 0.35,
+                        fill: true
+                    }]
                 },
-                title: {
-                    display: true,
-                    text: 'Student Population by Group',
-                    font: { size: 15, weight: '600' },
-                    color: '#111827',
-                    padding: { top: 8, bottom: 16 }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            var label = context.label || '';
-                            var value = context.parsed || 0;
-                            var total = <?php echo $studentTotal; ?>;
-                            var percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                            return label + ': ' + value.toLocaleString() + ' (' + percentage + '%)';
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    resizeDelay: 150,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Student Population by Group',
+                            font: { size: 15, weight: '600' },
+                            color: '#111827',
+                            padding: { top: 8, bottom: 16 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    var label = context.label || '';
+                                    var value = context.parsed || 0;
+                                    var total = <?php echo $studentTotal; ?>;
+                                    var percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return label + ': ' + value.toLocaleString() + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#475569',
+                                font: {
+                                    size: 11,
+                                    weight: '600'
+                                },
+                                padding: 8,
+                                maxRotation: 0,
+                                autoSkip: false
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#475569',
+                                precision: 0
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.2)'
+                            }
                         }
                     }
                 }
-            },
-            scales: {
-                x: {
-                    ticks: {
-                        color: '#475569',
-                        font: {
-                            size: 11,
-                            weight: '600'
-                        },
-                        padding: 8,
-                        maxRotation: 0,
-                        autoSkip: false
-                    },
-                    grid: {
-                        display: false
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        color: '#475569',
-                        precision: 0
-                    },
-                    grid: {
-                        color: 'rgba(148, 163, 184, 0.2)'
-                    }
-                }
-            }
+            });
         }
-    });
+    }
 });
 </script>
 </body>

@@ -1794,7 +1794,7 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
     <?php if($flashMessage !== ""){ ?><div class="rs-flash"><?php echo $flashMessage; ?></div><?php } ?>
     <?php
     if($isHeadmasterAdmissionViewer){
-        $headmasterRecentPosted = array_slice($postedStudents, 0, 8);
+        $headmasterRecentPosted = $postedStudents;
         $headmasterRecentApplications = array_slice($applications, 0, 6);
         $headmasterRecentPayments = array_slice($recentPayments, 0, 8);
         $headmasterSubmissionTotal = (int)$stats["submitted"] + (int)$stats["needs_attention"] + (int)$stats["reviewed"];
@@ -1860,19 +1860,32 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
         <section class="rs-panel aa-section">
             <div class="rs-side-head">
                 <span class="rs-kicker rs-kicker--dark">Posted List</span>
-                <h2>Recent Posted Students</h2>
+                <h2>Posted Students</h2>
                 <span class="aa-section-chip aa-section-chip--neutral"><?php echo number_format($stats["posted"]); ?></span>
             </div>
-            <p class="aa-search-meta">Latest students placed on the admission list for this branch.</p>
+            <div class="aa-search-bar">
+                <form method="get" action="online-admission-admin.php#posted-students" class="aa-search-form">
+                    <?php if($paymentPage > 1){ ?><input type="hidden" name="payment_page" value="<?php echo aa_esc($paymentPage); ?>"><?php } ?>
+                    <div class="aa-search-input">
+                        <label for="posted_search">Search Posted Students</label>
+                        <input type="text" id="posted_search" name="posted_search" value="<?php echo aa_esc($postedSearch); ?>" placeholder="Search by BECE index, name, programme, year, residence, or phone">
+                    </div>
+                    <button type="submit" class="aa-button aa-search-button"><i class="fa fa-search"></i> Search</button>
+                    <?php if($postedSearch !== ""){ ?><a href="<?php echo aa_esc(aa_admin_url(array("posted_search" => null, "posted_page" => null), "#posted-students")); ?>" class="aa-link aa-link--ghost aa-search-clear"><i class="fa fa-times"></i> Clear</a><?php } ?>
+                </form>
+                <p class="aa-search-meta"><?php echo $postedSearch !== "" ? "Showing page ".number_format($postedPage)." of ".number_format($postedTotalPages)." for ".number_format($postedTotal)." match(es) for \"".aa_esc($postedSearch)."\"." : "Showing page ".number_format($postedPage)." of ".number_format($postedTotalPages)." from ".number_format($postedTotal)." posted student record(s)."; ?></p>
+            </div>
             <div class="aa-table-wrap">
-                <table class="aa-table">
+                <table class="aa-table" id="posted-students">
                     <thead>
                         <tr>
                             <th>BECE Index</th>
                             <th>Student</th>
+                            <th>Gender</th>
                             <th>Programme</th>
                             <th>Class</th>
                             <th>Residence</th>
+                            <th>Year</th>
                             <th>Added On</th>
                         </tr>
                     </thead>
@@ -1881,17 +1894,36 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                         <tr>
                             <td><?php echo aa_esc($student["beceindexnumber"]); ?></td>
                             <td><?php echo aa_esc(trim($student["firstname"]." ".$student["othernames"]." ".$student["surname"])); ?></td>
+                            <td><?php echo aa_esc($student["gender"]); ?></td>
                             <td><?php echo aa_esc($student["offeredprogram"]); ?></td>
                             <td><?php echo aa_esc($student["offeredclass"]); ?></td>
                             <td><?php echo aa_esc($student["residentialstatus"]); ?></td>
+                            <td><?php echo aa_esc($student["admissionyear"]); ?></td>
                             <td><?php echo aa_esc(aa_date($student["datetimeentry"], "d M Y, g:i a")); ?></td>
                         </tr>
                         <?php } } else { ?>
-                        <tr><td colspan="6">No posted students have been added yet.</td></tr>
+                        <tr><td colspan="8"><?php echo $postedSearch !== "" ? "No posted students matched that search." : "No posted students have been added yet."; ?></td></tr>
                         <?php } ?>
                     </tbody>
                 </table>
             </div>
+            <?php if($postedTotalPages > 1){ ?>
+            <div class="aa-pagination">
+                <span class="aa-pagination__meta">Page <?php echo number_format($postedPage); ?> of <?php echo number_format($postedTotalPages); ?></span>
+                <div class="aa-pagination__links">
+                    <?php if($postedPage > 1){ ?><a href="<?php echo aa_esc(aa_admin_url(array("posted_page" => $postedPage - 1), "#posted-students")); ?>" class="aa-link aa-link--ghost aa-link--inline">Previous</a><?php } ?>
+                    <?php
+                    $postedStart = max(1, $postedPage - 2);
+                    $postedEnd = min($postedTotalPages, $postedPage + 2);
+                    for($page = $postedStart; $page <= $postedEnd; $page++){
+                        $pageClass = $page === $postedPage ? "aa-link aa-link--inline" : "aa-link aa-link--ghost aa-link--inline";
+                    ?>
+                    <a href="<?php echo aa_esc(aa_admin_url(array("posted_page" => $page), "#posted-students")); ?>" class="<?php echo $pageClass; ?>"><?php echo aa_esc($page); ?></a>
+                    <?php } ?>
+                    <?php if($postedPage < $postedTotalPages){ ?><a href="<?php echo aa_esc(aa_admin_url(array("posted_page" => $postedPage + 1), "#posted-students")); ?>" class="aa-link aa-link--ghost aa-link--inline">Next</a><?php } ?>
+                </div>
+            </div>
+            <?php } ?>
         </section>
 
         <section class="rs-panel aa-section">

@@ -141,6 +141,10 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
 <style>
 :root{
     --xschool-watermark-image: url('<?php echo htmlspecialchars($__faviconHref, ENT_QUOTES, "UTF-8"); ?>');
+    --xschool-loader-logo-size: min(18vw, 132px);
+    --xschool-loader-ring-size: min(28vw, 190px);
+    --xschool-watermark-size: min(28vw, 240px);
+    --xschool-watermark-glow-size: min(36vw, 320px);
 }
 
 .xschool-live-clock{
@@ -260,13 +264,13 @@ html.xschool-loading::before{
     transform:none;
     background:
         radial-gradient(circle at center, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 18%, rgba(241, 245, 249, 0.94) 38%, rgba(255, 255, 255, 0.92) 100%),
-        var(--xschool-watermark-image) center/ min(18vw, 132px) no-repeat;
+        var(--xschool-watermark-image) 50% 50%/ var(--xschool-loader-logo-size) auto no-repeat;
     pointer-events:auto;
 }
 
 html.xschool-loading::after{
-    width:min(28vw, 190px);
-    height:min(28vw, 190px);
+    width:var(--xschool-loader-ring-size);
+    height:var(--xschool-loader-ring-size);
     transform:translate(-50%, -50%);
     border-radius:50%;
     border:4px solid rgba(15, 39, 66, 0.12);
@@ -290,10 +294,14 @@ body:not(.landing-page)::before{
     position:fixed;
     left:50%;
     top:50%;
-    width:min(28vw, 240px);
-    height:min(28vw, 240px);
-    transform:translate(-50%, -50%);
-    background:var(--xschool-watermark-image) center/contain no-repeat;
+    width:var(--xschool-watermark-size);
+    height:var(--xschool-watermark-size);
+    transform:translate3d(-50%, -50%, 0);
+    transform-origin:center center;
+    background-image:var(--xschool-watermark-image);
+    background-position:center center;
+    background-size:contain;
+    background-repeat:no-repeat;
     opacity:0.055;
     filter:grayscale(1) contrast(1.05);
     pointer-events:none;
@@ -305,9 +313,9 @@ body:not(.landing-page)::after{
     position:fixed;
     left:50%;
     top:50%;
-    width:min(36vw, 320px);
-    height:min(36vw, 320px);
-    transform:translate(-50%, -50%);
+    width:var(--xschool-watermark-glow-size);
+    height:var(--xschool-watermark-glow-size);
+    transform:translate3d(-50%, -50%, 0);
     border-radius:50%;
     background:radial-gradient(circle, rgba(16, 37, 60, 0.04), transparent 68%);
     pointer-events:none;
@@ -315,15 +323,16 @@ body:not(.landing-page)::after{
 }
 
 @media (max-width: 820px){
+    :root{
+        --xschool-loader-ring-size: min(42vw, 170px);
+        --xschool-watermark-size: min(46vw, 220px);
+    }
+
     html.xschool-loading::after{
-        width:min(42vw, 170px);
-        height:min(42vw, 170px);
         border-width:3px;
     }
 
     body:not(.landing-page)::before{
-        width:min(46vw, 220px);
-        height:min(46vw, 220px);
         opacity:0.048;
         filter:none;
     }

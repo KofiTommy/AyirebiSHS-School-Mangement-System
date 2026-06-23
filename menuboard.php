@@ -324,7 +324,6 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="super_user"){
  ?>
 <div class="menuboard-quick-links">
-<a href="search.php"><i class="fa fa-search"></i> Search Student</a>
 <a class="menuboard-home-link" href="super.php"><i class="fa fa-home"></i> Home</a>
 </div>
 
@@ -418,7 +417,6 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="normal_user"){
  ?>
 <div class="menuboard-quick-links">
-<a href="search.php"><i class="fa fa-search"></i> Search Student</a>
 <a class="menuboard-home-link" href="admin.php"><i class="fa fa-home"></i> Home</a>
 </div>
 
@@ -508,7 +506,6 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Headmaster"){
  ?>
 <div class="menuboard-quick-links">
-<a href="search.php"><i class="fa fa-search"></i> Search Student</a>
 <a class="menuboard-home-link" href="headmaster-page.php"><i class="fa fa-home"></i> Home</a>
 </div>
 

@@ -403,7 +403,6 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Headmaster
   <li class="dropdown">
     <a href="#" class="dropbtn"><i class="fa fa-dashboard" ></i> Overview</a>
     <div class="dropdown-content">
-      <a href="search.php"><i class="fa fa-search" ></i> Search Student</a>
       <a href="student-history.php"><i class="fa fa-history" ></i> Student Transcript</a>
       <a href="viewstudents.php"><i class="fa fa-graduation-cap" ></i> View Students</a>
       <a href="continuing-students.php"><i class="fa fa-users" ></i> Continuing Students</a>

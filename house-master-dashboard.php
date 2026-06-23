@@ -5,7 +5,9 @@ $_SESSION['Message'] = "";
 include("check-login.php");
 include("dbstring.php");
 include("house-master-utils.php");
+include_once("online-admission-utils.php");
 ensure_house_tables($con);
+ensure_online_admission_tables($con);
 
 if(!house_master_is_teacher()){
     header("location:".house_master_landing_page());
@@ -33,6 +35,8 @@ $_HomeUrl = house_master_landing_page();
 $_HasAssignment = house_master_has_assignment($con, $_TeacherIdRaw);
 $_StudentSearch = isset($_GET['student_search']) ? trim((string)$_GET['student_search']) : "";
 $_StudentHouseId = isset($_GET['student_houseid']) ? trim((string)$_GET['student_houseid']) : "";
+$_PostedSearch = isset($_GET['posted_search']) ? trim((string)$_GET['posted_search']) : "";
+$_PostedHouseId = isset($_GET['posted_houseid']) ? trim((string)$_GET['posted_houseid']) : "";
 $_TeacherHouseScope = get_teacher_house_filter_sql($con, $_TeacherIdRaw);
 $_ExpectedReturnSql = house_master_exeat_expected_return_sql('er');
 $_OverdueSql = house_master_exeat_overdue_sql('er');
@@ -48,6 +52,7 @@ $_Overview = array(
 $_HouseAssignments = array();
 $_AssignedHouseMap = array();
 $_StudentRows = array();
+$_PostedRows = array();
 $_OverdueRows = array();
 $_ReturnedRows = array();
 $_Alerts = array();
@@ -102,6 +107,9 @@ if($_HasAssignment){
     if($_StudentHouseId !== "" && !isset($_AssignedHouseMap[$_StudentHouseId])){
         $_StudentHouseId = "";
     }
+    if($_PostedHouseId !== "" && !isset($_AssignedHouseMap[$_PostedHouseId])){
+        $_PostedHouseId = "";
+    }
 
     $_StudentSearchSql = "";
     if($_StudentSearch !== ""){
@@ -120,6 +128,34 @@ if($_HasAssignment){
     if($_StudentHouseId !== ""){
         $_StudentHouseEsc = mysqli_real_escape_string($con, $_StudentHouseId);
         $_StudentHouseSql = " AND sh.houseid='$_StudentHouseEsc'";
+    }
+
+    $_PostedSearchSql = "";
+    if($_PostedSearch !== ""){
+        $_PostedSearchEsc = mysqli_real_escape_string($con, $_PostedSearch);
+        $_PostedSearchLike = "%".$_PostedSearchEsc."%";
+        $_PostedSearchSql = " AND (
+            post.beceindexnumber LIKE '$_PostedSearchLike'
+            OR post.firstname LIKE '$_PostedSearchLike'
+            OR post.surname LIKE '$_PostedSearchLike'
+            OR post.othernames LIKE '$_PostedSearchLike'
+            OR CONCAT_WS(' ', COALESCE(post.firstname,''), COALESCE(post.othernames,''), COALESCE(post.surname,'')) LIKE '$_PostedSearchLike'
+            OR CONCAT_WS(' ', COALESCE(post.surname,''), COALESCE(post.firstname,''), COALESCE(post.othernames,'')) LIKE '$_PostedSearchLike'
+            OR COALESCE(post.gender,'') LIKE '$_PostedSearchLike'
+            OR COALESCE(post.admissionyear,'') LIKE '$_PostedSearchLike'
+            OR COALESCE(post.offeredprogram,'') LIKE '$_PostedSearchLike'
+            OR COALESCE(post.offeredclass,'') LIKE '$_PostedSearchLike'
+            OR COALESCE(post.residentialstatus,'') LIKE '$_PostedSearchLike'
+            OR COALESCE(post.mobile,'') LIKE '$_PostedSearchLike'
+            OR COALESCE(h.housename,'') LIKE '$_PostedSearchLike'
+            OR COALESCE(app.status,'') LIKE '$_PostedSearchLike'
+        )";
+    }
+
+    $_PostedHouseSql = "";
+    if($_PostedHouseId !== ""){
+        $_PostedHouseEsc = mysqli_real_escape_string($con, $_PostedHouseId);
+        $_PostedHouseSql = " AND app.assignedhouseid='$_PostedHouseEsc'";
     }
 
     $_StudentRes = mysqli_query($con, "SELECT
@@ -144,6 +180,54 @@ if($_HasAssignment){
     if($_StudentRes){
         while($_StudentRow = mysqli_fetch_array($_StudentRes, MYSQLI_ASSOC)){
             $_StudentRows[] = $_StudentRow;
+        }
+    }
+
+    $_PostedRes = mysqli_query($con, "SELECT
+        post.postingid,
+        post.beceindexnumber,
+        post.firstname,
+        post.surname,
+        post.othernames,
+        post.gender,
+        post.admissionyear,
+        post.offeredprogram,
+        post.offeredclass,
+        post.residentialstatus,
+        post.mobile,
+        post.datetimeentry AS posted_on,
+        h.housename,
+        app.applicationid,
+        app.status AS application_status,
+        app.updatedat AS application_updatedat,
+        app.assignedhouseat,
+        pay.status AS payment_status,
+        pay.paidat
+        FROM tblonlineadmissionapplication app
+        INNER JOIN tbladmissionpostedstudent post ON post.postingid=app.postingid
+        LEFT JOIN tblhouse h ON h.houseid=app.assignedhouseid
+        LEFT JOIN tblonlineadmissionpayment pay ON pay.paymentid = (
+            SELECT p2.paymentid
+            FROM tblonlineadmissionpayment p2
+            WHERE p2.applicationid=app.applicationid
+            ORDER BY
+                CASE
+                    WHEN p2.status='success' THEN 0
+                    WHEN p2.status='pending' THEN 1
+                    WHEN p2.status='initialized' THEN 2
+                    ELSE 3
+                END ASC,
+                COALESCE(p2.paidat, p2.createdat) DESC
+            LIMIT 1
+        )
+        WHERE app.assignedhouseid IN (".$_TeacherHouseScope.")
+          AND post.status='active'
+          $_PostedHouseSql
+          $_PostedSearchSql
+        ORDER BY h.housename ASC, app.updatedat DESC, post.datetimeentry DESC");
+    if($_PostedRes){
+        while($_PostedRow = mysqli_fetch_array($_PostedRes, MYSQLI_ASSOC)){
+            $_PostedRows[] = $_PostedRow;
         }
     }
 
@@ -207,6 +291,16 @@ if($_StudentSearch !== ""){
 $_FilterSummary = implode(" | ", $_FilterParts);
 $_StudentResultCount = count($_StudentRows);
 $_FilterActive = ($_FilterSummary !== "");
+$_PostedFilterParts = array();
+if($_PostedHouseId !== "" && isset($_AssignedHouseMap[$_PostedHouseId])){
+    $_PostedFilterParts[] = "House: ".$_AssignedHouseMap[$_PostedHouseId];
+}
+if($_PostedSearch !== ""){
+    $_PostedFilterParts[] = "Search: ".$_PostedSearch;
+}
+$_PostedFilterSummary = implode(" | ", $_PostedFilterParts);
+$_PostedResultCount = count($_PostedRows);
+$_PostedFilterActive = ($_PostedFilterSummary !== "");
 $_FlashAlertClass = "hm-alert-success";
 if($_FlashMessageText !== ""){
     $_FlashLower = strtolower($_FlashMessageText);

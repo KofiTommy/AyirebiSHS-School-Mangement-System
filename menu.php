@@ -350,7 +350,6 @@ elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Headmaster"
  ?>
 <div id="admin" align="left" style="margin-top:5px;">
 <a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
-<a href="search.php"><button><i class="fa fa-search" style="color:#1d4ed8"></i> Search Student</button></a>
 <a href="student-history.php"><button><i class="fa fa-history" style="color:#0f766e"></i> Student Transcript</button></a>
 <a href="viewstudents.php"><button><i class="fa fa-graduation-cap" style="color:#1d4ed8"></i> View Students</button></a>
 <a href="continuing-students.php"><button><i class="fa fa-users" style="color:#2563eb"></i> Continuing Students</button></a>

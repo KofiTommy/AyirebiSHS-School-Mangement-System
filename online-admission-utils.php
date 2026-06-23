@@ -550,6 +550,34 @@ function online_admission_application_assigned_house($con, $application){
 }
 }
 
+if(!function_exists('online_admission_house_is_removed_from_auto_assignment')){
+function online_admission_house_is_removed_from_auto_assignment($house){
+    if(!is_array($house) || empty($house)){
+        return false;
+    }
+
+    $houseName = strtolower(trim((string)(isset($house["housename"]) ? $house["housename"] : "")));
+    if($houseName === ""){
+        return false;
+    }
+
+    $normalizedName = preg_replace('/[^a-z0-9]+/', ' ', $houseName);
+    $normalizedName = trim((string)preg_replace('/\s+/', ' ', (string)$normalizedName));
+    $isHouseFive = strpos($normalizedName, 'house 5') !== false || strpos($normalizedName, 'house five') !== false;
+    if(!$isHouseFive || strpos($normalizedName, 'day') === false){
+        return false;
+    }
+
+    $gender = house_master_normalize_gender_label(isset($house["housegender"]) ? $house["housegender"] : "");
+    $residence = house_master_normalize_residence_label(isset($house["houseresidencetype"]) ? $house["houseresidencetype"] : "");
+    if($residence !== "Day"){
+        return false;
+    }
+
+    return $gender === "Male" || $gender === "Female";
+}
+}
+
 if(!function_exists('online_admission_house_load_total')){
 function online_admission_house_load_total($con, $houseId, $branchId, $admissionYear = "", $excludeApplicationId = ""){
     $houseIdEsc = mysqli_real_escape_string($con, trim((string)$houseId));
@@ -599,6 +627,9 @@ function online_admission_find_best_house($con, $branchId, $gender, $residence, 
     if($res){
         while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
             if(!house_master_house_profile_matches($row, $gender, $residence)){
+                continue;
+            }
+            if(online_admission_house_is_removed_from_auto_assignment($row)){
                 continue;
             }
             $row["_load"] = online_admission_house_load_total($con, $row["houseid"], $branchId, $admissionYear, $excludeApplicationId);
@@ -665,7 +696,9 @@ function online_admission_assign_house_for_application($con, $application, $post
     }
 
     $currentHouse = online_admission_application_assigned_house($con, $application);
-    if($currentHouse && house_master_house_profile_matches($currentHouse, $gender, $residence)){
+    if($currentHouse &&
+       house_master_house_profile_matches($currentHouse, $gender, $residence) &&
+       !online_admission_house_is_removed_from_auto_assignment($currentHouse)){
         return $currentHouse;
     }
 
