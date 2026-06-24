@@ -299,7 +299,14 @@ function getStudentBill(str)
 			
 <?php
 include("dbstring.php");
-if( $_SESSION['SYSTEMTYPE']=="normal_user" || $_SESSION['SYSTEMTYPE']=="super_user" || $_SESSION['SYSTEMTYPE']=="User" || $_SESSION['SYSTEMTYPE']=="Teacher" || $_SESSION['SYSTEMTYPE']=="Headmaster")
+if(
+    $_SESSION['SYSTEMTYPE']=="normal_user" ||
+    $_SESSION['SYSTEMTYPE']=="super_user" ||
+    $_SESSION['SYSTEMTYPE']=="User" ||
+    $_SESSION['SYSTEMTYPE']=="Teacher" ||
+    $_SESSION['SYSTEMTYPE']=="Headmaster" ||
+    (function_exists('um_is_assistant_head_academics_user') && um_is_assistant_head_academics_user())
+)
 {
 	$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry");
 

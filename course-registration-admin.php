@@ -5,7 +5,10 @@ include("check-login.php");
 include_once("course-registration-utils.php");
 course_registration_ensure_tables($con);
 
-if(!(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL'] === 'administrator' && in_array($_SESSION['SYSTEMTYPE'], array('normal_user','super_user'), true))){
+if(!(
+    (isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL'] === 'administrator' && in_array($_SESSION['SYSTEMTYPE'], array('normal_user','super_user'), true))
+    || (function_exists('um_is_assistant_head_academics_user') && um_is_assistant_head_academics_user())
+)){
     header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : 'index.php'));
     exit();
 }

@@ -72,6 +72,12 @@ function lesson_timetable_is_headmaster(){
 }
 }
 
+if(!function_exists('lesson_timetable_is_assistant_head_academics')){
+function lesson_timetable_is_assistant_head_academics(){
+    return function_exists('um_is_assistant_head_academics_user') && um_is_assistant_head_academics_user();
+}
+}
+
 if(!function_exists('lesson_timetable_landing_page')){
 function lesson_timetable_landing_page(){
     if(lesson_timetable_is_admin()){
@@ -82,6 +88,9 @@ function lesson_timetable_landing_page(){
     }
     if(lesson_timetable_is_headmaster()){
         return "headmaster-page.php";
+    }
+    if(lesson_timetable_is_assistant_head_academics()){
+        return "assistant-head-academics-page.php";
     }
     if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "Student"){
         return "student-page.php";
@@ -104,7 +113,7 @@ function lesson_timetable_can_manage($con = null){
 
 if(!function_exists('lesson_timetable_can_view')){
 function lesson_timetable_can_view($con = null){
-    if(lesson_timetable_is_admin() || lesson_timetable_is_teacher() || lesson_timetable_is_student() || lesson_timetable_is_headmaster()){
+    if(lesson_timetable_is_admin() || lesson_timetable_is_teacher() || lesson_timetable_is_student() || lesson_timetable_is_headmaster() || lesson_timetable_is_assistant_head_academics()){
         return true;
     }
     if(!$con || !function_exists('um_current_user_can_access_module')){

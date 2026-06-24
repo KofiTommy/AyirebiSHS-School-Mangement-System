@@ -41,6 +41,9 @@ if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE'])){
     elseif($_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "Headmaster"){
         $_HomeLink = "headmaster-page.php";
     }
+    elseif($_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "AssistantHeadAcademic"){
+        $_HomeLink = "assistant-head-academics-page.php";
+    }
     elseif($_SESSION['ACCESSLEVEL'] === "administrator" && $_SESSION['SYSTEMTYPE'] === "normal_user"){
         $_HomeLink = "admin.php";
     }
@@ -362,6 +365,33 @@ elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Headmaster"
 <a href="waec-analysis.php"><button><i class="fa fa-line-chart" style="color:#1d4ed8"></i> WAEC Analysis</button></a>
 <a href="lesson-timetable-report.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable</button></a>
 <a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
+<a href="messages.php"><button><i class="fa fa-comments" style="color:#ea580c"></i> Message Box</button></a>
+<a href="notification.php"><button><i class="fa fa-bullhorn" style="color:#b45309"></i> Send Notification</button></a>
+<a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
+</div>
+<?php
+}
+
+elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="AssistantHeadAcademic"){
+ ?>
+<div id="admin" align="left" style="margin-top:5px;">
+<a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
+<a href="student-history.php"><button><i class="fa fa-history" style="color:#0f766e"></i> Student Transcript</button></a>
+<a href="continuing-students.php"><button><i class="fa fa-users" style="color:#2563eb"></i> Continuing Students</button></a>
+<a href="promotion-center.php"><button><i class="fa fa-level-up" style="color:#2563eb"></i> Promotion Center</button></a>
+<a href="view-class-registry.php"><button><i class="fa fa-folder-open" style="color:#1d4ed8"></i> View Class Registry</button></a>
+<a href="subject-classification.php"><button><i class="fa fa-book" style="color:#0f766e"></i> Subject Classification</button></a>
+<a href="subject-assignment.php"><button><i class="fa fa-plus" style="color:#1d4ed8"></i> Subject Assignment</button></a>
+<a href="view-all-subject-assigned.php"><button><i class="fa fa-book" style="color:#0f766e"></i> Assigned Subjects</button></a>
+<a href="class-teacher-assignment.php"><button><i class="fa fa-users" style="color:#0f766e"></i> Class Teacher Assignment</button></a>
+<a href="student-attendance-report.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> Attendance Summary</button></a>
+<a href="terminal-report.php"><button><i class="fa fa-file-text-o" style="color:#d97706"></i> Examination Report</button></a>
+<a href="report-approval-board.php"><button><i class="fa fa-check-circle" style="color:#0f766e"></i> Report Approval</button></a>
+<a href="internal-exam-analysis.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> Internal Exams Analysis</button></a>
+<a href="waec-analysis.php"><button><i class="fa fa-line-chart" style="color:#1d4ed8"></i> WAEC Analysis</button></a>
+<a href="lesson-timetable-report.php"><button><i class="fa fa-calendar" style="color:#0f766e"></i> Lesson Timetable</button></a>
+<a href="examinationtimetablereport.php"><button><i class="fa fa-book" style="color:#7c3aed"></i> Exam Time Table Report</button></a>
+<a href="course-registration-admin.php"><button><i class="fa fa-list-alt" style="color:#1d4ed8"></i> Course Registration</button></a>
 <a href="messages.php"><button><i class="fa fa-comments" style="color:#ea580c"></i> Message Box</button></a>
 <a href="notification.php"><button><i class="fa fa-bullhorn" style="color:#b45309"></i> Send Notification</button></a>
 <a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>

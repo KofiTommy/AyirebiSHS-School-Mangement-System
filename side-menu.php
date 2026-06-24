@@ -394,7 +394,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 
 }
 else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Headmaster"){
- ?>
+?>
 <ul>
   <li>
       <a class="active" href="headmaster-page.php"><i class="fa fa-home" ></i> Home</a>
@@ -439,6 +439,59 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Headmaster
     <a href="#" class="dropbtn"><i class="fa fa-bullhorn" ></i> Communication</a>
     <div class="dropdown-content">
       <a href="online-admission-admin.php"><i class="fa fa-globe" ></i> Online Admission</a>
+      <a href="messages.php"><i class="fa fa-comments" ></i> Message Box</a>
+      <a href="notification.php"><i class="fa fa-bullhorn" ></i> Send Notification</a>
+    </div>
+  </li>
+</ul>
+
+<?php
+}
+else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="AssistantHeadAcademic"){
+ ?>
+<ul>
+  <li>
+      <a class="active" href="assistant-head-academics-page.php"><i class="fa fa-home" ></i> Home</a>
+  </li>
+
+  <li class="dropdown">
+    <a href="#" class="dropbtn"><i class="fa fa-dashboard" ></i> Overview</a>
+    <div class="dropdown-content">
+      <a href="student-history.php"><i class="fa fa-history" ></i> Student Transcript</a>
+      <a href="continuing-students.php"><i class="fa fa-users" ></i> Continuing Students</a>
+      <a href="promotion-center.php"><i class="fa fa-level-up" ></i> Promotion Center</a>
+      <a href="view-class-registry.php"><i class="fa fa-folder-open" ></i> View Class Registry</a>
+      <a href="term-registry.php"><i class="fa fa-plus" ></i> Semester Registry</a>
+    </div>
+  </li>
+
+  <li class="dropdown">
+    <a href="#" class="dropbtn"><i class="fa fa-book" ></i> Academic Setup</a>
+    <div class="dropdown-content">
+      <a href="subject-classification.php"><i class="fa fa-book" ></i> Subject Classification</a>
+      <a href="subject-assignment.php"><i class="fa fa-plus" ></i> Subject Assignment</a>
+      <a href="view-all-subject-assigned.php"><i class="fa fa-book" ></i> Assigned Subjects</a>
+      <a href="class-teacher-assignment.php"><i class="fa fa-users" ></i> Class Teacher Assignment</a>
+      <a href="course-registration-admin.php"><i class="fa fa-list-alt" ></i> Course Registration</a>
+    </div>
+  </li>
+
+  <li class="dropdown">
+    <a href="#" class="dropbtn"><i class="fa fa-graduation-cap" ></i> Monitoring</a>
+    <div class="dropdown-content">
+      <a href="student-attendance-report.php"><i class="fa fa-bar-chart" ></i> Attendance Summary</a>
+      <a href="terminal-report.php"><i class="fa fa-file-text-o" ></i> Examination Report</a>
+      <a href="report-approval-board.php"><i class="fa fa-check-circle" ></i> Report Approval</a>
+      <a href="internal-exam-analysis.php"><i class="fa fa-bar-chart" ></i> Internal Exams Analysis</a>
+      <a href="waec-analysis.php"><i class="fa fa-line-chart" ></i> WAEC Analysis</a>
+      <a href="lesson-timetable-report.php"><i class="fa fa-calendar" ></i> Lesson Timetable</a>
+      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
+    </div>
+  </li>
+
+  <li class="dropdown">
+    <a href="#" class="dropbtn"><i class="fa fa-bullhorn" ></i> Communication</a>
+    <div class="dropdown-content">
       <a href="messages.php"><i class="fa fa-comments" ></i> Message Box</a>
       <a href="notification.php"><i class="fa fa-bullhorn" ></i> Send Notification</a>
     </div>

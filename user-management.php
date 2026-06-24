@@ -198,6 +198,13 @@ if(isset($_POST["save_user_account"])){
         $errors[] = "Temporary password must be at least 6 characters.";
     }
     $allowedModuleKeys = um_assignable_module_keys_for_role($resolvedRoleKey);
+    if($formMode === "create" && empty($moduleKeys)){
+        $defaultRoleModules = function_exists('um_default_module_keys_for_role') ? um_default_module_keys_for_role($resolvedRoleKey) : array();
+        if(!empty($defaultRoleModules)){
+            $moduleKeys = um_normalize_module_keys($defaultRoleModules);
+            $formData["module_keys"] = $moduleKeys;
+        }
+    }
     if(!empty(array_diff($moduleKeys, $allowedModuleKeys))){
         $errors[] = "Choose only the allowed modules for that account type.";
     }
@@ -600,6 +607,7 @@ ob_start();
                             <option value="all" <?php echo $roleFilter === "all" ? "selected" : ""; ?>>All Roles</option>
                             <option value="office_user" <?php echo $roleFilter === "office_user" ? "selected" : ""; ?>>Office Users</option>
                             <option value="headmaster" <?php echo $roleFilter === "headmaster" ? "selected" : ""; ?>>Headmasters</option>
+                            <option value="assistant_head_academics" <?php echo $roleFilter === "assistant_head_academics" ? "selected" : ""; ?>>Assistant Head Academics</option>
                             <?php if($isSuperAdmin){ ?>
                             <option value="branch_admin" <?php echo $roleFilter === "branch_admin" ? "selected" : ""; ?>>Branch Administrators</option>
                             <option value="system_admin" <?php echo $roleFilter === "system_admin" ? "selected" : ""; ?>>System Administrators</option>
@@ -833,7 +841,7 @@ include("links.php");
                     <div>
                         <span class="um-section__eyebrow"><?php echo $formPermissionOnly ? "Teacher Access" : "Internal Accounts"; ?></span>
                         <h2><?php echo $formPermissionOnly ? "Assign Teacher Privileges" : ($formMode === "update" ? "Update Account" : "Create Account"); ?></h2>
-                        <p class="um-section__hint"><?php echo $formPermissionOnly ? "Review the teacher details below and switch on only the extra modules this teacher should be allowed to open." : "Create office and administrator accounts here, or update an existing account without leaving the page."; ?></p>
+                        <p class="um-section__hint"><?php echo $formPermissionOnly ? "Review the teacher details below and switch on only the extra modules this teacher should be allowed to open." : "Create internal and leadership accounts here, or update an existing account without leaving the page."; ?></p>
                     </div>
                     <?php if($formMode === "update"){ ?>
                     <a class="um-link-button" href="<?php echo umh(um_url(array("edit_user" => null), "#account-form")); ?>">Cancel Edit</a>

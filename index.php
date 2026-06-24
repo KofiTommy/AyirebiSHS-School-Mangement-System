@@ -157,6 +157,9 @@ else{
 				elseif($_AccessLevel=="user" && $_SystemType=="Headmaster"){
 					header("location:headmaster-page.php");
 				}
+				elseif($_AccessLevel=="user" && $_SystemType=="AssistantHeadAcademic"){
+					header("location:assistant-head-academics-page.php");
+				}
 				elseif($_AccessLevel=="user" && $_SystemType=="User"){
 					header("location:user.php");
 				}	

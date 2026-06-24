@@ -10,13 +10,13 @@ include_once("company.php");
 semester_registry_ensure_academic_year_column($con);
 ensure_student_terminal_term_column($con);
 
-$isHeadmasterViewer = function_exists('um_is_headmaster_user') && um_is_headmaster_user();
+$isAcademicLeadViewer = function_exists('um_is_academic_lead_user') && um_is_academic_lead_user();
 
-if (!isset($_SESSION['ACCESSLEVEL']) || ($_SESSION['ACCESSLEVEL'] != "administrator" && !$isHeadmasterViewer)) {
+if (!isset($_SESSION['ACCESSLEVEL']) || ($_SESSION['ACCESSLEVEL'] != "administrator" && !$isAcademicLeadViewer)) {
     header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php"));
     exit();
 }
-if (!isset($_SESSION['SYSTEMTYPE']) || (!in_array($_SESSION['SYSTEMTYPE'], array("normal_user", "super_user"), true) && !$isHeadmasterViewer)) {
+if (!isset($_SESSION['SYSTEMTYPE']) || (!in_array($_SESSION['SYSTEMTYPE'], array("normal_user", "super_user"), true) && !$isAcademicLeadViewer)) {
     header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php"));
     exit();
 }

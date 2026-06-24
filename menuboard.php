@@ -212,7 +212,11 @@ elseif( $_SESSION['SYSTEMTYPE']=="super_user"){
 echo "<br/><b> Level: Super User</b><br/><br/>"; 
 }
 else{
-echo "<br/><b> Level:". $_SESSION['SYSTEMTYPE'] ."</b><br/><br/>";   
+$_MenuBoardLevelLabel = $_SESSION['SYSTEMTYPE'];
+if($_SESSION['SYSTEMTYPE'] === "AssistantHeadAcademic"){
+  $_MenuBoardLevelLabel = "Assistant Head Academics";
+}
+echo "<br/><b> Level:". $_MenuBoardLevelLabel ."</b><br/><br/>";
 }
 echo "<b style='margin-bottom:10px;font-size:12px;'> Branch:". $_Branch ."</b><br/>";
 ?>
@@ -537,6 +541,45 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Headmaster
 
 <?php menuboard_section_start('Admissions & Communication', 'fa-bullhorn'); ?>
 <a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
+<a href="notification.php"><i class="fa fa-bullhorn"></i> Send Notification</a>
+<?php menuboard_section_end(); ?>
+<?php
+
+}
+else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="AssistantHeadAcademic"){
+ ?>
+<div class="menuboard-quick-links">
+<a class="menuboard-home-link" href="assistant-head-academics-page.php"><i class="fa fa-home"></i> Home</a>
+</div>
+
+<?php menuboard_section_start('Academic Overview', 'fa-dashboard', true); ?>
+<a href="student-history.php"><i class="fa fa-history"></i> Student Transcript</a>
+<a href="continuing-students.php"><i class="fa fa-users"></i> Continuing Students</a>
+<a href="promotion-center.php"><i class="fa fa-level-up"></i> Promotion Center</a>
+<a href="view-class-registry.php"><i class="fa fa-folder-open"></i> View Class Registry</a>
+<a href="term-registry.php"><i class="fa fa-plus"></i> Semester Registry</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Academic Setup', 'fa-book'); ?>
+<a href="subject-classification.php"><i class="fa fa-book"></i> Subject Classification</a>
+<a href="subject-assignment.php"><i class="fa fa-plus"></i> Subject Assignment</a>
+<a href="view-all-subject-assigned.php"><i class="fa fa-book"></i> Assigned Subjects</a>
+<a href="class-teacher-assignment.php"><i class="fa fa-users"></i> Class Teacher Assignment</a>
+<a href="course-registration-admin.php"><i class="fa fa-list-alt"></i> Course Registration</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Academic Monitoring', 'fa-graduation-cap'); ?>
+<a href="student-attendance-report.php"><i class="fa fa-bar-chart"></i> Attendance Summary</a>
+<a href="terminal-report.php"><i class="fa fa-file-text-o"></i> Examination Report</a>
+<a href="report-approval-board.php"><i class="fa fa-check-circle"></i> Report Approval</a>
+<a href="internal-exam-analysis.php"><i class="fa fa-bar-chart"></i> Internal Exams Analysis</a>
+<a href="waec-analysis.php"><i class="fa fa-line-chart"></i> WAEC Analysis</a>
+<a href="lesson-timetable-report.php"><i class="fa fa-calendar"></i> Lesson Timetable</a>
+<a href="examinationtimetablereport.php"><i class="fa fa-book"></i> Exam Time Table Report</a>
+<?php menuboard_section_end(); ?>
+
+<?php menuboard_section_start('Communication', 'fa-bullhorn'); ?>
+<a href="messages.php"><i class="fa fa-comments"></i> Messages</a>
 <a href="notification.php"><i class="fa fa-bullhorn"></i> Send Notification</a>
 <?php menuboard_section_end(); ?>
 <?php

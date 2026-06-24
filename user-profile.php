@@ -104,13 +104,14 @@ $isAdminViewer = isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
     $_SESSION['ACCESSLEVEL'] === 'administrator' &&
     in_array($_SESSION['SYSTEMTYPE'], array('normal_user', 'super_user'), true);
 $isHeadmasterViewer = function_exists('um_is_headmaster_user') && um_is_headmaster_user();
+$isAssistantAcademicViewer = function_exists('um_is_assistant_head_academics_user') && um_is_assistant_head_academics_user();
 $isOwnProfile = $viewUserId !== "" && isset($_SESSION['USERID']) && trim((string)$_SESSION['USERID']) === $viewUserId;
 $canViewProfile = false;
 
 if($profileRow){
     if($isAdminViewer || $isOwnProfile){
         $canViewProfile = true;
-    }elseif($isHeadmasterViewer && ($profileIsStudent || $profileIsTeacher)){
+    }elseif(($isHeadmasterViewer || $isAssistantAcademicViewer) && ($profileIsStudent || $profileIsTeacher)){
         $canViewProfile = true;
     }
 }

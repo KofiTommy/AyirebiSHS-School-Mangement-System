@@ -48,6 +48,12 @@ function student_attendance_is_headmaster(){
 }
 }
 
+if(!function_exists('student_attendance_is_assistant_head_academics')){
+function student_attendance_is_assistant_head_academics(){
+    return function_exists('um_is_assistant_head_academics_user') && um_is_assistant_head_academics_user();
+}
+}
+
 if(!function_exists('student_attendance_landing_page')){
 function student_attendance_landing_page(){
     if(student_attendance_is_admin()){
@@ -55,6 +61,9 @@ function student_attendance_landing_page(){
     }
     if(student_attendance_is_headmaster()){
         return "headmaster-page.php";
+    }
+    if(student_attendance_is_assistant_head_academics()){
+        return "assistant-head-academics-page.php";
     }
     if(student_attendance_is_teacher()){
         return "teacher-page.php";
@@ -68,7 +77,7 @@ function student_attendance_landing_page(){
 
 if(!function_exists('student_attendance_can_access')){
 function student_attendance_can_access($con = null){
-    if(student_attendance_is_admin() || student_attendance_is_headmaster()){
+    if(student_attendance_is_admin() || student_attendance_is_headmaster() || student_attendance_is_assistant_head_academics()){
         return true;
     }
     if(student_attendance_is_teacher()){

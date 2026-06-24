@@ -464,6 +464,22 @@ if(!function_exists('um_assignable_module_keys_for_role')){
 function um_assignable_module_keys_for_role($roleKey){
     $roleKey = trim((string)$roleKey);
     $allKeys = array_keys(um_module_catalog());
+    if($roleKey === 'assistant_head_academics'){
+        return array(
+            'student_search',
+            'class_semester_registry',
+            'student_progression',
+            'subject_management',
+            'class_teacher_assignment',
+            'student_attendance',
+            'examination_scores',
+            'reports',
+            'examination_timetable',
+            'lesson_timetable',
+            'course_registration',
+            'notice_communication'
+        );
+    }
     if($roleKey === 'teacher'){
         return array(
             'student_search',
@@ -488,6 +504,16 @@ function um_assignable_module_keys_for_role($roleKey){
         return array();
     }
     return $allKeys;
+}
+}
+
+if(!function_exists('um_default_module_keys_for_role')){
+function um_default_module_keys_for_role($roleKey){
+    $roleKey = trim((string)$roleKey);
+    if($roleKey === 'assistant_head_academics'){
+        return um_assignable_module_keys_for_role($roleKey);
+    }
+    return array();
 }
 }
 
@@ -699,6 +725,9 @@ function um_home_link_for_session(){
     if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'Headmaster'){
         return 'headmaster-page.php';
     }
+    if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'AssistantHeadAcademic'){
+        return 'assistant-head-academics-page.php';
+    }
     if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'User'){
         return 'user.php';
     }
@@ -778,6 +807,11 @@ function um_baseline_scripts_for_role($roleKey){
             'item-bill-report.php',
             'online-admission-admin.php',
             'notification.php'
+        );
+    }
+    if($roleKey === 'assistant_head_academics'){
+        return array(
+            'assistant-head-academics-page.php'
         );
     }
     return array();
@@ -921,6 +955,21 @@ function um_is_headmaster_user(){
 }
 }
 
+if(!function_exists('um_is_assistant_head_academics_user')){
+function um_is_assistant_head_academics_user(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === 'user' &&
+        $_SESSION['SYSTEMTYPE'] === 'AssistantHeadAcademic';
+}
+}
+
+if(!function_exists('um_is_academic_lead_user')){
+function um_is_academic_lead_user(){
+    return (function_exists('um_is_headmaster_user') && um_is_headmaster_user()) ||
+        (function_exists('um_is_assistant_head_academics_user') && um_is_assistant_head_academics_user());
+}
+}
+
 if(!function_exists('um_role_profiles')){
 function um_role_profiles(){
     return array(
@@ -936,6 +985,13 @@ function um_role_profiles(){
             'accesslevel' => 'user',
             'systemtype' => 'Headmaster',
             'description' => 'Executive school leadership dashboard account.',
+            'super_only' => false
+        ),
+        'assistant_head_academics' => array(
+            'label' => 'Assistant Head Academics',
+            'accesslevel' => 'user',
+            'systemtype' => 'AssistantHeadAcademic',
+            'description' => 'Academic leadership dashboard account.',
             'super_only' => false
         ),
         'branch_admin' => array(
@@ -990,6 +1046,9 @@ function um_role_key_from_user($row){
     if($accessLevel === 'user' && $systemType === 'Headmaster'){
         return 'headmaster';
     }
+    if($accessLevel === 'user' && $systemType === 'AssistantHeadAcademic'){
+        return 'assistant_head_academics';
+    }
     if($systemType === 'Teacher'){
         return 'teacher';
     }
@@ -1022,6 +1081,8 @@ function um_generate_userid($roleKey = 'office_user'){
     $prefix = 'USR';
     if($roleKey === 'headmaster'){
         $prefix = 'HDM';
+    }elseif($roleKey === 'assistant_head_academics'){
+        $prefix = 'AHA';
     }elseif($roleKey === 'branch_admin'){
         $prefix = 'ADM';
     }elseif($roleKey === 'system_admin'){

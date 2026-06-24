@@ -4,12 +4,15 @@ $_SESSION['Message'] = "";
 include("dbstring.php");
 include("check-login.php");
 
-if (!isset($_SESSION['ACCESSLEVEL']) || $_SESSION['ACCESSLEVEL'] != "administrator") {
-    header("location:index.php");
+if (!(isset($_SESSION['ACCESSLEVEL']) && $_SESSION['ACCESSLEVEL'] == "administrator") && !(function_exists('um_is_assistant_head_academics_user') && um_is_assistant_head_academics_user())) {
+    header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php"));
     exit();
 }
-if (!isset($_SESSION['SYSTEMTYPE']) || ($_SESSION['SYSTEMTYPE'] != "normal_user" && $_SESSION['SYSTEMTYPE'] != "super_user")) {
-    header("location:index.php");
+if (
+    !(function_exists('um_is_assistant_head_academics_user') && um_is_assistant_head_academics_user()) &&
+    (!isset($_SESSION['SYSTEMTYPE']) || ($_SESSION['SYSTEMTYPE'] != "normal_user" && $_SESSION['SYSTEMTYPE'] != "super_user"))
+) {
+    header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php"));
     exit();
 }
 

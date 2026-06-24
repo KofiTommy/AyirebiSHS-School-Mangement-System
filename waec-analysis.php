@@ -6,7 +6,7 @@ include("dbstring.php");
 $isAllowed = (
     ($_SESSION['ACCESSLEVEL'] == "administrator" && $_SESSION['SYSTEMTYPE'] == "normal_user") ||
     ($_SESSION['ACCESSLEVEL'] == "administrator" && $_SESSION['SYSTEMTYPE'] == "super_user") ||
-    ($_SESSION['ACCESSLEVEL'] == "user" && $_SESSION['SYSTEMTYPE'] == "Headmaster")
+    (function_exists('um_is_academic_lead_user') && um_is_academic_lead_user())
 );
 
 if(!$isAllowed){
