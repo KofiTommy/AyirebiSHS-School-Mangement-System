@@ -583,7 +583,7 @@ include("links.php");
                         <div class="chart-canvas-wrap">
                             <canvas id="headmasterStudentChart" aria-label="Student distribution by gender and residence"></canvas>
                         </div>
-                        <p class="chart-note">The graph shows student numbers by gender and residence, while the tiles beside it combine the main school totals in one place.</p>
+                        <p class="chart-note">The bar chart compares student groups by gender and residence, while the tiles beside it show the main school totals.</p>
                     </div>
                 </div>
                 <div class="cards-side">
@@ -934,7 +934,7 @@ document.addEventListener('DOMContentLoaded', function () {
             studentCanvas.style.height = '100%';
 
             window.headmasterStudentChartInstance = new Chart(chartContext, {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: [
                         ['Boys', 'Day'],
@@ -946,19 +946,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     datasets: [{
                         label: 'Students',
                         data: [<?php echo $boys_day; ?>, <?php echo $boys_boarding; ?>, <?php echo $girls_day; ?>, <?php echo $girls_boarding; ?>, <?php echo $studentsNoStatus; ?>],
-                        borderColor: '#0f766e',
-                        backgroundColor: 'rgba(15, 118, 110, 0.14)',
-                        pointBackgroundColor: ['#2563eb', '#38bdf8', '#db2777', '#f472b6', '#d59b2d'],
-                        pointBorderColor: '#ffffff',
-                        pointBorderWidth: 2,
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        borderWidth: 3,
-                        tension: 0.35,
-                        fill: true
+                        backgroundColor: ['#2563eb', '#0ea5e9', '#db2777', '#f472b6', '#d59b2d'],
+                        borderColor: ['#1d4ed8', '#0284c7', '#be185d', '#db2777', '#b45309'],
+                        borderWidth: 1,
+                        borderRadius: 8,
+                        maxBarThickness: 28
                     }]
                 },
                 options: {
+                    indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
                     animation: false,
@@ -969,7 +965,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         },
                         title: {
                             display: true,
-                            text: 'Student Population by Group',
+                            text: 'Student Population Comparison',
                             font: { size: 15, weight: '600' },
                             color: '#111827',
                             padding: { top: 8, bottom: 16 }
@@ -978,7 +974,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             callbacks: {
                                 label: function (context) {
                                     var label = context.label || '';
-                                    var value = context.parsed || 0;
+                                    var value = context.parsed && typeof context.parsed.x !== 'undefined' ? context.parsed.x : 0;
                                     var total = <?php echo $studentTotal; ?>;
                                     var percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                                     return label + ': ' + value.toLocaleString() + ' (' + percentage + '%)';
@@ -988,28 +984,30 @@ document.addEventListener('DOMContentLoaded', function () {
                     },
                     scales: {
                         x: {
+                            beginAtZero: true,
                             ticks: {
                                 color: '#475569',
                                 font: {
                                     size: 11,
                                     weight: '600'
                                 },
-                                padding: 8,
-                                maxRotation: 0,
-                                autoSkip: false
-                            },
-                            grid: {
-                                display: false
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                color: '#475569',
                                 precision: 0
                             },
                             grid: {
-                                color: 'rgba(148, 163, 184, 0.2)'
+                                color: 'rgba(148, 163, 184, 0.18)'
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#475569',
+                                font: {
+                                    size: 11,
+                                    weight: '600'
+                                },
+                                padding: 8
+                            },
+                            grid: {
+                                display: false
                             }
                         }
                     }

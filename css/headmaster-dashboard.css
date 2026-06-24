@@ -552,7 +552,7 @@ body.hm-page .chart-canvas-wrap {
     position: relative;
     width: 100%;
     max-width: 100%;
-    height: 248px;
+    height: 280px;
     margin: 0 auto;
     flex: 0 0 auto;
 }
@@ -1062,13 +1062,13 @@ body.hm-page .card.total p {
     }
 
     body.hm-page .chart-container {
-        height: 320px;
+        height: 350px;
         padding: 10px;
     }
 
     body.hm-page .chart-canvas-wrap {
         max-width: 100%;
-        height: 224px;
+        height: 250px;
     }
 
     body.hm-page .chart-container #headmasterStudentChart {

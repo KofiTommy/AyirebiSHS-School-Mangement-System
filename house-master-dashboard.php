@@ -291,6 +291,12 @@ if($_StudentSearch !== ""){
 $_FilterSummary = implode(" | ", $_FilterParts);
 $_StudentResultCount = count($_StudentRows);
 $_FilterActive = ($_FilterSummary !== "");
+$_StudentPrintTitle = ($_StudentHouseId !== "" && isset($_AssignedHouseMap[$_StudentHouseId]))
+    ? ($_AssignedHouseMap[$_StudentHouseId]." Student List")
+    : "Assigned House Student List";
+$_StudentPrintSummary = $_FilterActive
+    ? $_FilterSummary
+    : "All students across your assigned houses.";
 $_PostedFilterParts = array();
 if($_PostedHouseId !== "" && isset($_AssignedHouseMap[$_PostedHouseId])){
     $_PostedFilterParts[] = "House: ".$_AssignedHouseMap[$_PostedHouseId];
@@ -699,6 +705,23 @@ body{
     color:var(--hm-muted);
     font-size:13px;
 }
+.hm-print-header{
+    display:none;
+    margin-bottom:14px;
+    padding-bottom:10px;
+    border-bottom:1px solid #d7e4ef;
+}
+.hm-print-header h2{
+    margin:0 0 6px 0;
+    font-size:22px;
+    color:var(--hm-ink);
+}
+.hm-print-header p{
+    margin:0;
+    color:var(--hm-muted);
+    font-size:13px;
+    line-height:1.5;
+}
 .hm-empty{
     padding:16px;
     color:var(--hm-muted);
@@ -749,6 +772,44 @@ body{
 @media print{
     body{
         background:#ffffff;
+    }
+    body.hm-print-students .hm-hero,
+    body.hm-print-students .hm-nav,
+    body.hm-print-students .hm-alerts,
+    body.hm-print-students .hm-stats,
+    body.hm-print-students .hm-grid,
+    body.hm-print-students .hm-section:not(#hm-students){
+        display:none !important;
+    }
+    body.hm-print-students .hm-shell{
+        box-shadow:none;
+        border:none;
+        padding:0;
+        background:#ffffff;
+    }
+    body.hm-print-students #hm-students{
+        display:block !important;
+        border:none;
+        box-shadow:none;
+        padding:0;
+        margin:0;
+        background:#ffffff;
+    }
+    body.hm-print-students #hm-students .hm-filter-form,
+    body.hm-print-students #hm-students .hm-filter-actions,
+    body.hm-print-students #hm-students > h3,
+    body.hm-print-students #hm-students > p{
+        display:none !important;
+    }
+    body.hm-print-students #hm-students .hm-print-header{
+        display:block !important;
+    }
+    body.hm-print-students #hm-students .hm-table-wrap{
+        border:none;
+        box-shadow:none;
+    }
+    body.hm-print-students #hm-students .hm-table{
+        min-width:0;
     }
     .hm-shell{
         box-shadow:none;
@@ -961,6 +1022,7 @@ body{
                 </div>
                 <div class="hm-filter-actions">
                     <button type="submit" class="hm-btn hm-btn-primary"><i class="fa fa-search"></i> Filter</button>
+                    <button type="button" class="hm-btn" onclick="printHouseMasterStudentList();"><i class="fa fa-print"></i> Print House List</button>
                     <?php if($_FilterActive){ ?>
                     <a href="house-master-dashboard.php#hm-students" class="hm-btn"><i class="fa fa-times"></i> Clear</a>
                     <?php } ?>
@@ -975,6 +1037,11 @@ body{
                     echo house_master_dash_esc("Showing ".$_StudentResultCount." student(s) across your assigned houses.");
                 }
                 ?>
+            </div>
+
+            <div class="hm-print-header">
+                <h2><?php echo house_master_dash_esc($_StudentPrintTitle); ?></h2>
+                <p><?php echo house_master_dash_esc($_StudentPrintSummary." | Student count: ".$_StudentResultCount); ?></p>
             </div>
 
             <div class="hm-table-wrap">
@@ -1020,5 +1087,17 @@ body{
         </div>
     </div>
 </div>
+<script>
+function printHouseMasterStudentList(){
+    document.body.classList.add('hm-print-students');
+    var cleanup = function(){
+        document.body.classList.remove('hm-print-students');
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    setTimeout(cleanup, 1200);
+}
+</script>
 </body>
 </html>

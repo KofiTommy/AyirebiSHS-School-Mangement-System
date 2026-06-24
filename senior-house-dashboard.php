@@ -32,6 +32,7 @@ $_Overview = array(
 );
 $_HouseRows = array();
 $_UnassignedStudents = array();
+$_UnassignedTotal = 0;
 $_RecentAssignments = array();
 $_RecentExeat = array();
 $_OverdueExeatRows = array();
@@ -44,10 +45,13 @@ $_IsHeadmasterView = isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
     $_SESSION['SYSTEMTYPE'] === "Headmaster";
 $_StudentSearch = isset($_GET['student_search']) ? trim((string)$_GET['student_search']) : "";
 $_StudentHouseId = isset($_GET['student_houseid']) ? trim((string)$_GET['student_houseid']) : "";
+$_UnassignedSearch = isset($_GET['unassigned_search']) ? trim((string)$_GET['unassigned_search']) : "";
 $_AssignedHouseOptions = array();
 $_AssignedHouseMap = array();
 $_StudentSearchSql = "";
 $_StudentHouseSql = "";
+$_UnassignedSearchSql = "";
+$_UnassignedFilteredTotal = 0;
 $_MySeniorAssignment = null;
 $_IsSeniorTeacherView = false;
 $_HouseScopeSql = "1=1";
@@ -63,38 +67,48 @@ $_AssignmentPanelTitle = "Recent House Movements";
 $_AssignmentPanelDescription = "Latest house assignment activity, including current active and older inactive movements.";
 $_AssignmentPanelEmpty = "No student house movement history found yet.";
 $_ExeatPanelDescription = "Latest exeat requests across the houses, with pending requests shown first for quick supervision.";
+$_AssignedHouseRes = mysqli_query($con, "SELECT h.houseid,h.housename
+    FROM tblhouse h
+    ORDER BY CASE WHEN h.status='active' THEN 0 ELSE 1 END ASC, h.housename ASC");
+if($_AssignedHouseRes){
+    while($_AssignedHouse = mysqli_fetch_array($_AssignedHouseRes, MYSQLI_ASSOC)){
+        $_AssignedHouseOptions[] = $_AssignedHouse;
+        $_AssignedHouseMap[$_AssignedHouse['houseid']] = $_AssignedHouse['housename'];
+    }
+}
+if($_StudentHouseId !== "" && !isset($_AssignedHouseMap[$_StudentHouseId])){
+    $_StudentHouseId = "";
+}
+if($_StudentSearch !== ""){
+    $_StudentSearchEsc = mysqli_real_escape_string($con, $_StudentSearch);
+    $_StudentSearchLike = "%".$_StudentSearchEsc."%";
+    $_StudentSearchSql = " AND (
+        su.userid LIKE '$_StudentSearchLike'
+        OR CONCAT_WS(' ', COALESCE(su.firstname,''), COALESCE(su.othernames,''), COALESCE(su.surname,'')) LIKE '$_StudentSearchLike'
+        OR h.housename LIKE '$_StudentSearchLike'
+        OR COALESCE(su.mobile,'') LIKE '$_StudentSearchLike'
+        OR COALESCE(su.nextofkin_contact,'') LIKE '$_StudentSearchLike'
+    )";
+}
+if($_StudentHouseId !== ""){
+    $_StudentHouseEsc = mysqli_real_escape_string($con, $_StudentHouseId);
+    $_StudentHouseSql = " AND sh.houseid='$_StudentHouseEsc'";
+}
+if($_UnassignedSearch !== ""){
+    $_UnassignedSearchEsc = mysqli_real_escape_string($con, $_UnassignedSearch);
+    $_UnassignedSearchLike = "%".$_UnassignedSearchEsc."%";
+    $_UnassignedSearchSql = " AND (
+        su.userid LIKE '$_UnassignedSearchLike'
+        OR CONCAT_WS(' ', COALESCE(su.firstname,''), COALESCE(su.othernames,''), COALESCE(su.surname,'')) LIKE '$_UnassignedSearchLike'
+        OR COALESCE(su.mobile,'') LIKE '$_UnassignedSearchLike'
+        OR COALESCE(su.nextofkin_contact,'') LIKE '$_UnassignedSearchLike'
+    )";
+}
+$_StudentHouseFilterLabel = "All Houses";
 if(house_master_is_teacher()){
     $_MySeniorAssignment = get_senior_house_assignment($con, $_ViewerId);
     if(!$_CanManageSeniorHouse && $_MySeniorAssignment){
         $_IsSeniorTeacherView = true;
-        $_AssignedHouseRes = mysqli_query($con, "SELECT h.houseid,h.housename
-            FROM tblhouse h
-            ORDER BY CASE WHEN h.status='active' THEN 0 ELSE 1 END ASC, h.housename ASC");
-        if($_AssignedHouseRes){
-            while($_AssignedHouse = mysqli_fetch_array($_AssignedHouseRes, MYSQLI_ASSOC)){
-                $_AssignedHouseOptions[] = $_AssignedHouse;
-                $_AssignedHouseMap[$_AssignedHouse['houseid']] = $_AssignedHouse['housename'];
-            }
-        }
-        if($_StudentHouseId !== "" && !isset($_AssignedHouseMap[$_StudentHouseId])){
-            $_StudentHouseId = "";
-        }
-        if($_StudentSearch !== ""){
-            $_StudentSearchEsc = mysqli_real_escape_string($con, $_StudentSearch);
-            $_StudentSearchLike = "%".$_StudentSearchEsc."%";
-            $_StudentSearchSql = " AND (
-                su.userid LIKE '$_StudentSearchLike'
-                OR CONCAT_WS(' ', COALESCE(su.firstname,''), COALESCE(su.othernames,''), COALESCE(su.surname,'')) LIKE '$_StudentSearchLike'
-                OR h.housename LIKE '$_StudentSearchLike'
-                OR COALESCE(su.mobile,'') LIKE '$_StudentSearchLike'
-                OR COALESCE(su.nextofkin_contact,'') LIKE '$_StudentSearchLike'
-            )";
-        }
-        if($_StudentHouseId !== ""){
-            $_StudentHouseEsc = mysqli_real_escape_string($con, $_StudentHouseId);
-            $_StudentHouseSql = " AND sh.houseid='$_StudentHouseEsc'";
-        }
-        $_StudentHouseFilterLabel = "All Houses";
         $_PageSubtitle = "This senior role view covers all houses, students, and exeat activity, while setup controls remain limited to admin.";
         $_HouseOverviewDescription = "All houses with their current staff coverage, student load, and exeat return activity.";
         $_AssignmentPanelTitle = "Assigned Students By House";
@@ -111,6 +125,11 @@ if($_IsHeadmasterView){
     $_AssignmentPanelEmpty = "No active student house assignments were found.";
     $_ExeatPanelDescription = "Latest exeat requests and return activity across all houses.";
 }
+if($_CanManageSeniorHouse && ($_StudentHouseId !== "" || $_StudentSearch !== "")){
+    $_AssignmentPanelTitle = "Student Assignments By House";
+    $_AssignmentPanelDescription = "Search current active student house assignments across all houses.";
+    $_AssignmentPanelEmpty = "No active student house assignments were found.";
+}
 $_DashboardRoleLabel = $_CanManageSeniorHouse ? "Administrator" : ($_IsHeadmasterView ? "Headmaster" : (($_MySeniorAssignment && trim((string)$_MySeniorAssignment['designation']) !== "") ? (string)$_MySeniorAssignment['designation'] : "House Staff"));
 $_DashboardScopeLabel = ($_CanManageSeniorHouse || $_IsSeniorTeacherView || $_IsHeadmasterView) ? "All Houses" : "Assigned House Scope";
 $_DashboardModeLabel = $_CanManageSeniorHouse ? "Setup Controls Enabled" : ($_IsHeadmasterView ? "Read Only Overview" : "Operations View");
@@ -122,6 +141,12 @@ if($_StudentSearch !== ""){
     $_DashboardFilterParts[] = "Search: ".$_StudentSearch;
 }
 $_DashboardFilterSummary = implode(" | ", $_DashboardFilterParts);
+$_StudentAssignmentPrintTitle = ($_StudentHouseId !== "" && isset($_AssignedHouseMap[$_StudentHouseId]))
+    ? ($_AssignedHouseMap[$_StudentHouseId]." Student List")
+    : "Student House List";
+$_StudentAssignmentPrintSummary = $_DashboardFilterSummary !== ""
+    ? $_DashboardFilterSummary
+    : "Current student list for the active dashboard scope.";
 
 if($_CanManageSeniorHouse){
     $_OverviewSql = "SELECT
@@ -236,18 +261,42 @@ if($_HouseRes){
     }
 }
 
-if($_CanManageSeniorHouse){
-    $_UnassignedRes = mysqli_query($con, "SELECT
-        su.userid,
-        COALESCE(NULLIF(TRIM(CONCAT(COALESCE(su.firstname,''), ' ', COALESCE(su.othernames,''), ' ', COALESCE(su.surname,''))), ''), su.userid) AS student_name,
-        COALESCE(su.mobile, '') AS mobile
+$_UnassignedCountRes = mysqli_query($con, "SELECT COUNT(*) AS total
+    FROM tblsystemuser su
+    LEFT JOIN tblstudenthouse sh ON sh.userid=su.userid AND sh.status='active'
+    WHERE su.systemtype='Student'
+      AND su.status='active'
+      AND sh.assignmentid IS NULL");
+if($_UnassignedCountRes && $_UnassignedCountRow = mysqli_fetch_array($_UnassignedCountRes, MYSQLI_ASSOC)){
+    $_UnassignedTotal = (int)($_UnassignedCountRow['total'] ?? 0);
+}
+$_UnassignedFilteredTotal = $_UnassignedTotal;
+if($_UnassignedSearch !== ""){
+    $_UnassignedFilteredCountRes = mysqli_query($con, "SELECT COUNT(*) AS total
         FROM tblsystemuser su
         LEFT JOIN tblstudenthouse sh ON sh.userid=su.userid AND sh.status='active'
         WHERE su.systemtype='Student'
           AND su.status='active'
           AND sh.assignmentid IS NULL
+          $_UnassignedSearchSql");
+    if($_UnassignedFilteredCountRes && $_UnassignedFilteredCountRow = mysqli_fetch_array($_UnassignedFilteredCountRes, MYSQLI_ASSOC)){
+        $_UnassignedFilteredTotal = (int)($_UnassignedFilteredCountRow['total'] ?? 0);
+    }
+}
+if($_UnassignedTotal > 0 || $_UnassignedSearch !== ""){
+    $_UnassignedRes = mysqli_query($con, "SELECT
+        su.userid,
+        COALESCE(NULLIF(TRIM(CONCAT(COALESCE(su.firstname,''), ' ', COALESCE(su.othernames,''), ' ', COALESCE(su.surname,''))), ''), su.userid) AS student_name,
+        COALESCE(su.mobile, '') AS mobile,
+        COALESCE(su.nextofkin_contact, '') AS nextofkin_contact
+        FROM tblsystemuser su
+        LEFT JOIN tblstudenthouse sh ON sh.userid=su.userid AND sh.status='active'
+        WHERE su.systemtype='Student'
+          AND su.status='active'
+          AND sh.assignmentid IS NULL
+          $_UnassignedSearchSql
         ORDER BY student_name ASC
-        LIMIT 25");
+        LIMIT 50");
     if($_UnassignedRes){
         while($_Row = mysqli_fetch_array($_UnassignedRes, MYSQLI_ASSOC)){
             $_UnassignedStudents[] = $_Row;
@@ -255,7 +304,7 @@ if($_CanManageSeniorHouse){
     }
 }
 
-if($_CanManageSeniorHouse){
+if($_CanManageSeniorHouse && $_StudentHouseId === "" && $_StudentSearch === ""){
     $_AssignmentSql = "SELECT
         sh.assignmentid,
         sh.datetimeentry,
@@ -434,7 +483,7 @@ body{
     background:rgba(255,255,255,0.86);
     border:1px solid rgba(216,226,236,0.95);
     border-radius:24px;
-    padding:20px;
+    padding:22px;
     box-shadow:0 22px 48px rgba(15,23,42,0.08);
 }
 .senior-top{
@@ -442,10 +491,31 @@ body{
     justify-content:space-between;
     gap:22px;
     align-items:flex-start;
-    margin-bottom:12px;
+    margin-bottom:16px;
+    position:relative;
+    padding:22px;
+    border-radius:24px;
+    background:
+        radial-gradient(circle at top right, rgba(14,165,233,0.16), transparent 36%),
+        linear-gradient(135deg, rgba(15,118,110,0.12) 0%, rgba(255,255,255,0.96) 52%, rgba(21,94,117,0.08) 100%);
+    border:1px solid rgba(200,219,232,0.95);
+    overflow:hidden;
+}
+.senior-top::after{
+    content:"";
+    position:absolute;
+    right:-60px;
+    bottom:-70px;
+    width:220px;
+    height:220px;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(15,118,110,0.13), rgba(15,118,110,0));
+    pointer-events:none;
 }
 .senior-top-copy{
     flex:1 1 auto;
+    position:relative;
+    z-index:1;
 }
 .senior-kicker{
     display:inline-flex;
@@ -521,6 +591,64 @@ body{
     flex-wrap:wrap;
     gap:10px;
     justify-content:flex-end;
+    align-content:flex-start;
+    position:relative;
+    z-index:1;
+    max-width:340px;
+}
+.senior-glance{
+    display:grid;
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+    gap:12px;
+    margin-top:18px;
+    max-width:930px;
+}
+.senior-glance-card{
+    position:relative;
+    padding:14px 16px;
+    border-radius:18px;
+    background:rgba(255,255,255,0.9);
+    border:1px solid rgba(207,223,233,0.95);
+    box-shadow:0 14px 30px rgba(15,23,42,0.05);
+    overflow:hidden;
+}
+.senior-glance-card::before{
+    content:"";
+    position:absolute;
+    inset:0 auto 0 0;
+    width:4px;
+    background:#0f766e;
+}
+.senior-glance-card strong{
+    display:block;
+    font-size:28px;
+    line-height:1;
+    color:var(--senior-ink);
+}
+.senior-glance-card span{
+    display:block;
+    margin-top:8px;
+    color:var(--senior-muted);
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+}
+.senior-glance-card small{
+    display:block;
+    margin-top:6px;
+    color:var(--senior-muted);
+    font-size:12px;
+    line-height:1.4;
+}
+.senior-glance-card-warning::before{
+    background:#d97706;
+}
+.senior-glance-card-danger::before{
+    background:#dc2626;
+}
+.senior-glance-card-success::before{
+    background:#16a34a;
 }
 .senior-btn{
     display:inline-flex;
@@ -552,7 +680,12 @@ body{
     display:flex;
     flex-wrap:wrap;
     gap:10px;
-    margin:14px 0 18px 0;
+    margin:0 0 18px 0;
+    padding:14px;
+    border:1px solid var(--senior-border);
+    border-radius:20px;
+    background:rgba(255,255,255,0.92);
+    box-shadow:0 14px 28px rgba(15,23,42,0.04);
 }
 .senior-nav-link{
     display:inline-flex;
@@ -583,9 +716,14 @@ body{
     background:var(--senior-panel);
     border:1px solid var(--senior-border);
     border-radius:18px;
-    padding:16px;
+    padding:16px 16px 16px 18px;
     position:relative;
     overflow:hidden;
+    display:flex;
+    gap:14px;
+    align-items:flex-start;
+    min-height:132px;
+    box-shadow:0 14px 28px rgba(15,23,42,0.04);
 }
 .senior-stat::before{
     content:"";
@@ -608,6 +746,39 @@ body{
 }
 .senior-stat-success::before{
     background:#16a34a;
+}
+.senior-stat-icon{
+    width:42px;
+    height:42px;
+    flex:0 0 42px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:14px;
+    background:#f8fbfd;
+    color:var(--senior-brand);
+    font-size:18px;
+    box-shadow:inset 0 0 0 1px rgba(215,228,239,0.95);
+}
+.senior-stat-warning .senior-stat-icon{
+    background:#fff7ed;
+    color:#b45309;
+}
+.senior-stat-info .senior-stat-icon{
+    background:#ecfeff;
+    color:#0e7490;
+}
+.senior-stat-danger .senior-stat-icon{
+    background:#fff1f2;
+    color:#b91c1c;
+}
+.senior-stat-success .senior-stat-icon{
+    background:#f0fdf4;
+    color:#15803d;
+}
+.senior-stat-copy{
+    flex:1 1 auto;
+    min-width:0;
 }
 .senior-stat h4{
     margin:0 0 8px 0;
@@ -679,6 +850,115 @@ body{
     font-size:13px;
     line-height:1.5;
 }
+.senior-panel-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:14px;
+    margin-bottom:12px;
+}
+.senior-panel-head-copy{
+    min-width:0;
+}
+.senior-panel-head .senior-panel-head-copy p{
+    margin-bottom:0;
+}
+.senior-panel-meta{
+    flex:0 0 auto;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:9px 12px;
+    border-radius:999px;
+    background:#f8fbfd;
+    border:1px solid #d7e4ef;
+    color:var(--senior-muted);
+    font-size:12px;
+    font-weight:700;
+    white-space:nowrap;
+}
+.senior-collapse{
+    border:1px solid #dbe7ef;
+    border-radius:18px;
+    background:linear-gradient(135deg, #f8fbfd 0%, #ffffff 100%);
+    box-shadow:0 12px 24px rgba(15,23,42,0.03);
+}
+.senior-collapse summary{
+    list-style:none;
+    cursor:pointer;
+    padding:16px 18px;
+}
+.senior-collapse summary::-webkit-details-marker{
+    display:none;
+}
+.senior-collapse-summary{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+}
+.senior-collapse-copy{
+    min-width:0;
+}
+.senior-collapse-copy strong{
+    display:block;
+    color:var(--senior-ink);
+    font-size:16px;
+}
+.senior-collapse-copy span{
+    display:block;
+    margin-top:4px;
+    color:var(--senior-muted);
+    font-size:13px;
+    line-height:1.5;
+}
+.senior-collapse-meta{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+.senior-collapse-count{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:9px 12px;
+    border-radius:999px;
+    background:#ffffff;
+    border:1px solid #d7e4ef;
+    color:var(--senior-ink);
+    font-size:12px;
+    font-weight:700;
+    white-space:nowrap;
+}
+.senior-collapse-toggle{
+    width:36px;
+    height:36px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:50%;
+    background:#ecfeff;
+    color:#0e7490;
+    border:1px solid #bae6fd;
+    transition:transform 0.16s ease;
+}
+.senior-collapse[open] .senior-collapse-toggle{
+    transform:rotate(180deg);
+}
+.senior-collapse-body{
+    padding:0 18px 18px 18px;
+}
+.senior-collapse-divider{
+    border-top:1px solid #e7edf4;
+    margin-bottom:14px;
+}
+.senior-collapse-note{
+    margin:0 0 12px 0;
+    color:var(--senior-muted);
+    font-size:13px;
+    line-height:1.5;
+}
 .senior-heading-icon{
     color:var(--senior-brand);
 }
@@ -688,11 +968,24 @@ body{
     border:1px solid #e7edf4;
     background:#ffffff;
     box-shadow:inset 0 1px 0 rgba(255,255,255,0.7);
+    scrollbar-width:thin;
+    scrollbar-color:#c3d3df #f8fbfd;
+}
+.senior-table-wrap::-webkit-scrollbar{
+    height:10px;
+}
+.senior-table-wrap::-webkit-scrollbar-track{
+    background:#f8fbfd;
+}
+.senior-table-wrap::-webkit-scrollbar-thumb{
+    background:#c3d3df;
+    border-radius:999px;
 }
 .senior-table{
     width:100%;
     border-collapse:collapse;
     background:#ffffff;
+    min-width:720px;
 }
 .senior-table th,
 .senior-table td{
@@ -777,13 +1070,14 @@ body{
 .senior-filter-form{
     display:flex;
     flex-wrap:wrap;
-    gap:10px;
+    gap:12px;
     align-items:flex-end;
     margin-bottom:12px;
-    padding:12px;
+    padding:14px;
     border:1px solid var(--senior-border);
-    border-radius:14px;
-    background:#f8fbfd;
+    border-radius:18px;
+    background:linear-gradient(135deg, #f8fbfd 0%, #ffffff 100%);
+    box-shadow:0 10px 20px rgba(15,23,42,0.03);
 }
 .senior-filter-field{
     display:flex;
@@ -825,21 +1119,137 @@ body{
     color:var(--senior-muted);
     font-size:13px;
 }
+.senior-print-header{
+    display:none;
+    margin-bottom:14px;
+    padding-bottom:10px;
+    border-bottom:1px solid #d7e4ef;
+}
+.senior-print-header h2{
+    margin:0 0 6px 0;
+    font-size:22px;
+    color:var(--senior-ink);
+}
+.senior-print-header p{
+    margin:0;
+    color:var(--senior-muted);
+    font-size:13px;
+    line-height:1.5;
+}
 @media (max-width: 980px){
     .senior-top{
         flex-direction:column;
+        padding:18px;
     }
     .senior-actions{
         justify-content:flex-start;
+        max-width:none;
     }
     .senior-nav{
-        margin-top:10px;
+        margin-top:0;
     }
     .senior-panel-half{
         grid-column:span 12;
     }
+    .senior-glance{
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        max-width:none;
+    }
+    .senior-panel-head{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+    .senior-collapse-summary{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+    .senior-collapse-meta{
+        width:100%;
+        justify-content:space-between;
+    }
+}
+@media (max-width: 760px){
+    .senior-shell{
+        padding:16px;
+        border-radius:20px;
+    }
+    .senior-title{
+        font-size:26px;
+    }
+    .senior-subtitle{
+        font-size:13px;
+    }
+    .senior-glance{
+        grid-template-columns:1fr;
+    }
+    .senior-stats{
+        grid-template-columns:1fr;
+    }
+    .senior-stat{
+        min-height:auto;
+    }
+    .senior-nav{
+        padding:12px;
+    }
+    .senior-nav-link{
+        width:100%;
+        justify-content:center;
+    }
+    .senior-filter-field,
+    .senior-filter-field-house{
+        min-width:100%;
+        flex-basis:100%;
+    }
+    .senior-filter-actions{
+        width:100%;
+    }
+    .senior-filter-actions .senior-btn{
+        flex:1 1 160px;
+        justify-content:center;
+    }
+    .senior-btn{
+        justify-content:center;
+    }
 }
 @media print{
+    body.senior-print-students .senior-top,
+    body.senior-print-students .senior-alerts,
+    body.senior-print-students .senior-nav,
+    body.senior-print-students .senior-stats,
+    body.senior-print-students .senior-grid > .senior-panel:not(#student-assignments),
+    body.senior-print-students #return-monitoring,
+    body.senior-print-students #exeat-activity{
+        display:none !important;
+    }
+    body.senior-print-students .senior-shell{
+        box-shadow:none !important;
+        border:none !important;
+        padding:0 !important;
+        background:#ffffff !important;
+    }
+    body.senior-print-students #student-assignments{
+        display:block !important;
+        border:none !important;
+        box-shadow:none !important;
+        padding:0 !important;
+        margin:0 !important;
+        background:#ffffff !important;
+    }
+    body.senior-print-students #student-assignments .senior-filter-form,
+    body.senior-print-students #student-assignments .senior-filter-actions,
+    body.senior-print-students #student-assignments .senior-panel-head{
+        display:none !important;
+    }
+    body.senior-print-students #student-assignments .senior-print-header{
+        display:block !important;
+    }
+    body.senior-print-students #student-assignments .senior-table-wrap{
+        border:none !important;
+        box-shadow:none !important;
+    }
+    body.senior-print-students #student-assignments .senior-table{
+        min-width:0;
+    }
     .header,
     .print-hide{
         display:none !important;
@@ -890,6 +1300,28 @@ body{
                         <span class="senior-chip senior-chip-success"><i class="fa fa-check-circle"></i> <?php echo (int)$_Overview["returned_today"]; ?> Checked In Today</span>
                         <?php } ?>
                     </div>
+                    <div class="senior-glance">
+                        <div class="senior-glance-card">
+                            <strong><?php echo (int)$_Overview["assigned_students"]; ?></strong>
+                            <span>Students In Houses</span>
+                            <small><?php echo ($_CanManageSeniorHouse || $_IsSeniorTeacherView) ? (int)$_Overview["unassigned_students"]." still need assignment." : "Current students attached to your scope."; ?></small>
+                        </div>
+                        <div class="senior-glance-card senior-glance-card-warning">
+                            <strong><?php echo (int)$_Overview["pending_exeat"]; ?></strong>
+                            <span>Pending Exeat</span>
+                            <small><?php echo (int)$_Overview["external_pending"]; ?> external and <?php echo (int)$_Overview["internal_pending"]; ?> internal requests waiting.</small>
+                        </div>
+                        <div class="senior-glance-card senior-glance-card-danger">
+                            <strong><?php echo (int)$_Overview["overdue_returns"]; ?></strong>
+                            <span>Overdue Returns</span>
+                            <small>Students still out past the expected return time.</small>
+                        </div>
+                        <div class="senior-glance-card senior-glance-card-success">
+                            <strong><?php echo (int)$_Overview["returned_today"]; ?></strong>
+                            <span>Checked In Today</span>
+                            <small>Confirmed returns already recorded for today.</small>
+                        </div>
+                    </div>
                 </div>
                 <div class="senior-actions print-hide">
                     <?php if($_CanManageSeniorHouse){ ?>
@@ -933,56 +1365,72 @@ body{
 
             <div class="senior-stats">
                 <div class="senior-stat senior-stat-neutral">
-                    <h4>Active Houses</h4>
-                    <strong><?php echo (int)$_Overview["active_houses"]; ?></strong>
-                    <span><?php echo ($_CanManageSeniorHouse || $_IsSeniorTeacherView) ? (int)$_Overview["inactive_houses"]." inactive house records" : "Houses linked to your active assignment"; ?></span>
+                    <div class="senior-stat-icon"><i class="fa fa-home"></i></div>
+                    <div class="senior-stat-copy">
+                        <h4>Active Houses</h4>
+                        <strong><?php echo (int)$_Overview["active_houses"]; ?></strong>
+                        <span><?php echo ($_CanManageSeniorHouse || $_IsSeniorTeacherView) ? (int)$_Overview["inactive_houses"]." inactive house records" : "Houses linked to your active assignment"; ?></span>
+                    </div>
                 </div>
                 <div class="senior-stat senior-stat-neutral">
-                    <h4>House Staff</h4>
-                    <strong><?php echo (int)$_Overview["active_supervisors"]; ?></strong>
-                    <span><?php echo ($_CanManageSeniorHouse || $_IsSeniorTeacherView) ? (int)$_Overview["houses_without_supervisor"]." active houses without staff" : "Active staff record(s) inside your current scope"; ?></span>
-                </div>
-                <div class="senior-stat senior-stat-neutral">
-                    <h4>Assigned Students</h4>
-                    <strong><?php echo (int)$_Overview["assigned_students"]; ?></strong>
-                    <span><?php echo ($_CanManageSeniorHouse || $_IsSeniorTeacherView) ? (int)$_Overview["unassigned_students"]." students still unassigned" : "Students currently attached to your house"; ?></span>
-                </div>
-                <div class="senior-stat senior-stat-warning">
-                    <h4>Pending Exeat</h4>
-                    <strong><?php echo (int)$_Overview["pending_exeat"]; ?></strong>
-                    <span><?php echo (int)$_Overview["external_pending"]; ?> external, <?php echo (int)$_Overview["internal_pending"]; ?> internal</span>
+                    <div class="senior-stat-icon"><i class="fa fa-user-secret"></i></div>
+                    <div class="senior-stat-copy">
+                        <h4>House Staff</h4>
+                        <strong><?php echo (int)$_Overview["active_supervisors"]; ?></strong>
+                        <span><?php echo ($_CanManageSeniorHouse || $_IsSeniorTeacherView) ? (int)$_Overview["houses_without_supervisor"]." active houses without staff" : "Active staff record(s) inside your current scope"; ?></span>
+                    </div>
                 </div>
                 <div class="senior-stat senior-stat-info">
-                    <h4>Out On Exeat</h4>
-                    <strong><?php echo (int)$_Overview["active_out"]; ?></strong>
-                    <span>Approved exeat not yet checked back in</span>
-                </div>
-                <div class="senior-stat senior-stat-danger">
-                    <h4>Overdue Returns</h4>
-                    <strong><?php echo (int)$_Overview["overdue_returns"]; ?></strong>
-                    <span>Students still out past expected return time</span>
-                </div>
-                <div class="senior-stat senior-stat-success">
-                    <h4>Returned Today</h4>
-                    <strong><?php echo (int)$_Overview["returned_today"]; ?></strong>
-                    <span>Students checked back in today</span>
-                </div>
-                <div class="senior-stat senior-stat-success">
-                    <h4>Approved Today</h4>
-                    <strong><?php echo (int)$_Overview["approved_today"]; ?></strong>
-                    <span>Today&apos;s approved exeat decisions</span>
+                    <div class="senior-stat-icon"><i class="fa fa-sign-out"></i></div>
+                    <div class="senior-stat-copy">
+                        <h4>Out On Exeat</h4>
+                        <strong><?php echo (int)$_Overview["active_out"]; ?></strong>
+                        <span>Approved exeat not yet checked back in</span>
+                    </div>
                 </div>
                 <div class="senior-stat senior-stat-warning">
-                    <h4>Rejected Today</h4>
-                    <strong><?php echo (int)$_Overview["rejected_today"]; ?></strong>
-                    <span>Today&apos;s rejected exeat decisions</span>
+                    <div class="senior-stat-icon"><i class="fa fa-external-link"></i></div>
+                    <div class="senior-stat-copy">
+                        <h4>External Pending</h4>
+                        <strong><?php echo (int)$_Overview["external_pending"]; ?></strong>
+                        <span>External exeat requests still waiting for action</span>
+                    </div>
+                </div>
+                <div class="senior-stat senior-stat-warning">
+                    <div class="senior-stat-icon"><i class="fa fa-exchange"></i></div>
+                    <div class="senior-stat-copy">
+                        <h4>Internal Pending</h4>
+                        <strong><?php echo (int)$_Overview["internal_pending"]; ?></strong>
+                        <span>Internal movement requests still waiting for action</span>
+                    </div>
+                </div>
+                <div class="senior-stat senior-stat-success">
+                    <div class="senior-stat-icon"><i class="fa fa-thumbs-up"></i></div>
+                    <div class="senior-stat-copy">
+                        <h4>Approved Today</h4>
+                        <strong><?php echo (int)$_Overview["approved_today"]; ?></strong>
+                        <span>Today&apos;s approved exeat decisions</span>
+                    </div>
+                </div>
+                <div class="senior-stat senior-stat-warning">
+                    <div class="senior-stat-icon"><i class="fa fa-times-circle"></i></div>
+                    <div class="senior-stat-copy">
+                        <h4>Rejected Today</h4>
+                        <strong><?php echo (int)$_Overview["rejected_today"]; ?></strong>
+                        <span>Today&apos;s rejected exeat decisions</span>
+                    </div>
                 </div>
             </div>
 
             <div class="senior-grid">
                 <div class="senior-panel senior-panel-wide" id="house-overview">
-                    <h3><i class="fa fa-building-o senior-heading-icon"></i> House Overview</h3>
-                    <p><?php echo senior_house_esc($_HouseOverviewDescription); ?></p>
+                    <div class="senior-panel-head">
+                        <div class="senior-panel-head-copy">
+                            <h3><i class="fa fa-building-o senior-heading-icon"></i> House Overview</h3>
+                            <p><?php echo senior_house_esc($_HouseOverviewDescription); ?></p>
+                        </div>
+                        <div class="senior-panel-meta"><i class="fa fa-list-ul"></i> <?php echo count($_HouseRows); ?> House Record(s)</div>
+                    </div>
                     <div class="senior-table-wrap">
                     <table class="senior-table">
                         <thead>
@@ -1056,47 +1504,110 @@ body{
             </div>
 
             <div class="senior-grid">
-                <?php if($_CanManageSeniorHouse){ ?>
-                <div class="senior-panel senior-panel-half">
-                    <h3><i class="fa fa-user-times senior-heading-icon"></i> Unassigned Students</h3>
-                    <p>These active students still need to be attached to a house.</p>
-                    <div class="senior-table-wrap">
-                    <table class="senior-table">
-                        <thead>
-                            <tr>
-                                <th>Student ID</th>
-                                <th>Name</th>
-                                <th>Phone</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php
-                            if(count($_UnassignedStudents) > 0){
-                                foreach($_UnassignedStudents as $_Student){
-                                    echo "<tr>";
-                                    echo "<td>".senior_house_esc($_Student["userid"])."</td>";
-                                    echo "<td>".senior_house_esc($_Student["student_name"])."</td>";
-                                    echo "<td>".senior_house_esc($_Student["mobile"] !== "" ? $_Student["mobile"] : "-")."</td>";
-                                    echo "</tr>";
+                <div class="senior-panel senior-panel-wide">
+                    <details class="senior-collapse"<?php echo $_UnassignedSearch !== "" ? " open" : ""; ?>>
+                        <summary>
+                            <div class="senior-collapse-summary">
+                                <div class="senior-collapse-copy">
+                                    <strong><i class="fa fa-user-times senior-heading-icon"></i> Students Awaiting House Assignment</strong>
+                                    <span>View the active students who still need to be attached to a house, without crowding the main dashboard.</span>
+                                </div>
+                                <div class="senior-collapse-meta">
+                                    <span class="senior-collapse-count"><i class="fa fa-user-plus"></i> <?php echo (int)($_UnassignedSearch !== "" ? $_UnassignedFilteredTotal : $_UnassignedTotal); ?> <?php echo $_UnassignedSearch !== "" ? "Match(es)" : "Student(s)"; ?></span>
+                                    <span class="senior-collapse-toggle"><i class="fa fa-chevron-down"></i></span>
+                                </div>
+                            </div>
+                        </summary>
+                        <div class="senior-collapse-body">
+                            <div class="senior-collapse-divider"></div>
+                            <p class="senior-collapse-note">
+                                <?php
+                                if($_UnassignedSearch !== ""){
+                                    echo "Showing ".count($_UnassignedStudents)." of ".$_UnassignedFilteredTotal." matching unassigned student(s).";
+                                    if($_UnassignedTotal > 0){
+                                        echo " Total awaiting assignment: ".$_UnassignedTotal.".";
+                                    }
+                                }elseif($_UnassignedTotal > 0){
+                                    echo "Showing ".count($_UnassignedStudents)." of ".$_UnassignedTotal." active student(s) who still need house assignment.";
+                                }else{
+                                    echo "Every active student currently has a house assignment.";
                                 }
-                            }else{
-                                echo "<tr><td colspan='3' class='senior-empty'>Every active student currently has a house assignment.</td></tr>";
-                            }
-                            ?>
-                        </tbody>
-                    </table>
-                    </div>
-                    <div class="print-hide" style="margin-top:12px;">
-                        <a class="senior-btn senior-btn-primary" href="student-house-assignment.php"><i class="fa fa-users"></i> Open Student House Assignment</a>
-                    </div>
+                                ?>
+                            </p>
+                            <form method="get" class="senior-filter-form print-hide">
+                                <?php if($_StudentSearch !== ""){ ?>
+                                <input type="hidden" name="student_search" value="<?php echo senior_house_esc($_StudentSearch); ?>">
+                                <?php } ?>
+                                <?php if($_StudentHouseId !== ""){ ?>
+                                <input type="hidden" name="student_houseid" value="<?php echo senior_house_esc($_StudentHouseId); ?>">
+                                <?php } ?>
+                                <div class="senior-filter-field">
+                                    <label for="unassigned_search">Search Unassigned Student</label>
+                                    <input type="text" id="unassigned_search" name="unassigned_search" value="<?php echo senior_house_esc($_UnassignedSearch); ?>" placeholder="Name, ID, phone or guardian contact">
+                                </div>
+                                <div class="senior-filter-actions">
+                                    <button type="submit" class="senior-btn senior-btn-primary"><i class="fa fa-search"></i> Search</button>
+                                    <a class="senior-btn" href="senior-house-dashboard.php<?php
+                                        $_ClearParts = array();
+                                        if($_StudentSearch !== ""){
+                                            $_ClearParts['student_search'] = $_StudentSearch;
+                                        }
+                                        if($_StudentHouseId !== ""){
+                                            $_ClearParts['student_houseid'] = $_StudentHouseId;
+                                        }
+                                        echo !empty($_ClearParts) ? '?'.http_build_query($_ClearParts) : '';
+                                    ?>">Clear</a>
+                                </div>
+                            </form>
+                            <div class="senior-table-wrap">
+                            <table class="senior-table">
+                                <thead>
+                                    <tr>
+                                        <th>Student ID</th>
+                                        <th>Name</th>
+                                        <th>Phone</th>
+                                        <th>Parent / Guardian Contact</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                    if(count($_UnassignedStudents) > 0){
+                                        foreach($_UnassignedStudents as $_Student){
+                                            echo "<tr class='senior-row-watch'>";
+                                            echo "<td>".senior_house_esc($_Student["userid"])."</td>";
+                                            echo "<td><span class='senior-name'>".senior_house_esc($_Student["student_name"])."</span></td>";
+                                            echo "<td>".senior_house_esc($_Student["mobile"] !== "" ? $_Student["mobile"] : "-")."</td>";
+                                            echo "<td>".senior_house_esc(trim((string)$_Student["nextofkin_contact"]) !== "" ? $_Student["nextofkin_contact"] : "-")."</td>";
+                                            echo "</tr>";
+                                        }
+                                    }else{
+                                        echo "<tr><td colspan='4' class='senior-empty'>Every active student currently has a house assignment.</td></tr>";
+                                    }
+                                    ?>
+                                </tbody>
+                            </table>
+                            </div>
+                            <?php if($_CanManageSeniorHouse){ ?>
+                            <div class="print-hide" style="margin-top:12px;">
+                                <a class="senior-btn senior-btn-primary" href="student-house-assignment.php"><i class="fa fa-users"></i> Open Student House Assignment</a>
+                            </div>
+                            <?php } ?>
+                        </div>
+                    </details>
                 </div>
-                <?php } ?>
 
-                <div class="senior-panel <?php echo $_CanManageSeniorHouse ? "senior-panel-half" : "senior-panel-wide"; ?>" id="student-assignments">
-                    <h3><i class="fa fa-address-book-o senior-heading-icon"></i> <?php echo senior_house_esc($_AssignmentPanelTitle); ?></h3>
-                    <p><?php echo senior_house_esc($_AssignmentPanelDescription); ?></p>
-                    <?php if(!$_CanManageSeniorHouse){ ?>
+                <div class="senior-panel senior-panel-wide" id="student-assignments">
+                    <div class="senior-panel-head">
+                        <div class="senior-panel-head-copy">
+                            <h3><i class="fa fa-address-book-o senior-heading-icon"></i> <?php echo senior_house_esc($_AssignmentPanelTitle); ?></h3>
+                            <p><?php echo senior_house_esc($_AssignmentPanelDescription); ?></p>
+                        </div>
+                        <div class="senior-panel-meta"><i class="fa fa-search"></i> <?php echo count($_RecentAssignments); ?> Student Record(s)</div>
+                    </div>
                     <form method="get" class="senior-filter-form print-hide">
+                        <?php if($_UnassignedSearch !== ""){ ?>
+                        <input type="hidden" name="unassigned_search" value="<?php echo senior_house_esc($_UnassignedSearch); ?>">
+                        <?php } ?>
                         <div class="senior-filter-field">
                             <label for="student_search">Search Student</label>
                             <input type="text" id="student_search" name="student_search" value="<?php echo senior_house_esc($_StudentSearch); ?>" placeholder="Name, ID, phone or guardian contact">
@@ -1115,7 +1626,8 @@ body{
                         </div>
                         <div class="senior-filter-actions">
                             <button type="submit" class="senior-btn senior-btn-primary"><i class="fa fa-search"></i> Filter</button>
-                            <a class="senior-btn" href="senior-house-dashboard.php">Clear</a>
+                            <button type="button" class="senior-btn" onclick="printSeniorStudentList();"><i class="fa fa-print"></i> Print House List</button>
+                            <a class="senior-btn" href="senior-house-dashboard.php<?php echo $_UnassignedSearch !== "" ? '?'.http_build_query(array('unassigned_search' => $_UnassignedSearch)) : ''; ?>">Clear</a>
                         </div>
                     </form>
                     <?php
@@ -1133,7 +1645,10 @@ body{
                         echo "</div>";
                     }
                     ?>
-                    <?php } ?>
+                    <div class="senior-print-header">
+                        <h2><?php echo senior_house_esc($_StudentAssignmentPrintTitle); ?></h2>
+                        <p><?php echo senior_house_esc($_StudentAssignmentPrintSummary." | Student count: ".count($_RecentAssignments)); ?></p>
+                    </div>
                     <div class="senior-table-wrap">
                     <table class="senior-table">
                         <thead>
@@ -1188,8 +1703,13 @@ body{
 
             <div class="senior-grid" id="return-monitoring">
                 <div class="senior-panel senior-panel-half">
-                    <h3><i class="fa fa-exclamation-triangle senior-heading-icon"></i> Overdue Exeat Returns</h3>
-                    <p>Students whose approved exeat return time has already passed and who have not yet been checked back in.</p>
+                    <div class="senior-panel-head">
+                        <div class="senior-panel-head-copy">
+                            <h3><i class="fa fa-exclamation-triangle senior-heading-icon"></i> Overdue Exeat Returns</h3>
+                            <p>Students whose approved exeat return time has already passed and who have not yet been checked back in.</p>
+                        </div>
+                        <div class="senior-panel-meta"><i class="fa fa-clock-o"></i> <?php echo count($_OverdueExeatRows); ?> Record(s)</div>
+                    </div>
                     <div class="senior-table-wrap">
                     <table class="senior-table">
                         <thead>
@@ -1222,8 +1742,13 @@ body{
                 </div>
 
                 <div class="senior-panel senior-panel-half">
-                    <h3><i class="fa fa-check-circle senior-heading-icon"></i> Checked In Today</h3>
-                    <p>Students whose return from exeat has been confirmed today, including who checked them back in.</p>
+                    <div class="senior-panel-head">
+                        <div class="senior-panel-head-copy">
+                            <h3><i class="fa fa-check-circle senior-heading-icon"></i> Checked In Today</h3>
+                            <p>Students whose return from exeat has been confirmed today, including who checked them back in.</p>
+                        </div>
+                        <div class="senior-panel-meta"><i class="fa fa-check"></i> <?php echo count($_ReturnedTodayRows); ?> Record(s)</div>
+                    </div>
                     <div class="senior-table-wrap">
                     <table class="senior-table">
                         <thead>
@@ -1261,8 +1786,13 @@ body{
 
             <div class="senior-grid" id="exeat-activity">
                 <div class="senior-panel senior-panel-wide">
-                    <h3><i class="fa fa-random senior-heading-icon"></i> Recent Exeat Activity</h3>
-                    <p><?php echo senior_house_esc($_ExeatPanelDescription); ?></p>
+                    <div class="senior-panel-head">
+                        <div class="senior-panel-head-copy">
+                            <h3><i class="fa fa-random senior-heading-icon"></i> Recent Exeat Activity</h3>
+                            <p><?php echo senior_house_esc($_ExeatPanelDescription); ?></p>
+                        </div>
+                        <div class="senior-panel-meta"><i class="fa fa-history"></i> <?php echo count($_RecentExeat); ?> Recent Item(s)</div>
+                    </div>
                     <div class="senior-table-wrap">
                     <table class="senior-table">
                         <thead>
@@ -1353,5 +1883,17 @@ body{
         </div>
     </div>
 </div>
+<script>
+function printSeniorStudentList(){
+    document.body.classList.add('senior-print-students');
+    var cleanup = function(){
+        document.body.classList.remove('senior-print-students');
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    setTimeout(cleanup, 1200);
+}
+</script>
 </body>
 </html>
