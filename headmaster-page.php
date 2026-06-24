@@ -8,6 +8,7 @@ include_once("student-attendance-utils.php");
 include_once("semester-registry-utils.php");
 include_once("report-approval-utils.php");
 include_once("online-admission-utils.php");
+include_once("counselling-utils.php");
 include_once("audit_notifications.php");
 include_once("duty-roster-utils.php");
 include_once("house-master-utils.php");
@@ -16,6 +17,7 @@ ensure_student_attendance_tables($con);
 semester_registry_ensure_academic_year_column($con);
 report_approval_ensure_table($con);
 ensure_online_admission_tables($con);
+ensure_counselling_tables($con);
 ensureSystemChangeLogTable($con);
 ensure_duty_roster_tables($con);
 ensure_house_tables($con);
@@ -252,6 +254,7 @@ if($dutyTodayRes){
     }
 }
 $dutyTodaySummary = count($dutyTodayNames) > 0 ? duty_roster_team_summary_from_names($dutyTodayNames, 3) : 'No teacher currently on duty.';
+$dutyTodayTeacherCount = count($dutyTodayNames);
 
 $seniorMasterName = '--';
 $seniorMistressName = '--';
@@ -375,6 +378,27 @@ $admissionPendingTotal = $admissionSubmittedTotal + $admissionNeedsAttentionTota
 
 $helpRequestTotal = (int)hm_fetch_scalar($con, "SELECT COUNT(*) AS total_help FROM tblonlineadmissionhelprequest".$branchHelpFilter, 'total_help', 0);
 $unreadMessages = (int)um_message_unread_count($con, $currentUserId, 'Headmaster');
+$schoolCounsellorRow = function_exists('counselling_school_assignment_row') ? counselling_school_assignment_row($con) : null;
+$schoolCounsellorName = $schoolCounsellorRow ? counselling_person_name($schoolCounsellorRow) : 'Not assigned';
+$counsellingSummary = array(
+    'active_cases' => 0,
+    'pending_cases' => 0,
+    'urgent_cases' => 0,
+    'sessions_today' => 0
+);
+$counsellingSummarySql = mysqli_query($con, "SELECT
+        SUM(CASE WHEN cr.status IN('pending','accepted','rescheduled') THEN 1 ELSE 0 END) AS active_cases,
+        SUM(CASE WHEN cr.status='pending' THEN 1 ELSE 0 END) AS pending_cases,
+        SUM(CASE WHEN cr.status IN('pending','accepted','rescheduled') AND LOWER(COALESCE(cr.urgency,'')) IN('high','urgent') THEN 1 ELSE 0 END) AS urgent_cases,
+        SUM(CASE WHEN cr.status IN('pending','accepted','rescheduled') AND cr.scheduled_date=CURDATE() THEN 1 ELSE 0 END) AS sessions_today
+    FROM tblcounsellingrequest cr
+    INNER JOIN tblsystemuser su ON su.userid=cr.studentid
+    WHERE su.systemtype='Student'
+      AND su.status='active'
+      $branchUserFilter");
+if($counsellingSummarySql && ($counsellingSummaryRow = mysqli_fetch_array($counsellingSummarySql, MYSQLI_ASSOC))){
+    $counsellingSummary = array_merge($counsellingSummary, $counsellingSummaryRow);
+}
 
 $riskStudents = (int)hm_fetch_scalar($con, "SELECT COUNT(*) AS total_risk FROM (
         SELECT
@@ -389,6 +413,9 @@ $riskStudents = (int)hm_fetch_scalar($con, "SELECT COUNT(*) AS total_risk FROM (
         GROUP BY ate.userid
         HAVING absent_total >= 3 OR ((present_total + late_total) / marked_total) < 0.75
     ) risk_scope", 'total_risk', 0);
+$attendanceCoverageRate = $attendanceAssignments > 0 ? round(($attendanceSessionsToday / $attendanceAssignments) * 100, 1) : 0;
+$reportReleaseRate = $reportApprovalTotal > 0 ? round(($reportApprovedTotal / $reportApprovalTotal) * 100, 1) : 0;
+$scoreEntryRate = $totalAssignedSubjects > 0 ? round(($submittedSubjects / $totalAssignedSubjects) * 100, 1) : 0;
 
 $attentionItems = array();
 if($reportPendingTotal > 0){
@@ -592,23 +619,124 @@ include("links.php");
                         <h4><i class="fa fa-question-circle" style="color:#b45309; margin-right:4px;"></i>No Residence Status</h4>
                         <p><?php echo number_format($studentsNoStatus); ?></p>
                     </div>
-                    <div class="card" role="article" aria-label="Reports Awaiting Release">
-                        <h4><i class="fa fa-file-text-o" style="color:#d97706; margin-right:4px;"></i>Reports Awaiting Release</h4>
-                        <p><?php echo number_format($reportPendingTotal); ?></p>
-                    </div>
-                    <div class="card" role="article" aria-label="Pending Score Entry">
-                        <h4><i class="fa fa-pencil-square-o" style="color:#be185d; margin-right:4px;"></i>Pending Score Entry</h4>
-                        <p><?php echo number_format($pendingScoreAssignments); ?></p>
-                    </div>
-                    <div class="card" role="article" aria-label="Outstanding Fees">
-                        <h4><i class="fa fa-money" style="color:#c2410c; margin-right:4px;"></i>Outstanding Fees</h4>
-                        <p><?php echo hm_esc(hm_money($outstandingTotal)); ?></p>
-                    </div>
-                    <div class="card" role="article" aria-label="Pending Admissions">
-                        <h4><i class="fa fa-folder-open-o" style="color:#4f46e5; margin-right:4px;"></i>Pending Admissions</h4>
-                        <p><?php echo number_format($admissionPendingTotal); ?></p>
-                    </div>
                 </div>
+            </div>
+        </section>
+
+        <section class="hm-section">
+            <div class="hm-section__head">
+                <div>
+                    <span class="hm-section__eyebrow">Daily School Watch</span>
+                    <h2>Today at a glance</h2>
+                </div>
+            </div>
+            <div class="hm-panel-grid hm-panel-grid--three">
+                <section class="hm-panel">
+                    <div class="hm-panel__head">
+                        <div>
+                            <span class="hm-section__eyebrow">Today</span>
+                            <h2>Staff and attendance summary</h2>
+                        </div>
+                    </div>
+                    <div class="hm-progress">
+                        <div class="hm-progress__label">
+                            <span>Class attendance coverage</span>
+                            <strong><?php echo hm_esc(number_format($attendanceCoverageRate, 1)); ?>%</strong>
+                        </div>
+                        <div class="hm-progress__track"><span style="width: <?php echo hm_esc(max(0, min(100, $attendanceCoverageRate))); ?>%;"></span></div>
+                    </div>
+                    <div class="hm-mini-grid hm-mini-grid--three hm-mini-grid--tight">
+                        <article class="hm-mini-card hm-mini-card--teal">
+                            <span>Active Teachers</span>
+                            <strong><?php echo number_format($teacherTotal); ?></strong>
+                            <small>Teachers currently active in this branch.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--blue">
+                            <span>Teachers On Duty</span>
+                            <strong><?php echo number_format($dutyTodayTeacherCount); ?></strong>
+                            <small>Teachers listed on today’s duty roster.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--rose">
+                            <span>Awaiting Marking</span>
+                            <strong><?php echo number_format($attendanceAwaiting); ?></strong>
+                            <small>Class registers still waiting to be marked.</small>
+                        </article>
+                    </div>
+                    <p class="hm-panel__note">Student attendance rate today is <?php echo hm_esc(number_format($attendanceRateToday, 1)); ?>%, with <?php echo number_format($attendanceSessionsToday); ?> class register(s) already marked.</p>
+                    <div class="hm-panel__footer hm-panel__footer--split">
+                        <span><?php echo number_format($attendanceMarkedToday); ?> attendance record(s) captured today.</span>
+                        <a href="student-attendance-report.php">Open attendance summary</a>
+                    </div>
+                </section>
+
+                <section class="hm-panel">
+                    <div class="hm-panel__head">
+                        <div>
+                            <span class="hm-section__eyebrow">Academics</span>
+                            <h2>Result release status</h2>
+                        </div>
+                    </div>
+                    <div class="hm-progress hm-progress--gold">
+                        <div class="hm-progress__label">
+                            <span>Report release progress</span>
+                            <strong><?php echo hm_esc(number_format($reportReleaseRate, 1)); ?>%</strong>
+                        </div>
+                        <div class="hm-progress__track"><span style="width: <?php echo hm_esc(max(0, min(100, $reportReleaseRate))); ?>%;"></span></div>
+                    </div>
+                    <div class="hm-mini-grid hm-mini-grid--three hm-mini-grid--tight">
+                        <article class="hm-mini-card hm-mini-card--teal">
+                            <span>Reports Released</span>
+                            <strong><?php echo number_format($reportApprovedTotal); ?></strong>
+                            <small>Class report scopes already released.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--rose">
+                            <span>Awaiting Release</span>
+                            <strong><?php echo number_format($reportPendingTotal); ?></strong>
+                            <small>Report scopes still waiting to be released.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--gold">
+                            <span>Pending Score Entry</span>
+                            <strong><?php echo number_format($pendingScoreAssignments); ?></strong>
+                            <small>Assigned subject records still without scores.</small>
+                        </article>
+                    </div>
+                    <p class="hm-panel__note">Report release stands at <?php echo hm_esc(number_format($reportReleaseRate, 1)); ?>%, while score entry completion is <?php echo hm_esc(number_format($scoreEntryRate, 1)); ?>%.</p>
+                    <div class="hm-panel__footer hm-panel__footer--split">
+                        <span><?php echo number_format($reportApprovalTotal); ?> report scope(s) are currently being tracked.</span>
+                        <a href="terminal-report.php">Open examination report</a>
+                    </div>
+                </section>
+
+                <section class="hm-panel">
+                    <div class="hm-panel__head">
+                        <div>
+                            <span class="hm-section__eyebrow">Welfare</span>
+                            <h2>Student welfare alerts</h2>
+                        </div>
+                    </div>
+                    <div class="hm-mini-grid hm-mini-grid--three hm-mini-grid--tight">
+                        <article class="hm-mini-card hm-mini-card--rose">
+                            <span>Attendance Risk</span>
+                            <strong><?php echo number_format($riskStudents); ?></strong>
+                            <small>Students flagged by the 30-day attendance watch.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--teal">
+                            <span>Active Counselling</span>
+                            <strong><?php echo number_format((int)$counsellingSummary['active_cases']); ?></strong>
+                            <small>Open counselling cases still in progress.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--blue">
+                            <span>Exeat Watch</span>
+                            <strong><?php echo number_format((int)$seniorHouseOverview['pending_exeat'] + (int)$seniorHouseOverview['overdue_returns']); ?></strong>
+                            <small>Pending exeat plus overdue return cases.</small>
+                        </article>
+                    </div>
+                    <p class="hm-panel__note">School counsellor: <?php echo hm_esc($schoolCounsellorName); ?>. Sessions today: <?php echo number_format((int)$counsellingSummary['sessions_today']); ?>. Urgent counselling cases: <?php echo number_format((int)$counsellingSummary['urgent_cases']); ?>.</p>
+                    <div class="hm-panel__footer hm-panel__footer--split">
+                        <span><?php echo number_format((int)$seniorHouseOverview['active_out']); ?> student(s) currently out on exeat.</span>
+                        <a href="senior-house-dashboard.php">Open senior house overview</a>
+                    </div>
+                </section>
             </div>
         </section>
 
