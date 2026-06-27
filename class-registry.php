@@ -4,6 +4,8 @@ $_SESSION['Message']="";
 ?>
 <?php
 include("dbstring.php");
+include_once("student-index-utils.php");
+$_SchoolIndexReady = student_index_ensure_schema($con);
 @$_ClassId=$_POST['classid'];
 @$_BatchId=$_POST["batchid"];
 @$_UserId=$_POST['userid'];
@@ -31,6 +33,9 @@ if(isset($_POST['register_class'])){
 		$_Success=0;
 		$_Duplicate=0;
 		$_Failed=0;
+		$_IndexGenerated=0;
+		$_IndexExisting=0;
+		$_IndexFailed=0;
 		$_SESSION['Message']="";
 
 		foreach($_SelectedUsers as $selectedUserId){
@@ -49,6 +54,16 @@ if(isset($_POST['register_class'])){
 				VALUES('$_ClassId','$_UserId','$_Class','$_BatchId',NOW(),'$_Recordedby','active')");
 			if($_SQL_EXECUTE){
 				$_Success++;
+				$_IndexResult = student_index_assign_for_class($con, $_UserId, $_Class, $_BatchId, $_Recordedby);
+				if($_IndexResult["success"]){
+					if($_IndexResult["created"]){
+						$_IndexGenerated++;
+					}else{
+						$_IndexExisting++;
+					}
+				}else{
+					$_IndexFailed++;
+				}
 			}
 			else{
 				$_Failed++;
@@ -58,11 +73,20 @@ if(isset($_POST['register_class'])){
 		if($_Success>0){
 			$_SESSION['Message'].="<div style='color:green;padding:5px;text-align:center;border:1px solid #aea;background-color:#efe;'>Class Successfully Registered for $_Success student(s)</div>";
 		}
+		if($_IndexGenerated>0){
+			$_SESSION['Message'].="<div style='color:green;padding:5px;text-align:center;border:1px solid #aea;background-color:#efe;'>School index generated for $_IndexGenerated student(s)</div>";
+		}
+		if($_IndexExisting>0){
+			$_SESSION['Message'].="<div style='color:#23608a;padding:5px;text-align:center;border:1px solid #b6d4ec;background-color:#eef8ff;'>$_IndexExisting student(s) already had a school index number</div>";
+		}
 		if($_Duplicate>0){
 			$_SESSION['Message'].="<div style='color:#8a6d3b;padding:5px;text-align:center;border:1px solid #faebcc;background-color:#fcf8e3;'>$_Duplicate student(s) skipped (already has class in selected batch)</div>";
 		}
 		if($_Failed>0){
 			$_SESSION['Message'].="<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>$_Failed student(s) failed to register</div>";
+		}
+		if($_IndexFailed>0){
+			$_SESSION['Message'].="<div style='color:#8a6d3b;padding:5px;text-align:center;border:1px solid #faebcc;background-color:#fcf8e3;'>Class registration was saved, but $_IndexFailed school index number(s) could not be generated</div>";
 		}
 	}
 }
@@ -70,6 +94,8 @@ if(isset($_POST['register_class'])){
 
 <?php
 include("dbstring.php");
+include_once("student-index-utils.php");
+$_SchoolIndexReady = student_index_ensure_schema($con);
 
 if(isset($_GET["delete_class"]))
 {
@@ -181,10 +207,13 @@ function filterStudents(){
 					</thead>
 					<tbody>
 						<?php
-						$_SQL_STUDENTS=mysqli_query($con,"SELECT userid,firstname,surname,othernames FROM tblsystemuser WHERE systemtype='Student' AND status='active' ORDER BY firstname ASC,surname ASC");
+						$_SchoolIndexColumn = $_SchoolIndexReady ? "schoolindexnumber" : "'' AS schoolindexnumber";
+						$_SQL_STUDENTS=mysqli_query($con,"SELECT userid,$_SchoolIndexColumn,firstname,surname,othernames FROM tblsystemuser WHERE systemtype='Student' AND status='active' ORDER BY firstname ASC,surname ASC");
 						while($stu=mysqli_fetch_array($_SQL_STUDENTS,MYSQLI_ASSOC)){
-							$_FullName=trim($stu['firstname']." ".$stu['othernames']." ".$stu['surname']." (".$stu['userid'].")");
-							$_IndexText=htmlspecialchars(strtolower($_FullName), ENT_QUOTES, 'UTF-8');
+							$_SchoolIndex=trim((string)(isset($stu['schoolindexnumber']) ? $stu['schoolindexnumber'] : ""));
+							$_StudentRef=$_SchoolIndex !== "" ? $_SchoolIndex : $stu['userid'];
+							$_FullName=trim($stu['firstname']." ".$stu['othernames']." ".$stu['surname']." (".$_StudentRef.")");
+							$_IndexText=htmlspecialchars(strtolower($_FullName." ".$stu['userid']." ".$_SchoolIndex), ENT_QUOTES, 'UTF-8');
 							$_UserIdSafe=htmlspecialchars($stu['userid'], ENT_QUOTES, 'UTF-8');
 							$_FullNameSafe=htmlspecialchars($_FullName, ENT_QUOTES, 'UTF-8');
 							echo "<tr class='student-row' data-student='$_IndexText'>";
@@ -231,7 +260,13 @@ function filterStudents(){
 
 				echo "<td align='center' ><a class='registry-row-action' title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'><i class='fa fa-plus'></i></a></td>";
 				
-					echo "<td colspan='4'>$row[firstname] $row[othernames] $row[surname] ($row[userid])</td>";
+					$_DisplayIndex=trim((string)(isset($row['schoolindexnumber']) ? $row['schoolindexnumber'] : ""));
+					$_DisplayRef=$_DisplayIndex !== "" ? $_DisplayIndex : $row['userid'];
+					echo "<td colspan='4'>$row[firstname] $row[othernames] $row[surname] ($_DisplayRef)";
+					if($_DisplayIndex !== "" && $_DisplayIndex !== $row['userid']){
+						echo " <span class='registry-index-chip'>Login ID: $row[userid]</span>";
+					}
+					echo "</td>";
 			
 				echo "</tr>";
 

@@ -83,6 +83,127 @@ function ensure_user_management_columns($con){
         lastupdatedat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (userid)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_user_visit_log_table($con);
+}
+}
+
+if(!function_exists('ensure_user_visit_log_table')){
+function ensure_user_visit_log_table($con){
+    static $done = false;
+    if($done || !$con){
+        return;
+    }
+    $done = true;
+
+    @mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbluservisitlog (
+        visitid BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        userid VARCHAR(60) NOT NULL,
+        fullname VARCHAR(180) NOT NULL DEFAULT '',
+        accesslevel VARCHAR(40) NOT NULL DEFAULT '',
+        systemtype VARCHAR(60) NOT NULL DEFAULT '',
+        scriptname VARCHAR(140) NOT NULL DEFAULT '',
+        requestpath VARCHAR(220) NOT NULL DEFAULT '',
+        ipaddress VARCHAR(80) NOT NULL DEFAULT '',
+        useragent VARCHAR(255) NOT NULL DEFAULT '',
+        sessionkey VARCHAR(80) NOT NULL DEFAULT '',
+        visitedat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (visitid),
+        KEY idx_visitedat (visitedat),
+        KEY idx_userid_visitedat (userid, visitedat),
+        KEY idx_systemtype_visitedat (systemtype, visitedat),
+        KEY idx_scriptname_visitedat (scriptname, visitedat)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+}
+
+if(!function_exists('um_client_ip_address')){
+function um_client_ip_address(){
+    $candidates = array(
+        'HTTP_X_FORWARDED_FOR',
+        'HTTP_CLIENT_IP',
+        'REMOTE_ADDR'
+    );
+    foreach($candidates as $key){
+        if(!empty($_SERVER[$key])){
+            $value = trim((string)$_SERVER[$key]);
+            if($key === 'HTTP_X_FORWARDED_FOR'){
+                $parts = explode(',', $value);
+                $value = trim((string)$parts[0]);
+            }
+            if($value !== ''){
+                return substr($value, 0, 80);
+            }
+        }
+    }
+    return '';
+}
+}
+
+if(!function_exists('um_log_current_user_visit')){
+function um_log_current_user_visit($con, $scriptName = ''){
+    ensure_user_visit_log_table($con);
+    $userId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+    if($userId === ''){
+        return false;
+    }
+
+    if($scriptName === ''){
+        $scriptName = isset($_SERVER['PHP_SELF']) ? basename((string)$_SERVER['PHP_SELF']) : '';
+    }
+    $scriptName = substr(trim((string)$scriptName), 0, 140);
+    $requestPath = isset($_SERVER['REQUEST_URI']) ? parse_url((string)$_SERVER['REQUEST_URI'], PHP_URL_PATH) : '';
+    $requestPath = substr(trim((string)$requestPath), 0, 220);
+    $visitKey = $scriptName.'|'.$requestPath;
+    $now = time();
+    $lastKey = isset($_SESSION['__um_visit_last_key']) ? (string)$_SESSION['__um_visit_last_key'] : '';
+    $lastTime = isset($_SESSION['__um_visit_last_time']) ? (int)$_SESSION['__um_visit_last_time'] : 0;
+    if($lastKey === $visitKey && $lastTime > 0 && ($now - $lastTime) < 15){
+        return true;
+    }
+
+    $fullName = isset($_SESSION['FULLNAME']) ? trim((string)$_SESSION['FULLNAME']) : '';
+    if($fullName === ''){
+        $fullName = $userId;
+    }
+    $accessLevel = isset($_SESSION['ACCESSLEVEL']) ? trim((string)$_SESSION['ACCESSLEVEL']) : '';
+    $systemType = isset($_SESSION['SYSTEMTYPE']) ? trim((string)$_SESSION['SYSTEMTYPE']) : '';
+    $ipAddress = um_client_ip_address();
+    $userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? substr(trim((string)$_SERVER['HTTP_USER_AGENT']), 0, 255) : '';
+    $sessionKey = session_id() !== '' ? substr(hash('sha256', session_id()), 0, 64) : '';
+
+    $stmt = @mysqli_prepare($con, "INSERT INTO tbluservisitlog
+        (userid, fullname, accesslevel, systemtype, scriptname, requestpath, ipaddress, useragent, sessionkey, visitedat)
+        VALUES (?,?,?,?,?,?,?,?,?,NOW())");
+    if(!$stmt){
+        return false;
+    }
+    mysqli_stmt_bind_param(
+        $stmt,
+        'sssssssss',
+        $userId,
+        $fullName,
+        $accessLevel,
+        $systemType,
+        $scriptName,
+        $requestPath,
+        $ipAddress,
+        $userAgent,
+        $sessionKey
+    );
+    $logged = @mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if($logged){
+        $_SESSION['__um_visit_last_key'] = $visitKey;
+        $_SESSION['__um_visit_last_time'] = $now;
+        $lastCleanup = isset($_SESSION['__um_visit_cleanup_at']) ? (int)$_SESSION['__um_visit_cleanup_at'] : 0;
+        if($lastCleanup === 0 || ($now - $lastCleanup) > 1800){
+            @mysqli_query($con, "DELETE FROM tbluservisitlog WHERE visitedat < (NOW() - INTERVAL 45 DAY)");
+            $_SESSION['__um_visit_cleanup_at'] = $now;
+        }
+    }
+    return (bool)$logged;
 }
 }
 

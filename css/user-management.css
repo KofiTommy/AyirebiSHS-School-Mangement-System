@@ -511,10 +511,6 @@
     pointer-events:none;
 }
 
-.um-filter-input-wrap input{
-    padding-left:40px;
-}
-
 .um-filter-bar input,
 .um-filter-bar select{
     min-height:46px;
@@ -523,6 +519,11 @@
     padding:11px 13px;
     font-size:14px;
     box-sizing:border-box;
+}
+
+.um-filter-input-wrap input{
+    width:100%;
+    padding-left:42px;
 }
 
 .um-card-grid{

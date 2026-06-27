@@ -1,6 +1,8 @@
 <?php
 session_start();
 include("dbstring.php");
+include_once("student-index-utils.php");
+$schoolIndexReady = student_index_ensure_schema($con);
 
 if (!function_exists("view_class_registry_esc")) {
 function view_class_registry_esc($value)
@@ -74,6 +76,7 @@ $latestRecordedAt = "";
 
 if ($shouldLoadRecords) {
     $selectedBatchIdEsc = mysqli_real_escape_string($con, $selectedBatchId);
+    $schoolIndexSelect = $schoolIndexReady ? "su.schoolindexnumber" : "'' AS schoolindexnumber";
     $sql = "SELECT
                 cl.classid,
                 cl.userid,
@@ -81,6 +84,7 @@ if ($shouldLoadRecords) {
                 su.firstname,
                 su.surname,
                 su.othernames,
+                $schoolIndexSelect,
                 ce.class_name,
                 bh.batch,
                 bh.batchid
@@ -225,7 +229,7 @@ $resultSummaryText = !$shouldLoadRecords
                     <input
                         type="search"
                         id="registry-view-search"
-                        placeholder="Search by student name, ID, class, batch or date"
+                        placeholder="Search by student name, school index, ID, class, batch or date"
                         <?php echo $totalRecords === 0 ? "disabled" : ""; ?>
                     >
                 </div>
@@ -267,18 +271,22 @@ $resultSummaryText = !$shouldLoadRecords
                 <tbody id="registry-view-body">
                     <?php foreach ($registryRows as $index => $row) {
                         $studentId = trim((string)(isset($row["userid"]) ? $row["userid"] : ""));
+                        $schoolIndex = trim((string)(isset($row["schoolindexnumber"]) ? $row["schoolindexnumber"] : ""));
                         $studentName = view_class_registry_name($row);
                         $className = trim((string)(isset($row["class_name"]) ? $row["class_name"] : ""));
                         $batchName = trim((string)(isset($row["batch"]) ? $row["batch"] : ""));
                         $recordedAt = view_class_registry_format_datetime(isset($row["datetimeentry"]) ? $row["datetimeentry"] : "");
-                        $searchIndex = view_class_registry_lower($studentName." ".$studentId." ".$className." ".$batchName." ".$recordedAt);
+                        $searchIndex = view_class_registry_lower($studentName." ".$schoolIndex." ".$studentId." ".$className." ".$batchName." ".$recordedAt);
                     ?>
                     <tr class="registry-view-row" data-search="<?php echo view_class_registry_esc($searchIndex); ?>">
                         <td data-label="#"><?php echo (int)($index + 1); ?></td>
                         <td data-label="Student">
                             <div class="registry-view-student-cell">
                                 <strong><?php echo view_class_registry_esc($studentName); ?></strong>
-                                <small><?php echo $studentId !== "" ? view_class_registry_esc($studentId) : "No ID"; ?></small>
+                                <small><?php echo $schoolIndex !== "" ? view_class_registry_esc($schoolIndex) : ($studentId !== "" ? view_class_registry_esc($studentId) : "No ID"); ?></small>
+                                <?php if ($schoolIndex !== "" && $studentId !== "" && $schoolIndex !== $studentId) { ?>
+                                <small>Login ID: <?php echo view_class_registry_esc($studentId); ?></small>
+                                <?php } ?>
                             </div>
                         </td>
                         <td data-label="Class">

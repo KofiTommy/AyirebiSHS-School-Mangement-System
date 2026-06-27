@@ -479,6 +479,27 @@ body.online-admission-page {
     line-height: 1.6;
 }
 
+.oa-document-card--notice {
+    background: #fff7ed;
+    border-color: #fed7aa;
+}
+
+.oa-document-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    margin-top: 4px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #ffedd5;
+    color: #9a3412 !important;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+
 .oa-payment-summary {
     display: grid;
     gap: 12px;

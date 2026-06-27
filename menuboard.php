@@ -228,6 +228,7 @@ echo "<b style='margin-bottom:10px;font-size:12px;'> Branch:". $_Branch ."</b><b
 <?php
 if(($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="normal_user") || ($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="super_user")){
   echo "<a href='user-management.php'><i class='fa fa-users'> User Management </i></a><br/>";
+  echo "<a href='user-visit-history.php'><i class='fa fa-clock-o'> User Visit History </i></a><br/>";
   echo "<a href='admin-password-reset.php'><i class='fa fa-key'> Admin Password Reset </i></a><br/>";
 }
 ?>

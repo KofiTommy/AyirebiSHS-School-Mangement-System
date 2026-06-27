@@ -1,8 +1,10 @@
 
 <?php
 session_start();
+include_once("student-index-utils.php");
 function insertClassData($_UserId,$_Class_Entry_Id,$_Class_Name,$_Batch_Id){	
 include("dbstring.php");
+student_index_ensure_schema($con);
 //Declaration of variables
 //@$_Class_EntryId="";
 @$_SESSION['Message'] ="";
@@ -31,6 +33,10 @@ if($count>0){
 			VALUES('$_ClassId','$_UserId','$_Class_Entry_Id','$_Batch_Id',NOW(),'$_SESSION[USERID]','active')");
 
 			if($_SQL_EXECUTE){
+			$_IndexResult=student_index_assign_for_class($con,$_UserId,$_Class_Entry_Id,$_Batch_Id,$_SESSION['USERID']);
+			if(!$_IndexResult["success"]){
+				$_SESSION['Message']=$_SESSION['Message']."<div style='background-color:white;color:#8a6d3b;' align='center'>Class saved for ".htmlspecialchars($_UserId, ENT_QUOTES, 'UTF-8').", but school index was not generated.</div><br>";
+			}
 			//$_SESSION['Message']=$_SESSION['Message'] ."<div style='background-color:white;color:green;' align='center'>Class Successfully Saved </div><br>";
 			}
 			else{

@@ -670,7 +670,7 @@ function online_admission_find_best_house($con, $branchId, $gender, $residence, 
 }
 
 if(!function_exists('online_admission_assign_house_for_application')){
-function online_admission_assign_house_for_application($con, $application, $postedStudent = null){
+function online_admission_assign_house_for_application($con, $application, $postedStudent = null, $ignorePaymentLock = false){
     if(!is_array($application) || empty($application) || trim((string)(isset($application["applicationid"]) ? $application["applicationid"] : "")) === ""){
         return null;
     }
@@ -682,11 +682,13 @@ function online_admission_assign_house_for_application($con, $application, $post
         $postedStudent = online_admission_get_posted_student_by_id($con, $application["branchid"], $application["postingid"]);
     }
 
-    $paymentSetting = online_admission_get_payment_setting($con, (string)$application["branchid"]);
-    $paymentEnabled = (int)$paymentSetting["enabled"] === 1 && (float)$paymentSetting["feeamount"] > 0;
-    $successfulPayment = online_admission_get_successful_payment_by_application($con, (string)$application["applicationid"]);
-    if(!online_admission_documents_unlocked($application, $successfulPayment, $paymentEnabled ? 1 : 0)){
-        return online_admission_application_assigned_house($con, $application);
+    if(!$ignorePaymentLock){
+        $paymentSetting = online_admission_get_payment_setting($con, (string)$application["branchid"]);
+        $paymentEnabled = (int)$paymentSetting["enabled"] === 1 && (float)$paymentSetting["feeamount"] > 0;
+        $successfulPayment = online_admission_get_successful_payment_by_application($con, (string)$application["applicationid"]);
+        if(!online_admission_documents_unlocked($application, $successfulPayment, $paymentEnabled ? 1 : 0)){
+            return online_admission_application_assigned_house($con, $application);
+        }
     }
 
     $gender = online_admission_application_gender($application, $postedStudent);
@@ -814,6 +816,498 @@ function online_admission_finalize_registration_house($con, $studentId, $branchI
         $result["message"] = "Student information saved and linked to the online admission record.";
     }
     return $result;
+}
+}
+
+if(!function_exists('online_admission_student_record_id')){
+function online_admission_student_record_id($con){
+    $year = date("Y");
+    $count = 0;
+    $res = mysqli_query($con, "SELECT COUNT(*) AS total FROM tblsystemuser");
+    if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))){
+        $count = (int)$row["total"];
+    }
+    $next = $count + 1;
+    while(true){
+        $candidate = "MB_".$year."/".$next;
+        $candidateEsc = mysqli_real_escape_string($con, $candidate);
+        $check = mysqli_query($con, "SELECT userid FROM tblsystemuser WHERE userid='$candidateEsc' LIMIT 1");
+        if(!$check || mysqli_num_rows($check) === 0){
+            return $candidate;
+        }
+        $next++;
+    }
+}
+}
+
+if(!function_exists('online_admission_student_age')){
+function online_admission_student_age($birthday){
+    $birthday = trim((string)$birthday);
+    if($birthday === ""){
+        return "";
+    }
+    try{
+        $dob = new DateTime($birthday);
+        return (string)$dob->diff(new DateTime("today"))->y;
+    }catch(Exception $e){
+        return "";
+    }
+}
+}
+
+if(!function_exists('online_admission_unique_student_username')){
+function online_admission_unique_student_username($con, $preferredValue, $fallbackValue = ""){
+    $base = strtolower(preg_replace('/[^A-Za-z0-9]+/', '', (string)$preferredValue));
+    if($base === ""){
+        $base = strtolower(preg_replace('/[^A-Za-z0-9]+/', '', (string)$fallbackValue));
+    }
+    if($base === ""){
+        $base = "student".date("Ymd");
+    }
+    $candidate = $base;
+    $counter = 2;
+    while(true){
+        $candidateEsc = mysqli_real_escape_string($con, $candidate);
+        $res = mysqli_query($con, "SELECT userid FROM tblsystemuser WHERE username='$candidateEsc' LIMIT 1");
+        if(!$res || mysqli_num_rows($res) === 0){
+            return $candidate;
+        }
+        $candidate = $base.$counter;
+        $counter++;
+    }
+}
+}
+
+if(!function_exists('online_admission_match_key')){
+function online_admission_match_key($value){
+    return strtolower(preg_replace('/[^A-Za-z0-9]+/', '', (string)$value));
+}
+}
+
+if(!function_exists('online_admission_resolve_class_entry')){
+function online_admission_resolve_class_entry($con, $offeredClass, $branchId = ""){
+    $offeredClass = trim((string)$offeredClass);
+    if($offeredClass === ""){
+        return null;
+    }
+    $targetKey = online_admission_match_key($offeredClass);
+    $branchIdEsc = mysqli_real_escape_string($con, trim((string)$branchId));
+    $hasBranchColumn = false;
+    $branchColumnRes = mysqli_query($con, "SHOW COLUMNS FROM tblclassentry LIKE 'branchid'");
+    if($branchColumnRes && mysqli_num_rows($branchColumnRes) > 0){
+        $hasBranchColumn = true;
+    }
+    $where = "WHERE status='active'";
+    if($hasBranchColumn && $branchIdEsc !== ""){
+        $where .= " AND branchid='$branchIdEsc'";
+    }
+    $res = mysqli_query($con, "SELECT class_entryid, class_name FROM tblclassentry $where ORDER BY class_name ASC");
+    if($res){
+        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            if(online_admission_match_key($row["class_entryid"]) === $targetKey || online_admission_match_key($row["class_name"]) === $targetKey){
+                return $row;
+            }
+        }
+    }
+    return null;
+}
+}
+
+if(!function_exists('online_admission_get_batch_by_id')){
+function online_admission_get_batch_by_id($con, $batchId){
+    $batchIdEsc = mysqli_real_escape_string($con, trim((string)$batchId));
+    if($batchIdEsc === ""){
+        return null;
+    }
+    $res = mysqli_query($con, "SELECT batchid, batch FROM tblbatch WHERE batchid='$batchIdEsc' LIMIT 1");
+    if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))){
+        return $row;
+    }
+    return null;
+}
+}
+
+if(!function_exists('online_admission_normalize_posting_year')){
+function online_admission_normalize_posting_year($value){
+    if(!function_exists('semester_registry_normalize_year')){
+        $semesterUtils = __DIR__.DIRECTORY_SEPARATOR."semester-registry-utils.php";
+        if(file_exists($semesterUtils)){
+            include_once($semesterUtils);
+        }
+    }
+    if(function_exists('semester_registry_normalize_year')){
+        return semester_registry_normalize_year($value);
+    }
+    $value = trim((string)$value);
+    return preg_match('/^\d{4}$/', $value) ? $value : "";
+}
+}
+
+if(!function_exists('online_admission_existing_student_for_application')){
+function online_admission_existing_student_for_application($con, $application, $postedStudent){
+    $linkedStudentId = trim((string)(isset($application["linkedstudentid"]) ? $application["linkedstudentid"] : ""));
+    if($linkedStudentId !== ""){
+        $linkedStudentIdEsc = mysqli_real_escape_string($con, $linkedStudentId);
+        $res = mysqli_query($con, "SELECT * FROM tblsystemuser WHERE userid='$linkedStudentIdEsc' AND systemtype='Student' LIMIT 1");
+        if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))){
+            return $row;
+        }
+        return false;
+    }
+
+    $branchIdEsc = mysqli_real_escape_string($con, trim((string)$application["branchid"]));
+    $bece = online_admission_normalize_bece(isset($application["beceindexnumber"]) ? $application["beceindexnumber"] : (isset($postedStudent["beceindexnumber"]) ? $postedStudent["beceindexnumber"] : ""));
+    $birthdate = online_admission_normalize_date(isset($application["birthdate"]) ? $application["birthdate"] : (isset($postedStudent["birthdate"]) ? $postedStudent["birthdate"] : ""));
+    if($bece === "" || $birthdate === "" || $birthdate === false){
+        return null;
+    }
+    $beceEsc = mysqli_real_escape_string($con, $bece);
+    $birthEsc = mysqli_real_escape_string($con, $birthdate);
+    $res = mysqli_query($con, "SELECT *
+        FROM tblsystemuser
+        WHERE branchid='$branchIdEsc'
+          AND systemtype='Student'
+          AND BECEIndexNumber='$beceEsc'
+          AND birthday='$birthEsc'
+        LIMIT 1");
+    if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))){
+        return $row;
+    }
+    return null;
+}
+}
+
+if(!function_exists('online_admission_student_active_class_summary')){
+function online_admission_student_active_class_summary($con, $studentId){
+    $studentIdEsc = mysqli_real_escape_string($con, trim((string)$studentId));
+    if($studentIdEsc === ""){
+        return null;
+    }
+    $res = mysqli_query($con, "SELECT ce.class_name, bh.batch
+        FROM tblclass cl
+        LEFT JOIN tblclassentry ce ON ce.class_entryid=cl.class_entryid
+        LEFT JOIN tblbatch bh ON bh.batchid=cl.batchid
+        WHERE cl.userid='$studentIdEsc'
+          AND cl.status='active'
+        ORDER BY cl.datetimeentry DESC
+        LIMIT 1");
+    if($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))){
+        return $row;
+    }
+    return null;
+}
+}
+
+if(!function_exists('online_admission_register_class_for_student')){
+function online_admission_register_class_for_student($con, $studentId, $classEntryId, $batchId, $recordedBy, &$message){
+    $message = "";
+    $studentIdEsc = mysqli_real_escape_string($con, trim((string)$studentId));
+    $classEntryIdEsc = mysqli_real_escape_string($con, trim((string)$classEntryId));
+    $batchIdEsc = mysqli_real_escape_string($con, trim((string)$batchId));
+    $recordedByEsc = mysqli_real_escape_string($con, trim((string)$recordedBy));
+    if($studentIdEsc === "" || $classEntryIdEsc === "" || $batchIdEsc === ""){
+        $message = "The class registration details are incomplete.";
+        return false;
+    }
+    $existing = mysqli_query($con, "SELECT classid, class_entryid FROM tblclass WHERE userid='$studentIdEsc' AND batchid='$batchIdEsc' AND status='active' LIMIT 1");
+    if($existing && ($row = mysqli_fetch_array($existing, MYSQLI_ASSOC))){
+        if(trim((string)$row["class_entryid"]) === trim((string)$classEntryId)){
+            $message = "Class already registered for this batch.";
+            return true;
+        }
+        $message = "This student already has another active class in the selected batch.";
+        return false;
+    }
+    $classId = online_admission_generate_id("CLS_");
+    $classIdEsc = mysqli_real_escape_string($con, $classId);
+    $saved = mysqli_query($con, "INSERT INTO tblclass(classid, userid, class_entryid, batchid, datetimeentry, recordedby, status)
+        VALUES('$classIdEsc', '$studentIdEsc', '$classEntryIdEsc', '$batchIdEsc', NOW(), '$recordedByEsc', 'active')");
+    if(!$saved){
+        $message = "The class record could not be saved.";
+        return false;
+    }
+    $message = "Class registered.";
+    return true;
+}
+}
+
+if(!function_exists('online_admission_register_semester_for_student')){
+function online_admission_register_semester_for_student($con, $studentId, $classEntryId, $batchId, $termName, $academicYear, $recordedBy, &$message){
+    $message = "";
+    $academicYear = online_admission_normalize_posting_year($academicYear);
+    $termName = trim((string)$termName);
+    if(!in_array($termName, array("1", "2"), true)){
+        $message = "Select semester 1 or 2.";
+        return false;
+    }
+    if($academicYear === ""){
+        $message = "Select a valid academic year.";
+        return false;
+    }
+    $studentIdEsc = mysqli_real_escape_string($con, trim((string)$studentId));
+    $classEntryIdEsc = mysqli_real_escape_string($con, trim((string)$classEntryId));
+    $batchIdEsc = mysqli_real_escape_string($con, trim((string)$batchId));
+    $termEsc = mysqli_real_escape_string($con, $termName);
+    $yearEsc = mysqli_real_escape_string($con, $academicYear);
+    $recordedByEsc = mysqli_real_escape_string($con, trim((string)$recordedBy));
+    if($studentIdEsc === "" || $classEntryIdEsc === "" || $batchIdEsc === ""){
+        $message = "The semester registration details are incomplete.";
+        return false;
+    }
+    if(!function_exists('semester_registry_resolved_year_sql')){
+        $semesterUtils = __DIR__.DIRECTORY_SEPARATOR."semester-registry-utils.php";
+        if(file_exists($semesterUtils)){
+            include_once($semesterUtils);
+        }
+    }
+    $resolvedYearSql = function_exists('semester_registry_resolved_year_sql') ? semester_registry_resolved_year_sql("tbltermregistry") : "academicyear";
+    $duplicate = mysqli_query($con, "SELECT termid FROM tbltermregistry
+        WHERE userid='$studentIdEsc'
+          AND class_entryid='$classEntryIdEsc'
+          AND termname='$termEsc'
+          AND batchid='$batchIdEsc'
+          AND $resolvedYearSql='$yearEsc'
+        LIMIT 1");
+    if($duplicate && mysqli_num_rows($duplicate) > 0){
+        $message = "Semester already registered.";
+        return true;
+    }
+    $termId = online_admission_generate_id("TERM_");
+    $termIdEsc = mysqli_real_escape_string($con, $termId);
+    $saved = mysqli_query($con, "INSERT INTO tbltermregistry(termid, userid, class_entryid, termname, batchid, academicyear, status, datetimeentry, recordedby)
+        VALUES('$termIdEsc', '$studentIdEsc', '$classEntryIdEsc', '$termEsc', '$batchIdEsc', '$yearEsc', 'active', NOW(), '$recordedByEsc')");
+    if(!$saved){
+        $message = "The semester record could not be saved.";
+        return false;
+    }
+    $message = "Semester registered.";
+    return true;
+}
+}
+
+if(!function_exists('online_admission_post_application_to_student_records')){
+function online_admission_post_application_to_student_records($con, $applicationId, $branchId, $batchId = "", $termName = "", $academicYear = "", $recordedBy = ""){
+    $result = array(
+        "success" => false,
+        "message" => "",
+        "studentid" => "",
+        "username" => "",
+        "created_student" => false,
+        "class_registered" => false,
+        "semester_registered" => false,
+        "house_assigned" => false
+    );
+
+    $application = online_admission_get_application_by_id($con, $applicationId);
+    if(!$application || (string)$application["branchid"] !== (string)$branchId){
+        $result["message"] = "The selected admission record could not be found for this branch.";
+        return $result;
+    }
+    if(strtolower(trim((string)$application["status"])) !== "reviewed"){
+        $result["message"] = "Review and mark this admission as Reviewed before posting.";
+        return $result;
+    }
+
+    $postedStudent = online_admission_get_posted_student_by_id($con, (string)$application["branchid"], (string)$application["postingid"]);
+    if(!$postedStudent){
+        $result["message"] = "The posted student record linked to this admission form is missing.";
+        return $result;
+    }
+
+    $paymentSetting = online_admission_get_payment_setting($con, (string)$application["branchid"]);
+    $paymentEnabled = (int)$paymentSetting["enabled"] === 1 && (float)$paymentSetting["feeamount"] > 0;
+    $successfulPayment = online_admission_get_successful_payment_by_application($con, (string)$application["applicationid"]);
+    if(!online_admission_documents_unlocked($application, $successfulPayment, $paymentEnabled ? 1 : 0)){
+        $result["message"] = "The required admission steps are not complete yet.";
+        return $result;
+    }
+
+    $birthday = online_admission_normalize_date(isset($application["birthdate"]) ? $application["birthdate"] : $postedStudent["birthdate"]);
+    if($birthday === false || $birthday === ""){
+        $result["message"] = "The student's date of birth is missing or invalid.";
+        return $result;
+    }
+    $residence = online_admission_application_residence($application, $postedStudent);
+    $gender = online_admission_application_gender($application, $postedStudent);
+    $beceIndex = online_admission_normalize_bece(isset($application["beceindexnumber"]) ? $application["beceindexnumber"] : $postedStudent["beceindexnumber"]);
+    $required = array(
+        "firstname" => trim((string)$application["firstname"]),
+        "surname" => trim((string)$application["surname"]),
+        "gender" => trim((string)$gender),
+        "residence" => trim((string)$residence),
+        "mobile" => trim((string)$application["mobile"]),
+        "religion" => trim((string)$application["religion"]),
+        "guardianname" => trim((string)$application["guardianname"]),
+        "guardiancontact" => trim((string)$application["guardiancontact"])
+    );
+    foreach($required as $label => $value){
+        if($value === ""){
+            $result["message"] = "Complete the student's ".$label." before posting.";
+            return $result;
+        }
+    }
+
+    $existingStudent = online_admission_existing_student_for_application($con, $application, $postedStudent);
+    if($existingStudent === false){
+        $result["message"] = "This admission is linked to a student record that no longer exists.";
+        return $result;
+    }
+    if(is_array($existingStudent) && trim((string)(isset($application["linkedstudentid"]) ? $application["linkedstudentid"] : "")) === ""){
+        $activeClass = online_admission_student_active_class_summary($con, $existingStudent["userid"]);
+        if($activeClass){
+            $classLabel = trim((string)(isset($activeClass["class_name"]) ? $activeClass["class_name"] : ""));
+            $batchLabel = trim((string)(isset($activeClass["batch"]) ? $activeClass["batch"] : ""));
+            $detail = trim($classLabel.($batchLabel !== "" ? " / ".$batchLabel : ""));
+            $result["message"] = "A matching student record already exists".($detail !== "" ? " with ".$detail : "").". Review this student manually before linking the online admission.";
+            return $result;
+        }
+    }
+
+    $transactionStarted = false;
+    if(function_exists('mysqli_begin_transaction')){
+        $transactionStarted = @mysqli_begin_transaction($con);
+    }
+
+    $studentId = "";
+    $studentUsername = "";
+    $createdStudent = false;
+
+    if(is_array($existingStudent)){
+        $studentId = (string)$existingStudent["userid"];
+        $studentUsername = (string)$existingStudent["username"];
+    }else{
+        $studentId = online_admission_student_record_id($con);
+        $studentUsername = online_admission_unique_student_username($con, $beceIndex, $studentId);
+        $verification = strtoupper(substr(md5(uniqid('', true)), 0, 8));
+        $plainPassword = trim((string)$application["verificationtoken"]) !== "" ? trim((string)$application["verificationtoken"]) : ($beceIndex !== "" ? $beceIndex : $verification);
+        $passwordHash = md5($plainPassword);
+        $age = online_admission_student_age($birthday);
+        $accessLevel = "user";
+        $systemType = "Student";
+        $relationship = trim((string)$application["guardianrelationship"]) !== "" ? trim((string)$application["guardianrelationship"]) : "Guardian";
+        $guardianName = trim((string)$application["guardianname"]);
+        $guardianContact = trim((string)$application["guardiancontact"]);
+
+        $stmt = mysqli_prepare($con, "INSERT INTO tblsystemuser(
+            userid, firstname, surname, othernames, gender, residencetype, birthday, age,
+            postaladdress, homeaddress, hometown, religion, relationship, BECEIndexNumber,
+            nextofkin_fullname, nextofkin_contact, email, verificationcode, mobile,
+            registereddatetime, status, username, password, accesslevel, systemtype, branchid
+        ) VALUES(
+            ?, ?, ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?,
+            NOW(), 'active', ?, ?, ?, ?, ?
+        )");
+        if(!$stmt){
+            if($transactionStarted){ @mysqli_rollback($con); }
+            $result["message"] = "The student record could not be prepared.";
+            return $result;
+        }
+        mysqli_stmt_bind_param(
+            $stmt,
+            str_repeat("s", 24),
+            $studentId,
+            $application["firstname"],
+            $application["surname"],
+            $application["othernames"],
+            $gender,
+            $residence,
+            $birthday,
+            $age,
+            $application["postaladdress"],
+            $application["homeaddress"],
+            $application["hometown"],
+            $application["religion"],
+            $relationship,
+            $beceIndex,
+            $guardianName,
+            $guardianContact,
+            $application["email"],
+            $verification,
+            $application["mobile"],
+            $studentUsername,
+            $passwordHash,
+            $accessLevel,
+            $systemType,
+            $branchId
+        );
+        $savedStudent = mysqli_stmt_execute($stmt);
+        $studentError = mysqli_stmt_error($stmt);
+        mysqli_stmt_close($stmt);
+        if(!$savedStudent){
+            if($transactionStarted){ @mysqli_rollback($con); }
+            $result["message"] = "The student record could not be saved. ".$studentError;
+            return $result;
+        }
+        $createdStudent = true;
+    }
+
+    online_admission_copy_photo_to_student($con, $studentId, isset($application["filename"]) ? $application["filename"] : "");
+
+    $houseId = trim((string)(isset($application["assignedhouseid"]) ? $application["assignedhouseid"] : ""));
+    if($houseId === ""){
+        $assignedHouse = online_admission_assign_house_for_application($con, $application);
+        if($assignedHouse && trim((string)$assignedHouse["houseid"]) !== ""){
+            $houseId = trim((string)$assignedHouse["houseid"]);
+        }
+    }
+    if($houseId !== "" && function_exists('assign_student_to_house')){
+        $result["house_assigned"] = assign_student_to_house($con, $studentId, $houseId, $recordedBy) ? true : false;
+    }
+
+    if(!online_admission_link_registered_student($con, $application["applicationid"], $studentId, $houseId)){
+        if($transactionStarted){ @mysqli_rollback($con); }
+        $result["message"] = "The student was created, but the admission record could not be linked.";
+        return $result;
+    }
+
+    if($transactionStarted){ @mysqli_commit($con); }
+    $result["success"] = true;
+    $result["studentid"] = $studentId;
+    $result["username"] = $studentUsername;
+    $result["created_student"] = $createdStudent;
+    $result["message"] = ($createdStudent ? "Student record created" : "Existing student record linked").". Assign the class later from the normal class registration flow.";
+    return $result;
+}
+}
+
+if(!function_exists('online_admission_post_reviewed_applications')){
+function online_admission_post_reviewed_applications($con, $branchId, $batchId = "", $termName = "", $academicYear = "", $recordedBy = "", $limit = 300){
+    $summary = array(
+        "success" => 0,
+        "failed" => 0,
+        "messages" => array()
+    );
+    $branchIdEsc = mysqli_real_escape_string($con, trim((string)$branchId));
+    $limit = max(1, min(1000, (int)$limit));
+    $res = mysqli_query($con, "SELECT applicationid, firstname, othernames, surname, beceindexnumber
+        FROM tblonlineadmissionapplication
+        WHERE branchid='$branchIdEsc'
+          AND status='reviewed'
+          AND (linkedstudentid IS NULL OR linkedstudentid='')
+        ORDER BY updatedat ASC
+        LIMIT $limit");
+    if(!$res || mysqli_num_rows($res) === 0){
+        $summary["messages"][] = "No reviewed unposted admission forms were found.";
+        return $summary;
+    }
+    while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        $studentName = trim((string)$row["firstname"]." ".(string)$row["othernames"]." ".(string)$row["surname"]);
+        if($studentName === ""){
+            $studentName = trim((string)$row["beceindexnumber"]);
+        }
+        $posted = online_admission_post_application_to_student_records($con, $row["applicationid"], $branchId, $batchId, $termName, $academicYear, $recordedBy);
+        if($posted["success"]){
+            $summary["success"]++;
+        }else{
+            $summary["failed"]++;
+            if(count($summary["messages"]) < 6){
+                $summary["messages"][] = $studentName.": ".$posted["message"];
+            }
+        }
+    }
+    return $summary;
 }
 }
 
@@ -1418,6 +1912,21 @@ function online_admission_document_display_title($document){
 }
 }
 
+if(!function_exists('online_admission_document_is_admission_letter')){
+function online_admission_document_is_admission_letter($document){
+    if(!is_array($document) || empty($document)){
+        return false;
+    }
+    $searchText = strtolower(trim(
+        online_admission_document_display_title($document)." ".
+        (string)(isset($document["doctype"]) ? $document["doctype"] : "")." ".
+        (string)(isset($document["originalfilename"]) ? $document["originalfilename"] : "")." ".
+        (string)(isset($document["filename"]) ? $document["filename"] : "")
+    ));
+    return strpos($searchText, "admission") !== false && strpos($searchText, "letter") !== false;
+}
+}
+
 if(!function_exists('online_admission_document_file_path')){
 function online_admission_document_file_path($filename){
     $filename = basename(trim((string)$filename));
@@ -1676,6 +2185,34 @@ function online_admission_documents_unlocked($application, $successfulPayment, $
         return online_admission_payment_is_paid($successfulPayment);
     }
     return true;
+}
+}
+
+if(!function_exists('online_admission_prepare_manual_admission_assets')){
+function online_admission_prepare_manual_admission_assets($con, $application, $postedStudent = null){
+    $summary = array(
+        "house" => null,
+        "documents" => array(),
+        "document_count" => 0
+    );
+    if(!is_array($application) || empty($application) || !online_admission_application_is_submitted($application)){
+        return $summary;
+    }
+    if(!$postedStudent && trim((string)(isset($application["postingid"]) ? $application["postingid"] : "")) !== "" && trim((string)(isset($application["branchid"]) ? $application["branchid"] : "")) !== ""){
+        $postedStudent = online_admission_get_posted_student_by_id($con, $application["branchid"], $application["postingid"]);
+    }
+
+    $summary["house"] = online_admission_assign_house_for_application($con, $application, $postedStudent, true);
+
+    $branchId = trim((string)(isset($application["branchid"]) ? $application["branchid"] : ""));
+    $admissionYear = trim((string)(isset($application["admissionyear"]) ? $application["admissionyear"] : ""));
+    if($branchId !== "" && $admissionYear !== ""){
+        $documents = online_admission_list_documents($con, $branchId, $admissionYear);
+        $summary["documents"] = online_admission_resolve_random_documents_for_application($con, $documents, $application, $postedStudent);
+        $summary["document_count"] = count($summary["documents"]);
+    }
+
+    return $summary;
 }
 }
 
@@ -1961,6 +2498,149 @@ function online_admission_payment_customer_email($application){
         return $email;
     }
     return "ayirebishs@ges.gov.gh";
+}
+}
+
+if(!function_exists('online_admission_start_paystack_payment')){
+function online_admission_start_paystack_payment($con, $application, $postedStudent, $paymentSetting, &$errorMessage){
+    $errorMessage = "";
+    if(!is_array($application) || empty($application) || !is_array($postedStudent) || empty($postedStudent)){
+        $errorMessage = "The admission record is not ready for payment.";
+        return false;
+    }
+    if(!online_admission_payment_open_for_student($postedStudent, $application, $paymentSetting)){
+        $errorMessage = "Payment is not open for this admission record.";
+        return false;
+    }
+
+    $successfulPayment = online_admission_get_successful_payment_by_application($con, $application["applicationid"]);
+    if(online_admission_payment_is_paid($successfulPayment)){
+        return array(
+            "payment" => $successfulPayment,
+            "authorizationurl" => "",
+            "already_paid" => true,
+            "already_initialized" => false
+        );
+    }
+
+    $latestPayment = online_admission_get_latest_payment_by_application($con, $application["applicationid"]);
+    if(
+        $latestPayment &&
+        strtolower(trim((string)$latestPayment["status"])) === "initialized" &&
+        trim((string)$latestPayment["authorizationurl"]) !== ""
+    ){
+        return array(
+            "payment" => $latestPayment,
+            "authorizationurl" => trim((string)$latestPayment["authorizationurl"]),
+            "already_paid" => false,
+            "already_initialized" => true
+        );
+    }
+
+    $config = online_admission_paystack_config();
+    if(!online_admission_paystack_is_ready($config)){
+        $errorMessage = "Paystack is not configured yet.";
+        return false;
+    }
+
+    $amount = (float)(isset($paymentSetting["feeamount"]) ? $paymentSetting["feeamount"] : 0);
+    if($amount <= 0){
+        $errorMessage = "The admission fee amount has not been set.";
+        return false;
+    }
+
+    $currency = strtoupper(trim((string)(isset($paymentSetting["currency"]) ? $paymentSetting["currency"] : "")));
+    if($currency === ""){
+        $currency = "GHS";
+    }
+
+    $reference = online_admission_payment_reference();
+    $studentName = trim((string)$postedStudent["firstname"]." ".(string)$postedStudent["othernames"]." ".(string)$postedStudent["surname"]);
+    $continueUrl = online_admission_app_url("online-admission.php");
+    $payload = array(
+        "reference" => $reference,
+        "email" => online_admission_payment_customer_email($application),
+        "amount" => online_admission_money_minor_units($amount),
+        "currency" => $currency,
+        "callback_url" => online_admission_payment_callback_url($config),
+        "metadata" => array(
+            "applicationid" => (string)$application["applicationid"],
+            "postingid" => (string)$postedStudent["postingid"],
+            "beceindexnumber" => (string)$postedStudent["beceindexnumber"],
+            "admissionyear" => (string)$postedStudent["admissionyear"],
+            "mobile" => (string)$postedStudent["mobile"],
+            "cancel_action" => $continueUrl."?payment_cancel=1",
+            "custom_fields" => array(
+                array(
+                    "display_name" => "Student Name",
+                    "variable_name" => "student_name",
+                    "value" => $studentName
+                ),
+                array(
+                    "display_name" => "BECE Index Number",
+                    "variable_name" => "bece_index_number",
+                    "value" => (string)$postedStudent["beceindexnumber"]
+                ),
+                array(
+                    "display_name" => "Admission Year",
+                    "variable_name" => "admission_year",
+                    "value" => (string)$postedStudent["admissionyear"]
+                )
+            )
+        )
+    );
+
+    $gatewayError = "";
+    $response = online_admission_paystack_initialize($config, $payload, $gatewayError);
+    if(
+        $response === false ||
+        !isset($response["data"]) ||
+        !is_array($response["data"]) ||
+        trim((string)(isset($response["data"]["authorization_url"]) ? $response["data"]["authorization_url"] : "")) === ""
+    ){
+        $errorMessage = $gatewayError !== "" ? $gatewayError : "Paystack could not start this payment right now.";
+        return false;
+    }
+
+    $data = $response["data"];
+    $paymentId = online_admission_create_payment_record($con, array(
+        "applicationid" => (string)$application["applicationid"],
+        "postingid" => (string)$postedStudent["postingid"],
+        "beceindexnumber" => (string)$postedStudent["beceindexnumber"],
+        "admissionyear" => (string)$postedStudent["admissionyear"],
+        "branchid" => (string)$postedStudent["branchid"],
+        "gateway" => "paystack",
+        "reference" => $reference,
+        "accesscode" => isset($data["access_code"]) ? (string)$data["access_code"] : "",
+        "authorizationurl" => isset($data["authorization_url"]) ? (string)$data["authorization_url"] : "",
+        "gatewaytransactionid" => "",
+        "amount" => $amount,
+        "currency" => $currency,
+        "email" => online_admission_payment_customer_email($application),
+        "mobile" => (string)$postedStudent["mobile"],
+        "status" => "initialized",
+        "gatewayresponse" => isset($response["message"]) ? (string)$response["message"] : "Initialized",
+        "rawresponse" => isset($response["_raw"]) ? (string)$response["_raw"] : ""
+    ));
+    if($paymentId === false){
+        $errorMessage = "The payment session could not be recorded right now.";
+        return false;
+    }
+
+    $payment = online_admission_get_payment_by_reference($con, $reference);
+    return array(
+        "payment" => $payment ? $payment : array(
+            "paymentid" => $paymentId,
+            "reference" => $reference,
+            "authorizationurl" => isset($data["authorization_url"]) ? (string)$data["authorization_url"] : "",
+            "status" => "initialized",
+            "amount" => $amount,
+            "currency" => $currency
+        ),
+        "authorizationurl" => isset($data["authorization_url"]) ? (string)$data["authorization_url"] : "",
+        "already_paid" => false,
+        "already_initialized" => false
+    );
 }
 }
 
@@ -2756,6 +3436,31 @@ function online_admission_photo_src($filename){
         return "online-admission-photo.php?file=".rawurlencode($filename);
     }
     return "online-admission-photo.php";
+}
+}
+
+if(!function_exists('online_admission_copy_photo_to_student')){
+function online_admission_copy_photo_to_student($con, $studentId, $filename, $overwrite = false){
+    $studentId = trim((string)$studentId);
+    $filename = basename(trim((string)$filename));
+    if($studentId === "" || $filename === ""){
+        return false;
+    }
+    $path = __DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR.$filename;
+    if(!is_file($path)){
+        return false;
+    }
+    $studentIdEsc = mysqli_real_escape_string($con, $studentId);
+    $filenameEsc = mysqli_real_escape_string($con, $filename);
+    $studentRes = mysqli_query($con, "SELECT filename FROM tblsystemuser WHERE userid='$studentIdEsc' LIMIT 1");
+    if(!$studentRes || !($student = mysqli_fetch_array($studentRes, MYSQLI_ASSOC))){
+        return false;
+    }
+    $currentFile = trim((string)(isset($student["filename"]) ? $student["filename"] : ""));
+    if($currentFile !== "" && !$overwrite){
+        return false;
+    }
+    return mysqli_query($con, "UPDATE tblsystemuser SET filename='$filenameEsc', uploadeddatetime=NOW() WHERE userid='$studentIdEsc' LIMIT 1") ? true : false;
 }
 }
 

@@ -510,13 +510,7 @@ $uploadedAdmissionLetter = null;
 $assignedProspectus = online_admission_find_matching_prospectus($studentDocuments, $application, $postedStudent);
 $visibleStudentDocuments = $studentDocuments;
 foreach($studentDocuments as $index => $documentRow){
-    $searchText = strtolower(trim(
-        online_admission_document_display_title($documentRow)." ".
-        (string)(isset($documentRow["originalfilename"]) ? $documentRow["originalfilename"] : "").
-        " ".
-        (string)(isset($documentRow["filename"]) ? $documentRow["filename"] : "")
-    ));
-    if($uploadedAdmissionLetter === null && strpos($searchText, "admission") !== false && strpos($searchText, "letter") !== false){
+    if($uploadedAdmissionLetter === null && online_admission_document_is_admission_letter($documentRow)){
         $uploadedAdmissionLetter = $documentRow;
         unset($visibleStudentDocuments[$index]);
         continue;
@@ -527,18 +521,12 @@ foreach($studentDocuments as $index => $documentRow){
     }
 }
 $visibleStudentDocuments = array_values($visibleStudentDocuments);
-$generatedAdmissionLetterUrl = ($documentsUnlocked && $application && $accessAuthorized && online_admission_application_is_submitted($application))
-    ? "online-admission-letter.php"
-    : "";
-$admissionLetterUrl = $uploadedAdmissionLetter
-    ? "online-admission-document.php?documentid=".rawurlencode((string)$uploadedAdmissionLetter["documentid"])
-    : $generatedAdmissionLetterUrl;
+$admissionLetterWithheld = ($documentsUnlocked && $application && $accessAuthorized && online_admission_application_is_submitted($application));
+$admissionLetterUrl = "";
 $admissionLetterLabel = $uploadedAdmissionLetter
     ? online_admission_document_display_title($uploadedAdmissionLetter)
     : "Admission Letter";
-$admissionLetterNote = $uploadedAdmissionLetter
-    ? trim((string)$uploadedAdmissionLetter["originalfilename"])
-    : "Personalized letter generated for your application.";
+$admissionLetterNote = "The school office will print and issue this letter when you report.";
 $prospectusUrl = $assignedProspectus
     ? "online-admission-document.php?documentid=".rawurlencode((string)$assignedProspectus["documentid"])
     : "";
@@ -548,7 +536,7 @@ $prospectusLabel = $assignedProspectus
 $prospectusNote = $assignedProspectus
     ? trim((string)$assignedProspectus["originalfilename"])
     : "";
-$hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !empty($visibleStudentDocuments));
+$hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments) || $downloadUrl !== "" || $admissionLetterWithheld);
 ?>
 <!DOCTYPE html>
 <html>
@@ -963,11 +951,11 @@ $hasStudentDownloads = ($admissionLetterUrl !== "" || $prospectusUrl !== "" || !
                 <?php }else{ ?>
                 <div class="oa-payment-state oa-payment-state--info">Download the required documents below and keep them safely. Bring them with you when reporting to the school, and return any document the school expects you to submit after signing or completing it.</div>
                 <div class="oa-document-list">
-                    <?php if($admissionLetterUrl !== ""){ ?>
-                    <article class="oa-document-card">
+                    <?php if($admissionLetterWithheld){ ?>
+                    <article class="oa-document-card oa-document-card--notice">
                         <strong><?php echo oa_esc($admissionLetterLabel); ?></strong>
-                        <span><?php echo oa_esc($admissionLetterNote !== "" ? $admissionLetterNote : "Admission document ready for download."); ?></span>
-                        <a href="<?php echo oa_esc($admissionLetterUrl); ?>" class="oa-secondary"><i class="fa fa-download"></i> Download</a>
+                        <span><?php echo oa_esc($admissionLetterNote !== "" ? $admissionLetterNote : "The school office will print and issue this letter when you report."); ?></span>
+                        <span class="oa-document-badge"><i class="fa fa-lock"></i> Issued at school</span>
                     </article>
                     <?php } ?>
                     <?php if($prospectusUrl !== ""){ ?>

@@ -28,6 +28,10 @@ if(!$document){
     oa_document_redirect("That admission document is no longer available.");
 }
 
+if(!online_admission_is_admin() && online_admission_document_is_admission_letter($document)){
+    oa_document_redirect("Admission letters are printed and issued by the school office when students report. Other admission documents remain available on your portal.");
+}
+
 $allowed = false;
 $application = null;
 $postedStudent = null;

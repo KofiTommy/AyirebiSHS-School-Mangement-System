@@ -404,6 +404,7 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="no
 <div id="admin" align="left" style="margin-top:5px;">
 <a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
 <a href="user-management.php"><button><i class="fa fa-users" style="color:#1d4ed8"></i> User Management</button></a>
+<a href="user-visit-history.php"><button><i class="fa fa-clock-o" style="color:#0f766e"></i> User Visit History</button></a>
 <a href="register-student.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Student</button></a>
 <a href="register-teacher.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Teacher</button></a>
 <a href="class-teacher-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> Class Teacher Assignment</button></a>
@@ -440,6 +441,7 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="su
 <div id="admin" align="left" style="margin-top:5px;">
 <a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
 <a href="user-management.php"><button ><i class="fa fa-users" style="color:#1d4ed8"></i> User Management</button></a>
+<a href="user-visit-history.php"><button><i class="fa fa-clock-o" style="color:#0f766e"></i> User Visit History</button></a>
 <a href="register-student.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Student</button></a>
 <a href="register-teacher.php"><button><i class="fa fa-user" style="color:royalblue"></i> Register Teacher</button></a>
 <a href="class-teacher-assignment.php"><button><i class="fa fa-plus" style="color:teal"></i> Class Teacher Assignment</button></a>

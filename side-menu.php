@@ -253,6 +253,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
     <a href="#" class="dropbtn"><i class="fa fa-home" ></i> Operations</a>
     <div class="dropdown-content">
       <a href="user-management.php"><i class="fa fa-users" ></i> User Management</a>
+      <a href="user-visit-history.php"><i class="fa fa-clock-o" ></i> User Visit History</a>
       <a href="house-entry.php"><i class="fa fa-home" ></i> House Entry</a>
       <a href="house-master-assignment.php"><i class="fa fa-plus" ></i> House Master Assignment</a>
       <a href="student-house-assignment.php"><i class="fa fa-users" ></i> Student House Assignment</a>
@@ -367,6 +368,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
     <a href="#" class="dropbtn"><i class="fa fa-home" ></i> Operations</a>
     <div class="dropdown-content">
       <a href="user-management.php"><i class="fa fa-users" ></i> User Management</a>
+      <a href="user-visit-history.php"><i class="fa fa-clock-o" ></i> User Visit History</a>
       <a href="house-entry.php"><i class="fa fa-home" ></i> House Entry</a>
       <a href="house-master-assignment.php"><i class="fa fa-plus" ></i> House Master Assignment</a>
       <a href="student-house-assignment.php"><i class="fa fa-users" ></i> Student House Assignment</a>

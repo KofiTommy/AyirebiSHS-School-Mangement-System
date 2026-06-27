@@ -10,27 +10,39 @@ function oa_letter_redirect($message){
     exit();
 }
 
-if(!isset($_SESSION["ONLINE_ADMISSION_TOKEN_AUTH"], $_SESSION["ONLINE_ADMISSION_APPLICATION_ID"]) ||
-    (string)$_SESSION["ONLINE_ADMISSION_TOKEN_AUTH"] !== "1" ||
-    trim((string)$_SESSION["ONLINE_ADMISSION_APPLICATION_ID"]) === ""){
-    oa_letter_redirect("Log in with your token first before downloading your admission letter.");
+function oa_letter_admin_redirect($message){
+    $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = "<div class=\"rs-alert rs-alert--warning\">".htmlspecialchars((string)$message, ENT_QUOTES, "UTF-8")."</div>";
+    header("location:online-admission-admin.php#applications");
+    exit();
 }
 
-$application = online_admission_get_application_by_id($con, (string)$_SESSION["ONLINE_ADMISSION_APPLICATION_ID"]);
+$officeApplicationId = trim((string)(isset($_GET["applicationid"]) ? $_GET["applicationid"] : ""));
+$officePrint = online_admission_is_admin() && $officeApplicationId !== "";
+
+if(!$officePrint){
+    if(online_admission_is_admin()){
+        oa_letter_admin_redirect("Choose a student application before printing an admission letter.");
+    }
+    oa_letter_redirect("Admission letters are printed and issued by the school office when students report. You can still download your other admission documents from this portal.");
+}
+
+$application = online_admission_get_application_by_id($con, $officeApplicationId);
 if(!$application){
-    oa_letter_redirect("We could not find that admission record anymore. Please log in again.");
+    oa_letter_admin_redirect("We could not find that admission record anymore.");
+}
+
+$adminBranchId = isset($_SESSION["BRANCHID"]) ? trim((string)$_SESSION["BRANCHID"]) : "";
+if($adminBranchId !== "" && (string)$application["branchid"] !== $adminBranchId){
+    oa_letter_admin_redirect("That admission record does not belong to your current branch.");
+}
+
+if(!online_admission_application_is_submitted($application)){
+    oa_letter_admin_redirect("Submit the student's online admission form before printing the admission letter.");
 }
 
 $postedStudent = online_admission_get_posted_student_by_id($con, (string)$application["branchid"], (string)$application["postingid"]);
 if(!$postedStudent){
-    oa_letter_redirect("The posted student record linked to this admission form is no longer available.");
-}
-
-$paymentSetting = online_admission_get_payment_setting($con, (string)$application["branchid"]);
-$paymentEnabled = (int)$paymentSetting["enabled"] === 1 && (float)$paymentSetting["feeamount"] > 0;
-$successfulPayment = online_admission_get_successful_payment_by_application($con, (string)$application["applicationid"]);
-if(!online_admission_documents_unlocked($application, $successfulPayment, $paymentEnabled ? 1 : 0)){
-    oa_letter_redirect("This admission letter is only available after you complete the required admission steps.");
+    oa_letter_admin_redirect("The posted student record linked to this admission form is no longer available.");
 }
 
 $school = array(
@@ -380,6 +392,6 @@ $filenameSlug = trim((string)$filenameSlug, '-');
 if($filenameSlug === ""){
     $filenameSlug = "admission-letter";
 }
-$pdf->Output("D", strtolower($filenameSlug)."-admission-letter.pdf");
+$pdf->Output("I", strtolower($filenameSlug)."-admission-letter.pdf");
 exit();
 ?>

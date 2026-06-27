@@ -48,4 +48,5 @@ if($__CurrentScript !== "change-password.php" && $__CurrentScript !== "logout.ph
 um_enforce_current_module_access($con);
 engagement_track_current_script($con);
 um_touch_current_user_activity($con, $__CurrentScript);
+um_log_current_user_visit($con, $__CurrentScript);
 ?>

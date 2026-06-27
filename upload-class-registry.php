@@ -5,6 +5,8 @@ $_SESSION['Message']="";
 
 <?php
 include("dbstring.php");
+include_once("student-index-utils.php");
+$_SchoolIndexReady = student_index_ensure_schema($con);
 
 @$_UserID=$_POST['userid'];
 @$_Firstname=$_POST['firstname'];
@@ -162,7 +164,13 @@ include("links.php");
 				echo "</td>";
 
 				echo "<td align='center' ><a class='upload-registry-row-action' title='View $row[firstname] ($row[userid])' href='class-registry.php?view_user=$row[userid]'><i class='fa fa-plus'></i></a></td>";
-				echo "<td colspan='4'>$row[firstname] $row[othernames] $row[surname] ($row[userid])</td>";
+				$_DisplayIndex=trim((string)(isset($row['schoolindexnumber']) ? $row['schoolindexnumber'] : ""));
+				$_DisplayRef=$_DisplayIndex !== "" ? $_DisplayIndex : $row['userid'];
+				echo "<td colspan='4'>$row[firstname] $row[othernames] $row[surname] ($_DisplayRef)";
+				if($_DisplayIndex !== "" && $_DisplayIndex !== $row['userid']){
+					echo " <span class='upload-registry-index-chip'>Login ID: $row[userid]</span>";
+				}
+				echo "</td>";
 			
 				echo "</tr>";
 				

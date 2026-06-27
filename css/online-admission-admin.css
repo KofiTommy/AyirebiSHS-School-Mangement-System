@@ -406,6 +406,10 @@
     flex-wrap: wrap;
 }
 
+.aa-editor-top-actions .aa-link {
+    width: auto;
+}
+
 .aa-editor-form {
     display: grid;
     gap: 18px;
@@ -429,6 +433,7 @@
 .aa-editor-grid input[type="text"],
 .aa-editor-grid input[type="email"],
 .aa-editor-grid input[type="date"],
+.aa-editor-grid input[type="number"],
 .aa-editor-grid input[type="file"] {
     width: 100%;
 }
@@ -463,6 +468,47 @@
     margin-top: 8px;
     color: #647b90;
     line-height: 1.5;
+}
+
+.aa-manual-payment-card {
+    border: 1px solid #dbe6f0;
+    border-radius: 18px;
+    padding: 18px;
+    background: linear-gradient(145deg, #f8fbfe, #ffffff);
+}
+
+.aa-manual-payment-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.aa-manual-payment-summary article {
+    padding: 14px;
+    border-radius: 16px;
+    background: #ffffff;
+    border: 1px solid #dbe6f0;
+}
+
+.aa-manual-payment-summary span {
+    display: block;
+    color: #647b90;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.aa-manual-payment-summary strong {
+    color: #17314b;
+}
+
+.aa-payment-help {
+    margin: 10px 0 0;
+    color: #647b90;
+    line-height: 1.6;
 }
 
 .aa-editor-photo-tools {
@@ -534,6 +580,82 @@
     margin: 0;
     color: #60788f;
     line-height: 1.6;
+}
+
+.aa-posting-overview {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin: 16px 0;
+}
+
+.aa-posting-overview article {
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px solid #dce7f1;
+    background: linear-gradient(145deg, #ffffff, #f7fafc);
+}
+
+.aa-posting-overview span {
+    display: block;
+    color: #60788f;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.aa-posting-overview strong {
+    color: #17314b;
+    font-size: 1.25rem;
+}
+
+.aa-posting-settings {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(130px, .7fr) minmax(150px, .8fr) auto;
+    gap: 12px;
+    align-items: end;
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px solid #dbe6f0;
+    background: #f8fbfe;
+}
+
+.aa-posting-settings select {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid #ced9e6;
+    background: #fff;
+    color: #17314b;
+}
+
+.aa-posting-actions {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.aa-posting-actions p {
+    margin: 0;
+    max-width: 720px;
+    color: #60788f;
+    line-height: 1.6;
+}
+
+.aa-button--success {
+    background: #166534;
+}
+
+.aa-button:disabled {
+    background: #cbd5e1;
+    color: #64748b;
+    cursor: not-allowed;
 }
 
 .aa-document-year-form {
@@ -688,6 +810,21 @@
 
     .aa-quick-link {
         min-height: 42px;
+    }
+
+    .aa-posting-overview,
+    .aa-posting-settings {
+        grid-template-columns: 1fr;
+    }
+
+    .aa-posting-actions,
+    .aa-posting-actions form,
+    .aa-posting-actions .aa-button {
+        width: 100%;
+    }
+
+    .aa-manual-payment-summary {
+        grid-template-columns: 1fr;
     }
 
     .aa-house-bar .aa-link {
@@ -849,17 +986,53 @@
 
 .aa-app-card__actions {
     margin-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .aa-app-link {
-    width: auto;
+    flex: 1 1 220px;
     margin-top: 0;
+    justify-content: center;
+}
+
+.aa-inline-post-form {
+    flex: 1 1 220px;
+    margin: 0;
+}
+
+.aa-inline-post-form .aa-button {
+    width: 100%;
 }
 
 .aa-app-card__top {
     display: flex;
     justify-content: space-between;
+    align-items: flex-start;
     gap: 14px;
+}
+
+.aa-app-card__identity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.aa-app-card__identity img {
+    width: 58px;
+    height: 58px;
+    flex: 0 0 58px;
+    border-radius: 16px;
+    object-fit: cover;
+    border: 2px solid #ffffff;
+    background: #edf4fa;
+    box-shadow: 0 10px 22px rgba(22, 48, 76, 0.14);
+}
+
+.aa-app-card__identity div {
+    min-width: 0;
 }
 
 .aa-app-card__top h3 {

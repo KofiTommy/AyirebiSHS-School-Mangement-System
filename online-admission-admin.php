@@ -569,7 +569,8 @@ function aa_manual_admission_defaults(){
         "guardianrelationship" => "",
         "guardiancontact" => "",
         "medicalnotes" => "",
-        "studentnote" => ""
+        "studentnote" => "",
+        "record_payment" => "0"
     );
 }
 
@@ -588,6 +589,7 @@ $paymentSetting = online_admission_get_payment_setting($con, $branchId);
 $paystackConfig = online_admission_paystack_config();
 $paystackReady = online_admission_paystack_is_ready($paystackConfig);
 $isHeadmasterAdmissionViewer = function_exists('online_admission_is_headmaster') && online_admission_is_headmaster();
+$canPrintAdmissionLetter = online_admission_is_admin();
 
 if($isHeadmasterAdmissionViewer){
     $headmasterBlockedAction = ($_SERVER["REQUEST_METHOD"] === "POST")
@@ -716,6 +718,7 @@ if(isset($_POST["save_manual_admission"])){
     foreach($manualAdmissionForm as $key => $value){
         $manualAdmissionForm[$key] = trim((string)(isset($_POST[$key]) ? $_POST[$key] : ""));
     }
+    $manualAdmissionForm["record_payment"] = isset($_POST["record_payment"]) ? "1" : "0";
     $manualAdmissionForm["beceindexnumber"] = online_admission_normalize_bece($manualAdmissionForm["beceindexnumber"]);
     $birthdate = online_admission_normalize_date($manualAdmissionForm["birthdate"]);
     $errors = array();
@@ -743,6 +746,17 @@ if(isset($_POST["save_manual_admission"])){
     }
     if($manualAdmissionForm["email"] !== "" && !filter_var($manualAdmissionForm["email"], FILTER_VALIDATE_EMAIL)){
         $errors[] = "Please enter a valid email address.";
+    }
+    if($manualAdmissionForm["record_payment"] === "1"){
+        if((int)$paymentSetting["enabled"] !== 1){
+            $errors[] = "Enable online admission payment before creating a payment request.";
+        }
+        if((float)$paymentSetting["feeamount"] <= 0){
+            $errors[] = "Set the admission fee amount before creating a payment request.";
+        }
+        if(!$paystackReady){
+            $errors[] = "Paystack is not ready. Add the Paystack keys before creating a payment request.";
+        }
     }
 
     $uploadedImageName = "";
@@ -880,12 +894,43 @@ if(isset($_POST["save_manual_admission"])){
                     if($savedApplicationQuery){
                         $savedApplication = online_admission_get_application_by_id($con, $applicationId);
                         $savedApplication = online_admission_ensure_application_token($con, $savedApplication);
-                        $assignedHouse = $savedApplication ? online_admission_assign_house_for_application($con, $savedApplication, $postedStudent) : null;
+                        $paymentAlertType = "success";
+                        $paymentMessage = "";
+                        if($manualAdmissionForm["record_payment"] === "1" && $savedApplication){
+                            $existingSuccessfulPayment = online_admission_get_successful_payment_by_application($con, $applicationId);
+                            if($existingSuccessfulPayment){
+                                $paymentMessage = " Payment was already recorded for this admission.";
+                            }else{
+                                $paymentError = "";
+                                $paymentRequest = online_admission_start_paystack_payment($con, $savedApplication, $postedStudent, $paymentSetting, $paymentError);
+                                if($paymentRequest){
+                                    $requestedPayment = isset($paymentRequest["payment"]) && is_array($paymentRequest["payment"]) ? $paymentRequest["payment"] : array();
+                                    $paymentReference = trim((string)(isset($requestedPayment["reference"]) ? $requestedPayment["reference"] : ""));
+                                    $paymentLink = trim((string)(isset($paymentRequest["authorizationurl"]) ? $paymentRequest["authorizationurl"] : ""));
+                                    $paymentMessage = !empty($paymentRequest["already_initialized"])
+                                        ? " Existing Paystack payment link is ready."
+                                        : " Paystack payment link created.";
+                                    if($paymentReference !== ""){
+                                        $paymentMessage .= " Reference: ".$paymentReference.".";
+                                    }
+                                    if($paymentLink !== ""){
+                                        $paymentMessage .= " Link: ".$paymentLink;
+                                    }
+                                }else{
+                                    $paymentAlertType = "warning";
+                                    $paymentMessage = " The admission was saved, but Paystack could not start payment".($paymentError !== "" ? ": ".$paymentError : ".");
+                                }
+                            }
+                        }
+                        $automationSummary = $savedApplication ? online_admission_prepare_manual_admission_assets($con, $savedApplication, $postedStudent) : array("house" => null, "document_count" => 0);
+                        $assignedHouse = isset($automationSummary["house"]) ? $automationSummary["house"] : null;
                         $token = $savedApplication ? trim((string)$savedApplication["verificationtoken"]) : "";
                         $houseMessage = ($assignedHouse && trim((string)$assignedHouse["housename"]) !== "") ? " Auto house: ".$assignedHouse["housename"]."." : "";
+                        $documentCount = (int)(isset($automationSummary["document_count"]) ? $automationSummary["document_count"] : 0);
+                        $documentMessage = $documentCount > 0 ? " Documents prepared: ".$documentCount."." : "";
                         $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert(
-                            "success",
-                            "Manual admission saved successfully.".($token !== "" ? " Resume token: ".$token."." : "").$houseMessage
+                            $paymentAlertType,
+                            "Manual admission saved successfully.".($token !== "" ? " Resume token: ".$token."." : "").$paymentMessage.$houseMessage.$documentMessage
                         );
                         header("location:online-admission-admin.php?edit_application=".rawurlencode($applicationId)."#edit-application");
                         exit();
@@ -1287,6 +1332,33 @@ if(isset($_POST["update_application_status"])){
     }
 }
 
+if(isset($_POST["post_single_admission"]) || isset($_POST["post_reviewed_admissions"])){
+    $recordedBy = isset($_SESSION["USERID"]) ? (string)$_SESSION["USERID"] : "";
+
+    if(!$canPrintAdmissionLetter){
+        $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("warning", "Only administrators can post online admissions into student records.");
+    }elseif(isset($_POST["post_single_admission"])){
+        $applicationId = trim((string)(isset($_POST["applicationid"]) ? $_POST["applicationid"] : ""));
+        $postResult = online_admission_post_application_to_student_records($con, $applicationId, $branchId, "", "", "", $recordedBy);
+        $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = $postResult["success"]
+            ? aa_alert("success", $postResult["message"]." Student ID: ".$postResult["studentid"].".")
+            : aa_alert("warning", $postResult["message"]);
+    }else{
+        $bulkResult = online_admission_post_reviewed_applications($con, $branchId, "", "", "", $recordedBy);
+        $bulkMessage = $bulkResult["success"]." admission".($bulkResult["success"] === 1 ? "" : "s")." posted to student records.";
+        if($bulkResult["failed"] > 0){
+            $bulkMessage .= " ".$bulkResult["failed"]." could not be posted.";
+        }
+        if(!empty($bulkResult["messages"])){
+            $bulkMessage .= " ".implode(" ", $bulkResult["messages"]);
+        }
+        $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert($bulkResult["success"] > 0 ? "success" : "warning", $bulkMessage);
+    }
+
+    header("location:".aa_admin_url(array(), isset($_POST["post_single_admission"]) ? "#applications" : "#student-record-posting"));
+    exit();
+}
+
 if(isset($_POST["save_help_request_status"])){
     $requestId = trim((string)(isset($_POST["requestid"]) ? $_POST["requestid"] : ""));
     $status = trim((string)(isset($_POST["help_status"]) ? $_POST["help_status"] : "open"));
@@ -1318,13 +1390,14 @@ if(isset($_POST["clear_admission_year"])){
     }
 }
 
-$stats = array("posted" => 0, "draft" => 0, "submitted" => 0, "reviewed" => 0, "needs_attention" => 0);
+$stats = array("posted" => 0, "draft" => 0, "submitted" => 0, "reviewed" => 0, "needs_attention" => 0, "linked" => 0);
 $statsRes = mysqli_query($con, "SELECT
     (SELECT COUNT(*) FROM tbladmissionpostedstudent WHERE branchid='$branchIdEsc' AND status='active') AS posted_total,
     SUM(CASE WHEN status='draft' THEN 1 ELSE 0 END) AS draft_total,
     SUM(CASE WHEN status='submitted' THEN 1 ELSE 0 END) AS submitted_total,
     SUM(CASE WHEN status='needs_attention' THEN 1 ELSE 0 END) AS needs_attention_total,
-    SUM(CASE WHEN status='reviewed' THEN 1 ELSE 0 END) AS reviewed_total
+    SUM(CASE WHEN status='reviewed' THEN 1 ELSE 0 END) AS reviewed_total,
+    SUM(CASE WHEN linkedstudentid IS NOT NULL AND linkedstudentid<>'' THEN 1 ELSE 0 END) AS linked_total
     FROM tblonlineadmissionapplication
     WHERE branchid='$branchIdEsc'");
 if($statsRes && ($row = mysqli_fetch_array($statsRes, MYSQLI_ASSOC))){
@@ -1333,6 +1406,7 @@ if($statsRes && ($row = mysqli_fetch_array($statsRes, MYSQLI_ASSOC))){
     $stats["submitted"] = (int)$row["submitted_total"];
     $stats["needs_attention"] = (int)$row["needs_attention_total"];
     $stats["reviewed"] = (int)$row["reviewed_total"];
+    $stats["linked"] = (int)$row["linked_total"];
 }
 
 $postedSearch = trim((string)(isset($_GET["posted_search"]) ? $_GET["posted_search"] : ""));
@@ -1396,26 +1470,26 @@ if($appSearch !== ""){
     $appSearchEsc = mysqli_real_escape_string($con, $appSearch);
     $appLikeEsc = "%".$appSearchEsc."%";
     $appSearchSql = " AND (
-        beceindexnumber LIKE '$appLikeEsc'
-        OR firstname LIKE '$appLikeEsc'
-        OR surname LIKE '$appLikeEsc'
-        OR othernames LIKE '$appLikeEsc'
-        OR CONCAT_WS(' ', firstname, othernames, surname) LIKE '$appLikeEsc'
-        OR CONCAT_WS(' ', surname, firstname, othernames) LIKE '$appLikeEsc'
-        OR mobile LIKE '$appLikeEsc'
-        OR guardianname LIKE '$appLikeEsc'
-        OR guardiancontact LIKE '$appLikeEsc'
-        OR residencetype LIKE '$appLikeEsc'
-        OR admissionyear LIKE '$appLikeEsc'
-        OR status LIKE '$appLikeEsc'
-        OR verificationtoken LIKE '$appLikeEsc'
+        app.beceindexnumber LIKE '$appLikeEsc'
+        OR app.firstname LIKE '$appLikeEsc'
+        OR app.surname LIKE '$appLikeEsc'
+        OR app.othernames LIKE '$appLikeEsc'
+        OR CONCAT_WS(' ', app.firstname, app.othernames, app.surname) LIKE '$appLikeEsc'
+        OR CONCAT_WS(' ', app.surname, app.firstname, app.othernames) LIKE '$appLikeEsc'
+        OR app.mobile LIKE '$appLikeEsc'
+        OR app.guardianname LIKE '$appLikeEsc'
+        OR app.guardiancontact LIKE '$appLikeEsc'
+        OR app.residencetype LIKE '$appLikeEsc'
+        OR app.admissionyear LIKE '$appLikeEsc'
+        OR app.status LIKE '$appLikeEsc'
+        OR app.verificationtoken LIKE '$appLikeEsc'
     )";
 }
 
 $applicationTotal = 0;
 $applicationCountRes = mysqli_query($con, "SELECT COUNT(*) AS total
-    FROM tblonlineadmissionapplication
-    WHERE branchid='$branchIdEsc'$appSearchSql");
+    FROM tblonlineadmissionapplication app
+    WHERE app.branchid='$branchIdEsc'$appSearchSql");
 if($applicationCountRes && ($row = mysqli_fetch_array($applicationCountRes, MYSQLI_ASSOC))){
     $applicationTotal = (int)$row["total"];
 }
@@ -1426,10 +1500,11 @@ if($appPage > $applicationTotalPages){
 $applicationOffset = ($appPage - 1) * $applicationsPerPage;
 
 $applications = array();
-$appRes = mysqli_query($con, "SELECT *
-    FROM tblonlineadmissionapplication
-    WHERE branchid='$branchIdEsc'$appSearchSql
-    ORDER BY updatedat DESC
+$appRes = mysqli_query($con, "SELECT app.*, post.offeredprogram, post.offeredclass, post.residentialstatus AS posted_residentialstatus
+    FROM tblonlineadmissionapplication app
+    LEFT JOIN tbladmissionpostedstudent post ON post.postingid=app.postingid
+    WHERE app.branchid='$branchIdEsc'$appSearchSql
+    ORDER BY app.updatedat DESC
     LIMIT $applicationOffset, $applicationsPerPage");
 if($appRes){ while($row = mysqli_fetch_array($appRes, MYSQLI_ASSOC)){ $applications[] = $row; } }
 $applicationAssignedHouseMap = array();
@@ -1509,6 +1584,24 @@ if($activeCycle === null && count($cycleSummaries) > 0){
 $documentYear = trim((string)(isset($_GET["document_year"]) ? $_GET["document_year"] : ($activeCycle ? $activeCycle["admissionyear"] : date("Y"))));
 if($documentYear === ""){
     $documentYear = date("Y");
+}
+$readyToPostCount = 0;
+$readyToPostRes = mysqli_query($con, "SELECT COUNT(*) AS total
+    FROM tblonlineadmissionapplication
+    WHERE branchid='$branchIdEsc'
+      AND status='reviewed'
+      AND (linkedstudentid IS NULL OR linkedstudentid='')");
+if($readyToPostRes && ($readyToPostRow = mysqli_fetch_array($readyToPostRes, MYSQLI_ASSOC))){
+    $readyToPostCount = (int)$readyToPostRow["total"];
+}
+$submittedToReviewCount = 0;
+$submittedToReviewRes = mysqli_query($con, "SELECT COUNT(*) AS total
+    FROM tblonlineadmissionapplication
+    WHERE branchid='$branchIdEsc'
+      AND status='submitted'
+      AND (linkedstudentid IS NULL OR linkedstudentid='')");
+if($submittedToReviewRes && ($submittedToReviewRow = mysqli_fetch_array($submittedToReviewRes, MYSQLI_ASSOC))){
+    $submittedToReviewCount = (int)$submittedToReviewRow["total"];
 }
 $documentLibrary = online_admission_list_documents($con, $branchId, $documentYear);
 $studentHouses = array();
@@ -2050,6 +2143,7 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
     <nav class="aa-quick-links" aria-label="Admission admin quick links">
         <a href="#portal-entry" class="aa-quick-link"><i class="fa fa-globe"></i> Portal</a>
         <a href="#posted-student-setup" class="aa-quick-link"><i class="fa fa-user-plus"></i> Add Student</a>
+        <a href="#student-record-posting" class="aa-quick-link"><i class="fa fa-check-square-o"></i> Post Records</a>
         <a href="#admission-settings-panel" class="aa-quick-link"><i class="fa fa-sliders"></i> Settings</a>
         <a href="#applications" class="aa-quick-link"><i class="fa fa-files-o"></i> Applications</a>
         <a href="#admission-payments" class="aa-quick-link"><i class="fa fa-money"></i> Payments</a>
@@ -2178,6 +2272,30 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                         <div class="rs-field"><label for="medicalnotes">Medical Notes</label><textarea id="medicalnotes" name="medicalnotes" rows="3"><?php echo aa_esc($manualAdmissionForm["medicalnotes"]); ?></textarea></div>
                         <div class="rs-field"><label for="studentnote">Student Note</label><textarea id="studentnote" name="studentnote" rows="3"><?php echo aa_esc($manualAdmissionForm["studentnote"]); ?></textarea></div>
                     </div>
+                </section>
+
+                <section class="rs-section aa-manual-payment-card">
+                    <div class="aa-editor-head">
+                        <div>
+                            <span class="rs-kicker rs-kicker--dark">Payment</span>
+                            <h3>Optional Paystack Payment</h3>
+                        </div>
+                    </div>
+                    <label class="aa-payment-toggle">
+                        <input type="checkbox" name="record_payment" value="1"<?php echo $manualAdmissionForm["record_payment"] === "1" ? " checked" : ""; ?>>
+                        <span>Create a Paystack payment link for this student</span>
+                    </label>
+                    <div class="aa-manual-payment-summary">
+                        <article>
+                            <span>Admission Fee</span>
+                            <strong><?php echo aa_esc((int)$paymentSetting["enabled"] === 1 && (float)$paymentSetting["feeamount"] > 0 ? aa_money($paymentSetting["feeamount"], $paymentSetting["currency"]) : "Not configured"); ?></strong>
+                        </article>
+                        <article>
+                            <span>Gateway</span>
+                            <strong><?php echo $paystackReady ? "Paystack Ready" : "Paystack Not Ready"; ?></strong>
+                        </article>
+                    </div>
+                    <p class="aa-payment-help">Leave the checkbox unticked if you only want to save the admission. When ticked, the system creates an awaiting-payment Paystack checkout link using the configured admission fee; payment becomes confirmed only after Paystack verifies it.</p>
                 </section>
 
                 <div class="rs-form-foot">
@@ -2362,7 +2480,7 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                     <h2>Admission Documents</h2>
                     <span class="aa-section-chip aa-section-chip--neutral"><?php echo number_format(count($documentLibrary)); ?> Files</span>
                 </div>
-                <p class="aa-copy">Upload general documents for all applicants, or upload a prospectus targeted to <strong>Male Boarding</strong>, <strong>Female Boarding</strong>, <strong>Male Day</strong>, or <strong>Female Day</strong>. Students only see the downloads that match their record. If you upload one titled <strong>Admission Letter</strong>, that signed file becomes their main admission letter download.</p>
+                <p class="aa-copy">Upload general documents for all applicants, or upload a prospectus targeted to <strong>Male Boarding</strong>, <strong>Female Boarding</strong>, <strong>Male Day</strong>, or <strong>Female Day</strong>. Students only see the downloads that match their record. Admission letters are withheld from the student portal and printed from the school side when students report.</p>
                 <form method="get" action="online-admission-admin.php#admission-documents" class="aa-document-year-form">
                     <div class="rs-field">
                         <label for="document_year">Admission Year</label>
@@ -2654,6 +2772,12 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
             </div>
             <div class="aa-editor-top-actions">
                 <span class="<?php echo aa_status_class($editableApplicationForm["status"]); ?>"><?php echo aa_esc(online_admission_status_label($editableApplicationForm["status"])); ?></span>
+                <?php if($canPrintAdmissionLetter && online_admission_application_is_submitted($editableApplication)){ ?>
+                <a href="online-admission-letter.php?applicationid=<?php echo aa_esc($editableApplication["applicationid"]); ?>" class="aa-link aa-link--ghost aa-editor-close" target="_blank" rel="noopener"><i class="fa fa-print"></i> Print Admission Letter</a>
+                <?php } ?>
+                <?php if($editablePayment && strtolower(trim((string)$editablePayment["status"])) === "initialized" && trim((string)$editablePayment["authorizationurl"]) !== ""){ ?>
+                <a href="<?php echo aa_esc($editablePayment["authorizationurl"]); ?>" class="aa-link aa-link--ghost aa-editor-close" target="_blank" rel="noopener"><i class="fa fa-credit-card"></i> Open Paystack Link</a>
+                <?php } ?>
                 <a href="online-admission-admin.php#applications" class="aa-link aa-link--ghost aa-editor-close aa-editor-close--header"><i class="fa fa-times"></i> Close Editor</a>
             </div>
         </div>
@@ -2779,6 +2903,45 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
     </section>
     <?php } ?>
 
+    <section class="rs-panel aa-section aa-accordion-section" id="student-record-posting" data-accordion-group="records">
+        <div class="rs-side-head">
+            <div>
+                <span class="rs-kicker rs-kicker--dark">Student Records</span>
+                <h2>Post Online Admissions</h2>
+                <p class="aa-copy">Move reviewed online admission forms into the main student records. Class and semester registration will still be done later through the normal placement flow when the student reports to campus.</p>
+            </div>
+            <span class="aa-section-chip aa-section-chip--success"><?php echo number_format($readyToPostCount); ?> Ready</span>
+        </div>
+
+        <div class="aa-posting-overview">
+            <article>
+                <span>Already In Student Records</span>
+                <strong><?php echo number_format($stats["linked"]); ?></strong>
+            </article>
+            <article>
+                <span>Reviewed And Unposted</span>
+                <strong><?php echo number_format($readyToPostCount); ?></strong>
+            </article>
+            <article>
+                <span>Waiting For Review</span>
+                <strong><?php echo number_format($submittedToReviewCount); ?></strong>
+            </article>
+            <article>
+                <span>Class Placement</span>
+                <strong>Done Later</strong>
+            </article>
+        </div>
+
+        <div class="aa-posting-actions">
+            <form method="post" action="online-admission-admin.php#student-record-posting" onsubmit="return confirm('Post all reviewed and unposted online admissions into student records? Class placement will be done later.');">
+                <button type="submit" name="post_reviewed_admissions" class="aa-button aa-button--success">
+                    <i class="fa fa-database"></i> Post Reviewed Admissions
+                </button>
+            </form>
+            <p><?php echo $readyToPostCount > 0 ? "Only reviewed, paid/eligible, unposted admissions will be posted. Class and semester records are not created here; assign the class later from the normal student registration flow." : "There are no reviewed admissions ready to post yet. Mark submitted applications as Reviewed under Admission Submissions first, then return here to post them."; ?></p>
+        </div>
+    </section>
+
     <section class="rs-panel aa-section aa-accordion-section is-collapsed" id="applications" data-accordion-group="records">
         <div class="rs-side-head">
             <span class="rs-kicker rs-kicker--dark">Applications</span>
@@ -2799,21 +2962,26 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
             <p class="aa-search-meta"><?php echo $appSearch !== "" ? "Showing page ".number_format($appPage)." of ".number_format($applicationTotalPages)." for ".number_format($applicationTotal)." match(es) for \"".aa_esc($appSearch)."\"." : "Showing page ".number_format($appPage)." of ".number_format($applicationTotalPages)." from ".number_format($applicationTotal)." application record(s)."; ?></p>
         </div>
         <div class="aa-app-list">
-            <?php if(count($applications) > 0){ foreach($applications as $app){ $appPayment = isset($applicationPaymentMap[$app["applicationid"]]) ? $applicationPaymentMap[$app["applicationid"]] : null; ?>
+            <?php if(count($applications) > 0){ foreach($applications as $app){ $appPayment = isset($applicationPaymentMap[$app["applicationid"]]) ? $applicationPaymentMap[$app["applicationid"]] : null; $appLinkedStudentId = trim((string)(isset($app["linkedstudentid"]) ? $app["linkedstudentid"] : "")); $appPhotoSrc = online_admission_photo_src(isset($app["filename"]) ? $app["filename"] : ""); ?>
             <article class="aa-app-card">
                 <div class="aa-app-card__top">
-                    <div>
-                        <h3><?php echo aa_esc(trim($app["firstname"]." ".$app["othernames"]." ".$app["surname"])); ?></h3>
-                        <p><?php echo aa_esc($app["beceindexnumber"]); ?> · <?php echo aa_esc($app["admissionyear"]); ?></p>
+                    <div class="aa-app-card__identity">
+                        <img src="<?php echo aa_esc($appPhotoSrc); ?>" alt="<?php echo aa_esc(trim($app["firstname"]." ".$app["surname"])); ?>">
+                        <div>
+                            <h3><?php echo aa_esc(trim($app["firstname"]." ".$app["othernames"]." ".$app["surname"])); ?></h3>
+                            <p><?php echo aa_esc($app["beceindexnumber"]); ?> · <?php echo aa_esc($app["admissionyear"]); ?></p>
+                        </div>
                     </div>
                     <span class="<?php echo aa_status_class($app["status"]); ?>"><?php echo aa_esc(online_admission_status_label($app["status"])); ?></span>
                 </div>
                 <div class="aa-app-card__meta">
                     <span><?php echo aa_esc($app["residencetype"] !== "" ? $app["residencetype"] : "Residence pending"); ?></span>
+                    <?php if(trim((string)(isset($app["offeredclass"]) ? $app["offeredclass"] : "")) !== ""){ ?><span>Class: <?php echo aa_esc($app["offeredclass"]); ?></span><?php } ?>
                     <?php if(isset($applicationAssignedHouseMap[$app["applicationid"]]) && $applicationAssignedHouseMap[$app["applicationid"]] && trim((string)$applicationAssignedHouseMap[$app["applicationid"]]["housename"]) !== ""){ ?><span>House: <?php echo aa_esc($applicationAssignedHouseMap[$app["applicationid"]]["housename"]); ?></span><?php } ?>
                     <span><?php echo aa_esc($app["guardianname"] !== "" ? $app["guardianname"] : "Guardian pending"); ?></span>
                     <span><?php echo aa_esc($app["mobile"] !== "" ? $app["mobile"] : "Mobile pending"); ?></span>
                     <?php if(trim((string)$app["verificationtoken"]) !== ""){ ?><span>Token: <?php echo aa_esc($app["verificationtoken"]); ?></span><?php } ?>
+                    <?php if($appLinkedStudentId !== ""){ ?><span class="aa-status aa-status--success">Student ID: <?php echo aa_esc($appLinkedStudentId); ?></span><?php } ?>
                     <?php if($appPayment && trim((string)$appPayment["admissioncode"]) !== ""){ ?><span>Internal Code: <?php echo aa_esc($appPayment["admissioncode"]); ?></span><?php } ?>
                     <span class="<?php echo $appPayment ? aa_payment_status_class($appPayment["status"]) : "aa-status aa-status--neutral"; ?>"><?php echo aa_esc($appPayment ? online_admission_payment_status_label($appPayment["status"]) : "Payment not started"); ?></span>
                     <span><?php echo aa_esc(aa_date($app["updatedat"], "d M Y, g:i a")); ?></span>
@@ -2832,6 +3000,20 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                 </form>
                 <div class="aa-app-card__actions">
                     <a href="online-admission-admin.php?edit_application=<?php echo aa_esc($app["applicationid"]); ?>#edit-application" class="aa-link aa-link--ghost aa-app-link"><i class="fa fa-pencil"></i> View / Edit Form</a>
+                    <?php if($appPayment && strtolower(trim((string)$appPayment["status"])) === "initialized" && trim((string)$appPayment["authorizationurl"]) !== ""){ ?>
+                    <a href="<?php echo aa_esc($appPayment["authorizationurl"]); ?>" class="aa-link aa-link--ghost aa-app-link" target="_blank" rel="noopener"><i class="fa fa-credit-card"></i> Open Paystack Link</a>
+                    <?php } ?>
+                    <?php if($canPrintAdmissionLetter && online_admission_application_is_submitted($app)){ ?>
+                    <a href="online-admission-letter.php?applicationid=<?php echo aa_esc($app["applicationid"]); ?>" class="aa-link aa-link--ghost aa-app-link" target="_blank" rel="noopener"><i class="fa fa-print"></i> Print Admission Letter</a>
+                    <?php } ?>
+                    <?php if($canPrintAdmissionLetter && $appLinkedStudentId === "" && strtolower(trim((string)$app["status"])) === "reviewed"){ ?>
+                    <form method="post" action="online-admission-admin.php#applications" class="aa-inline-post-form" onsubmit="return confirm('Post this admission into student records?');">
+                        <input type="hidden" name="applicationid" value="<?php echo aa_esc($app["applicationid"]); ?>">
+                        <button type="submit" name="post_single_admission" class="aa-button aa-button--success"><i class="fa fa-database"></i> Post Student</button>
+                    </form>
+                    <?php }elseif($appLinkedStudentId !== ""){ ?>
+                    <a href="student-history.php?studentid=<?php echo aa_esc($appLinkedStudentId); ?>" class="aa-link aa-link--ghost aa-app-link"><i class="fa fa-user"></i> Open Student Record</a>
+                    <?php } ?>
                 </div>
             </article>
             <?php } } else { ?>
@@ -2936,7 +3118,10 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                         <td><span class="<?php echo aa_payment_status_class($payment["status"]); ?>"><?php echo aa_esc(online_admission_payment_status_label($payment["status"])); ?></span></td>
                         <td><?php echo aa_esc(aa_date($payment["createdat"], "d M Y, g:i a")); ?></td>
                         <td><?php echo aa_esc($payment["paidat"] !== "" ? aa_date($payment["paidat"], "d M Y, g:i a") : "Not paid"); ?></td>
-                        <td><?php if(trim((string)$payment["applicationid"]) !== ""){ ?><a href="online-admission-admin.php?edit_application=<?php echo aa_esc($payment["applicationid"]); ?>#edit-application" class="aa-link aa-link--ghost aa-app-link">Open Form</a><?php }else{ ?>Form not started<?php } ?></td>
+                        <td>
+                            <?php if(trim((string)$payment["applicationid"]) !== ""){ ?><a href="online-admission-admin.php?edit_application=<?php echo aa_esc($payment["applicationid"]); ?>#edit-application" class="aa-link aa-link--ghost aa-app-link">Open Form</a><?php }else{ ?>Form not started<?php } ?>
+                            <?php if(strtolower(trim((string)$payment["status"])) === "initialized" && trim((string)$payment["authorizationurl"]) !== ""){ ?><a href="<?php echo aa_esc($payment["authorizationurl"]); ?>" class="aa-link aa-link--ghost aa-app-link" target="_blank" rel="noopener">Paystack Link</a><?php } ?>
+                        </td>
                     </tr>
                     <?php } } else { ?>
                     <tr><td colspan="8">No admission payment attempts have been recorded yet.</td></tr>
