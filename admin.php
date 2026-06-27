@@ -55,7 +55,9 @@ function admin_dashboard_action_label($actionType){
         "RESULT_PUBLISH" => "Results Published",
         "RESULT_APPROVAL" => "Results Approved",
         "RESULT_REOPEN" => "Results Reopened",
-        "MARK_DELETE" => "Mark Deleted"
+        "MARK_DELETE" => "Mark Deleted",
+        "ONLINE_ADMISSION_SUBMITTED" => "Online Admission Submitted",
+        "ONLINE_ADMISSION_HELP_REQUEST" => "Online Admission Help Request"
     );
     if(isset($map[$actionType])){
         return $map[$actionType];
@@ -82,6 +84,9 @@ function admin_dashboard_activity_icon($actionType, $source = "log"){
     if(strpos($actionType, "RESULT") !== false){
         return "fa-file-text-o";
     }
+    if(strpos($actionType, "ADMISSION") !== false){
+        return "fa-file-text";
+    }
     if(strpos($actionType, "DELETE") !== false){
         return "fa-trash-o";
     }
@@ -103,6 +108,9 @@ function admin_dashboard_activity_tone($actionType, $source = "log"){
     }
     if(strpos($actionType, "RESULT") !== false){
         return "success";
+    }
+    if(strpos($actionType, "ADMISSION") !== false){
+        return "accent";
     }
     if(strpos($actionType, "DELETE") !== false){
         return "danger";
@@ -1531,6 +1539,24 @@ include("links.php");
     color: #3730a3;
 }
 
+.system-change-action-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 8px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    background: #ecfeff;
+    color: #0f766e;
+    font-weight: 900;
+    text-decoration: none;
+}
+
+.system-change-action-link:hover {
+    background: #ccfbf1;
+    color: #115e59;
+}
+
 .system-change-empty {
     padding: 28px !important;
     color: #64748b !important;
@@ -2232,9 +2258,16 @@ include("links.php");
                                 }
                                 $_TargetUserId = trim((string)$row_log_activity['target_userid']);
                                 $_PageName = trim((string)$row_log_activity['page_name']);
+                                $_ActionType = trim((string)$row_log_activity['action_type']);
                                 $_Link = '';
                                 $_LinkLabel = '';
-                                if($_TargetUserId !== ''){
+                                if(strtoupper($_ActionType) === 'ONLINE_ADMISSION_SUBMITTED' && $_TargetUserId !== ''){
+                                    $_Link = 'online-admission-admin.php?edit_application='.urlencode($_TargetUserId).'#edit-application';
+                                    $_LinkLabel = 'Review Admission';
+                                } elseif(strtoupper($_ActionType) === 'ONLINE_ADMISSION_HELP_REQUEST'){
+                                    $_Link = 'online-admission-admin.php#help-requests';
+                                    $_LinkLabel = 'Open Help Requests';
+                                } elseif($_TargetUserId !== ''){
                                     $_Link = 'register_edit.php?edit_user='.urlencode($_TargetUserId);
                                     $_LinkLabel = 'Open Record';
                                 } elseif($_PageName !== '' && preg_match('/^[A-Za-z0-9._-]+\.php$/', $_PageName) && is_file(__DIR__.DIRECTORY_SEPARATOR.$_PageName)){
@@ -2245,7 +2278,6 @@ include("links.php");
                                 $_ActorName = trim((string)$row_log_activity['actor_name']);
                                 $_ActorUserId = trim((string)$row_log_activity['actor_userid']);
                                 $_ActorLabel = $_ActorName !== '' ? $_ActorName : ($_ActorUserId !== '' ? $_ActorUserId : 'System');
-                                $_ActionType = trim((string)$row_log_activity['action_type']);
                                 $_RecentActivities[] = array(
                                     'timestamp' => $_Stamp,
                                     'datetime' => $_When,
@@ -2379,7 +2411,7 @@ include("links.php");
                                     <span class="system-change-icon"><i class="fa fa-bell"></i></span>
                                     <div>
                                         <h3>System Change Notifications</h3>
-                                        <p>Track teacher and student account changes in the audit view.</p>
+                                        <p>Track teacher/student changes and online admission submissions in the audit view.</p>
                                     </div>
                                 </div>
                                 <div class="system-change-actions">
@@ -2396,7 +2428,7 @@ include("links.php");
                             </div>
                             <div class="system-change-table-wrap">
                                 <table class="table system-change-table">
-                                    <caption>System Change Notifications (Teachers and Students)</caption>
+                                    <caption>System Change Notifications (Teachers, Students, and Admissions)</caption>
                                     <thead>
                                         <tr>
                                             <th scope="col">Date/Time</th>
@@ -2414,13 +2446,20 @@ include("links.php");
                                                 $_ChangeStatus = strtolower(trim((string)($row_log['status'] ?? 'read')));
                                                 $_RowClass = ($_ChangeStatus === 'unread') ? 'system-change-row-unread' : 'system-change-row-read';
                                                 $_StatusClass = ($_ChangeStatus === 'unread') ? 'system-change-pill-unread' : 'system-change-pill-read';
+                                                $_NotificationAction = '';
+                                                if(strtoupper(trim((string)$row_log['action_type'])) === 'ONLINE_ADMISSION_SUBMITTED' && trim((string)$row_log['target_userid']) !== ''){
+                                                    $_AdmissionReviewLink = 'online-admission-admin.php?edit_application='.urlencode(trim((string)$row_log['target_userid'])).'#edit-application';
+                                                    $_NotificationAction = "<br><a class='system-change-action-link' href='".admin_dashboard_safe($_AdmissionReviewLink)."'><i class='fa fa-arrow-right'></i> Review Admission</a>";
+                                                }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'ONLINE_ADMISSION_HELP_REQUEST'){
+                                                    $_NotificationAction = "<br><a class='system-change-action-link' href='online-admission-admin.php#help-requests'><i class='fa fa-arrow-right'></i> Open Help Requests</a>";
+                                                }
                                                 echo "<tr class='".$_RowClass."'>";
                                                 echo "<td>".htmlspecialchars($row_log['datetimeentry'])."</td>";
                                                 echo "<td><span class='system-change-actor'>".htmlspecialchars($row_log['actor_name'])."<small>".htmlspecialchars($row_log['actor_userid'])."</small></span></td>";
                                                 echo "<td><span class='system-change-pill system-change-role'>".htmlspecialchars($row_log['actor_type'])."</span></td>";
                                                 echo "<td>".htmlspecialchars($row_log['action_type'])."</td>";
                                                 echo "<td><span class='system-change-pill ".$_StatusClass."'>".htmlspecialchars($row_log['status'])."</span></td>";
-                                                echo "<td>".htmlspecialchars($row_log['details'])."</td>";
+                                                echo "<td>".htmlspecialchars($row_log['details']).$_NotificationAction."</td>";
                                                 echo "</tr>";
                                             }
                                         } else {

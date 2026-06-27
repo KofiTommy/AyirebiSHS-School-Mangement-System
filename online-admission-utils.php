@@ -557,24 +557,21 @@ function online_admission_house_is_removed_from_auto_assignment($house){
     }
 
     $houseName = strtolower(trim((string)(isset($house["housename"]) ? $house["housename"] : "")));
-    if($houseName === ""){
+    $description = strtolower(trim((string)(isset($house["description"]) ? $house["description"] : "")));
+    if($houseName === "" && $description === ""){
         return false;
     }
 
-    $normalizedName = preg_replace('/[^a-z0-9]+/', ' ', $houseName);
-    $normalizedName = trim((string)preg_replace('/\s+/', ' ', (string)$normalizedName));
-    $isHouseFive = strpos($normalizedName, 'house 5') !== false || strpos($normalizedName, 'house five') !== false;
-    if(!$isHouseFive || strpos($normalizedName, 'day') === false){
+    $source = trim($houseName." ".$description." ".strtolower((string)(isset($house["housegender"]) ? $house["housegender"] : ""))." ".strtolower((string)(isset($house["houseresidencetype"]) ? $house["houseresidencetype"] : "")));
+    $normalizedSource = preg_replace('/[^a-z0-9]+/', ' ', $source);
+    $normalizedSource = trim((string)preg_replace('/\s+/', ' ', (string)$normalizedSource));
+    $isHouseFive = strpos($normalizedSource, 'house 5') !== false || strpos($normalizedSource, 'house five') !== false;
+    if(!$isHouseFive){
         return false;
     }
 
-    $gender = house_master_normalize_gender_label(isset($house["housegender"]) ? $house["housegender"] : "");
-    $residence = house_master_normalize_residence_label(isset($house["houseresidencetype"]) ? $house["houseresidencetype"] : "");
-    if($residence !== "Day"){
-        return false;
-    }
-
-    return $gender === "Male" || $gender === "Female";
+    // The school has dissolved House 5 boys/girls for new admission auto-placement.
+    return true;
 }
 }
 
@@ -620,20 +617,38 @@ function online_admission_find_best_house($con, $branchId, $gender, $residence, 
     }
 
     $houses = array();
-    $res = mysqli_query($con, "SELECT * FROM tblhouse
-        WHERE status='active'
-          AND autoassignenabled=1
-        ORDER BY housename ASC");
-    if($res){
-        while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
-            if(!house_master_house_profile_matches($row, $gender, $residence)){
-                continue;
+    for($attempt = 0; $attempt < 2; $attempt++){
+        $allowGenderFallback = ($attempt === 1 && $residence === "Day");
+        $res = mysqli_query($con, "SELECT * FROM tblhouse
+            WHERE status='active'
+              AND autoassignenabled=1
+            ORDER BY housename ASC");
+        if($res){
+            while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+                if(online_admission_house_is_removed_from_auto_assignment($row)){
+                    continue;
+                }
+                $matches = house_master_house_profile_matches($row, $gender, $residence);
+                if(!$matches && $allowGenderFallback){
+                    $houseGender = house_master_normalize_gender_label(isset($row["housegender"]) ? $row["housegender"] : "");
+                    if($houseGender === ""){
+                        $guessed = house_master_guess_house_profile(
+                            isset($row["housename"]) ? $row["housename"] : "",
+                            isset($row["description"]) ? $row["description"] : ""
+                        );
+                        $houseGender = house_master_normalize_gender_label($guessed["housegender"]);
+                    }
+                    $matches = $houseGender !== "" && $houseGender === $gender;
+                }
+                if(!$matches){
+                    continue;
+                }
+                $row["_load"] = online_admission_house_load_total($con, $row["houseid"], $branchId, $admissionYear, $excludeApplicationId);
+                $houses[] = $row;
             }
-            if(online_admission_house_is_removed_from_auto_assignment($row)){
-                continue;
-            }
-            $row["_load"] = online_admission_house_load_total($con, $row["houseid"], $branchId, $admissionYear, $excludeApplicationId);
-            $houses[] = $row;
+        }
+        if(!empty($houses) || $residence !== "Day"){
+            break;
         }
     }
     if(empty($houses)){
@@ -2213,6 +2228,101 @@ function online_admission_prepare_manual_admission_assets($con, $application, $p
     }
 
     return $summary;
+}
+}
+
+if(!function_exists('online_admission_log_submission_notification')){
+function online_admission_log_submission_notification($con, $application, $postedStudent = null){
+    if(!$con || !is_array($application) || empty($application)){
+        return false;
+    }
+    $applicationId = trim((string)(isset($application["applicationid"]) ? $application["applicationid"] : ""));
+    if($applicationId === ""){
+        return false;
+    }
+    if(!$postedStudent && trim((string)(isset($application["postingid"]) ? $application["postingid"] : "")) !== "" && trim((string)(isset($application["branchid"]) ? $application["branchid"] : "")) !== ""){
+        $postedStudent = online_admission_get_posted_student_by_id($con, $application["branchid"], $application["postingid"]);
+    }
+
+    include_once(__DIR__.DIRECTORY_SEPARATOR."audit_notifications.php");
+    if(function_exists("ensureSystemChangeLogTable")){
+        ensureSystemChangeLogTable($con);
+    }
+
+    $studentName = trim(online_admission_candidate_name($application));
+    if($studentName === "" && is_array($postedStudent)){
+        $studentName = trim((string)$postedStudent["firstname"]." ".(string)$postedStudent["othernames"]." ".(string)$postedStudent["surname"]);
+    }
+    if($studentName === ""){
+        $studentName = "Online admission applicant";
+    }
+
+    $beceIndex = trim((string)(isset($application["beceindexnumber"]) ? $application["beceindexnumber"] : (is_array($postedStudent) && isset($postedStudent["beceindexnumber"]) ? $postedStudent["beceindexnumber"] : "")));
+    $admissionYear = trim((string)(isset($application["admissionyear"]) ? $application["admissionyear"] : (is_array($postedStudent) && isset($postedStudent["admissionyear"]) ? $postedStudent["admissionyear"] : "")));
+    $details = $studentName." submitted an online admission form";
+    if($beceIndex !== ""){
+        $details .= " (BECE: ".$beceIndex.")";
+    }
+    if($admissionYear !== ""){
+        $details .= " for ".$admissionYear;
+    }
+    $details .= ". Review the submitted documents and application details.";
+
+    $actorId = $beceIndex !== "" ? $beceIndex : $applicationId;
+    $actorNameEsc = mysqli_real_escape_string($con, $studentName);
+    $actorIdEsc = mysqli_real_escape_string($con, $actorId);
+    $applicationIdEsc = mysqli_real_escape_string($con, $applicationId);
+    $detailsEsc = mysqli_real_escape_string($con, $details);
+
+    return mysqli_query($con, "INSERT INTO tblsystemchangelog
+        (actor_userid, actor_name, actor_type, action_type, target_userid, details, page_name, ip_address, datetimeentry, status)
+        VALUES('$actorIdEsc', '$actorNameEsc', 'Student', 'ONLINE_ADMISSION_SUBMITTED', '$applicationIdEsc', '$detailsEsc', 'online-admission-admin.php', '', NOW(), 'unread')") ? true : false;
+}
+}
+
+if(!function_exists('online_admission_log_help_request_notification')){
+function online_admission_log_help_request_notification($con, $helpRequestId, $data = array()){
+    if(!$con || trim((string)$helpRequestId) === ""){
+        return false;
+    }
+
+    include_once(__DIR__.DIRECTORY_SEPARATOR."audit_notifications.php");
+    if(function_exists("ensureSystemChangeLogTable")){
+        ensureSystemChangeLogTable($con);
+    }
+
+    $studentName = trim((string)(isset($data["studentname"]) ? $data["studentname"] : ""));
+    if($studentName === ""){
+        $studentName = "Online admission applicant";
+    }
+    $beceIndex = trim((string)(isset($data["beceindexnumber"]) ? $data["beceindexnumber"] : ""));
+    $admissionYear = trim((string)(isset($data["admissionyear"]) ? $data["admissionyear"] : ""));
+    $contactPhone = trim((string)(isset($data["contactphone"]) ? $data["contactphone"] : ""));
+    $helpMessage = trim((string)(isset($data["helpmessage"]) ? $data["helpmessage"] : ""));
+
+    $details = $studentName." sent an online admission help request";
+    if($beceIndex !== ""){
+        $details .= " (BECE: ".$beceIndex.")";
+    }
+    if($admissionYear !== ""){
+        $details .= " for ".$admissionYear;
+    }
+    if($contactPhone !== ""){
+        $details .= ". Contact: ".$contactPhone;
+    }
+    if($helpMessage !== ""){
+        $details .= ". Message: ".substr($helpMessage, 0, 180);
+    }
+
+    $actorId = $beceIndex !== "" ? $beceIndex : trim((string)$helpRequestId);
+    $actorNameEsc = mysqli_real_escape_string($con, $studentName);
+    $actorIdEsc = mysqli_real_escape_string($con, $actorId);
+    $helpRequestIdEsc = mysqli_real_escape_string($con, trim((string)$helpRequestId));
+    $detailsEsc = mysqli_real_escape_string($con, $details);
+
+    return mysqli_query($con, "INSERT INTO tblsystemchangelog
+        (actor_userid, actor_name, actor_type, action_type, target_userid, details, page_name, ip_address, datetimeentry, status)
+        VALUES('$actorIdEsc', '$actorNameEsc', 'Student', 'ONLINE_ADMISSION_HELP_REQUEST', '$helpRequestIdEsc', '$detailsEsc', 'online-admission-admin.php', '', NOW(), 'unread')") ? true : false;
 }
 }
 

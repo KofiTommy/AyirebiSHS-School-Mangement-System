@@ -300,6 +300,13 @@ if(isset($_POST["submit_help_request"])){
                 "branchid" => $branchId
             ));
             if($savedHelp){
+                online_admission_log_help_request_notification($con, $savedHelp, array(
+                    "studentname" => $helpForm["studentname"],
+                    "contactphone" => $helpForm["contactphone"],
+                    "beceindexnumber" => $helpForm["beceindexnumber"],
+                    "admissionyear" => $helpForm["admissionyear"],
+                    "helpmessage" => $helpForm["helpmessage"]
+                ));
                 $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Your help request has been sent.");
                 header("location:online-admission.php#help-request");
                 exit();
@@ -445,6 +452,7 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
             if($isSubmit && $savedApplication){
                 $assignedHouse = online_admission_assign_house_for_application($con, $savedApplication, $postedStudent);
                 $savedApplication = online_admission_get_application_by_id($con, $applicationId);
+                online_admission_log_submission_notification($con, $savedApplication, $postedStudent);
             }
             if(!$paymentEnabled && !$isSubmit){
                 $resumeToken = $savedApplication ? trim((string)$savedApplication["verificationtoken"]) : "";
