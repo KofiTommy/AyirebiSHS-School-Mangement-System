@@ -93,7 +93,8 @@ function oa_clear_access_session(){
         $_SESSION["ONLINE_ADMISSION_POSTING_ID"],
         $_SESSION["ONLINE_ADMISSION_YEAR"],
         $_SESSION["ONLINE_ADMISSION_APPLICATION_ID"],
-        $_SESSION["ONLINE_ADMISSION_TOKEN_AUTH"]
+        $_SESSION["ONLINE_ADMISSION_TOKEN_AUTH"],
+        $_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"]
     );
 }
 function oa_clear_public_session(){
@@ -105,6 +106,7 @@ function oa_set_public_session($postedStudent, $application){
     $_SESSION["ONLINE_ADMISSION_YEAR"] = (string)$postedStudent["admissionyear"];
     $_SESSION["ONLINE_ADMISSION_APPLICATION_ID"] = (string)$application["applicationid"];
     $_SESSION["ONLINE_ADMISSION_TOKEN_AUTH"] = "1";
+    unset($_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"]);
 }
 
 $branchContext = online_admission_default_branch_context($con);
@@ -126,6 +128,7 @@ if(isset($_GET["logout_admission"])){
 }
 
 if(isset($_GET["payment_cancel"])){
+    unset($_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"]);
     $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("warning", "Payment was not completed. You can return and continue when you are ready.");
     header("location:online-admission.php");
     exit();
@@ -176,7 +179,8 @@ if(isset($_POST["verify_posting"]) && $branchId !== ""){
                 if($paymentEnabled && online_admission_payment_is_paid($successfulPayment)){
                     $application = online_admission_ensure_application_token($con, $application);
                     oa_clear_access_session();
-                    $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Payment already confirmed. Use token ".trim((string)$application["verificationtoken"])." to sign in.");
+                    $_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"] = "1";
+                    $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Payment already confirmed. Continue Admission is now available. Use token ".trim((string)$application["verificationtoken"])." to sign in.");
                 }else{
                     oa_set_public_session($postedStudent, $application);
                     if($paymentEnabled){
@@ -218,6 +222,7 @@ if(isset($_POST["continue_admission"]) && $branchId !== ""){
                 online_admission_attach_payments_to_application($con, $postedStudent["postingid"], $application["applicationid"]);
                 online_admission_mark_token_used($con, $application["applicationid"]);
                 oa_set_public_session($postedStudent, $application);
+                unset($_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"]);
                 $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", $paymentEnabled ? "Admission reopened." : "Draft reopened.");
                 header("location:online-admission.php");
                 exit();
@@ -496,8 +501,9 @@ $paymentRequiredStatus = online_admission_payment_required_status($paymentSettin
 $paymentAllowed = ($postedStudent && $application) ? online_admission_payment_open_for_student($postedStudent, $application, $paymentSetting) : false;
 $paymentPaid = online_admission_payment_is_paid($successfulPayment);
 $verificationToken = ($application && trim((string)$application["verificationtoken"]) !== "") ? trim((string)$application["verificationtoken"]) : "";
-$showResumeAccess = $paymentEnabled || $resumeRequested;
-$resumeOnlyMode = (!$postedStudent && $resumeRequested);
+$paymentContinueReady = isset($_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"]) && (string)$_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"] === "1";
+$showResumeAccess = $paymentEnabled ? ($paymentContinueReady || isset($_POST["continue_admission"])) : $resumeRequested;
+$resumeOnlyMode = (!$postedStudent && $showResumeAccess);
 $applicationStatusText = $application ? online_admission_status_label($application["status"]) : "Not started";
 $applicationStatusSummary = $application ? oa_status_summary($application["status"]) : "";
 $downloadUrl = ($application && $accessAuthorized) ? "online-admission-download.php" : "";
@@ -584,8 +590,8 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                 <span>3. Reopen admission</span>
                 <?php }elseif($paymentEnabled){ ?>
                 <span>1. Verify posting</span>
-                <span>2. Get token</span>
-                <span>3. Pay admission fee</span>
+                <span>2. Pay admission fee</span>
+                <span>3. Receive token</span>
                 <span>4. Fill and submit form</span>
                 <?php }else{ ?>
                 <span>1. Verify posting</span>
@@ -685,7 +691,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
             </div>
             <?php } ?>
         </div>
-        <?php }else{ ?>
+        <?php }elseif(!$paymentEnabled){ ?>
         <div class="oa-card">
             <div class="oa-section-head">
                 <h2>Have a Resume Token?</h2>

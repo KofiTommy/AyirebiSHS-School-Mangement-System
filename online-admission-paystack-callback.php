@@ -75,7 +75,8 @@ if($storedStatus === "success"){
         $smsNotice = " We could not send the SMS token right now, so please use the token shown here.";
     }
     unset($_SESSION["ONLINE_ADMISSION_POSTING_ID"], $_SESSION["ONLINE_ADMISSION_YEAR"], $_SESSION["ONLINE_ADMISSION_APPLICATION_ID"], $_SESSION["ONLINE_ADMISSION_TOKEN_AUTH"]);
-    $message = "Admission payment completed successfully. Log in again with your BECE index number, date of birth, and verification token to open the form.";
+    $_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"] = "1";
+    $message = "Admission payment completed successfully. Continue Admission is now available. Enter your BECE index number, date of birth, and verification token to open the form.";
     if($application && trim((string)$application["verificationtoken"]) !== ""){
         $message .= " Keep your verification token ".trim((string)$application["verificationtoken"])." safe.";
     }
