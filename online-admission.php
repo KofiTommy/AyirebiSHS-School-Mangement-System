@@ -502,7 +502,7 @@ $paymentAllowed = ($postedStudent && $application) ? online_admission_payment_op
 $paymentPaid = online_admission_payment_is_paid($successfulPayment);
 $verificationToken = ($application && trim((string)$application["verificationtoken"]) !== "") ? trim((string)$application["verificationtoken"]) : "";
 $paymentContinueReady = isset($_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"]) && (string)$_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"] === "1";
-$showResumeAccess = $paymentEnabled ? ($paymentContinueReady || isset($_POST["continue_admission"])) : $resumeRequested;
+$showResumeAccess = $paymentEnabled ? ($paymentContinueReady || $resumeRequested) : $resumeRequested;
 $resumeOnlyMode = (!$postedStudent && $showResumeAccess);
 $applicationStatusText = $application ? online_admission_status_label($application["status"]) : "Not started";
 $applicationStatusSummary = $application ? oa_status_summary($application["status"]) : "";
@@ -559,7 +559,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
 <link rel="stylesheet" type="text/css" href="css/online-admission.css">
 </head>
 <body class="online-admission-page">
-<div class="oa-shell">
+<div class="oa-shell" id="admission-top">
     <header class="oa-topbar">
         <div class="oa-brand">
             <div class="oa-brand__mark"><img src="images/nexgen-logo.png" alt="NexGen"></div>
@@ -570,24 +570,25 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
         </div>
         <div class="oa-topbar__actions">
             <a href="index.php" class="oa-top-link"><i class="fa fa-home"></i> Landing Page</a>
-            <a href="#help-request" class="oa-top-link oa-top-link--ghost"><i class="fa fa-life-ring"></i> Need Help?</a>
+            <a href="#help-request" class="oa-top-link oa-top-link--help"><i class="fa fa-life-ring"></i> Need Help?</a>
             <?php if($postedStudent){ ?><a href="online-admission.php?logout_admission=1" class="oa-top-link oa-top-link--ghost"><i class="fa fa-sign-out"></i> Log Out</a><?php } ?>
             <?php if($postedStudent){ ?><a href="online-admission.php?reset_admission=1" class="oa-top-link oa-top-link--ghost"><i class="fa fa-refresh"></i> Verify Another Student</a><?php } ?>
         </div>
     </header>
+    <a href="#help-request" class="oa-floating-help"><i class="fa fa-life-ring"></i> <span>Need Help?</span></a>
 
     <?php if($flashMessage !== ""){ ?><div class="oa-flash"><?php echo $flashMessage; ?></div><?php } ?>
 
     <section class="oa-hero">
         <div class="oa-hero__copy">
             <span class="oa-kicker"><i class="fa fa-graduation-cap"></i> Posted Students Portal</span>
-            <h1><?php echo oa_esc($resumeOnlyMode ? "Resume Admission" : "Online Admission"); ?></h1>
-            <p><?php echo oa_esc($resumeOnlyMode ? "Enter your details and token to continue." : ($paymentEnabled ? "Verify posting, pay, and complete the form." : "Verify posting and complete the form.")); ?></p>
+            <h1><?php echo oa_esc($resumeOnlyMode ? "Token Verification" : "Online Admission"); ?></h1>
+            <p><?php echo oa_esc($resumeOnlyMode ? "Enter the student's details and token to continue." : ($paymentEnabled ? "Verify posting, pay, and complete the form." : "Verify posting and complete the form.")); ?></p>
             <div class="oa-step-row">
                 <?php if($resumeOnlyMode){ ?>
-                <span>1. Enter your details</span>
-                <span>2. Confirm your token</span>
-                <span>3. Reopen admission</span>
+                <span>1. Enter student details</span>
+                <span>2. Enter token</span>
+                <span>3. Continue admission</span>
                 <?php }elseif($paymentEnabled){ ?>
                 <span>1. Verify posting</span>
                 <span>2. Pay admission fee</span>
@@ -662,7 +663,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
         <?php if($showResumeAccess){ ?>
         <div class="oa-card">
             <div class="oa-section-head">
-                <h2><?php echo oa_esc($paymentEnabled ? "Continue Admission" : "Resume Saved Admission"); ?></h2>
+                <h2><?php echo oa_esc($paymentEnabled ? "Enter Verification Token" : "Enter Resume Token"); ?></h2>
             </div>
             <form method="post" action="online-admission.php" class="oa-form oa-form--verify">
                 <div class="oa-field">
@@ -677,27 +678,27 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                     <label for="verificationtoken"><?php echo oa_esc($paymentEnabled ? "Verification Token" : "Resume Token"); ?></label>
                     <input type="text" id="verificationtoken" name="verificationtoken" value="<?php echo oa_esc($accessForm["verificationtoken"]); ?>" placeholder="<?php echo oa_esc($paymentEnabled ? "Enter your token" : "Enter your resume token"); ?>" required>
                 </div>
-                <button type="submit" name="continue_admission" class="oa-submit"><i class="fa fa-unlock-alt"></i> <?php echo oa_esc($paymentEnabled ? "Continue Admission" : "Resume Saved Admission"); ?></button>
+                <button type="submit" name="continue_admission" class="oa-submit"><i class="fa fa-unlock-alt"></i> <?php echo oa_esc($paymentEnabled ? "Verify Token and Continue" : "Verify Resume Token"); ?></button>
             </form>
             <div class="oa-step-guide oa-step-guide--compact">
                 <article>
-                    <strong>Returning Students</strong>
+                    <strong>Already Have a Token?</strong>
                     <span><?php echo oa_esc($paymentEnabled ? "Use the token issued after payment to reopen your admission form." : "Use your resume token to reopen and continue from where you stopped."); ?></span>
                 </article>
             </div>
             <?php if($resumeOnlyMode){ ?>
             <div class="oa-form-actions oa-form-actions--stacked">
-                <a href="online-admission.php" class="oa-secondary"><i class="fa fa-arrow-left"></i> First time here? Verify posting instead</a>
+                <a href="online-admission.php" class="oa-secondary"><i class="fa fa-arrow-left"></i> New applicant? Verify posting first</a>
             </div>
             <?php } ?>
         </div>
         <?php }elseif(!$paymentEnabled){ ?>
         <div class="oa-card">
             <div class="oa-section-head">
-                <h2>Have a Resume Token?</h2>
+                <h2>Already Have a Token?</h2>
             </div>
             <div class="oa-form-actions oa-form-actions--stacked">
-                <a href="online-admission.php?resume_admission=1" class="oa-secondary"><i class="fa fa-unlock-alt"></i> I Already Have a Resume Token</a>
+                <a href="online-admission.php?resume_admission=1" class="oa-secondary"><i class="fa fa-unlock-alt"></i> Enter Resume Token</a>
             </div>
         </div>
         <?php } ?>
@@ -1083,12 +1084,19 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
     </div>
     <?php } ?>
 
-    <section class="oa-card oa-card--stacked" id="help-request">
-        <div class="oa-section-head">
-            <h2>Need Help?</h2>
-            <p>Send a message to the admission admin.</p>
+    <section class="oa-card oa-card--stacked oa-help-card" id="help-request">
+        <div class="oa-help-card__intro">
+            <div>
+                <span class="oa-kicker oa-kicker--dark"><i class="fa fa-life-ring"></i> Admission Support</span>
+                <h2>Need Help?</h2>
+                <p>If you are stuck with verification, payment, token, or the admission form, send a message to the admission office.</p>
+            </div>
+            <div class="oa-help-card__actions">
+                <a href="#help-request" class="oa-submit"><i class="fa fa-comments"></i> Open Help Form</a>
+                <a href="#admission-top" class="oa-secondary oa-help-close"><i class="fa fa-times"></i> Hide Help</a>
+            </div>
         </div>
-        <form method="post" action="online-admission.php#help-request" class="oa-form oa-form--verify">
+        <form method="post" action="online-admission.php#help-request" class="oa-form oa-form--verify oa-help-form">
             <div class="oa-grid oa-grid--two">
                 <div class="oa-field">
                     <label for="help_studentname">Full Name</label>

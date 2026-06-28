@@ -311,7 +311,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
                             <i class="fa fa-arrow-right"></i> Start Online Admission
                         </a>
                         <a class="landing-admission-link landing-admission-link--ghost" href="online-admission.php?resume_admission=1">
-                            <i class="fa fa-unlock-alt"></i> Resume / Check Status
+                            <i class="fa fa-unlock-alt"></i> Continue With Token
                         </a>
                     </div>
                 </article>
