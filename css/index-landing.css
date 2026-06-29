@@ -876,18 +876,43 @@ body.landing-page::after {
     width: 100%;
     padding: 0 16px;
     border-radius: 16px;
-    background: #edf4fa;
-    border: 1px solid #d7e4f0;
-    color: #17314b;
+    background: linear-gradient(145deg, var(--landing-navy), #143f52);
+    border: 1px solid rgba(212, 153, 52, 0.34);
+    color: #fff;
     text-decoration: none;
     font-weight: 700;
-    transition: transform 0.22s ease, background 0.22s ease, border-color 0.22s ease;
+    box-shadow: 0 16px 28px rgba(16, 32, 58, 0.18);
+    transition: transform 0.22s ease, background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.landing-social-link i {
+    color: #f4c96f;
 }
 
 .landing-social-link--whatsapp {
-    background: linear-gradient(145deg, #1f9f5a, #128c7e);
-    border-color: rgba(18, 140, 126, 0.4);
-    color: #fff;
+    background: linear-gradient(145deg, #12324a, var(--landing-highlight));
+}
+
+.landing-social-link--facebook {
+    background: linear-gradient(145deg, var(--landing-navy), #244d68);
+}
+
+.landing-social-link--tiktok {
+    background: linear-gradient(145deg, #10203a, #7d5b24);
+}
+
+.landing-social-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--landing-accent), #f4d48a);
+    color: var(--landing-navy);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: -0.04em;
 }
 
 .landing-footer {

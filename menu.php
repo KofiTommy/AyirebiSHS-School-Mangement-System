@@ -1,8 +1,10 @@
 <?php
 include("check-login.php");
+include_once("student-chat-utils.php");
 $_ShowHouseMasterLinks = false;
 $_ShowSeniorHouseLinks = false;
 $_HomeLink = "index.php";
+$_StudentChatEnabledForMenu = student_chat_is_enabled($con);
 if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
    $_SESSION['ACCESSLEVEL'] === "user" &&
    $_SESSION['SYSTEMTYPE'] === "Teacher"){
@@ -343,6 +345,9 @@ elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 <a href="student-attendance-report.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> My Attendance</button></a>
 <a href="online-voting.php"><button><i class="fa fa-trophy" style="color:#d97706"></i> Online Voting</button></a>
 <a href="messages.php"><button><i class="fa fa-comments" style="color:#ea580c"></i> Message Box</button></a>
+<?php if($_StudentChatEnabledForMenu){ ?>
+<a href="student-chat.php"><button><i class="fa fa-user-plus" style="color:#0f766e"></i> Student Chat</button></a>
+<?php } ?>
 <a href="student-exeat-request.php"><button><i class="fa fa-file" style="color:teal"></i> Request Exeat</button></a>
 <a href="logout.php"><button><i class="fa fa-power-off" style="color:red"></i> Logout </button></a>
 </div>
@@ -417,6 +422,7 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="no
 <a href="report-approval-board.php"><button><i class="fa fa-check-circle" style="color:#0f766e"></i> Report Approval</button></a>
 <a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
 <a href="online-voting-admin.php"><button><i class="fa fa-trophy" style="color:#d97706"></i> Online Voting</button></a>
+<a href="student-chat-settings.php"><button><i class="fa fa-sliders" style="color:#0f766e"></i> Student Chat Control</button></a>
 <a href="payments.php"><button><i class="fa fa-credit-card" style="color:#16a34a"></i> Payments</button></a>
 <a href="teacher-billing-assignment.php"><button><i class="fa fa-users" style="color:#16a34a"></i> Teacher Billing Assignment</button></a>
 <a href="house-entry.php"><button><i class="fa fa-home" style="color:teal"></i> House Entry</button></a>
@@ -454,6 +460,7 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="su
 <a href="report-approval-board.php"><button><i class="fa fa-check-circle" style="color:#0f766e"></i> Report Approval</button></a>
 <a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
 <a href="online-voting-admin.php"><button><i class="fa fa-trophy" style="color:#d97706"></i> Online Voting</button></a>
+<a href="student-chat-settings.php"><button><i class="fa fa-sliders" style="color:#0f766e"></i> Student Chat Control</button></a>
 <a href="payments.php"><button><i class="fa fa-credit-card" style="color:#16a34a"></i> Payments</button></a>
 <a href="teacher-billing-assignment.php"><button><i class="fa fa-users" style="color:#16a34a"></i> Teacher Billing Assignment</button></a>
 <a href="house-entry.php"><button><i class="fa fa-home" style="color:teal"></i> House Entry</button></a>

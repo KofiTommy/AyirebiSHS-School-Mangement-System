@@ -548,7 +548,7 @@ function um_module_catalog(){
             'label' => 'Notice And Communication',
             'group' => 'Communication',
             'description' => 'Send notices and work with message center.',
-            'scripts' => array('notification.php','messages.php')
+            'scripts' => array('notification.php','messages.php','student-chat.php','student-chat-settings.php')
         ),
         'sms_management' => array(
             'label' => 'SMS Management',
@@ -757,7 +757,8 @@ function um_teacher_extra_nav_links($con, $userId = ''){
             array('href' => 'payments.php', 'label' => 'Class Payments', 'icon' => 'fa-credit-card')
         ),
         'notice_communication' => array(
-            array('href' => 'notification.php', 'label' => 'Send Notification', 'icon' => 'fa-bullhorn')
+            array('href' => 'notification.php', 'label' => 'Send Notification', 'icon' => 'fa-bullhorn'),
+            array('href' => 'student-chat-settings.php', 'label' => 'Student Chat Control', 'icon' => 'fa-sliders')
         ),
         'online_admission' => array(
             array('href' => 'online-admission-admin.php', 'label' => 'Online Admission', 'icon' => 'fa-globe')
@@ -896,6 +897,7 @@ function um_baseline_scripts_for_role($roleKey){
             'account-statements.php',
             'examinationtimetablereport.php',
             'messages.php',
+            'student-chat.php',
             'student-attendance-report.php',
             'lesson-timetable-report.php',
             'online-class.php',

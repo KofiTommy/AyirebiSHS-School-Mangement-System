@@ -651,6 +651,8 @@ body.student-dashboard-page {
 .student-quick-grid .student-action-card:nth-child(10) { animation-delay: 0.5s; }
 .student-quick-grid .student-action-card:nth-child(11) { animation-delay: 0.54s; }
 .student-quick-grid .student-action-card:nth-child(12) { animation-delay: 0.58s; }
+.student-quick-grid .student-action-card:nth-child(13) { animation-delay: 0.62s; }
+.student-quick-grid .student-action-card:nth-child(14) { animation-delay: 0.66s; }
 
 .student-action-card--report {
     --student-card-accent: var(--student-blue);
@@ -727,6 +729,13 @@ body.student-dashboard-page {
     --student-card-tint: rgba(217, 106, 147, 0.14);
     --student-card-surface: rgba(255, 240, 246, 0.98);
     --student-card-shadow: rgba(217, 106, 147, 0.18);
+}
+
+.student-action-card--private-chat {
+    --student-card-accent: #0f8a78;
+    --student-card-tint: rgba(15, 138, 120, 0.14);
+    --student-card-surface: rgba(236, 249, 246, 0.98);
+    --student-card-shadow: rgba(15, 138, 120, 0.18);
 }
 
 .student-action-card--profile {

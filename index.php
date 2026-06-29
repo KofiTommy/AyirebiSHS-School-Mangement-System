@@ -201,6 +201,8 @@ if($_LandingSchoolName === ""){
 }
 $_LandingSchoolNameSafe = htmlspecialchars($_LandingSchoolName, ENT_QUOTES, "UTF-8");
 $_LandingFacebookUrl = "https://www.facebook.com/Ayirebiseniorhighschool/";
+$_LandingTiktokLabel = "Official Ayisec Tv";
+$_LandingTiktokUrl = "https://www.tiktok.com/search?q=".rawurlencode($_LandingTiktokLabel);
 $_LandingWhatsappNumber = "+233245065954";
 $_LandingWhatsappUrl = "https://wa.me/233245065954?text=".rawurlencode("Hello, I need help with admission.");
 $_LandingPhoneHref = preg_replace('/[^0-9+]/', '', $_LandingHelpLine);
@@ -266,7 +268,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
             <div class="landing-copy">
                 <span class="landing-eyebrow">Mobile-First Access</span>
                 <h1>Welcome to <?php echo $_LandingSchoolNameSafe ; ?> Student Management System.</h1>
-                <p><?php echo $_PublicAdmissionOpen ? "New students should use admission. Existing users should sign in." : "Sign in to continue."; ?></p>
+                <p><?php echo $_PublicAdmissionOpen ? "New students should use start admission. Existing users should use portal login." : "Sign in to continue."; ?></p>
             </div>
 
             <div class="landing-route-grid">
@@ -382,8 +384,12 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
                 </a>
                 <?php } ?>
 
-                <a href="<?php echo htmlspecialchars($_LandingFacebookUrl, ENT_QUOTES, "UTF-8"); ?>" class="landing-social-link" target="_blank" rel="noopener noreferrer">
+                <a href="<?php echo htmlspecialchars($_LandingFacebookUrl, ENT_QUOTES, "UTF-8"); ?>" class="landing-social-link landing-social-link--facebook" target="_blank" rel="noopener noreferrer">
                     <i class="fa fa-facebook-square"></i> Follow Us On Facebook
+                </a>
+
+                <a href="<?php echo htmlspecialchars($_LandingTiktokUrl, ENT_QUOTES, "UTF-8"); ?>" class="landing-social-link landing-social-link--tiktok" target="_blank" rel="noopener noreferrer">
+                    <span class="landing-social-mark">TT</span> <?php echo htmlspecialchars($_LandingTiktokLabel, ENT_QUOTES, "UTF-8"); ?> On TikTok
                 </a>
             </div>
         </aside>
@@ -393,7 +399,8 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
         <p>&copy 2026. XSCHOOL V2.20.2.2</p>
         <p>
             <?php if($_LandingWhatsappUrl !== ""){ ?><a href="<?php echo htmlspecialchars($_LandingWhatsappUrl, ENT_QUOTES, "UTF-8"); ?>" class="landing-footer__link" target="_blank" rel="noopener noreferrer">WhatsApp</a> | <?php } ?>
-            <a href="<?php echo htmlspecialchars($_LandingFacebookUrl, ENT_QUOTES, "UTF-8"); ?>" class="landing-footer__link" target="_blank" rel="noopener noreferrer">Facebook Page</a>
+            <a href="<?php echo htmlspecialchars($_LandingFacebookUrl, ENT_QUOTES, "UTF-8"); ?>" class="landing-footer__link" target="_blank" rel="noopener noreferrer">Facebook Page</a> |
+            <a href="<?php echo htmlspecialchars($_LandingTiktokUrl, ENT_QUOTES, "UTF-8"); ?>" class="landing-footer__link" target="_blank" rel="noopener noreferrer">TikTok: <?php echo htmlspecialchars($_LandingTiktokLabel, ENT_QUOTES, "UTF-8"); ?></a>
         </p>
     </footer>
 

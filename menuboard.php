@@ -25,9 +25,11 @@ if(!isset($con)){
 }
 include_once("user-management-utils.php");
 include_once("counselling-utils.php");
+include_once("student-chat-utils.php");
 $_TeacherExtraAccessLinks = array();
 $_ShowTeacherAttendanceLinks = false;
 $_ShowTeacherCounsellingLink = false;
+$_StudentChatEnabledForMenu = student_chat_is_enabled($con);
 if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
    $_SESSION['ACCESSLEVEL'] === "user" &&
    $_SESSION['SYSTEMTYPE'] === "Teacher"){
@@ -317,6 +319,9 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 
 <?php menuboard_section_start('Communication', 'fa-comments'); ?>
 <a href="messages.php"><i class="fa fa-comments"></i> Message Box</a>
+<?php if($_StudentChatEnabledForMenu){ ?>
+<a href="student-chat.php"><i class="fa fa-user-plus"></i> Student Chat</a>
+<?php } ?>
 <a href="online-voting.php"><i class="fa fa-trophy"></i> Online Voting</a>
 <?php menuboard_section_end(); ?>
 
@@ -412,6 +417,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
 <a href="online-voting-admin.php"><i class="fa fa-trophy"></i> Online Voting</a>
 <a href="notification.php"><i class="fa fa-plus"></i> Send Notification</a>
+<a href="student-chat-settings.php"><i class="fa fa-sliders"></i> Student Chat Control</a>
 <a href="enablesmsalert.php"><i class="fa fa-phone"></i> Enable SMS Alert</a>
 <a href="smsreport.php"><i class="fa fa-phone"></i> SMS Reporting</a>
 <a href="smsreportdata.php"><i class="fa fa-database"></i> SMS Data</a>
@@ -501,6 +507,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
 <a href="online-voting-admin.php"><i class="fa fa-trophy"></i> Online Voting</a>
 <a href="notification.php"><i class="fa fa-plus"></i> Send Notification</a>
+<a href="student-chat-settings.php"><i class="fa fa-sliders"></i> Student Chat Control</a>
 <a href="enablesmsalert.php"><i class="fa fa-phone"></i> Enable SMS Alert</a>
 <a href="smsreport.php"><i class="fa fa-phone"></i> SMS Reporting</a>
 <a href="smsreportdata.php"><i class="fa fa-database"></i> SMS Data</a>

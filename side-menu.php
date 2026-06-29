@@ -9,9 +9,11 @@ include_once("house-master-utils.php");
 include_once("class-teacher-utils.php");
 include_once("user-management-utils.php");
 include_once("counselling-utils.php");
+include_once("student-chat-utils.php");
 ensure_house_tables($con);
 ensure_class_teacher_table($con);
 ensure_counselling_tables($con);
+$_StudentChatEnabledForMenu = student_chat_is_enabled($con);
 $_ShowHouseMasterLinks = false;
 $_ShowSeniorHouseLinks = false;
 $_HouseMasterDashboardLabel = "House Master Dashboard";
@@ -143,6 +145,9 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student")
       <a href="#" class="dropbtn"><i class="fa fa-comments" ></i> Communication</a>
       <div class="dropdown-content">
         <a href="messages.php"><i class="fa fa-comments" ></i> Message Box</a>
+        <?php if($_StudentChatEnabledForMenu){ ?>
+        <a href="student-chat.php"><i class="fa fa-user-plus" ></i> Student Chat</a>
+        <?php } ?>
         <a href="online-voting.php"><i class="fa fa-trophy" ></i> Online Voting</a>
       </div>
     </li>
@@ -269,6 +274,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
       <a href="online-admission-admin.php"><i class="fa fa-globe" ></i> Online Admission</a>
       <a href="online-voting-admin.php"><i class="fa fa-trophy" ></i> Online Voting</a>
       <a href="notification.php"><i class="fa fa-plus" ></i> Send Notification</a>
+      <a href="student-chat-settings.php"><i class="fa fa-sliders" ></i> Student Chat Control</a>
       <a href="enablesmsalert.php"><i class="fa fa-phone" ></i> Enable SMS Alert</a>
       <a href="smsreport.php"><i class="fa fa-phone" ></i> SMS Reporting</a>
       <a href="smsreportdata.php"><i class="fa fa-database" ></i> SMS Data</a>
@@ -384,6 +390,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
       <a href="online-admission-admin.php"><i class="fa fa-globe" ></i> Online Admission</a>
       <a href="online-voting-admin.php"><i class="fa fa-trophy" ></i> Online Voting</a>
       <a href="notification.php"><i class="fa fa-plus" ></i> Send Notification</a>
+      <a href="student-chat-settings.php"><i class="fa fa-sliders" ></i> Student Chat Control</a>
       <a href="enablesmsalert.php"><i class="fa fa-phone" ></i> Enable SMS Alert</a>
       <a href="smsreport.php"><i class="fa fa-phone" ></i> SMS Reporting</a>
       <a href="smsreportdata.php"><i class="fa fa-database" ></i> SMS Data</a>

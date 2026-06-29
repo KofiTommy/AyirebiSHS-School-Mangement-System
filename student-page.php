@@ -9,10 +9,12 @@ include_once("semester-registry-utils.php");
 include_once("voting-utils.php");
 include_once("report-approval-utils.php");
 include_once("counselling-utils.php");
+include_once("student-chat-utils.php");
 ensure_class_teacher_table($con);
 ensure_house_tables($con);
 ensure_voting_tables($con);
 ensure_counselling_tables($con);
+student_chat_ensure_tables($con);
 counselling_process_due_reminders($con);
 
 if(!house_master_is_student()){
@@ -417,6 +419,8 @@ if($paidRes && $row = mysqli_fetch_array($paidRes, MYSQLI_ASSOC)){
 }
 $financeBalance = $financeBilled - $financePaid;
 $messageUnreadCount = um_message_unread_count($con, $studentId, 'Student');
+$studentPrivateChatEnabled = student_chat_is_enabled($con);
+$studentPrivateChatPendingCount = $studentPrivateChatEnabled ? student_chat_pending_inbound_count($con, $studentId) : 0;
 $studentVotingSnapshot = voting_dashboard_snapshot($con, voting_default_branch_id($con), 'Student');
 
 $exeatTotal = 0;
@@ -700,6 +704,9 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <a class="student-action-card student-action-card--attendance" href="student-attendance-report.php"><span class="student-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>My Attendance</h3></a>
         <a class="student-action-card student-action-card--voting" href="online-voting.php"><?php if($studentVotingSnapshot && !empty($studentVotingSnapshot["contest"])){ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo sd_esc($studentVotingSnapshot["contest"]["title"]); ?> is <?php echo sd_esc(strtolower(voting_status_label($studentVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Voting details will appear when a contest is available.</p><?php } ?></a>
         <a class="student-action-card student-action-card--messages" href="messages.php"><span class="student-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the message board to read or send messages."; ?></p></a>
+        <?php if($studentPrivateChatEnabled){ ?>
+        <a class="student-action-card student-action-card--private-chat" href="student-chat.php"><span class="student-action-card__icon"><i class="fa fa-user-plus"></i></span><h3>Student Chat<?php if($studentPrivateChatPendingCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$studentPrivateChatPendingCount; ?> Request<?php echo (int)$studentPrivateChatPendingCount === 1 ? "" : "s"; ?></span><?php } ?></h3><p><?php echo $studentPrivateChatPendingCount > 0 ? "You have private chat request".((int)$studentPrivateChatPendingCount === 1 ? "" : "s")." waiting for your approval." : "Find fellow students and chat privately after approval."; ?></p></a>
+        <?php } ?>
         <a class="student-action-card student-action-card--profile" href="edit-account.php"><span class="student-action-card__icon"><i class="fa fa-id-card"></i></span><h3>Profile Settings</h3></a>
         <a class="student-action-card student-action-card--profile-image" href="uploaduser-image.php"><span class="student-action-card__icon"><i class="fa fa-image"></i></span><h3>Profile Image</h3></a>
         <a class="student-action-card student-action-card--logout" href="logout.php"><span class="student-action-card__icon"><i class="fa fa-power-off"></i></span><h3>Sign Out</h3></a>
