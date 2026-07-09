@@ -422,6 +422,7 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="no
 <a href="report-approval-board.php"><button><i class="fa fa-check-circle" style="color:#0f766e"></i> Report Approval</button></a>
 <a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
 <a href="online-voting-admin.php"><button><i class="fa fa-trophy" style="color:#d97706"></i> Online Voting</button></a>
+<a href="student-chat-monitor.php"><button><i class="fa fa-eye" style="color:#0f766e"></i> Student Chat Monitor</button></a>
 <a href="student-chat-settings.php"><button><i class="fa fa-sliders" style="color:#0f766e"></i> Student Chat Control</button></a>
 <a href="payments.php"><button><i class="fa fa-credit-card" style="color:#16a34a"></i> Payments</button></a>
 <a href="teacher-billing-assignment.php"><button><i class="fa fa-users" style="color:#16a34a"></i> Teacher Billing Assignment</button></a>
@@ -460,6 +461,7 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="su
 <a href="report-approval-board.php"><button><i class="fa fa-check-circle" style="color:#0f766e"></i> Report Approval</button></a>
 <a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
 <a href="online-voting-admin.php"><button><i class="fa fa-trophy" style="color:#d97706"></i> Online Voting</button></a>
+<a href="student-chat-monitor.php"><button><i class="fa fa-eye" style="color:#0f766e"></i> Student Chat Monitor</button></a>
 <a href="student-chat-settings.php"><button><i class="fa fa-sliders" style="color:#0f766e"></i> Student Chat Control</button></a>
 <a href="payments.php"><button><i class="fa fa-credit-card" style="color:#16a34a"></i> Payments</button></a>
 <a href="teacher-billing-assignment.php"><button><i class="fa fa-users" style="color:#16a34a"></i> Teacher Billing Assignment</button></a>

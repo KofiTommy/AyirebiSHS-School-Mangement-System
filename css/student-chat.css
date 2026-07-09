@@ -673,12 +673,341 @@
     font-size: 1.6rem;
 }
 
+.student-chat-monitor-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.student-chat-monitor-stats article {
+    padding: 18px;
+    border-radius: 22px;
+    background: var(--student-chat-card);
+    border: 1px solid var(--student-chat-border);
+    box-shadow: var(--student-chat-shadow);
+}
+
+.student-chat-monitor-stats span {
+    display: block;
+    color: var(--student-chat-muted);
+    font-size: 0.76rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.student-chat-monitor-stats strong {
+    display: block;
+    margin-top: 10px;
+    color: var(--student-chat-navy);
+    font-size: 1.8rem;
+    line-height: 1;
+}
+
+.student-chat-monitor-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.student-chat-monitor-list {
+    position: sticky;
+    top: 14px;
+}
+
+.student-chat-monitor-filter {
+    display: grid;
+    gap: 10px;
+}
+
+.student-chat-monitor-filter label,
+.student-chat-monitor-action label {
+    color: #334155;
+    font-size: 0.9rem;
+    font-weight: 900;
+}
+
+.student-chat-monitor-filter input,
+.student-chat-monitor-filter select,
+.student-chat-monitor-action input {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: var(--student-chat-ink);
+    font-size: 0.96rem;
+    outline: none;
+}
+
+.student-chat-monitor-filter input:focus,
+.student-chat-monitor-filter select:focus,
+.student-chat-monitor-action input:focus {
+    border-color: var(--student-chat-teal);
+    box-shadow: 0 0 0 4px rgba(15, 138, 120, 0.12);
+}
+
+.student-chat-monitor-filter__actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.student-chat-monitor-results {
+    display: grid;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.student-chat-monitor-item {
+    display: grid;
+    gap: 7px;
+    padding: 14px;
+    border-radius: 20px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: inherit;
+    text-decoration: none;
+}
+
+.student-chat-monitor-item.is-active,
+.student-chat-monitor-item:hover {
+    background: #ecfdf3;
+    border-color: #99f6e4;
+}
+
+.student-chat-monitor-item strong {
+    display: block;
+    color: var(--student-chat-navy);
+}
+
+.student-chat-monitor-item span,
+.student-chat-monitor-item small,
+.student-chat-monitor-item p {
+    color: var(--student-chat-muted);
+    line-height: 1.5;
+}
+
+.student-chat-monitor-item small,
+.student-chat-monitor-item em {
+    font-size: 0.84rem;
+}
+
+.student-chat-monitor-item em {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #c2410c;
+    font-style: normal;
+    font-weight: 900;
+}
+
+.student-chat-monitor-item p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.student-chat-monitor-pagination {
+    display: grid;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.student-chat-monitor-pagination > span {
+    color: var(--student-chat-muted);
+    font-size: 0.88rem;
+    font-weight: 800;
+}
+
+.student-chat-monitor-pagination div {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.student-chat-monitor-pagination a,
+.student-chat-monitor-pagination div span,
+.student-chat-monitor-pagination strong {
+    min-height: 38px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    border: 1px solid #d8e5ee;
+    background: #fff;
+    color: var(--student-chat-navy);
+    font-size: 0.86rem;
+    font-weight: 900;
+    text-decoration: none;
+}
+
+.student-chat-monitor-pagination div span {
+    background: #eef5f8;
+    color: #94a3b8;
+}
+
+.student-chat-monitor-detail {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+
+.student-chat-monitor-detail-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.student-chat-monitor-detail-head h2 {
+    margin: 8px 0 6px;
+    color: var(--student-chat-navy);
+}
+
+.student-chat-monitor-detail-head p {
+    margin: 0;
+    color: var(--student-chat-muted);
+    line-height: 1.6;
+}
+
+.student-chat-monitor-students {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.student-chat-monitor-students article {
+    display: flex;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 20px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.student-chat-monitor-students img {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    object-fit: cover;
+    background: #e2e8f0;
+}
+
+.student-chat-monitor-students strong,
+.student-chat-monitor-students span,
+.student-chat-monitor-students small {
+    display: block;
+}
+
+.student-chat-monitor-students strong {
+    color: var(--student-chat-navy);
+}
+
+.student-chat-monitor-students span,
+.student-chat-monitor-students small {
+    margin-top: 5px;
+    color: var(--student-chat-muted);
+    line-height: 1.45;
+}
+
+.student-chat-monitor-action {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.student-chat-monitor-action label {
+    grid-column: 1 / -1;
+}
+
+.student-chat-note--danger {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+.student-chat-monitor-reports,
+.student-chat-monitor-audit {
+    display: grid;
+    gap: 12px;
+}
+
+.student-chat-monitor-reports article {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 20px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.student-chat-monitor-reports strong,
+.student-chat-monitor-audit strong {
+    display: block;
+    color: var(--student-chat-navy);
+}
+
+.student-chat-monitor-reports span,
+.student-chat-monitor-audit span,
+.student-chat-monitor-audit p {
+    display: block;
+    margin-top: 6px;
+    color: var(--student-chat-muted);
+    line-height: 1.55;
+}
+
+.student-chat-monitor-reports p {
+    margin: 10px 0 0;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    line-height: 1.55;
+}
+
+.student-chat-monitor-reports article > div:last-child {
+    display: grid;
+    justify-items: end;
+    gap: 10px;
+}
+
+.student-chat-message-list--monitor {
+    max-height: 680px;
+}
+
+.student-chat-monitor-audit article {
+    padding: 13px 14px;
+    border-radius: 18px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
 @media (max-width: 1180px) {
     .student-chat-hero,
     .student-chat-layout,
     .student-chat-safety,
-    .student-chat-settings-grid {
+    .student-chat-settings-grid,
+    .student-chat-monitor-layout {
         grid-template-columns: 1fr;
+    }
+
+    .student-chat-monitor-list {
+        position: static;
     }
 }
 
@@ -690,7 +1019,11 @@
 
     .student-chat-hero aside,
     .student-chat-safety__forms,
-    .student-chat-settings-stats {
+    .student-chat-settings-stats,
+    .student-chat-monitor-stats,
+    .student-chat-monitor-students,
+    .student-chat-monitor-action,
+    .student-chat-monitor-reports article {
         grid-template-columns: 1fr;
     }
 
@@ -699,6 +1032,7 @@
     }
 
     .student-chat-thread__head,
+    .student-chat-monitor-detail-head,
     .student-chat-inline-actions {
         align-items: stretch;
         flex-direction: column;
@@ -710,12 +1044,19 @@
     .student-chat-search button,
     .student-chat-composer button,
     .student-chat-person button,
-    .student-chat-person a {
+    .student-chat-person a,
+    .student-chat-monitor-filter__actions .student-chat-btn,
+    .student-chat-monitor-action .student-chat-btn {
         width: 100%;
     }
 
     .student-chat-message__bubble {
         max-width: 92%;
+    }
+
+    .student-chat-monitor-reports article > div:last-child {
+        align-items: stretch;
+        justify-items: stretch;
     }
 }
 

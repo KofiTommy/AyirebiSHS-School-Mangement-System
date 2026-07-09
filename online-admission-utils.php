@@ -84,7 +84,7 @@ function online_admission_can_manage_portal($con = null){
 if(!function_exists('ensure_online_admission_tables')){
 function ensure_online_admission_tables($con){
     ensure_house_tables($con);
-    if(xschool_schema_cache_is_fresh('schema_online_admission_v5', 43200)){
+    if(xschool_schema_cache_is_fresh('schema_online_admission_v6', 43200)){
         return;
     }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbladmissionpostedstudent (
@@ -100,6 +100,9 @@ function ensure_online_admission_tables($con){
         offeredclass VARCHAR(120) NULL,
         residentialstatus VARCHAR(40) NULL,
         mobile VARCHAR(30) NULL,
+        placementsmssentat DATETIME NULL,
+        placementsmsstatus VARCHAR(60) NULL,
+        placementsmssentby VARCHAR(30) NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'active',
         datetimeentry DATETIME NOT NULL,
         recordedby VARCHAR(30) NOT NULL,
@@ -280,6 +283,18 @@ function ensure_online_admission_tables($con){
     if($columnRes && mysqli_num_rows($columnRes) === 0){
         mysqli_query($con, "ALTER TABLE tblonlineadmissionpayment ADD COLUMN studentsmsstatus VARCHAR(60) NULL AFTER studentsmssentat");
     }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tbladmissionpostedstudent LIKE 'placementsmssentat'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tbladmissionpostedstudent ADD COLUMN placementsmssentat DATETIME NULL AFTER mobile");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tbladmissionpostedstudent LIKE 'placementsmsstatus'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tbladmissionpostedstudent ADD COLUMN placementsmsstatus VARCHAR(60) NULL AFTER placementsmssentat");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tbladmissionpostedstudent LIKE 'placementsmssentby'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tbladmissionpostedstudent ADD COLUMN placementsmssentby VARCHAR(30) NULL AFTER placementsmsstatus");
+    }
     $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionpaymentsetting LIKE 'portalenabled'");
     if($columnRes && mysqli_num_rows($columnRes) === 0){
         mysqli_query($con, "ALTER TABLE tblonlineadmissionpaymentsetting ADD COLUMN portalenabled TINYINT(1) NOT NULL DEFAULT 1 AFTER branchid");
@@ -351,7 +366,7 @@ function ensure_online_admission_tables($con){
         xschool_schema_ensure_index($con, 'tblonlineadmissionpayment', 'idx_payment_application_status_paid', "CREATE INDEX idx_payment_application_status_paid ON tblonlineadmissionpayment(applicationid, status, paidat, createdat)");
         xschool_schema_ensure_index($con, 'tblonlineadmissiondocument', 'idx_document_scope_status', "CREATE INDEX idx_document_scope_status ON tblonlineadmissiondocument(branchid, admissionyear, status)");
     }
-    xschool_schema_cache_mark('schema_online_admission_v5');
+    xschool_schema_cache_mark('schema_online_admission_v6');
 }
 }
 
@@ -3011,6 +3026,76 @@ function online_admission_send_guardian_submission_sms($con, $application, $scho
     $result["status"] = $statusCode !== "" ? $statusCode : ($sent ? "SENT" : "FAILED");
     $result["phone"] = $phone;
     $result["skipped"] = false;
+    return $result;
+}
+}
+
+if(!function_exists('online_admission_mark_posted_placement_sms')){
+function online_admission_mark_posted_placement_sms($con, $postingId, $status, $sent, $recordedBy = ""){
+    $postingIdEsc = mysqli_real_escape_string($con, trim((string)$postingId));
+    $statusEsc = mysqli_real_escape_string($con, trim((string)$status) !== "" ? trim((string)$status) : ($sent ? "SENT" : "FAILED"));
+    $recordedByEsc = mysqli_real_escape_string($con, trim((string)$recordedBy));
+    if($postingIdEsc === ""){
+        return false;
+    }
+    $updates = array(
+        "placementsmsstatus='$statusEsc'",
+        "placementsmssentby='$recordedByEsc'"
+    );
+    if($sent){
+        $updates[] = "placementsmssentat=NOW()";
+    }
+    return mysqli_query($con, "UPDATE tbladmissionpostedstudent SET ".implode(", ", $updates)." WHERE postingid='$postingIdEsc' LIMIT 1");
+}
+}
+
+if(!function_exists('online_admission_build_posted_placement_sms')){
+function online_admission_build_posted_placement_sms($postedStudent, $schoolName = "", $portalUrl = ""){
+    $schoolLabel = trim((string)$schoolName) !== "" ? trim((string)$schoolName) : "AYISEC";
+    $studentName = online_admission_candidate_name($postedStudent);
+    if($studentName === ""){
+        $studentName = "Your ward";
+    }
+    $beceIndex = trim((string)(isset($postedStudent["beceindexnumber"]) ? $postedStudent["beceindexnumber"] : ""));
+    $birthdate = trim((string)(isset($postedStudent["birthdate"]) ? $postedStudent["birthdate"] : ""));
+    $admissionYear = trim((string)(isset($postedStudent["admissionyear"]) ? $postedStudent["admissionyear"] : ""));
+    $portalUrl = trim((string)$portalUrl);
+    if($portalUrl === ""){
+        $portalUrl = online_admission_app_url("online-admission.php");
+    }
+
+    return $schoolLabel.": ".$studentName." has been placed in our school. Visit ".$portalUrl." and click Verify Posting. Use BECE ".$beceIndex.", DOB ".$birthdate.", year ".$admissionYear." and follow the steps to enroll online.";
+}
+}
+
+if(!function_exists('online_admission_send_posted_placement_sms')){
+function online_admission_send_posted_placement_sms($con, $postedStudent, $schoolName = "", $portalUrl = "", $recordedBy = "", $forceResend = false){
+    $result = array("sent" => false, "status" => "", "phone" => "", "skipped" => true, "message" => "");
+    if(!is_array($postedStudent) || empty($postedStudent) || trim((string)(isset($postedStudent["postingid"]) ? $postedStudent["postingid"] : "")) === ""){
+        $result["status"] = "INVALID_CONTEXT";
+        return $result;
+    }
+    if(!$forceResend && trim((string)(isset($postedStudent["placementsmssentat"]) ? $postedStudent["placementsmssentat"] : "")) !== ""){
+        $result["status"] = trim((string)(isset($postedStudent["placementsmsstatus"]) ? $postedStudent["placementsmsstatus"] : "")) !== "" ? trim((string)$postedStudent["placementsmsstatus"]) : "ALREADY_SENT";
+        return $result;
+    }
+
+    $phone = online_admission_normalize_sms_phone(isset($postedStudent["mobile"]) ? $postedStudent["mobile"] : "");
+    if($phone === ""){
+        $result["status"] = "NO_PARENT_PHONE";
+        online_admission_mark_posted_placement_sms($con, $postedStudent["postingid"], $result["status"], false, $recordedBy);
+        return $result;
+    }
+
+    $message = online_admission_build_posted_placement_sms($postedStudent, $schoolName, $portalUrl);
+    $statusCode = "";
+    $sent = online_admission_sms_gateway_send($phone, $message, $statusCode);
+    online_admission_mark_posted_placement_sms($con, $postedStudent["postingid"], $statusCode, $sent, $recordedBy);
+    $result["sent"] = $sent;
+    $result["status"] = $statusCode !== "" ? $statusCode : ($sent ? "SENT" : "FAILED");
+    $result["phone"] = $phone;
+    $result["skipped"] = false;
+    $result["message"] = $message;
     return $result;
 }
 }

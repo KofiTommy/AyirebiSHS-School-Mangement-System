@@ -60,7 +60,7 @@ function student_chat_ensure_tables($con){
     if(!$con){
         return;
     }
-    if(function_exists('xschool_schema_cache_is_fresh') && xschool_schema_cache_is_fresh('schema_student_private_chat_v2', 43200)){
+    if(function_exists('xschool_schema_cache_is_fresh') && xschool_schema_cache_is_fresh('schema_student_private_chat_v3', 43200)){
         return;
     }
 
@@ -138,6 +138,18 @@ function student_chat_ensure_tables($con){
         updatedby VARCHAR(30) NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblstudentchatadminview (
+        viewid VARCHAR(40) NOT NULL PRIMARY KEY,
+        conversationid VARCHAR(40) NOT NULL,
+        adminid VARCHAR(30) NOT NULL,
+        action VARCHAR(40) NOT NULL DEFAULT 'view',
+        reason VARCHAR(180) NULL,
+        datetimeentry DATETIME NOT NULL,
+        KEY idx_studentchatadminview_conversation (conversationid, datetimeentry),
+        KEY idx_studentchatadminview_admin (adminid, datetimeentry),
+        KEY idx_studentchatadminview_action (action)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     mysqli_query($con, "INSERT IGNORE INTO tblstudentchatsetting(
             settingid, chatenabled, disablenote, updatedat, updatedby
         ) VALUES(
@@ -145,7 +157,7 @@ function student_chat_ensure_tables($con){
         )");
 
     if(function_exists('xschool_schema_cache_mark')){
-        xschool_schema_cache_mark('schema_student_private_chat_v2');
+        xschool_schema_cache_mark('schema_student_private_chat_v3');
     }
 }
 }
@@ -197,6 +209,39 @@ function student_chat_update_setting($con, $enabled, $disableNote, $updatedBy = 
             disablenote=VALUES(disablenote),
             updatedat=NOW(),
             updatedby=VALUES(updatedby)") ? true : false;
+}
+}
+
+if(!function_exists('student_chat_admin_log_action')){
+function student_chat_admin_log_action($con, $conversationId, $adminId, $action = 'view', $reason = ''){
+    student_chat_ensure_tables($con);
+    $conversationId = trim((string)$conversationId);
+    $adminId = trim((string)$adminId);
+    $action = trim((string)$action);
+    $reason = trim((string)$reason);
+    if($conversationId === '' || $adminId === ''){
+        return false;
+    }
+    if($action === ''){
+        $action = 'view';
+    }
+    if(strlen($action) > 40){
+        $action = substr($action, 0, 40);
+    }
+    if(strlen($reason) > 180){
+        $reason = substr($reason, 0, 180);
+    }
+    $viewId = student_chat_id('SAVW');
+    $viewIdEsc = mysqli_real_escape_string($con, $viewId);
+    $conversationEsc = mysqli_real_escape_string($con, $conversationId);
+    $adminEsc = mysqli_real_escape_string($con, $adminId);
+    $actionEsc = mysqli_real_escape_string($con, $action);
+    $reasonEsc = mysqli_real_escape_string($con, $reason);
+    return mysqli_query($con, "INSERT INTO tblstudentchatadminview(
+            viewid, conversationid, adminid, action, reason, datetimeentry
+        ) VALUES(
+            '$viewIdEsc', '$conversationEsc', '$adminEsc', '$actionEsc', '$reasonEsc', NOW()
+        )") ? true : false;
 }
 }
 

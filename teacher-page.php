@@ -10,6 +10,7 @@ include_once("semester-registry-utils.php");
 include_once("voting-utils.php");
 include_once("teacher-billing-utils.php");
 include_once("counselling-utils.php");
+include_once("matron-utils.php");
 ensure_class_teacher_table($con);
 ensure_duty_roster_tables($con);
 ensure_student_attendance_tables($con);
@@ -17,6 +18,7 @@ ensure_house_tables($con);
 ensure_voting_tables($con);
 ensure_teacher_billing_table($con);
 ensure_counselling_tables($con);
+ensure_matron_tables($con);
 counselling_process_due_reminders($con);
 if(!(isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==="user" && $_SESSION['SYSTEMTYPE']==="Teacher")){
     header("location:".class_teacher_landing_page());
@@ -287,6 +289,7 @@ $activeBatchCount = count($activeBatchIds);
 $myMessageCount = 0;
 $messageUnreadCount = um_message_unread_count($con, $teacherId, 'Teacher');
 $teacherVotingSnapshot = voting_dashboard_snapshot($con, voting_default_branch_id($con), 'Teacher');
+$teacherWeeklyMenu = matron_current_week_menu_context($con);
 $countRes = mysqli_query($con,"SELECT COUNT(*) AS total_messages FROM tblmessages WHERE sentby='$teacherIdEsc' AND status='active'");
 if($countRes && $countRow=mysqli_fetch_array($countRes,MYSQLI_ASSOC)){ $myMessageCount = (int)$countRow["total_messages"]; }
 $myMessages = array();
@@ -742,6 +745,37 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
     </div>
 
     <div class="teacher-panel-stack">
+        <section class="teacher-panel teacher-panel--menu-board">
+            <div class="teacher-panel__header">
+                <div><span class="teacher-panel__eyebrow">Dining Menu</span><h2>This week's school menu</h2></div>
+            </div>
+            <div class="teacher-menu-board__week"><?php echo td_esc($teacherWeeklyMenu["week_label"]); ?></div>
+            <?php if(count($teacherWeeklyMenu["rows"]) > 0){ ?>
+            <div class="teacher-menu-board">
+                <?php foreach($teacherWeeklyMenu["grouped"] as $menuDayName => $menuMeals){ ?>
+                <article class="teacher-menu-board__day">
+                    <h3><?php echo td_esc($menuDayName); ?></h3>
+                    <div class="teacher-menu-board__meals">
+                        <?php foreach($menuMeals as $menuMealName => $menuMealRow){ ?>
+                        <div class="teacher-menu-board__meal">
+                            <span class="teacher-menu-board__meal-label"><?php echo td_esc($menuMealName); ?></span>
+                            <strong><?php echo $menuMealRow ? td_esc(matron_menu_display_text($menuMealRow)) : "Not set"; ?></strong>
+                            <?php if($menuMealRow && trim((string)$menuMealRow["notes"]) !== ""){ ?>
+                            <small><?php echo td_esc($menuMealRow["notes"]); ?></small>
+                            <?php } ?>
+                        </div>
+                        <?php } ?>
+                    </div>
+                </article>
+                <?php } ?>
+            </div>
+            <?php } else { ?>
+            <div class="teacher-empty-state teacher-empty-state--compact">
+                <p>The weekly menu has not been published yet.</p>
+            </div>
+            <?php } ?>
+        </section>
+
         <section class="teacher-panel">
             <div class="teacher-panel__header">
                 <div><span class="teacher-panel__eyebrow">Engagement</span><h2>Keep your teaching flow active</h2></div>

@@ -65,7 +65,16 @@ $reportRes = mysqli_query($con, "SELECT COUNT(*) AS total_reports FROM tblstuden
 if($reportRes && ($row = mysqli_fetch_array($reportRes, MYSQLI_ASSOC))){
     $stats['reports'] = (int)$row['total_reports'];
 }
-$blockRes = mysqli_query($con, "SELECT COUNT(*) AS total_blocks FROM tblstudentchatblock WHERE status='active'");
+$blockRes = mysqli_query($con, "SELECT COUNT(*) AS total_blocks
+    FROM (
+        SELECT LEAST(blockerid, blockedid) AS student_a, GREATEST(blockerid, blockedid) AS student_b
+        FROM tblstudentchatblock
+        WHERE status='active'
+        UNION
+        SELECT LEAST(requesterid, recipientid) AS student_a, GREATEST(requesterid, recipientid) AS student_b
+        FROM tblstudentchatconversation
+        WHERE status='blocked'
+    ) blocked_pairs");
 if($blockRes && ($row = mysqli_fetch_array($blockRes, MYSQLI_ASSOC))){
     $stats['blocks'] = (int)$row['total_blocks'];
 }

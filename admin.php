@@ -1,5 +1,6 @@
 <?php
 session_start();
+include_once("dashboard-student-utils.php");
 
 if(isset($_POST['mark_changes_read'])){
     include("dbstring.php");
@@ -396,6 +397,48 @@ include("links.php");
     color: #0f172a;
 }
 
+.card small {
+    display: block;
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 0.74rem;
+    line-height: 1.45;
+    white-space: pre-line;
+}
+
+.student-batch-toggle {
+    margin-top: 8px;
+}
+
+.student-batch-toggle summary {
+    cursor: pointer;
+    color: var(--brand);
+    font-size: 0.74rem;
+    font-weight: 700;
+    list-style: none;
+}
+
+.student-batch-toggle summary::-webkit-details-marker {
+    display: none;
+}
+
+.student-batch-toggle__list {
+    display: grid;
+    gap: 4px;
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 0.74rem;
+    line-height: 1.45;
+}
+
+.student-batch-toggle__empty {
+    display: block;
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 0.74rem;
+    line-height: 1.45;
+}
+
 .card.total {
     background:
         radial-gradient(circle at top right, rgba(245, 158, 11, 0.28), transparent 34%),
@@ -405,7 +448,11 @@ include("links.php");
 }
 
 .card.total h4,
-.card.total p {
+.card.total p,
+.card.total small,
+.card.total .student-batch-toggle summary,
+.card.total .student-batch-toggle__list,
+.card.total .student-batch-toggle__empty {
     color: #ecfeff;
 }
 
@@ -1919,6 +1966,10 @@ include("links.php");
                             $students_no_status = (int)$statsRow['no_status_students'];
                         }
 
+                        $_AdminStudentBatchSummary = dashboard_student_population_summary($con, array(
+                            'require_active_class' => true
+                        ));
+
                         /* 3) Convenient vars + totals */
                         $boys_day        = $counts['Male']['Day'];
                         $boys_boarding   = $counts['Male']['Boarding'];
@@ -2495,22 +2546,27 @@ include("links.php");
                                 <div class="card" role="article" aria-label="Boys Day Students">
                                     <h4><i class="fa fa-male" style="color:#2563eb; margin-right:4px;"></i>Boys - Day</h4>
                                     <p><?php echo number_format($boys_day); ?></p>
+                                    <?php echo dashboard_student_batch_breakdown_html($_AdminStudentBatchSummary, 'day_boys', 'Batches', 'No batch yet.'); ?>
                                 </div>
                                 <div class="card" role="article" aria-label="Boys Boarding Students">
                                     <h4><i class="fa fa-male" style="color:#38bdf8; margin-right:4px;"></i>Boys - Boarding</h4>
                                     <p><?php echo number_format($boys_boarding); ?></p>
+                                    <?php echo dashboard_student_batch_breakdown_html($_AdminStudentBatchSummary, 'boarding_boys', 'Batches', 'No batch yet.'); ?>
                                 </div>
                                 <div class="card" role="article" aria-label="Girls Day Students">
                                     <h4><i class="fa fa-female" style="color:#db2777; margin-right:4px;"></i>Girls - Day</h4>
                                     <p><?php echo number_format($girls_day); ?></p>
+                                    <?php echo dashboard_student_batch_breakdown_html($_AdminStudentBatchSummary, 'day_girls', 'Batches', 'No batch yet.'); ?>
                                 </div>
                                 <div class="card" role="article" aria-label="Girls Boarding Students">
                                     <h4><i class="fa fa-female" style="color:#f472b6; margin-right:4px;"></i>Girls - Boarding</h4>
                                     <p><?php echo number_format($girls_boarding); ?></p>
+                                    <?php echo dashboard_student_batch_breakdown_html($_AdminStudentBatchSummary, 'boarding_girls', 'Batches', 'No batch yet.'); ?>
                                 </div>
                                 <div class="card" role="article" aria-label="Students With No Residence Status">
                                     <h4><i class="fa fa-question-circle" style="color:#b45309; margin-right:4px;"></i>No Residence Status</h4>
                                     <p><?php echo number_format($students_no_status); ?></p>
+                                    <?php echo dashboard_student_batch_breakdown_html($_AdminStudentBatchSummary, 'students_no_status', 'Batches', 'All set.'); ?>
                                 </div>
                                 <div class="card total" role="article" aria-label="Total Active Students">
                                     <h4><i class="fa fa-users" style="color:#fff; margin-right:4px;"></i>Total Active Students</h4>

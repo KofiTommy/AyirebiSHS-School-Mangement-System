@@ -197,7 +197,7 @@ if($_LandingHelpLine === ""){
 }
 $_LandingSchoolName = trim((string)(isset($_CompanyName) ? $_CompanyName : ""));
 if($_LandingSchoolName === ""){
-    $_LandingSchoolName = "XSCHOOL Portal";
+    $_LandingSchoolName = "Live Campus";
 }
 $_LandingSchoolNameSafe = htmlspecialchars($_LandingSchoolName, ENT_QUOTES, "UTF-8");
 $_LandingFacebookUrl = "https://www.facebook.com/Ayirebiseniorhighschool/";

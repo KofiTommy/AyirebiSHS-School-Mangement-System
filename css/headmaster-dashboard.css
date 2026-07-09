@@ -628,6 +628,48 @@ body.hm-page .card p {
     word-break: break-word;
 }
 
+body.hm-page .card small {
+    display: block;
+    margin-top: 8px;
+    color: var(--hm-muted);
+    font-size: 0.74rem;
+    line-height: 1.45;
+    white-space: pre-line;
+}
+
+body.hm-page .student-batch-toggle {
+    margin-top: 8px;
+}
+
+body.hm-page .student-batch-toggle summary {
+    cursor: pointer;
+    color: var(--hm-blue);
+    font-size: 0.74rem;
+    font-weight: 700;
+    list-style: none;
+}
+
+body.hm-page .student-batch-toggle summary::-webkit-details-marker {
+    display: none;
+}
+
+body.hm-page .student-batch-toggle__list {
+    display: grid;
+    gap: 4px;
+    margin-top: 8px;
+    color: var(--hm-muted);
+    font-size: 0.74rem;
+    line-height: 1.45;
+}
+
+body.hm-page .student-batch-toggle__empty {
+    display: block;
+    margin-top: 8px;
+    color: var(--hm-muted);
+    font-size: 0.74rem;
+    line-height: 1.45;
+}
+
 body.hm-page .card.total {
     background:
         radial-gradient(circle at top right, rgba(245, 158, 11, 0.28), transparent 34%),
@@ -637,7 +679,11 @@ body.hm-page .card.total {
 }
 
 body.hm-page .card.total h4,
-body.hm-page .card.total p {
+body.hm-page .card.total p,
+body.hm-page .card.total small,
+body.hm-page .card.total .student-batch-toggle summary,
+body.hm-page .card.total .student-batch-toggle__list,
+body.hm-page .card.total .student-batch-toggle__empty {
     color: #ffffff;
 }
 
@@ -939,6 +985,39 @@ body.hm-page .card.total p {
     background: #eef4fa;
     color: #45607b;
     font-size: 0.78rem;
+}
+
+.hm-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.hm-status-pill--success {
+    background: rgba(21, 128, 61, 0.12);
+    color: #166534;
+}
+
+.hm-status-pill--warning {
+    background: rgba(180, 83, 9, 0.14);
+    color: #9a3412;
+}
+
+.hm-status-pill--danger {
+    background: rgba(220, 38, 38, 0.12);
+    color: #b91c1c;
+}
+
+.hm-status-pill--info {
+    background: rgba(14, 165, 233, 0.12);
+    color: #0369a1;
 }
 
 .hm-empty-state {

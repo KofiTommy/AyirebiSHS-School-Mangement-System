@@ -417,6 +417,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
 <a href="online-voting-admin.php"><i class="fa fa-trophy"></i> Online Voting</a>
 <a href="notification.php"><i class="fa fa-plus"></i> Send Notification</a>
+<a href="student-chat-monitor.php"><i class="fa fa-eye"></i> Student Chat Monitor</a>
 <a href="student-chat-settings.php"><i class="fa fa-sliders"></i> Student Chat Control</a>
 <a href="enablesmsalert.php"><i class="fa fa-phone"></i> Enable SMS Alert</a>
 <a href="smsreport.php"><i class="fa fa-phone"></i> SMS Reporting</a>
@@ -507,6 +508,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
 <a href="online-voting-admin.php"><i class="fa fa-trophy"></i> Online Voting</a>
 <a href="notification.php"><i class="fa fa-plus"></i> Send Notification</a>
+<a href="student-chat-monitor.php"><i class="fa fa-eye"></i> Student Chat Monitor</a>
 <a href="student-chat-settings.php"><i class="fa fa-sliders"></i> Student Chat Control</a>
 <a href="enablesmsalert.php"><i class="fa fa-phone"></i> Enable SMS Alert</a>
 <a href="smsreport.php"><i class="fa fa-phone"></i> SMS Reporting</a>

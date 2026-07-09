@@ -12,6 +12,8 @@ include_once("counselling-utils.php");
 include_once("audit_notifications.php");
 include_once("duty-roster-utils.php");
 include_once("house-master-utils.php");
+include_once("storekeeper-utils.php");
+include_once("matron-utils.php");
 
 ensure_student_attendance_tables($con);
 semester_registry_ensure_academic_year_column($con);
@@ -21,6 +23,8 @@ ensure_counselling_tables($con);
 ensureSystemChangeLogTable($con);
 ensure_duty_roster_tables($con);
 ensure_house_tables($con);
+ensure_storekeeper_tables($con);
+ensure_matron_tables($con);
 
 if(!(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'Headmaster')){
     header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : 'index.php'));
@@ -58,6 +62,22 @@ function hm_fetch_scalar($con, $sql, $field, $default = 0){
         return isset($row[$field]) ? $row[$field] : $default;
     }
     return $default;
+}
+}
+
+if(!function_exists('hm_status_tone')){
+function hm_status_tone($status){
+    $status = strtolower(trim((string)$status));
+    if(in_array($status, array('pending', 'awaiting_return', 'low'), true)){
+        return 'warning';
+    }
+    if(in_array($status, array('rejected', 'cancelled', 'overdue', 'lost', 'out_of_stock'), true)){
+        return 'danger';
+    }
+    if(in_array($status, array('approved', 'issued', 'active', 'filled'), true)){
+        return 'success';
+    }
+    return 'info';
 }
 }
 
@@ -163,6 +183,11 @@ $headmasterStudentStatsRes = mysqli_query($con, $headmasterStudentStatsSql);
 if($headmasterStudentStatsRes && ($studentStatsRow = mysqli_fetch_array($headmasterStudentStatsRes, MYSQLI_ASSOC))){
     $studentsNoStatus = (int)$studentStatsRow['no_status_students'];
 }
+
+$_HeadmasterStudentBatchSummary = dashboard_student_population_summary($con, array(
+    'branchid' => $currentBranchId,
+    'require_active_class' => true
+));
 
 $boys_day = $residenceCounts['Male']['Day'];
 $boys_boarding = $residenceCounts['Male']['Boarding'];
@@ -417,6 +442,44 @@ $attendanceCoverageRate = $attendanceAssignments > 0 ? round(($attendanceSession
 $reportReleaseRate = $reportApprovalTotal > 0 ? round(($reportApprovedTotal / $reportApprovalTotal) * 100, 1) : 0;
 $scoreEntryRate = $totalAssignedSubjects > 0 ? round(($submittedSubjects / $totalAssignedSubjects) * 100, 1) : 0;
 
+$storekeeperSummary = storekeeper_dashboard_summary($con);
+$matronSummary = matron_dashboard_summary($con);
+$matronCurrentWeekMenu = matron_current_week_menu_context($con, $todayDate);
+$matronRecentRequisitions = matron_recent_requisitions($con, 4);
+$storeWatchRows = array();
+foreach(storekeeper_fetch_balance_rows($con) as $storeRow){
+    $storeBalance = isset($storeRow['current_balance']) ? (float)$storeRow['current_balance'] : 0;
+    $storeReorder = isset($storeRow['reorderlevel']) ? (float)$storeRow['reorderlevel'] : 0;
+    if($storeBalance <= 0 || ($storeReorder > 0 && $storeBalance <= $storeReorder)){
+        $storeRow['_watch_status'] = $storeBalance <= 0 ? 'out_of_stock' : 'low';
+        $storeWatchRows[] = $storeRow;
+    }
+}
+usort($storeWatchRows, function($left, $right){
+    $leftSeverity = (isset($left['_watch_status']) && $left['_watch_status'] === 'out_of_stock') ? 0 : 1;
+    $rightSeverity = (isset($right['_watch_status']) && $right['_watch_status'] === 'out_of_stock') ? 0 : 1;
+    if($leftSeverity !== $rightSeverity){
+        return $leftSeverity - $rightSeverity;
+    }
+    $leftBalance = isset($left['current_balance']) ? (float)$left['current_balance'] : 0;
+    $rightBalance = isset($right['current_balance']) ? (float)$right['current_balance'] : 0;
+    if($leftBalance === $rightBalance){
+        return strcmp((string)(isset($left['itemname']) ? $left['itemname'] : ''), (string)(isset($right['itemname']) ? $right['itemname'] : ''));
+    }
+    return ($leftBalance < $rightBalance) ? -1 : 1;
+});
+$storeWatchRows = array_slice($storeWatchRows, 0, 4);
+
+$todayMenuSlots = array();
+$todayDayName = date('l');
+foreach(matron_meal_options() as $mealName){
+    $slotRow = isset($matronCurrentWeekMenu['grouped'][$todayDayName][$mealName]) ? $matronCurrentWeekMenu['grouped'][$todayDayName][$mealName] : null;
+    $todayMenuSlots[$mealName] = $slotRow ? matron_menu_display_text($slotRow) : 'Not set';
+}
+
+$storeDashboardHref = hm_can_module($con, 'stores_management') ? 'storekeeper-dashboard.php' : '';
+$matronDashboardHref = hm_can_module($con, 'matron_management') ? 'matron-dashboard.php' : '';
+
 $attentionItems = array();
 if($reportPendingTotal > 0){
     $attentionItems[] = array(
@@ -444,40 +507,72 @@ if($admissionPendingTotal > 0){
 }
 if($unreadMessages > 0){
     $attentionItems[] = array(
-        'title' => 'You have unread school messages.',
+        'title' => 'There are unread messages.',
         'detail' => number_format($unreadMessages).' message'.($unreadMessages === 1 ? '' : 's').' need your attention.',
         'href' => 'messages.php',
-        'label' => 'Open Messages'
+        'label' => 'View messages'
     );
 }
 if($riskStudents > 0){
     $attentionItems[] = array(
-        'title' => 'Attendance risk is rising.',
-        'detail' => number_format($riskStudents).' student'.($riskStudents === 1 ? ' has' : 's have').' weak attendance in the last 30 days.',
+        'title' => 'Attendance needs follow-up.',
+        'detail' => number_format($riskStudents).' student'.($riskStudents === 1 ? ' has' : 's have').' low attendance in the last 30 days.',
         'href' => 'student-attendance-report.php',
-        'label' => 'Review Attendance'
+        'label' => 'View attendance'
     );
 }
 if($dutyTodayCount > 0){
     $attentionItems[] = array(
-        'title' => 'Teachers are currently on duty.',
+        'title' => 'The duty roster is active today.',
         'detail' => number_format($dutyTodayCount).' duty assignment'.($dutyTodayCount === 1 ? ' is' : 's are').' active today. '.$dutyTodaySummary,
         'href' => 'duty-roster.php',
-        'label' => 'Open Duty Roster'
+        'label' => 'View duty roster'
     );
 }
 if((int)$seniorHouseOverview['pending_exeat'] > 0 || (int)$seniorHouseOverview['overdue_returns'] > 0){
     $attentionItems[] = array(
-        'title' => 'Senior house welfare needs attention.',
+        'title' => 'There are exeat cases to review.',
         'detail' => number_format((int)$seniorHouseOverview['pending_exeat']).' pending exeat request(s) and '.number_format((int)$seniorHouseOverview['overdue_returns']).' overdue return(s) are currently on record.',
         'href' => 'senior-house-dashboard.php',
-        'label' => 'Open Senior House Overview'
+        'label' => 'View exeat overview'
+    );
+}
+if((int)$storekeeperSummary['low_stock_items'] > 0 || (int)$storekeeperSummary['out_of_stock_items'] > 0){
+    $attentionItems[] = array(
+        'title' => 'Store balances need checking.',
+        'detail' => number_format((int)$storekeeperSummary['low_stock_items']).' item(s) are running low and '.number_format((int)$storekeeperSummary['out_of_stock_items']).' item(s) are finished.',
+        'href' => $storeDashboardHref,
+        'label' => $storeDashboardHref !== '' ? 'Open store page' : ''
+    );
+}
+if((int)$storekeeperSummary['student_items_overdue'] > 0){
+    $attentionItems[] = array(
+        'title' => 'Some student-issued items are overdue.',
+        'detail' => number_format((int)$storekeeperSummary['student_items_overdue']).' book(s) or store item(s) are past the expected return date.',
+        'href' => $storeDashboardHref !== '' ? 'store-student-issue.php' : '',
+        'label' => $storeDashboardHref !== '' ? 'View item register' : ''
+    );
+}
+if((int)$matronSummary['requisition_pending'] > 0 || (int)$matronSummary['food_low_stock'] > 0){
+    $attentionItems[] = array(
+        'title' => 'Kitchen requests need follow-up.',
+        'detail' => number_format((int)$matronSummary['requisition_pending']).' requisition(s) are still pending and '.number_format((int)$matronSummary['food_low_stock']).' food or kitchen item(s) are running low.',
+        'href' => $matronDashboardHref,
+        'label' => $matronDashboardHref !== '' ? 'Open matron page' : ''
+    );
+}
+if((int)$matronSummary['menu_slot_open'] > 0){
+    $attentionItems[] = array(
+        'title' => 'This week menu still has gaps.',
+        'detail' => number_format((int)$matronSummary['menu_slot_open']).' meal slot(s) are still empty on the weekly menu.',
+        'href' => $matronDashboardHref,
+        'label' => $matronDashboardHref !== '' ? 'Check the menu' : ''
     );
 }
 if(empty($attentionItems)){
     $attentionItems[] = array(
-        'title' => 'No urgent school alerts right now.',
-        'detail' => 'Reports, admissions, attendance, and message queues are currently under control.',
+        'title' => 'Nothing urgent right now.',
+        'detail' => 'The main school alerts look settled for now.',
         'href' => '',
         'label' => ''
     );
@@ -488,6 +583,8 @@ $quickLinks = array(
     array('module' => '', 'href' => 'viewusers.php', 'icon' => 'fa-users', 'label' => 'Teachers List'),
     array('module' => '', 'href' => 'duty-roster.php', 'icon' => 'fa-calendar-check-o', 'label' => 'Teacher On Duty'),
     array('module' => '', 'href' => 'senior-house-dashboard.php', 'icon' => 'fa-shield', 'label' => 'Senior House Overview'),
+    array('module' => 'stores_management', 'href' => 'storekeeper-dashboard.php', 'icon' => 'fa-archive', 'label' => 'Storekeeper Dashboard'),
+    array('module' => 'matron_management', 'href' => 'matron-dashboard.php', 'icon' => 'fa-cutlery', 'label' => 'Matron Dashboard'),
     array('module' => 'student_progression', 'href' => 'student-history.php', 'icon' => 'fa-history', 'label' => 'Student Transcript'),
     array('module' => 'student_attendance', 'href' => 'student-attendance-report.php', 'icon' => 'fa-bar-chart', 'label' => 'Attendance Summary'),
     array('module' => '', 'href' => 'terminal-report.php', 'icon' => 'fa-file-text-o', 'label' => 'Examination Report'),
@@ -602,22 +699,27 @@ include("links.php");
                     <div class="card" role="article" aria-label="Boys Day Students">
                         <h4><i class="fa fa-male" style="color:#2563eb; margin-right:4px;"></i>Boys - Day</h4>
                         <p><?php echo number_format($boys_day); ?></p>
+                        <?php echo dashboard_student_batch_breakdown_html($_HeadmasterStudentBatchSummary, 'day_boys', 'Batches', 'No batch yet.'); ?>
                     </div>
                     <div class="card" role="article" aria-label="Boys Boarding Students">
                         <h4><i class="fa fa-male" style="color:#38bdf8; margin-right:4px;"></i>Boys - Boarding</h4>
                         <p><?php echo number_format($boys_boarding); ?></p>
+                        <?php echo dashboard_student_batch_breakdown_html($_HeadmasterStudentBatchSummary, 'boarding_boys', 'Batches', 'No batch yet.'); ?>
                     </div>
                     <div class="card" role="article" aria-label="Girls Day Students">
                         <h4><i class="fa fa-female" style="color:#db2777; margin-right:4px;"></i>Girls - Day</h4>
                         <p><?php echo number_format($girls_day); ?></p>
+                        <?php echo dashboard_student_batch_breakdown_html($_HeadmasterStudentBatchSummary, 'day_girls', 'Batches', 'No batch yet.'); ?>
                     </div>
                     <div class="card" role="article" aria-label="Girls Boarding Students">
                         <h4><i class="fa fa-female" style="color:#f472b6; margin-right:4px;"></i>Girls - Boarding</h4>
                         <p><?php echo number_format($girls_boarding); ?></p>
+                        <?php echo dashboard_student_batch_breakdown_html($_HeadmasterStudentBatchSummary, 'boarding_girls', 'Batches', 'No batch yet.'); ?>
                     </div>
                     <div class="card" role="article" aria-label="Students With No Residence Status">
                         <h4><i class="fa fa-question-circle" style="color:#b45309; margin-right:4px;"></i>No Residence Status</h4>
                         <p><?php echo number_format($studentsNoStatus); ?></p>
+                        <?php echo dashboard_student_batch_breakdown_html($_HeadmasterStudentBatchSummary, 'students_no_status', 'Batches', 'All set.'); ?>
                     </div>
                 </div>
             </div>
@@ -735,6 +837,195 @@ include("links.php");
                     <div class="hm-panel__footer hm-panel__footer--split">
                         <span><?php echo number_format((int)$seniorHouseOverview['active_out']); ?> student(s) currently out on exeat.</span>
                         <a href="senior-house-dashboard.php">Open senior house overview</a>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="hm-section">
+            <div class="hm-section__head">
+                <div>
+                    <span class="hm-section__eyebrow">Today</span>
+                    <h2>What needs your attention</h2>
+                </div>
+            </div>
+            <section class="hm-panel">
+                <div class="hm-alert-list">
+                    <?php foreach($attentionItems as $attentionItem){ ?>
+                    <article class="hm-alert-item">
+                        <div>
+                            <strong><?php echo hm_esc($attentionItem['title']); ?></strong>
+                            <p><?php echo hm_esc($attentionItem['detail']); ?></p>
+                        </div>
+                        <?php if(isset($attentionItem['href'], $attentionItem['label']) && trim((string)$attentionItem['href']) !== '' && trim((string)$attentionItem['label']) !== ''){ ?>
+                        <a class="hm-alert-item__link" href="<?php echo hm_esc($attentionItem['href']); ?>"><?php echo hm_esc($attentionItem['label']); ?></a>
+                        <?php } ?>
+                    </article>
+                    <?php } ?>
+                </div>
+            </section>
+        </section>
+
+        <section class="hm-section">
+            <div class="hm-section__head">
+                <div>
+                    <span class="hm-section__eyebrow">Stores And Feeding</span>
+                    <h2>Store and kitchen at a glance</h2>
+                </div>
+            </div>
+            <div class="hm-panel-grid hm-panel-grid--three">
+                <section class="hm-panel">
+                    <div class="hm-panel__head">
+                        <div>
+                            <span class="hm-section__eyebrow">Storekeeper</span>
+                            <h2>Store position</h2>
+                        </div>
+                    </div>
+                    <div class="hm-mini-grid hm-mini-grid--tight">
+                        <article class="hm-mini-card hm-mini-card--gold">
+                            <span>Low Stock</span>
+                            <strong><?php echo number_format((int)$storekeeperSummary['low_stock_items']); ?></strong>
+                            <small>Items getting low.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--rose">
+                            <span>Out Of Stock</span>
+                            <strong><?php echo number_format((int)$storekeeperSummary['out_of_stock_items']); ?></strong>
+                            <small>Items already finished.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--blue">
+                            <span>Student Items Out</span>
+                            <strong><?php echo number_format((int)$storekeeperSummary['student_items_out']); ?></strong>
+                            <small>Items currently with students.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--rose">
+                            <span>Overdue Returns</span>
+                            <strong><?php echo number_format((int)$storekeeperSummary['student_items_overdue']); ?></strong>
+                            <small>Items due back from students.</small>
+                        </article>
+                    </div>
+                    <?php if(empty($storeWatchRows)){ ?>
+                    <div class="hm-empty-state" style="margin-top:14px;">
+                        <h3>No store issue right now.</h3>
+                        <p>No item is below the reorder level at the moment.</p>
+                    </div>
+                    <?php } else { ?>
+                    <div class="hm-activity-list" style="margin-top:14px;">
+                        <?php foreach($storeWatchRows as $_StoreRow){ ?>
+                        <article class="hm-activity-item">
+                            <div>
+                                <strong><?php echo hm_esc($_StoreRow['itemname']); ?></strong>
+                                <p>
+                                    Balance: <?php echo hm_esc(storekeeper_format_quantity($_StoreRow['current_balance'])); ?> <?php echo hm_esc($_StoreRow['unitname']); ?>
+                                    <?php if((float)$_StoreRow['reorderlevel'] > 0){ ?>
+                                     | Reorder: <?php echo hm_esc(storekeeper_format_quantity($_StoreRow['reorderlevel'])); ?>
+                                    <?php } ?>
+                                </p>
+                            </div>
+                            <span class="hm-status-pill hm-status-pill--<?php echo hm_esc(hm_status_tone($_StoreRow['_watch_status'])); ?>">
+                                <?php echo (isset($_StoreRow['_watch_status']) && $_StoreRow['_watch_status'] === 'out_of_stock') ? 'Out of Stock' : 'Low Stock'; ?>
+                            </span>
+                        </article>
+                        <?php } ?>
+                    </div>
+                    <?php } ?>
+                    <p class="hm-panel__note">This is the current picture from the school store.</p>
+                    <div class="hm-panel__footer hm-panel__footer--split">
+                        <span>Receipts this week: <?php echo number_format((int)$storekeeperSummary['receipt_count_week']); ?> | Issues this week: <?php echo number_format((int)$storekeeperSummary['issue_count_week']); ?> | Student issues this week: <?php echo number_format((int)$storekeeperSummary['student_issue_count_week']); ?></span>
+                        <?php if($storeDashboardHref !== ''){ ?>
+                        <a href="<?php echo hm_esc($storeDashboardHref); ?>">Open storekeeper dashboard</a>
+                        <?php } ?>
+                    </div>
+                </section>
+
+                <section class="hm-panel">
+                    <div class="hm-panel__head">
+                        <div>
+                            <span class="hm-section__eyebrow">Matron</span>
+                            <h2>Kitchen position</h2>
+                        </div>
+                    </div>
+                    <div class="hm-mini-grid hm-mini-grid--tight">
+                        <article class="hm-mini-card hm-mini-card--gold">
+                            <span>Pending Requests</span>
+                            <strong><?php echo number_format((int)$matronSummary['requisition_pending']); ?></strong>
+                            <small>Requests still waiting at the store.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--blue">
+                            <span>Approved Requests</span>
+                            <strong><?php echo number_format((int)$matronSummary['requisition_approved']); ?></strong>
+                            <small>Approved requests not yet supplied.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--rose">
+                            <span>Food Low Stock</span>
+                            <strong><?php echo number_format((int)$matronSummary['food_low_stock']); ?></strong>
+                            <small>Food or kitchen items getting low.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--indigo">
+                            <span>Boarders Without House</span>
+                            <strong><?php echo number_format((int)$matronSummary['boarders_without_house']); ?></strong>
+                            <small>Boarders not yet linked to a house.</small>
+                        </article>
+                    </div>
+                    <?php if(empty($matronRecentRequisitions)){ ?>
+                    <div class="hm-empty-state" style="margin-top:14px;">
+                        <h3>No kitchen request yet.</h3>
+                        <p>No requisition has been sent from the matron's office yet.</p>
+                    </div>
+                    <?php } else { ?>
+                    <div class="hm-activity-list" style="margin-top:14px;">
+                        <?php foreach($matronRecentRequisitions as $_MatronReq){ ?>
+                        <article class="hm-activity-item">
+                            <div>
+                                <strong><?php echo hm_esc($_MatronReq['itemname']); ?></strong>
+                                <p><?php echo hm_esc(storekeeper_format_quantity($_MatronReq['quantity'])); ?> <?php echo hm_esc($_MatronReq['unitname']); ?> for <?php echo hm_esc(matron_requisition_slot_label($_MatronReq['dayname'], $_MatronReq['mealtime'])); ?></p>
+                            </div>
+                            <span class="hm-status-pill hm-status-pill--<?php echo hm_esc(hm_status_tone($_MatronReq['status'])); ?>"><?php echo hm_esc(ucwords((string)$_MatronReq['status'])); ?></span>
+                        </article>
+                        <?php } ?>
+                    </div>
+                    <?php } ?>
+                    <p class="hm-panel__note">Boarding student items overdue: <?php echo number_format((int)$matronSummary['boarding_student_items_overdue']); ?>. Boarders currently out on exeat: <?php echo number_format((int)$matronSummary['active_out']); ?>.</p>
+                    <div class="hm-panel__footer hm-panel__footer--split">
+                        <span>Issued requisitions: <?php echo number_format((int)$matronSummary['requisition_issued']); ?> | Rejected: <?php echo number_format((int)$matronSummary['requisition_rejected']); ?> | Cancelled: <?php echo number_format((int)$matronSummary['requisition_cancelled']); ?></span>
+                        <?php if($matronDashboardHref !== ''){ ?>
+                        <a href="<?php echo hm_esc($matronDashboardHref); ?>">Open matron dashboard</a>
+                        <?php } ?>
+                    </div>
+                </section>
+
+                <section class="hm-panel">
+                    <div class="hm-panel__head">
+                        <div>
+                            <span class="hm-section__eyebrow">Current Menu</span>
+                            <h2>Menu for today</h2>
+                        </div>
+                    </div>
+                    <div class="hm-mini-grid hm-mini-grid--tight">
+                        <article class="hm-mini-card hm-mini-card--teal">
+                            <span>Filled Slots</span>
+                            <strong><?php echo number_format((int)$matronSummary['menu_slot_filled']); ?></strong>
+                            <small>Meals already entered for the week.</small>
+                        </article>
+                        <article class="hm-mini-card hm-mini-card--gold">
+                            <span>Open Slots</span>
+                            <strong><?php echo number_format((int)$matronSummary['menu_slot_open']); ?></strong>
+                            <small>Meals still to be added this week.</small>
+                        </article>
+                    </div>
+                    <div class="hm-data-list" style="margin-top:14px;">
+                        <?php foreach($todayMenuSlots as $mealName => $mealText){ ?>
+                        <div>
+                            <span><?php echo hm_esc($mealName); ?></span>
+                            <strong><?php echo hm_esc($mealText); ?></strong>
+                        </div>
+                        <?php } ?>
+                    </div>
+                    <p class="hm-panel__note"><?php echo hm_esc($matronCurrentWeekMenu['week_label']); ?> is the menu now showing on the student and teacher dashboards.</p>
+                    <div class="hm-panel__footer hm-panel__footer--split">
+                        <span>Today: <?php echo hm_esc($todayDayName); ?> | Food items tracked by matron: <?php echo number_format((int)$matronSummary['food_items_total']); ?></span>
+                        <?php if($matronDashboardHref !== ''){ ?>
+                        <a href="<?php echo hm_esc($matronDashboardHref); ?>">Open menu page</a>
+                        <?php } ?>
                     </div>
                 </section>
             </div>

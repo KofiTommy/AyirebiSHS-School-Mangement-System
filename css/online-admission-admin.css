@@ -652,6 +652,10 @@
     background: #166534;
 }
 
+.aa-button--primary {
+    background: #0f4c81;
+}
+
 .aa-button:disabled {
     background: #cbd5e1;
     color: #64748b;
@@ -911,6 +915,57 @@
 
 .aa-table-actions--section {
     margin: 14px 0 18px;
+}
+
+.aa-posted-sms-form {
+    display: grid;
+    gap: 14px;
+}
+
+.aa-button--compact {
+    min-height: 42px;
+    padding: 0 14px;
+}
+
+.aa-sms-inline-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 12px;
+    border: 1px solid #d7e4ec;
+    border-radius: 12px;
+    background: #f8fbfd;
+    color: #425c72;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.aa-sms-inline-option input {
+    width: 16px;
+    height: 16px;
+}
+
+.aa-table-check {
+    width: 48px;
+    text-align: center;
+}
+
+.aa-table-check input {
+    width: 17px;
+    height: 17px;
+}
+
+.aa-sms-date {
+    display: block;
+    margin-top: 6px;
+    color: #6f8294;
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.aa-muted {
+    color: #8798a8;
 }
 
 .aa-pagination {

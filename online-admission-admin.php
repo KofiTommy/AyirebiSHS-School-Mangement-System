@@ -36,6 +36,34 @@ function aa_payment_status_class($status){
     if($status === "failed" || $status === "abandoned"){ return "aa-status aa-status--warning"; }
     return "aa-status aa-status--neutral";
 }
+function aa_sms_status_label($status, $sentAt = ""){
+    $status = strtoupper(trim((string)$status));
+    $sentAt = trim((string)$sentAt);
+    if($sentAt !== "" && ($status === "" || $status === "1000" || $status === "SENT")){
+        return "Sent";
+    }
+    if($status === "NO_PARENT_PHONE"){ return "No parent phone"; }
+    if($status === "ALREADY_SENT"){ return "Already sent"; }
+    if($status === "SMS_GATEWAY_UNAVAILABLE"){ return "Gateway unavailable"; }
+    if($status === "SMS_GATEWAY_TIMEOUT"){ return "Gateway timeout"; }
+    if($status === "INVALID_INPUT"){ return "Invalid SMS data"; }
+    if($status === ""){ return "Not sent"; }
+    return $status === "1000" ? "Sent" : $status;
+}
+function aa_sms_status_class($status, $sentAt = ""){
+    $status = strtoupper(trim((string)$status));
+    $sentAt = trim((string)$sentAt);
+    if($sentAt !== "" && ($status === "" || $status === "1000" || $status === "SENT" || $status === "ALREADY_SENT")){
+        return "aa-status aa-status--success";
+    }
+    if($status === "NO_PARENT_PHONE" || $status === "SMS_GATEWAY_UNAVAILABLE" || $status === "SMS_GATEWAY_TIMEOUT"){
+        return "aa-status aa-status--warning";
+    }
+    if($status !== ""){
+        return "aa-status aa-status--info";
+    }
+    return "aa-status aa-status--neutral";
+}
 function aa_help_status_class($status){
     $status = strtolower(trim((string)$status));
     if($status === "resolved"){ return "aa-status aa-status--success"; }
@@ -348,6 +376,28 @@ function aa_admin_url($overrides = array(), $anchor = ""){
         $url .= $anchor;
     }
     return $url;
+}
+function aa_posted_search_sql($con, $postedSearch){
+    $postedSearch = trim((string)$postedSearch);
+    if($postedSearch === ""){
+        return "";
+    }
+    $postedSearchEsc = mysqli_real_escape_string($con, $postedSearch);
+    $postedLikeEsc = "%".$postedSearchEsc."%";
+    return " AND (
+        beceindexnumber LIKE '$postedLikeEsc'
+        OR firstname LIKE '$postedLikeEsc'
+        OR surname LIKE '$postedLikeEsc'
+        OR othernames LIKE '$postedLikeEsc'
+        OR CONCAT_WS(' ', firstname, othernames, surname) LIKE '$postedLikeEsc'
+        OR CONCAT_WS(' ', surname, firstname, othernames) LIKE '$postedLikeEsc'
+        OR gender LIKE '$postedLikeEsc'
+        OR admissionyear LIKE '$postedLikeEsc'
+        OR offeredprogram LIKE '$postedLikeEsc'
+        OR offeredclass LIKE '$postedLikeEsc'
+        OR residentialstatus LIKE '$postedLikeEsc'
+        OR mobile LIKE '$postedLikeEsc'
+    )";
 }
 function aa_read_csv_rows($tmpName){
     $rows = array();
@@ -1081,6 +1131,102 @@ if(isset($_POST["upload_posted_students"])){
     }
 }
 
+if(isset($_POST["send_posted_placement_sms"])){
+    $selectedPostings = isset($_POST["placement_postingid"]) && is_array($_POST["placement_postingid"]) ? $_POST["placement_postingid"] : array();
+    $forceResend = isset($_POST["force_placement_sms"]);
+    $smsScope = isset($_POST["placement_sms_scope"]) ? trim((string)$_POST["placement_sms_scope"]) : "selected";
+    if(!in_array($smsScope, array("selected", "all"), true)){
+        $smsScope = "selected";
+    }
+    $smsPostedSearch = trim((string)(isset($_POST["posted_sms_search"]) ? $_POST["posted_sms_search"] : (isset($_GET["posted_search"]) ? $_GET["posted_search"] : "")));
+    $smsPostedSearchSql = aa_posted_search_sql($con, $smsPostedSearch);
+
+    if($smsScope === "selected" && empty($selectedPostings)){
+        $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("warning", "Select at least one posted student before sending placement SMS.");
+        header("location:".aa_admin_url(array(), "#posted-students"));
+        exit();
+    }
+
+    $safeIds = array();
+    if($smsScope === "selected"){
+        foreach($selectedPostings as $rawPostingId){
+            $postingId = trim((string)$rawPostingId);
+            if($postingId !== ""){
+                $safeIds[$postingId] = "'".mysqli_real_escape_string($con, $postingId)."'";
+            }
+        }
+
+        if(empty($safeIds)){
+            $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("warning", "No valid posted student was selected.");
+            header("location:".aa_admin_url(array(), "#posted-students"));
+            exit();
+        }
+    }
+
+    $postedSmsRows = array();
+    if($smsScope === "all"){
+        $postedSmsRes = mysqli_query($con, "SELECT *
+            FROM tbladmissionpostedstudent
+            WHERE branchid='$branchIdEsc'
+              AND status='active'$smsPostedSearchSql
+            ORDER BY datetimeentry DESC");
+    }else{
+        $postingIdList = implode(",", array_values($safeIds));
+        $postedSmsRes = mysqli_query($con, "SELECT *
+            FROM tbladmissionpostedstudent
+            WHERE branchid='$branchIdEsc'
+              AND status='active'
+              AND postingid IN ($postingIdList)");
+    }
+    if($postedSmsRes){
+        while($row = mysqli_fetch_array($postedSmsRes, MYSQLI_ASSOC)){
+            $postedSmsRows[] = $row;
+        }
+    }
+    if(empty($postedSmsRows)){
+        $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("warning", $smsScope === "all" ? "No posted students matched the current list." : "No selected posted student was found.");
+        header("location:".aa_admin_url(array(), "#posted-students"));
+        exit();
+    }
+
+    if(function_exists("set_time_limit")){
+        @set_time_limit(0);
+    }
+
+    $portalUrl = online_admission_app_url("online-admission.php");
+    $recordedBy = isset($_SESSION["USERID"]) ? trim((string)$_SESSION["USERID"]) : "";
+    $sentCount = 0;
+    $failedCount = 0;
+    $noPhoneCount = 0;
+    $alreadySentCount = 0;
+
+    foreach($postedSmsRows as $postedSmsRow){
+        $smsResult = online_admission_send_posted_placement_sms($con, $postedSmsRow, $companyName, $portalUrl, $recordedBy, $forceResend);
+        $status = strtoupper(trim((string)$smsResult["status"]));
+        if(!empty($smsResult["sent"])){
+            $sentCount++;
+        }elseif($status === "NO_PARENT_PHONE"){
+            $noPhoneCount++;
+        }elseif(!empty($smsResult["skipped"]) && ($status === "ALREADY_SENT" || trim((string)(isset($postedSmsRow["placementsmssentat"]) ? $postedSmsRow["placementsmssentat"] : "")) !== "")){
+            $alreadySentCount++;
+        }else{
+            $failedCount++;
+        }
+    }
+
+    $summaryParts = array();
+    $summaryParts[] = "Processed: ".number_format(count($postedSmsRows));
+    $summaryParts[] = "Sent: ".number_format($sentCount);
+    if($alreadySentCount > 0){ $summaryParts[] = "Already sent: ".number_format($alreadySentCount); }
+    if($noPhoneCount > 0){ $summaryParts[] = "No phone: ".number_format($noPhoneCount); }
+    if($failedCount > 0){ $summaryParts[] = "Failed: ".number_format($failedCount); }
+    $tone = ($sentCount > 0 && $failedCount === 0 && $noPhoneCount === 0) ? "success" : ($sentCount > 0 || $alreadySentCount > 0 ? "warning" : "error");
+    $scopeLabel = $smsScope === "all" ? ($smsPostedSearch !== "" ? "all matching posted students" : "all posted students") : "selected posted students";
+    $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert($tone, "Placement SMS processing completed for ".$scopeLabel.". ".implode(" | ", $summaryParts).".");
+    header("location:".aa_admin_url(array(), "#posted-students"));
+    exit();
+}
+
 if(isset($_POST["save_payment_settings"])){
     $paymentData = array(
         "portalenabled" => isset($_POST["portal_enabled"]) ? 1 : 0,
@@ -1417,25 +1563,7 @@ $paymentPage = aa_positive_page(isset($_GET["payment_page"]) ? $_GET["payment_pa
 $postedPerPage = 25;
 $applicationsPerPage = 5;
 $paymentPerPage = 25;
-$postedSearchSql = "";
-if($postedSearch !== ""){
-    $postedSearchEsc = mysqli_real_escape_string($con, $postedSearch);
-    $postedLikeEsc = "%".$postedSearchEsc."%";
-    $postedSearchSql = " AND (
-        beceindexnumber LIKE '$postedLikeEsc'
-        OR firstname LIKE '$postedLikeEsc'
-        OR surname LIKE '$postedLikeEsc'
-        OR othernames LIKE '$postedLikeEsc'
-        OR CONCAT_WS(' ', firstname, othernames, surname) LIKE '$postedLikeEsc'
-        OR CONCAT_WS(' ', surname, firstname, othernames) LIKE '$postedLikeEsc'
-        OR gender LIKE '$postedLikeEsc'
-        OR admissionyear LIKE '$postedLikeEsc'
-        OR offeredprogram LIKE '$postedLikeEsc'
-        OR offeredclass LIKE '$postedLikeEsc'
-        OR residentialstatus LIKE '$postedLikeEsc'
-        OR mobile LIKE '$postedLikeEsc'
-    )";
-}
+$postedSearchSql = aa_posted_search_sql($con, $postedSearch);
 
 $postedTotal = 0;
 $postedCountRes = mysqli_query($con, "SELECT COUNT(*) AS total
@@ -1698,7 +1826,7 @@ if($appHasAssignedHouse){
     }
 }
 
-$postedExportHeaders = array("BECE Index", "Student", "Gender", "Birth Date", "Programme", "Class", "Residence", "Year", "Mobile", "Added On");
+$postedExportHeaders = array("BECE Index", "Student", "Gender", "Birth Date", "Programme", "Class", "Residence", "Year", "Mobile", "Placement SMS", "SMS Sent On", "Added On");
 $postedExportRows = array();
 foreach($postedExportStudents as $student){
     $postedExportRows[] = array(
@@ -1711,6 +1839,8 @@ foreach($postedExportStudents as $student){
         (string)$student["residentialstatus"],
         (string)$student["admissionyear"],
         (string)$student["mobile"],
+        aa_sms_status_label(isset($student["placementsmsstatus"]) ? $student["placementsmsstatus"] : "", isset($student["placementsmssentat"]) ? $student["placementsmssentat"] : ""),
+        trim((string)(isset($student["placementsmssentat"]) ? $student["placementsmssentat"] : "")) !== "" ? aa_date($student["placementsmssentat"], "d M Y, g:i a") : "Not sent",
         aa_date($student["datetimeentry"], "d M Y, g:i a")
     );
 }
@@ -2709,37 +2839,59 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                 <?php if($postedSearch !== ""){ ?><a href="<?php echo aa_esc(aa_admin_url(array("posted_search" => null, "posted_page" => null), "#posted-students")); ?>" class="aa-link aa-link--ghost aa-search-clear"><i class="fa fa-times"></i> Clear</a><?php } ?>
             </form>
             <p class="aa-search-meta"><?php echo $postedSearch !== "" ? "Showing page ".number_format($postedPage)." of ".number_format($postedTotalPages)." for ".number_format($postedTotal)." match(es) for \"".aa_esc($postedSearch)."\"." : "Showing page ".number_format($postedPage)." of ".number_format($postedTotalPages)." from ".number_format($postedTotal)." posted student record(s)."; ?></p>
+        </div>
+        <form method="post" action="<?php echo aa_esc(aa_admin_url(array(), "#posted-students")); ?>" class="aa-posted-sms-form">
+            <input type="hidden" name="send_posted_placement_sms" value="1">
+            <input type="hidden" name="posted_sms_search" value="<?php echo aa_esc($postedSearch); ?>">
             <div class="aa-table-actions">
                 <a href="<?php echo aa_esc(aa_admin_url(array("export" => "posted_students", "posted_page" => null), "")); ?>" class="aa-link"><i class="fa fa-file-excel-o"></i> Download Excel</a>
                 <a href="<?php echo aa_esc(aa_admin_url(array("print" => "posted_students", "posted_page" => null), "")); ?>" class="aa-link aa-link--ghost aa-link--inline" target="_blank"><i class="fa fa-print"></i> Print</a>
+                <?php if(count($postedStudents) > 0){ ?>
+                <button type="submit" name="placement_sms_scope" value="selected" class="aa-button aa-button--success aa-button--compact"><i class="fa fa-send"></i> Send Selected SMS</button>
+                <?php } ?>
+                <?php if($postedTotal > 0){ ?>
+                <button type="submit" name="placement_sms_scope" value="all" class="aa-button aa-button--primary aa-button--compact"><i class="fa fa-users"></i> <?php echo $postedSearch !== "" ? "Send To All Matching Students" : "Send To All Posted Students"; ?></button>
+                <label class="aa-sms-inline-option">
+                    <input type="checkbox" name="force_placement_sms" value="1">
+                    <span>Resend even if already sent</span>
+                </label>
+                <?php } ?>
             </div>
-        </div>
         <div class="aa-table-wrap" id="posted-students">
             <table class="aa-table">
                 <thead>
                     <tr>
+                        <th class="aa-table-check"><input type="checkbox" aria-label="Select visible posted students" onclick="var checked=this.checked; document.querySelectorAll('.aa-placement-sms-check').forEach(function(box){ if(!box.disabled){ box.checked=checked; } });"></th>
                         <th>BECE Index</th>
                         <th>Student</th>
-                        <th>Gender</th>
                         <th>Programme</th>
                         <th>Class</th>
                         <th>Residence</th>
+                        <th>Parent Phone</th>
+                        <th>SMS Status</th>
                         <th>Year</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if(count($postedStudents) > 0){ foreach($postedStudents as $student){ ?>
                     <tr>
+                        <td class="aa-table-check"><input type="checkbox" class="aa-placement-sms-check" name="placement_postingid[]" value="<?php echo aa_esc($student["postingid"]); ?>" <?php echo trim((string)$student["mobile"]) === "" ? "disabled" : ""; ?>></td>
                         <td><?php echo aa_esc($student["beceindexnumber"]); ?></td>
                         <td><?php echo aa_esc(trim($student["firstname"]." ".$student["othernames"]." ".$student["surname"])); ?></td>
-                        <td><?php echo aa_esc($student["gender"]); ?></td>
                         <td><?php echo aa_esc($student["offeredprogram"]); ?></td>
                         <td><?php echo aa_esc($student["offeredclass"]); ?></td>
                         <td><?php echo aa_esc($student["residentialstatus"]); ?></td>
+                        <td><?php echo trim((string)$student["mobile"]) !== "" ? aa_esc($student["mobile"]) : "<span class=\"aa-muted\">No phone</span>"; ?></td>
+                        <td>
+                            <span class="<?php echo aa_sms_status_class(isset($student["placementsmsstatus"]) ? $student["placementsmsstatus"] : "", isset($student["placementsmssentat"]) ? $student["placementsmssentat"] : ""); ?>">
+                                <?php echo aa_esc(aa_sms_status_label(isset($student["placementsmsstatus"]) ? $student["placementsmsstatus"] : "", isset($student["placementsmssentat"]) ? $student["placementsmssentat"] : "")); ?>
+                            </span>
+                            <?php if(trim((string)(isset($student["placementsmssentat"]) ? $student["placementsmssentat"] : "")) !== ""){ ?><small class="aa-sms-date"><?php echo aa_esc(aa_date($student["placementsmssentat"], "d M Y, g:i a")); ?></small><?php } ?>
+                        </td>
                         <td><?php echo aa_esc($student["admissionyear"]); ?></td>
                     </tr>
                     <?php } } else { ?>
-                    <tr><td colspan="7"><?php echo $postedSearch !== "" ? "No posted students matched that search." : "No posted students have been added yet."; ?></td></tr>
+                    <tr><td colspan="9"><?php echo $postedSearch !== "" ? "No posted students matched that search." : "No posted students have been added yet."; ?></td></tr>
                     <?php } ?>
                 </tbody>
             </table>
@@ -2761,6 +2913,7 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
             </div>
         </div>
         <?php } ?>
+        </form>
     </section>
 
     <?php if($editableApplication){ ?>
