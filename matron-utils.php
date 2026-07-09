@@ -518,13 +518,13 @@ function matron_fetch_requisition_rows($con, $filters = array())
             req.firstname AS requested_firstname,
             req.othernames AS requested_othernames,
             req.surname AS requested_surname,
-            dec.firstname AS decision_firstname,
-            dec.othernames AS decision_othernames,
-            dec.surname AS decision_surname
+            decision_user.firstname AS decision_firstname,
+            decision_user.othernames AS decision_othernames,
+            decision_user.surname AS decision_surname
         FROM tblmatronrequisition mr
         LEFT JOIN tblstoreitem si ON si.storeitemid=mr.storeitemid
         LEFT JOIN tblsystemuser req ON req.userid=mr.requestedby
-        LEFT JOIN tblsystemuser dec ON dec.userid=mr.decisionby
+        LEFT JOIN tblsystemuser decision_user ON decision_user.userid=mr.decisionby
         WHERE " . implode(" AND ", $where) . "
         ORDER BY
             CASE mr.status
