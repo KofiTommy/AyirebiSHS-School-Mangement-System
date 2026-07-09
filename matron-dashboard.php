@@ -8,6 +8,9 @@ ensure_storekeeper_tables($con);
 ensure_matron_tables($con);
 
 if (!matron_can_manage_module($con, 'matron_management')) {
+    $_SESSION['Message'] = function_exists('storekeeper_flash_html')
+        ? storekeeper_flash_html('error', 'You do not have access to the matron dashboard.')
+        : "<div style='color:red;text-align:center;padding:8px;'>You do not have access to the matron dashboard.</div>";
     header("location:" . matron_landing_page());
     exit();
 }

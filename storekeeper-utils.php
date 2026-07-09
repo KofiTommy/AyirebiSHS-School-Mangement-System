@@ -1,6 +1,168 @@
 <?php
 include_once("user-management-utils.php");
-include_once("dashboard-student-utils.php");
+$storekeeperDashboardStudentUtilsPath = __DIR__ . DIRECTORY_SEPARATOR . "dashboard-student-utils.php";
+if (is_file($storekeeperDashboardStudentUtilsPath)) {
+    include_once($storekeeperDashboardStudentUtilsPath);
+}
+
+if (!function_exists('storekeeper_dashboard_table_has_column')) {
+function storekeeper_dashboard_table_has_column($con, $tableName, $columnName)
+{
+    if (!$con) {
+        return false;
+    }
+    $tableName = trim((string)$tableName);
+    $columnName = trim((string)$columnName);
+    if ($tableName === '' || $columnName === '') {
+        return false;
+    }
+
+    $tableEsc = mysqli_real_escape_string($con, $tableName);
+    $columnEsc = mysqli_real_escape_string($con, $columnName);
+    $res = @mysqli_query($con, "SHOW COLUMNS FROM `$tableEsc` LIKE '$columnEsc'");
+    return $res && mysqli_num_rows($res) > 0;
+}
+}
+
+if (!function_exists('storekeeper_dashboard_normalize_gender')) {
+function storekeeper_dashboard_normalize_gender($value)
+{
+    $value = strtoupper(trim((string)$value));
+    if (in_array($value, array('M', 'MALE', 'BOY', 'MAN'), true)) {
+        return 'Male';
+    }
+    if (in_array($value, array('F', 'FEMALE', 'GIRL', 'WOMAN'), true)) {
+        return 'Female';
+    }
+    return '';
+}
+}
+
+if (!function_exists('storekeeper_dashboard_normalize_residence')) {
+function storekeeper_dashboard_normalize_residence($value)
+{
+    $value = strtoupper(trim((string)$value));
+    if (in_array($value, array('BOARDING', 'BOARDER', 'B', 'HOSTEL', 'RESIDENT'), true)) {
+        return 'Boarding';
+    }
+    if (in_array($value, array('DAY', 'D', 'DAY STUDENT', 'DAY STUDENTS', 'DAYSCHOLAR'), true)) {
+        return 'Day';
+    }
+    return '';
+}
+}
+
+if (!function_exists('dashboard_student_population_summary')) {
+function dashboard_student_population_summary($con, $options = array())
+{
+    $summary = array(
+        'student_total' => 0,
+        'day_students_total' => 0,
+        'boarding_students_total' => 0,
+        'day_boys' => 0,
+        'day_girls' => 0,
+        'boarding_boys' => 0,
+        'boarding_girls' => 0,
+        'other_students_total' => 0,
+        'students_no_status' => 0,
+        'batch_breakdown' => array(
+            'student_total' => array(),
+            'day_students_total' => array(),
+            'boarding_students_total' => array(),
+            'day_boys' => array(),
+            'day_girls' => array(),
+            'boarding_boys' => array(),
+            'boarding_girls' => array(),
+            'other_students_total' => array(),
+            'students_no_status' => array()
+        )
+    );
+    if (!$con) {
+        return $summary;
+    }
+
+    $where = array("su.systemtype='Student'");
+    if (storekeeper_dashboard_table_has_column($con, 'tblsystemuser', 'status')) {
+        $where[] = "COALESCE(su.status,'')='active'";
+    }
+
+    $genderSql = storekeeper_dashboard_table_has_column($con, 'tblsystemuser', 'gender')
+        ? "COALESCE(su.gender, '') AS gender"
+        : "'' AS gender";
+    $residenceSql = storekeeper_dashboard_table_has_column($con, 'tblsystemuser', 'residencetype')
+        ? "COALESCE(su.residencetype, '') AS residencetype"
+        : "'' AS residencetype";
+
+    $sql = "SELECT $genderSql, $residenceSql
+        FROM tblsystemuser su
+        WHERE " . implode(' AND ', $where);
+    $res = @mysqli_query($con, $sql);
+    if (!$res) {
+        return $summary;
+    }
+
+    while ($row = mysqli_fetch_array($res, MYSQLI_ASSOC)) {
+        $summary['student_total']++;
+
+        $gender = storekeeper_dashboard_normalize_gender(isset($row['gender']) ? $row['gender'] : '');
+        $residence = storekeeper_dashboard_normalize_residence(isset($row['residencetype']) ? $row['residencetype'] : '');
+
+        if ($residence === 'Day' && $gender === 'Male') {
+            $summary['day_boys']++;
+            $summary['day_students_total']++;
+        } elseif ($residence === 'Day' && $gender === 'Female') {
+            $summary['day_girls']++;
+            $summary['day_students_total']++;
+        } elseif ($residence === 'Boarding' && $gender === 'Male') {
+            $summary['boarding_boys']++;
+            $summary['boarding_students_total']++;
+        } elseif ($residence === 'Boarding' && $gender === 'Female') {
+            $summary['boarding_girls']++;
+            $summary['boarding_students_total']++;
+        } elseif ($residence === 'Day') {
+            $summary['day_students_total']++;
+            $summary['other_students_total']++;
+        } elseif ($residence === 'Boarding') {
+            $summary['boarding_students_total']++;
+            $summary['other_students_total']++;
+        } else {
+            $summary['students_no_status']++;
+            $summary['other_students_total']++;
+        }
+    }
+
+    return $summary;
+}
+}
+
+if (!function_exists('dashboard_student_batch_breakdown_rows')) {
+function dashboard_student_batch_breakdown_rows($summary, $key)
+{
+    return array();
+}
+}
+
+if (!function_exists('dashboard_student_batch_label_short')) {
+function dashboard_student_batch_label_short($label)
+{
+    $label = trim((string)$label);
+    return $label === '' ? 'No batch' : $label;
+}
+}
+
+if (!function_exists('dashboard_student_batch_breakdown_text')) {
+function dashboard_student_batch_breakdown_text($summary, $key, $limit = 2, $emptyText = 'No batch summary yet.')
+{
+    return (string)$emptyText;
+}
+}
+
+if (!function_exists('dashboard_student_batch_breakdown_html')) {
+function dashboard_student_batch_breakdown_html($summary, $key, $summaryLabel = 'Batches', $emptyText = 'No batch yet.')
+{
+    return '<span class="student-batch-toggle__empty">' . htmlspecialchars((string)$emptyText, ENT_QUOTES, 'UTF-8') . '</span>';
+}
+}
 
 if (!function_exists('storekeeper_is_admin')) {
 function storekeeper_is_admin()

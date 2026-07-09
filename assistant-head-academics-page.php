@@ -9,6 +9,7 @@ include_once("semester-registry-utils.php");
 include_once("report-approval-utils.php");
 include_once("course-registration-utils.php");
 include_once("dashboard-student-utils.php");
+include_once("storekeeper-utils.php");
 
 ensure_student_attendance_tables($con);
 semester_registry_ensure_academic_year_column($con);

@@ -8,6 +8,9 @@ ensure_storekeeper_tables($con);
 ensure_matron_tables($con);
 
 if (!storekeeper_can_manage_module($con, 'stores_management')) {
+    $_SESSION['Message'] = function_exists('storekeeper_flash_html')
+        ? storekeeper_flash_html('error', 'You do not have access to the storekeeper dashboard.')
+        : "<div style='color:red;text-align:center;padding:8px;'>You do not have access to the storekeeper dashboard.</div>";
     header("location:" . storekeeper_landing_page());
     exit();
 }
