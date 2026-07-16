@@ -46,6 +46,25 @@ if(isset($_POST['approve_class_report']) || isset($_POST['hold_class_report'])){
       }
 }
 
+if(isset($_POST['allow_score_corrections']) || isset($_POST['lock_score_corrections'])){
+      include("dbstring.php");
+      $_OverrideEnabled = isset($_POST['allow_score_corrections']);
+      if(report_approval_is_admin_user()){
+          if(report_approval_scope_requires_release($_AcademicYear, $_TermId)){
+              $_OverrideSaved = report_approval_set_score_edit_override($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId, $_OverrideEnabled, isset($_SESSION['USERID']) ? $_SESSION['USERID'] : '');
+              if($_OverrideSaved){
+                  $_ReportApprovalAdminMessage = $_OverrideEnabled
+                      ? "<div style='color:#0f5132;text-align:center;background-color:white;padding:10px;'>Score correction has been reopened for this class result.</div>"
+                      : "<div style='color:#7c2d12;text-align:center;background-color:white;padding:10px;'>Score correction has been locked again for this class result.</div>";
+              }else{
+                  $_ReportApprovalAdminMessage = "<div style='color:red;text-align:center;background-color:white;padding:10px;'>Score correction access could not be updated for this class report.</div>";
+              }
+          }else{
+              $_ReportApprovalAdminMessage = "<div style='color:#0b63ce;text-align:center;background-color:white;padding:10px;'>This report scope does not require an approval lock for score correction.</div>";
+          }
+      }
+}
+
 if(isset($_POST["print_terminal_report"]))
 {
       $_PrintResult = tr_terminal_report_print_single_pdf($con, $_UserID, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
@@ -76,6 +95,10 @@ include("dbstring.php");
 
 if(isset($_POST['save_all_mark']))
 {
+    $_AssignmentApprovalMeta = report_approval_assignment_scope_meta($con, $_AssignmentId);
+    if($_AssignmentApprovalMeta && !empty($_AssignmentApprovalMeta['score_edit_locked'])){
+        $_SESSION['Message'] = "<div style='color:red;padding:10px;background-color:white;'>".htmlspecialchars(report_approval_score_edit_locked_message(), ENT_QUOTES, 'UTF-8')."</div>";
+    }else{
 	@$_CheckMark=0;
 	foreach ($_Mark as $_Selected_Mark) 
 	{
@@ -156,6 +179,7 @@ $_Selected_Mark=$_Mark[$k];
 	}	
 	
 }
+}
 ?>
 
 <?php
@@ -180,14 +204,21 @@ include("dbstring.php");
 
 if(isset($_GET["delete_mark"]))
 {
-    $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblmark WHERE markid='$_GET[delete_mark]'");
-	if($_SQL_EXECUTE){
-	$_SESSION['Message']="<div style='color:maroon;text-align:center;background-color:white'>Mark Successfully Deleted</div>";
-	}
-	else{
-		$_Error=mysqli_error($con);
-		$_SESSION['Message']="<div style='color:red;text-align:center'>Mark failed to delete,Error:$_Error</div>";
-	}
+    $_DeleteMarkId = trim((string)$_GET["delete_mark"]);
+    $_DeleteMarkMeta = report_approval_mark_scope_meta($con, $_DeleteMarkId);
+    if($_DeleteMarkMeta && !empty($_DeleteMarkMeta['score_edit_locked'])){
+        $_SESSION['Message']="<div style='color:red;text-align:center;background-color:white'>".htmlspecialchars(report_approval_score_edit_locked_message(), ENT_QUOTES, 'UTF-8')."</div>";
+    }else{
+        $_DeleteMarkIdSafe = mysqli_real_escape_string($con, $_DeleteMarkId);
+        $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblmark WHERE markid='$_DeleteMarkIdSafe'");
+	    if($_SQL_EXECUTE){
+	    $_SESSION['Message']="<div style='color:maroon;text-align:center;background-color:white'>Mark Successfully Deleted</div>";
+	    }
+	    else{
+		    $_Error=mysqli_error($con);
+		    $_SESSION['Message']="<div style='color:red;text-align:center'>Mark failed to delete,Error:$_Error</div>";
+	    }
+    }
 }
 ?>
 
@@ -354,15 +385,25 @@ echo $_ReportPrintMessage;
 }
 if($_SelectedClassId!=='' && $_SelectedTermId!=='' && $_SelectedAcademicYear!=='' && report_approval_is_admin_user()){
     if($_SelectedScopeApprovalMeta['required']){
-        $_ApprovalBg = $_SelectedScopeApprovalMeta['allowed'] ? "#ecfdf3" : "#fff7ed";
-        $_ApprovalBorder = $_SelectedScopeApprovalMeta['allowed'] ? "rgba(22,101,52,0.14)" : "rgba(194,65,12,0.14)";
-        $_ApprovalColor = $_SelectedScopeApprovalMeta['allowed'] ? "#166534" : "#c2410c";
         $_ApprovalTone = $_SelectedScopeApprovalMeta['allowed'] ? "tr-status-approved" : "tr-status-pending";
         echo "<div class='tr-status-card ".$_ApprovalTone."'><i class='fa fa-shield'></i> Student Portal Status: ".$_SelectedScopeApprovalMeta['status_label']."</div>";
         echo "<div class='tr-actions tr-approval-actions'>";
         echo "<button class='button-pay tr-btn tr-btn-primary' type='submit' name='approve_class_report'><i class='fa fa-check'></i> Approve Student View</button>";
         echo "<button class='button-show tr-btn tr-btn-warning' type='submit' name='hold_class_report'><i class='fa fa-pause'></i> Hold Student View</button>";
         echo "</div>";
+        if($_SelectedScopeApprovalMeta['approved']){
+            $_ScoreEditTone = !empty($_SelectedScopeApprovalMeta['score_edit_locked']) ? "tr-status-pending" : "tr-status-approved";
+            echo "<div class='tr-status-card ".$_ScoreEditTone."'><i class='fa fa-pencil-square-o'></i> Score Entry: ".$_SelectedScopeApprovalMeta['score_edit_status_label']."</div>";
+            echo "<div class='tr-actions tr-approval-actions'>";
+            if(!empty($_SelectedScopeApprovalMeta['score_edit_locked'])){
+                echo "<button class='button-show tr-btn tr-btn-primary' type='submit' name='allow_score_corrections'><i class='fa fa-unlock-alt'></i> Reopen Score Corrections</button>";
+            }else{
+                echo "<button class='button-show tr-btn tr-btn-warning' type='submit' name='lock_score_corrections'><i class='fa fa-lock'></i> Lock Score Corrections</button>";
+            }
+            echo "</div>";
+        }else{
+            echo "<div class='tr-status-card tr-status-info'><i class='fa fa-pencil-square-o'></i> Score entry remains open until this class result is approved.</div>";
+        }
     }else{
         echo "<div class='tr-status-card tr-status-info'><i class='fa fa-info-circle'></i> Student approval is not required for this semester scope.</div>";
     }
