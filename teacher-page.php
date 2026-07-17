@@ -43,6 +43,7 @@ function td_session_label($dateTimeValue,$batchLabel,$termValue){
     return trim($yearValue." Batch ".trim((string)$batchLabel)." Semester ".trim((string)$termValue));
 }
 function td_date($value){ $time=strtotime((string)$value); return $time ? date("d M Y, H:i",$time) : (string)$value; }
+function td_date_only($value){ $time=strtotime((string)$value); return $time ? date("d M Y",$time) : (string)$value; }
 function td_perf_delta_class($delta){
     if($delta === null){
         return "teacher-perf-delta teacher-perf-delta--neutral";
@@ -289,7 +290,28 @@ $activeBatchCount = count($activeBatchIds);
 $myMessageCount = 0;
 $messageUnreadCount = um_message_unread_count($con, $teacherId, 'Teacher');
 $teacherVotingSnapshot = voting_dashboard_snapshot($con, voting_default_branch_id($con), 'Teacher');
-$teacherWeeklyMenu = matron_current_week_menu_context($con);
+$teacherWeeklyMenu = matron_current_week_menu_context($con, date('Y-m-d'), 'teacher');
+$teacherStoreRequisitionRows = matron_fetch_requisition_rows($con, array(
+    'requestedby' => $teacherId,
+    'requestorigin' => 'teacher',
+    'limit' => 80
+));
+$teacherStoreRequisitionSummary = array(
+    'total' => count($teacherStoreRequisitionRows),
+    'pending' => 0,
+    'awaiting_headmaster' => 0,
+    'approved' => 0,
+    'issued' => 0,
+    'rejected' => 0,
+    'cancelled' => 0
+);
+foreach($teacherStoreRequisitionRows as $teacherStoreReq){
+    $teacherStoreReqStatus = strtolower(trim((string)(isset($teacherStoreReq["status"]) ? $teacherStoreReq["status"] : "")));
+    if(isset($teacherStoreRequisitionSummary[$teacherStoreReqStatus])){
+        $teacherStoreRequisitionSummary[$teacherStoreReqStatus]++;
+    }
+}
+$teacherStoreRecentRows = array_slice($teacherStoreRequisitionRows, 0, 4);
 $countRes = mysqli_query($con,"SELECT COUNT(*) AS total_messages FROM tblmessages WHERE sentby='$teacherIdEsc' AND status='active'");
 if($countRes && $countRow=mysqli_fetch_array($countRes,MYSQLI_ASSOC)){ $myMessageCount = (int)$countRow["total_messages"]; }
 $myMessages = array();
@@ -566,6 +588,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <a class="teacher-action-card" href="payments.php"><span class="teacher-action-card__icon"><i class="fa fa-credit-card"></i></span><h3>Class Payments<?php if($teacherBillingScopeCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherBillingScopeCount; ?> Scope<?php echo ((int)$teacherBillingScopeCount === 1 ? "" : "s"); ?></span><?php } ?></h3><p><?php echo $teacherBillingScopeCount > 0 ? "Open the payment view for the class fee-collection scopes assigned to you." : "Open class payments. Admin still needs to assign your fee-collection class scope."; ?></p></a>
         <?php } ?>
         <a class="teacher-action-card" href="online-voting.php"><?php if($teacherVotingSnapshot && !empty($teacherVotingSnapshot["contest"])){ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo td_esc($teacherVotingSnapshot["contest"]["title"]); ?> is <?php echo td_esc(strtolower(voting_status_label($teacherVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Voting details will appear when a contest is available.</p><?php } ?></a>
+        <a class="teacher-action-card" href="teacher-store-requisition.php"><span class="teacher-action-card__icon"><i class="fa fa-archive"></i></span><h3>Store Requisition<?php if((int)$teacherStoreRequisitionSummary["pending"] > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherStoreRequisitionSummary["pending"]; ?> Store</span><?php } ?><?php if((int)$teacherStoreRequisitionSummary["awaiting_headmaster"] > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherStoreRequisitionSummary["awaiting_headmaster"]; ?> Head</span><?php } ?></h3><p><?php echo ((int)$teacherStoreRequisitionSummary["pending"] + (int)$teacherStoreRequisitionSummary["awaiting_headmaster"]) > 0 ? "You still have active store requests waiting for review or final approval." : "Request teaching items, office supplies, and other active store items from one place."; ?></p></a>
         <a class="teacher-action-card" href="messages.php"><span class="teacher-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the wider message board when you need more than the dashboard preview."; ?></p></a>
     </div>
 </section>
@@ -747,7 +770,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
     <div class="teacher-panel-stack">
         <section class="teacher-panel teacher-panel--menu-board">
             <div class="teacher-panel__header">
-                <div><span class="teacher-panel__eyebrow">Dining Menu</span><h2>This week's school menu</h2></div>
+                <div><span class="teacher-panel__eyebrow">Dining Menu</span><h2>This week's teacher menu</h2></div>
             </div>
             <div class="teacher-menu-board__week"><?php echo td_esc($teacherWeeklyMenu["week_label"]); ?></div>
             <?php if(count($teacherWeeklyMenu["rows"]) > 0){ ?>
@@ -771,8 +794,42 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
             </div>
             <?php } else { ?>
             <div class="teacher-empty-state teacher-empty-state--compact">
-                <p>The weekly menu has not been published yet.</p>
+                <p>The teacher weekly menu has not been published yet.</p>
             </div>
+            <?php } ?>
+        </section>
+
+        <section class="teacher-panel">
+            <div class="teacher-panel__header">
+                <div><span class="teacher-panel__eyebrow">Store Requests</span><h2>Follow your store requisitions</h2></div>
+                <a class="teacher-panel__link" href="teacher-store-requisition.php">Open Request Page</a>
+            </div>
+            <div class="teacher-role-list">
+                <article class="teacher-role-card">
+                    <h3>Waiting at Store</h3>
+                    <p><?php echo number_format((int)$teacherStoreRequisitionSummary["pending"]); ?> request<?php echo ((int)$teacherStoreRequisitionSummary["pending"] === 1 ? "" : "s"); ?> still waiting for the storekeeper.</p>
+                    <span>Store review queue</span>
+                </article>
+                <article class="teacher-role-card">
+                    <h3>Waiting for Head</h3>
+                    <p><?php echo number_format((int)$teacherStoreRequisitionSummary["awaiting_headmaster"]); ?> request<?php echo ((int)$teacherStoreRequisitionSummary["awaiting_headmaster"] === 1 ? "" : "s"); ?> already moved for final approval.</p>
+                    <span>Final approval queue</span>
+                </article>
+            </div>
+            <?php if(count($teacherStoreRecentRows) > 0){ ?>
+            <div class="teacher-message-list">
+                <?php foreach($teacherStoreRecentRows as $teacherStoreReq){ ?>
+                <article class="teacher-message-card">
+                    <div class="teacher-message-card__meta">
+                        <span><?php echo td_esc(td_date_only($teacherStoreReq["requestdate"])); ?></span>
+                        <span><?php echo td_esc($teacherStoreReq["status_label"]); ?></span>
+                    </div>
+                    <p><strong><?php echo td_esc($teacherStoreReq["itemname"]); ?></strong> for <?php echo td_esc($teacherStoreReq["purpose"]); ?></p>
+                </article>
+                <?php } ?>
+            </div>
+            <?php } else { ?>
+            <div class="teacher-empty-state teacher-empty-state--compact"><p>You have not sent any store request yet.</p></div>
             <?php } ?>
         </section>
 

@@ -37,8 +37,21 @@ $obj_browser->setBrowser(1);
 include("dbstring.php");
 include_once("online-admission-utils.php");
 include_once("user-management-utils.php");
+include_once("portal-help-utils.php");
 ensure_online_admission_tables($con);
 ensure_user_management_columns($con);
+ensure_portal_help_request_table($con);
+
+$_LandingHelpRequestMessageHtml = "";
+$_LandingHelpRequestWasSent = false;
+$_LandingHelpForm = array(
+    "requestername" => "",
+    "requesterrole" => "visitor",
+    "contactphone" => "",
+    "contactemail" => "",
+    "helptopic" => "general",
+    "helpmessage" => ""
+);
 
 $_PublicAdmissionOpen=false;
 $_PublicAdmissionPaymentEnabled=false;
@@ -53,6 +66,52 @@ $_SQL_Item_2=mysqli_query($con,"SELECT * FROM tblcurrency");
 if($row_item_2=mysqli_fetch_array($_SQL_Item_2,MYSQLI_ASSOC)){
 $_SESSION['CURRENCY']=$row_item_2['currencyname'];
 $_SESSION['SYMBOL']=$row_item_2['symbol'];
+}
+
+if(isset($_POST["send_help_request"])){
+$_LandingHelpForm["requestername"]=trim((string)(isset($_POST["requestername"]) ? $_POST["requestername"] : ""));
+$_LandingHelpForm["requesterrole"]=portal_help_normalize_role(isset($_POST["requesterrole"]) ? $_POST["requesterrole"] : "visitor");
+$_LandingHelpForm["contactphone"]=trim((string)(isset($_POST["contactphone"]) ? $_POST["contactphone"] : ""));
+$_LandingHelpForm["contactemail"]=trim((string)(isset($_POST["contactemail"]) ? $_POST["contactemail"] : ""));
+$_LandingHelpForm["helptopic"]=portal_help_normalize_topic(isset($_POST["helptopic"]) ? $_POST["helptopic"] : "general");
+$_LandingHelpForm["helpmessage"]=trim((string)(isset($_POST["helpmessage"]) ? $_POST["helpmessage"] : ""));
+
+if($_LandingHelpForm["requestername"] === ""){
+    $_LandingHelpRequestMessageHtml = "<div class='landing-help-flash landing-help-flash--error'>Please enter your name before sending the help message.</div>";
+}elseif($_LandingHelpForm["contactphone"] === "" && $_LandingHelpForm["contactemail"] === ""){
+    $_LandingHelpRequestMessageHtml = "<div class='landing-help-flash landing-help-flash--error'>Add a phone number or email so the admin can get back to you.</div>";
+}elseif($_LandingHelpForm["contactemail"] !== "" && !filter_var($_LandingHelpForm["contactemail"], FILTER_VALIDATE_EMAIL)){
+    $_LandingHelpRequestMessageHtml = "<div class='landing-help-flash landing-help-flash--error'>Please enter a valid email address.</div>";
+}elseif($_LandingHelpForm["helpmessage"] === ""){
+    $_LandingHelpRequestMessageHtml = "<div class='landing-help-flash landing-help-flash--error'>Tell the admin what you need help with.</div>";
+}else{
+    $_SavedHelpRequestId = portal_help_create_request($con, array(
+        "requestername" => $_LandingHelpForm["requestername"],
+        "requesterrole" => $_LandingHelpForm["requesterrole"],
+        "contactphone" => $_LandingHelpForm["contactphone"],
+        "contactemail" => $_LandingHelpForm["contactemail"],
+        "helptopic" => $_LandingHelpForm["helptopic"],
+        "helpmessage" => $_LandingHelpForm["helpmessage"],
+        "sourcepage" => "index.php",
+        "ipaddress" => isset($_SERVER["REMOTE_ADDR"]) ? (string)$_SERVER["REMOTE_ADDR"] : "",
+        "useragent" => isset($_SERVER["HTTP_USER_AGENT"]) ? (string)$_SERVER["HTTP_USER_AGENT"] : "",
+        "branchid" => trim((string)(isset($__AdmissionBranchContext["branchid"]) ? $__AdmissionBranchContext["branchid"] : ""))
+    ));
+    if($_SavedHelpRequestId){
+        $_LandingHelpRequestWasSent = true;
+        $_LandingHelpRequestMessageHtml = "<div class='landing-help-flash landing-help-flash--success'>Your help message has been sent. The admin will follow up soon.</div>";
+        $_LandingHelpForm = array(
+            "requestername" => "",
+            "requesterrole" => "visitor",
+            "contactphone" => "",
+            "contactemail" => "",
+            "helptopic" => "general",
+            "helpmessage" => ""
+        );
+    }else{
+        $_LandingHelpRequestMessageHtml = "<div class='landing-help-flash landing-help-flash--error'>The help message could not be sent right now. Please try again.</div>";
+    }
+}
 }
 
 if(isset($_POST["login"])){
@@ -212,6 +271,7 @@ if($_LandingPhoneHref !== ""){
 $_LandingQuickActionHref = $_PublicAdmissionOpen ? "online-admission.php" : "#portal-login";
 $_LandingQuickActionLabel = $_PublicAdmissionOpen ? "Admission" : "Login";
 $_LandingQuickActionIcon = $_PublicAdmissionOpen ? "fa-arrow-right" : "fa-sign-in";
+$_LandingHelpModalOpen = isset($_POST["send_help_request"]) || $_LandingHelpRequestWasSent;
 $_LandingLogoHref = "images/nexgen-logo.png";
 if(isset($_Logo) && trim((string)$_Logo) !== ""){
     $__LandingLogoFile = trim((string)$_Logo);
@@ -396,7 +456,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
     </main>
 
     <footer class="landing-footer">
-        <p>&copy 2026. XSCHOOL V2.20.2.2</p>
+        <p>&copy 2026. LiveCampus V2.20.2.2</p>
         <p>
             <?php if($_LandingWhatsappUrl !== ""){ ?><a href="<?php echo htmlspecialchars($_LandingWhatsappUrl, ENT_QUOTES, "UTF-8"); ?>" class="landing-footer__link" target="_blank" rel="noopener noreferrer">WhatsApp</a> | <?php } ?>
             <a href="<?php echo htmlspecialchars($_LandingFacebookUrl, ENT_QUOTES, "UTF-8"); ?>" class="landing-footer__link" target="_blank" rel="noopener noreferrer">Facebook Page</a> |
@@ -422,6 +482,160 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
             <span><?php echo htmlspecialchars($_LandingQuickActionLabel, ENT_QUOTES, "UTF-8"); ?></span>
         </a>
     </div>
+
+    <button type="button" class="landing-help-fab" data-help-open aria-haspopup="dialog" aria-controls="landing-help-modal">
+        <span class="landing-help-fab__pulse" aria-hidden="true"></span>
+        <i class="fa fa-commenting-o"></i>
+        <span>Need Help?</span>
+    </button>
+
+    <div class="landing-help-modal<?php echo $_LandingHelpModalOpen ? " is-open" : ""; ?>" id="landing-help-modal"<?php echo $_LandingHelpModalOpen ? "" : " hidden"; ?>>
+        <div class="landing-help-modal__backdrop" data-help-close></div>
+        <section class="landing-help-window" role="dialog" aria-modal="true" aria-labelledby="landing-help-title">
+            <div class="landing-help-window__header">
+                <div>
+                    <span class="landing-help-window__eyebrow">LiveCampus Help Desk</span>
+                    <h3 id="landing-help-title">Send a help message to the admin</h3>
+                    <p>Leave a short note here and the admin can follow up by phone or email.</p>
+                </div>
+                <button type="button" class="landing-help-window__close" data-help-close aria-label="Close help form">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+
+            <div class="landing-help-chat">
+                <div class="landing-help-bubble landing-help-bubble--admin">
+                    <strong>Need a hand?</strong>
+                    <span>Tell us if it is about login, admission, results, fees, or anything else on the portal.</span>
+                </div>
+                <div class="landing-help-bubble landing-help-bubble--user">
+                    <span>I want the admin to get my message from this page.</span>
+                </div>
+            </div>
+
+            <?php if($_LandingHelpRequestMessageHtml !== ""){ ?>
+            <div class="landing-help-message"><?php echo $_LandingHelpRequestMessageHtml; ?></div>
+            <?php } ?>
+
+            <div class="landing-help-chip-row">
+                <button type="button" class="landing-help-chip" data-help-topic="login">Login</button>
+                <button type="button" class="landing-help-chip" data-help-topic="admission">Admission</button>
+                <button type="button" class="landing-help-chip" data-help-topic="results">Results</button>
+                <button type="button" class="landing-help-chip" data-help-topic="technical">Technical</button>
+            </div>
+
+            <form method="post" action="index.php#landing-help-modal" class="landing-help-form" id="landing-help-form">
+                <div class="landing-help-form__grid">
+                    <label class="landing-help-field">
+                        <span>Your Name</span>
+                        <input type="text" name="requestername" value="<?php echo htmlspecialchars($_LandingHelpForm["requestername"], ENT_QUOTES, "UTF-8"); ?>" placeholder="Type your full name" required>
+                    </label>
+                    <label class="landing-help-field">
+                        <span>You Are</span>
+                        <select name="requesterrole" id="landing-help-role">
+                            <option value="visitor" <?php echo $_LandingHelpForm["requesterrole"] === "visitor" ? "selected" : ""; ?>>Visitor</option>
+                            <option value="parent" <?php echo $_LandingHelpForm["requesterrole"] === "parent" ? "selected" : ""; ?>>Parent</option>
+                            <option value="student" <?php echo $_LandingHelpForm["requesterrole"] === "student" ? "selected" : ""; ?>>Student</option>
+                            <option value="teacher" <?php echo $_LandingHelpForm["requesterrole"] === "teacher" ? "selected" : ""; ?>>Teacher</option>
+                            <option value="staff" <?php echo $_LandingHelpForm["requesterrole"] === "staff" ? "selected" : ""; ?>>Staff</option>
+                            <option value="applicant" <?php echo $_LandingHelpForm["requesterrole"] === "applicant" ? "selected" : ""; ?>>Applicant</option>
+                            <option value="other" <?php echo $_LandingHelpForm["requesterrole"] === "other" ? "selected" : ""; ?>>Other</option>
+                        </select>
+                    </label>
+                    <label class="landing-help-field">
+                        <span>Phone Number</span>
+                        <input type="text" name="contactphone" value="<?php echo htmlspecialchars($_LandingHelpForm["contactphone"], ENT_QUOTES, "UTF-8"); ?>" placeholder="024 xxx xxxx">
+                    </label>
+                    <label class="landing-help-field">
+                        <span>Email</span>
+                        <input type="email" name="contactemail" value="<?php echo htmlspecialchars($_LandingHelpForm["contactemail"], ENT_QUOTES, "UTF-8"); ?>" placeholder="Optional email address">
+                    </label>
+                    <label class="landing-help-field landing-help-field--full">
+                        <span>Help Topic</span>
+                        <select name="helptopic" id="landing-help-topic">
+                            <option value="general" <?php echo $_LandingHelpForm["helptopic"] === "general" ? "selected" : ""; ?>>General Help</option>
+                            <option value="login" <?php echo $_LandingHelpForm["helptopic"] === "login" ? "selected" : ""; ?>>Login Problem</option>
+                            <option value="admission" <?php echo $_LandingHelpForm["helptopic"] === "admission" ? "selected" : ""; ?>>Admission</option>
+                            <option value="results" <?php echo $_LandingHelpForm["helptopic"] === "results" ? "selected" : ""; ?>>Results</option>
+                            <option value="fees" <?php echo $_LandingHelpForm["helptopic"] === "fees" ? "selected" : ""; ?>>Fees / Payments</option>
+                            <option value="technical" <?php echo $_LandingHelpForm["helptopic"] === "technical" ? "selected" : ""; ?>>Technical Issue</option>
+                            <option value="other" <?php echo $_LandingHelpForm["helptopic"] === "other" ? "selected" : ""; ?>>Other</option>
+                        </select>
+                    </label>
+                    <label class="landing-help-field landing-help-field--full">
+                        <span>Your Message</span>
+                        <textarea name="helpmessage" id="landing-help-message-box" placeholder="Briefly explain the help you need." required><?php echo htmlspecialchars($_LandingHelpForm["helpmessage"], ENT_QUOTES, "UTF-8"); ?></textarea>
+                    </label>
+                </div>
+                <div class="landing-help-form__footer">
+                    <small>The admin will receive this message on the dashboard.</small>
+                    <button type="submit" name="send_help_request" class="landing-help-submit">
+                        <i class="fa fa-paper-plane"></i> Send Help Message
+                    </button>
+                </div>
+            </form>
+        </section>
+    </div>
 </div>
+<script>
+(function () {
+    var body = document.body;
+    var modal = document.getElementById('landing-help-modal');
+    if (!body || !modal) {
+        return;
+    }
+
+    function setModalState(open) {
+        if (open) {
+            modal.hidden = false;
+            modal.classList.add('is-open');
+            body.classList.add('landing-help-open');
+            return;
+        }
+        modal.classList.remove('is-open');
+        modal.hidden = true;
+        body.classList.remove('landing-help-open');
+    }
+
+    var openButtons = document.querySelectorAll('[data-help-open]');
+    for (var openIndex = 0; openIndex < openButtons.length; openIndex++) {
+        openButtons[openIndex].addEventListener('click', function () {
+            setModalState(true);
+        });
+    }
+
+    var closeButtons = modal.querySelectorAll('[data-help-close]');
+    for (var closeIndex = 0; closeIndex < closeButtons.length; closeIndex++) {
+        closeButtons[closeIndex].addEventListener('click', function () {
+            setModalState(false);
+        });
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+            setModalState(false);
+        }
+    });
+
+    var topicField = document.getElementById('landing-help-topic');
+    var messageField = document.getElementById('landing-help-message-box');
+    var topicButtons = modal.querySelectorAll('[data-help-topic]');
+    for (var topicIndex = 0; topicIndex < topicButtons.length; topicIndex++) {
+        topicButtons[topicIndex].addEventListener('click', function () {
+            var topicValue = this.getAttribute('data-help-topic') || 'general';
+            if (topicField) {
+                topicField.value = topicValue;
+            }
+            if (messageField && messageField.value.replace(/^\s+|\s+$/g, '') === '') {
+                messageField.focus();
+            }
+        });
+    }
+
+    if (modal.classList.contains('is-open')) {
+        setModalState(true);
+    }
+})();
+</script>
 </body>
 </html>

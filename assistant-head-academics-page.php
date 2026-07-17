@@ -255,6 +255,7 @@ $quickLinks = array(
     array('module' => 'lesson_timetable', 'href' => 'lesson-timetable-report.php', 'icon' => 'fa-calendar', 'label' => 'Lesson Timetable'),
     array('module' => 'examination_timetable', 'href' => 'examinationtimetablereport.php', 'icon' => 'fa-book', 'label' => 'Exam Time Table'),
     array('module' => 'course_registration', 'href' => 'course-registration-admin.php', 'icon' => 'fa-list-alt', 'label' => 'Course Registration'),
+    array('module' => '', 'href' => 'teacher-store-requisition.php', 'icon' => 'fa-archive', 'label' => 'Store Request'),
     array('module' => 'notice_communication', 'href' => 'messages.php', 'icon' => 'fa-comments', 'label' => 'Messages'),
     array('module' => 'notice_communication', 'href' => 'notification.php', 'icon' => 'fa-bullhorn', 'label' => 'Send Notice')
 );

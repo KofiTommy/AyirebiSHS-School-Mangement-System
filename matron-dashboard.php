@@ -37,6 +37,7 @@ $_FoodCatalog = matron_store_catalog_context($con, 300);
 $_FoodCatalogUsesFallback = !empty($_FoodCatalog['uses_fallback']);
 $_FoodCatalogMessage = isset($_FoodCatalog['message']) ? trim((string)$_FoodCatalog['message']) : '';
 $_AllowedPurposeModes = array('meal_slot', 'kitchen_cleaning', 'special_diet', 'emergency_top_up', 'custom');
+$_MenuAudienceOptions = matron_menu_audience_options();
 
 $_RequisitionForm = array(
     'requestdate' => date('Y-m-d'),
@@ -56,6 +57,7 @@ $_MenuForm = array(
     'weekstartdate' => $_MenuWeekStart,
     'dayname' => 'Monday',
     'mealtime' => 'Breakfast',
+    'audience' => 'student',
     'menutitle' => '',
     'menudetails' => '',
     'notes' => ''
@@ -159,6 +161,7 @@ if (isset($_POST['save_menu_slot']) && matron_can_manage_weekly_menu($con)) {
     $_MenuForm['weekstartdate'] = matron_week_start_date(isset($_POST['weekstartdate']) ? (string)$_POST['weekstartdate'] : $_MenuWeekStart);
     $_MenuForm['dayname'] = matron_normalize_day_name(isset($_POST['dayname']) ? (string)$_POST['dayname'] : 'Monday', 'Monday');
     $_MenuForm['mealtime'] = matron_normalize_meal_name(isset($_POST['mealtime']) ? (string)$_POST['mealtime'] : 'Breakfast', 'Breakfast');
+    $_MenuForm['audience'] = matron_normalize_menu_audience(isset($_POST['audience']) ? (string)$_POST['audience'] : 'student', 'student');
     $_MenuForm['menutitle'] = trim((string)(isset($_POST['menutitle']) ? $_POST['menutitle'] : ''));
     $_MenuForm['menudetails'] = trim((string)(isset($_POST['menudetails']) ? $_POST['menudetails'] : ''));
     $_MenuForm['notes'] = trim((string)(isset($_POST['notes']) ? $_POST['notes'] : ''));
@@ -176,6 +179,7 @@ if (isset($_POST['save_menu_slot']) && matron_can_manage_weekly_menu($con)) {
         $_WeekStartEsc = mysqli_real_escape_string($con, $_MenuForm['weekstartdate']);
         $_DayNameEsc = mysqli_real_escape_string($con, $_MenuForm['dayname']);
         $_MealTimeEsc = mysqli_real_escape_string($con, $_MenuForm['mealtime']);
+        $_AudienceEsc = mysqli_real_escape_string($con, $_MenuForm['audience']);
         $_TitleEsc = mysqli_real_escape_string($con, $_MenuForm['menutitle']);
         $_DetailsEsc = mysqli_real_escape_string($con, $_MenuForm['menudetails']);
         $_NotesEsc = mysqli_real_escape_string($con, $_MenuForm['notes']);
@@ -185,7 +189,7 @@ if (isset($_POST['save_menu_slot']) && matron_can_manage_weekly_menu($con)) {
             WHERE weekstartdate='$_WeekStartEsc'
               AND dayname='$_DayNameEsc'
               AND mealtime='$_MealTimeEsc'
-              AND audience='all'
+              AND audience='$_AudienceEsc'
             LIMIT 1");
         if ($_ExistingRes && ($_ExistingRow = mysqli_fetch_array($_ExistingRes, MYSQLI_ASSOC))) {
             $_MenuIdEsc = mysqli_real_escape_string($con, (string)$_ExistingRow['menuid']);
@@ -203,11 +207,11 @@ if (isset($_POST['save_menu_slot']) && matron_can_manage_weekly_menu($con)) {
             $_SQL = @mysqli_query($con, "INSERT INTO tblmatronweeklymenu
                 (menuid,weekstartdate,dayname,mealtime,menutitle,menudetails,notes,audience,status,datetimeentry,recordedby)
                 VALUES
-                ('$_MenuIdEsc','$_WeekStartEsc','$_DayNameEsc','$_MealTimeEsc','$_TitleEsc','$_DetailsEsc','$_NotesEsc','all','active',NOW(),'$_RecordedByEsc')");
+                ('$_MenuIdEsc','$_WeekStartEsc','$_DayNameEsc','$_MealTimeEsc','$_TitleEsc','$_DetailsEsc','$_NotesEsc','$_AudienceEsc','active',NOW(),'$_RecordedByEsc')");
         }
 
         if ($_SQL) {
-            $_SESSION['Message'] = storekeeper_flash_html('success', 'Weekly menu slot saved successfully.');
+            $_SESSION['Message'] = storekeeper_flash_html('success', matron_menu_audience_label($_MenuForm['audience']) . ' menu slot saved successfully.');
             header("location:matron-dashboard.php?menu_week=" . urlencode($_MenuForm['weekstartdate']) . "#weekly-menu-board");
             exit();
         }
@@ -234,13 +238,24 @@ if (isset($_POST['remove_menu_slot']) && matron_can_manage_weekly_menu($con)) {
 
 $_Summary = matron_dashboard_summary($con);
 $_RequisitionSummary = matron_requisition_summary($con);
-$_CurrentWeekMenu = matron_current_week_menu_context($con);
-$_SelectedWeekRows = matron_fetch_weekly_menu_rows($con, array(
+$_CurrentStudentMenu = matron_current_week_menu_context($con, $_CurrentWeekStart, 'student');
+$_CurrentTeacherMenu = matron_current_week_menu_context($con, $_CurrentWeekStart, 'teacher');
+$_SelectedStudentWeekRows = matron_fetch_weekly_menu_rows($con, array(
     'weekstartdate' => $_MenuWeekStart,
     'status' => 'active',
+    'audience' => 'student',
+    'fallback_to_all' => true,
     'limit' => 40
 ));
-$_SelectedWeekGrouped = matron_group_menu_rows($_SelectedWeekRows);
+$_SelectedTeacherWeekRows = matron_fetch_weekly_menu_rows($con, array(
+    'weekstartdate' => $_MenuWeekStart,
+    'status' => 'active',
+    'audience' => 'teacher',
+    'fallback_to_all' => true,
+    'limit' => 40
+));
+$_SelectedStudentWeekGrouped = matron_group_menu_rows($_SelectedStudentWeekRows);
+$_SelectedTeacherWeekGrouped = matron_group_menu_rows($_SelectedTeacherWeekRows);
 $_SelectedMenuSummary = matron_weekly_menu_summary($con, $_MenuWeekStart);
 $_RecentRequisitionRows = matron_recent_requisitions($con, 60);
 $_FoodWatchRows = matron_food_watch_rows($con, 8);
@@ -277,6 +292,13 @@ $_PurposeSuggestions = array(
     'Weekend pantry and cold room top-up',
     'Special diet or infirmary meal support'
 );
+$_CurrentStudentMenuCount = isset($_CurrentStudentMenu['rows']) && is_array($_CurrentStudentMenu['rows']) ? count($_CurrentStudentMenu['rows']) : 0;
+$_CurrentTeacherMenuCount = isset($_CurrentTeacherMenu['rows']) && is_array($_CurrentTeacherMenu['rows']) ? count($_CurrentTeacherMenu['rows']) : 0;
+$_SelectedStudentWeekCount = is_array($_SelectedStudentWeekRows) ? count($_SelectedStudentWeekRows) : 0;
+$_SelectedTeacherWeekCount = is_array($_SelectedTeacherWeekRows) ? count($_SelectedTeacherWeekRows) : 0;
+$_RecentRequisitionCount = is_array($_RecentRequisitionRows) ? count($_RecentRequisitionRows) : 0;
+$_FoodWatchCount = is_array($_FoodWatchRows) ? count($_FoodWatchRows) : 0;
+$_RecentFoodIssueCount = is_array($_RecentFoodIssues) ? count($_RecentFoodIssues) : 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -304,7 +326,8 @@ $_PurposeSuggestions = array(
                     <a class="sk-link-chip" href="#food-watch"><i class="fa fa-balance-scale"></i> Stock Watch</a>
                 </div>
                 <div class="sk-hero__chips" style="margin-top:16px;">
-                    <span class="sk-chip"><i class="fa fa-clock-o"></i> Pending Requisitions: <?php echo number_format((int)$_Summary['requisition_pending']); ?></span>
+                    <span class="sk-chip"><i class="fa fa-clock-o"></i> Waiting at Store: <?php echo number_format((int)$_Summary['requisition_pending']); ?></span>
+                    <span class="sk-chip"><i class="fa fa-user-circle-o"></i> Waiting for Head: <?php echo number_format((int)$_Summary['requisition_waiting_headmaster']); ?></span>
                     <span class="sk-chip"><i class="fa fa-calendar-check-o"></i> Current Week Menu Slots: <?php echo number_format((int)$_Summary['menu_slot_filled']); ?>/<?php echo number_format((int)$_Summary['menu_slot_total']); ?></span>
                     <span class="sk-chip"><i class="fa fa-exclamation-triangle"></i> <?php echo $_FoodCatalogUsesFallback ? 'Store Lines Low' : 'Food Lines Low'; ?>: <?php echo number_format((int)$_Summary['food_low_stock']); ?></span>
                     <span class="sk-chip"><i class="fa fa-home"></i> Boarders: <?php echo number_format((int)$_Summary['boarding_students_total']); ?></span>
@@ -312,19 +335,19 @@ $_PurposeSuggestions = array(
             </div>
             <div class="sk-stats">
                 <article class="sk-stat">
-                    <span>Pending Requisitions</span>
+                    <span>Waiting at Store</span>
                     <strong><?php echo number_format((int)$_Summary['requisition_pending']); ?></strong>
-                    <small>Requests sent to the store and still waiting for action.</small>
+                    <small>Requests sent to the store and still waiting for review.</small>
+                </article>
+                <article class="sk-stat">
+                    <span>Waiting for Head</span>
+                    <strong><?php echo number_format((int)$_Summary['requisition_waiting_headmaster']); ?></strong>
+                    <small>Requests the store has checked and moved on for final approval.</small>
                 </article>
                 <article class="sk-stat">
                     <span>Menu Slots Filled</span>
                     <strong><?php echo number_format((int)$_Summary['menu_slot_filled']); ?></strong>
-                    <small><?php echo matron_esc($_CurrentWeekMenu['week_label']); ?> now showing on the teacher and student dashboards.</small>
-                </article>
-                <article class="sk-stat">
-                    <span>Food Items Under Watch</span>
-                    <strong><?php echo number_format((int)$_Summary['food_low_stock']); ?></strong>
-                    <small>Food or kitchen items that are low or finished.</small>
+                    <small><?php echo matron_esc($_CurrentStudentMenu['week_label']); ?> now covers both the student and teacher dashboard menus.</small>
                 </article>
                 <article class="sk-stat">
                     <span>Boarders to feed</span>
@@ -370,9 +393,14 @@ $_PurposeSuggestions = array(
                 <?php echo dashboard_student_batch_breakdown_html($_Summary, 'boarding_girls', 'Batches', 'No batch yet.'); ?>
             </article>
             <article class="sk-summary-card">
-                <span>Approved Requisitions</span>
+                <span>Waiting for Head</span>
+                <strong><?php echo number_format((int)$_Summary['requisition_waiting_headmaster']); ?></strong>
+                <small>Requests already checked by the store and waiting for the headmaster.</small>
+            </article>
+            <article class="sk-summary-card">
+                <span>Final Approved</span>
                 <strong><?php echo number_format((int)$_Summary['requisition_approved']); ?></strong>
-                <small>Requests approved by the store but not fully supplied yet.</small>
+                <small>Requests fully approved and now waiting to be issued.</small>
             </article>
             <article class="sk-summary-card">
                 <span>Issued Requisitions</span>
@@ -382,7 +410,7 @@ $_PurposeSuggestions = array(
             <article class="sk-summary-card">
                 <span>Open Menu Slots</span>
                 <strong><?php echo number_format((int)$_SelectedMenuSummary['slot_open']); ?></strong>
-                <small><?php echo matron_esc(matron_week_label($_SelectedMenuSummary['week_start'])); ?> still has meal slots to fill.</small>
+                <small><?php echo matron_esc(matron_week_label($_SelectedMenuSummary['week_start'])); ?> still has student or teacher meal slots to fill.</small>
             </article>
         </section>
 
@@ -497,12 +525,12 @@ $_PurposeSuggestions = array(
                                 <strong><?php echo number_format((int)$_SelectedMenuSummary['slot_open']); ?></strong>
                             </div>
                             <div class="matron-helper-stat">
-                                <span>Pending Requests</span>
+                                <span>Waiting at Store</span>
                                 <strong><?php echo number_format((int)$_Summary['requisition_pending']); ?></strong>
                             </div>
                             <div class="matron-helper-stat">
-                                <span>Low Stock</span>
-                                <strong><?php echo number_format((int)$_Summary['food_low_stock']); ?></strong>
+                                <span>Waiting for Head</span>
+                                <strong><?php echo number_format((int)$_Summary['requisition_waiting_headmaster']); ?></strong>
                             </div>
                         </div>
                         <div class="matron-helper-notes">
@@ -518,7 +546,7 @@ $_PurposeSuggestions = array(
                 <div class="sk-panel__header">
                     <div>
                         <h2>Weekly Menu Planner</h2>
-                        <p>Save one meal slot at a time. If that week, day, and meal already exist, saving again updates it.</p>
+                        <p>Save one meal slot at a time for either students or teachers. If that week, day, meal, and audience already exist, saving again updates it.</p>
                     </div>
                 </div>
                 <div class="sk-panel__body">
@@ -546,6 +574,14 @@ $_PurposeSuggestions = array(
                                     <?php } ?>
                                 </datalist>
                             </div>
+                            <div class="sk-field">
+                                <label for="menu_audience">Audience</label>
+                                <select id="menu_audience" name="audience" required>
+                                    <?php foreach ($_MenuAudienceOptions as $_AudienceValue => $_AudienceLabel) { ?>
+                                    <option value="<?php echo matron_esc($_AudienceValue); ?>" <?php echo $_MenuForm['audience'] === $_AudienceValue ? 'selected' : ''; ?>><?php echo matron_esc($_AudienceLabel); ?></option>
+                                    <?php } ?>
+                                </select>
+                            </div>
                             <div class="sk-field sk-field--full">
                                 <label for="menutitle">Menu Title</label>
                                 <input type="text" id="menutitle" name="menutitle" value="<?php echo matron_esc($_MenuForm['menutitle']); ?>" placeholder="e.g. Rice and stew, Porridge, Banku with okro soup">
@@ -567,92 +603,192 @@ $_PurposeSuggestions = array(
             </section>
         </div>
 
-        <section class="sk-panel">
-            <div class="sk-panel__header">
-                <div>
-                    <h2>Menu showing on student and teacher dashboards</h2>
-                    <p><?php echo matron_esc($_CurrentWeekMenu['week_label']); ?> is the menu currently showing on the home dashboards.</p>
-                </div>
-            </div>
+        <details class="sk-panel sk-disclosure">
+            <summary class="sk-disclosure__summary">
+                <span class="sk-disclosure__eyebrow">Live Menu</span>
+                <strong>Menu showing on the dashboards</strong>
+                <small>Students: <?php echo number_format((int)$_CurrentStudentMenuCount); ?> slots. Teachers: <?php echo number_format((int)$_CurrentTeacherMenuCount); ?> slots.</small>
+            </summary>
             <div class="sk-panel__body">
-                <?php if (empty($_CurrentWeekMenu['rows'])) { ?>
-                <div class="sk-empty">No weekly menu has been added for the current week yet.</div>
-                <?php } else { ?>
-                <div class="matron-menu-board">
-                    <?php foreach ($_CurrentWeekMenu['grouped'] as $_DayName => $_Meals) { ?>
-                    <article class="matron-menu-day">
-                        <h3><?php echo matron_esc($_DayName); ?></h3>
-                        <div class="matron-menu-day__meals">
-                            <?php foreach ($_Meals as $_MealName => $_MealRow) { ?>
-                            <div class="matron-menu-meal">
-                                <span class="matron-menu-meal__label"><?php echo matron_esc($_MealName); ?></span>
-                                <strong><?php echo $_MealRow ? matron_esc(matron_menu_display_text($_MealRow)) : 'Not added'; ?></strong>
-                                <?php if ($_MealRow && trim((string)$_MealRow['notes']) !== '') { ?>
-                                <small><?php echo matron_esc($_MealRow['notes']); ?></small>
+                <div class="sk-layout">
+                    <div class="sk-panel">
+                        <div class="sk-panel__header">
+                            <div>
+                                <h2>Student dashboard menu</h2>
+                                <p>This is what students currently see on their dashboard.</p>
+                            </div>
+                        </div>
+                        <div class="sk-panel__body">
+                            <?php if (empty($_CurrentStudentMenu['rows'])) { ?>
+                            <div class="sk-empty">No student menu has been added for the current week yet.</div>
+                            <?php } else { ?>
+                            <div class="matron-menu-board">
+                                <?php foreach ($_CurrentStudentMenu['grouped'] as $_DayName => $_Meals) { ?>
+                                <article class="matron-menu-day">
+                                    <h3><?php echo matron_esc($_DayName); ?></h3>
+                                    <div class="matron-menu-day__meals">
+                                        <?php foreach ($_Meals as $_MealName => $_MealRow) { ?>
+                                        <div class="matron-menu-meal">
+                                            <span class="matron-menu-meal__label"><?php echo matron_esc($_MealName); ?></span>
+                                            <strong><?php echo $_MealRow ? matron_esc(matron_menu_display_text($_MealRow)) : 'Not added'; ?></strong>
+                                            <?php if ($_MealRow && trim((string)$_MealRow['notes']) !== '') { ?>
+                                            <small><?php echo matron_esc($_MealRow['notes']); ?></small>
+                                            <?php } ?>
+                                        </div>
+                                        <?php } ?>
+                                    </div>
+                                </article>
                                 <?php } ?>
                             </div>
                             <?php } ?>
                         </div>
-                    </article>
-                    <?php } ?>
-                </div>
-            </div>
-            <?php } ?>
-        </section>
-
-        <section class="sk-panel" id="weekly-menu-board">
-            <div class="sk-panel__header">
-                <div>
-                    <h2>Selected week menu board</h2>
-                    <p><?php echo matron_esc(matron_week_label($_MenuWeekStart)); ?> currently has <?php echo number_format((int)$_SelectedMenuSummary['slot_filled']); ?> filled slots and <?php echo number_format((int)$_SelectedMenuSummary['slot_open']); ?> open slots.</p>
-                </div>
-                <form method="get" action="matron-dashboard.php" class="sk-actions">
-                    <div class="sk-field" style="min-width:220px;">
-                        <label for="menu_week">Week Start</label>
-                        <input type="date" id="menu_week" name="menu_week" value="<?php echo matron_esc($_MenuWeekStart); ?>">
                     </div>
-                    <div class="sk-actions" style="margin-top:28px;">
-                        <button type="submit" class="sk-button"><i class="fa fa-filter"></i> Load selected week</button>
-                    </div>
-                </form>
-            </div>
-            <div class="sk-panel__body">
-                <div class="matron-menu-board">
-                    <?php foreach ($_SelectedWeekGrouped as $_DayName => $_Meals) { ?>
-                    <article class="matron-menu-day">
-                        <h3><?php echo matron_esc($_DayName); ?></h3>
-                        <div class="matron-menu-day__meals">
-                            <?php foreach ($_Meals as $_MealName => $_MealRow) { ?>
-                            <div class="matron-menu-meal">
-                                <span class="matron-menu-meal__label"><?php echo matron_esc($_MealName); ?></span>
-                                <strong><?php echo $_MealRow ? matron_esc(matron_menu_display_text($_MealRow)) : 'Not added'; ?></strong>
-                                <?php if ($_MealRow && trim((string)$_MealRow['notes']) !== '') { ?>
-                                <small><?php echo matron_esc($_MealRow['notes']); ?></small>
-                                <?php } ?>
-                                <?php if ($_MealRow) { ?>
-                                <form method="post" action="matron-dashboard.php?menu_week=<?php echo urlencode($_MenuWeekStart); ?>#weekly-menu-board" class="matron-inline-form">
-                                    <input type="hidden" name="menuid" value="<?php echo matron_esc($_MealRow['menuid']); ?>">
-                                    <input type="hidden" name="weekstartdate" value="<?php echo matron_esc($_MenuWeekStart); ?>">
-                                    <button type="submit" name="remove_menu_slot" class="matron-inline-button" onclick="return confirm('Remove this menu slot from the selected week?');"><i class="fa fa-times-circle"></i> Remove</button>
-                                </form>
+                    <div class="sk-panel">
+                        <div class="sk-panel__header">
+                            <div>
+                                <h2>Teacher dashboard menu</h2>
+                                <p>This is what teachers currently see on their dashboard.</p>
+                            </div>
+                        </div>
+                        <div class="sk-panel__body">
+                            <?php if (empty($_CurrentTeacherMenu['rows'])) { ?>
+                            <div class="sk-empty">No teacher menu has been added for the current week yet.</div>
+                            <?php } else { ?>
+                            <div class="matron-menu-board">
+                                <?php foreach ($_CurrentTeacherMenu['grouped'] as $_DayName => $_Meals) { ?>
+                                <article class="matron-menu-day">
+                                    <h3><?php echo matron_esc($_DayName); ?></h3>
+                                    <div class="matron-menu-day__meals">
+                                        <?php foreach ($_Meals as $_MealName => $_MealRow) { ?>
+                                        <div class="matron-menu-meal">
+                                            <span class="matron-menu-meal__label"><?php echo matron_esc($_MealName); ?></span>
+                                            <strong><?php echo $_MealRow ? matron_esc(matron_menu_display_text($_MealRow)) : 'Not added'; ?></strong>
+                                            <?php if ($_MealRow && trim((string)$_MealRow['notes']) !== '') { ?>
+                                            <small><?php echo matron_esc($_MealRow['notes']); ?></small>
+                                            <?php } ?>
+                                        </div>
+                                        <?php } ?>
+                                    </div>
+                                </article>
                                 <?php } ?>
                             </div>
                             <?php } ?>
                         </div>
-                    </article>
-                    <?php } ?>
+                    </div>
                 </div>
             </div>
-        </section>
+        </details>
 
-        <section class="sk-panel" id="requisition-register">
-            <div class="sk-panel__header">
-                <div>
-                    <h2>Request register</h2>
-                    <p>All requests sent to the store, together with the current approval or issue status.</p>
+        <details class="sk-panel sk-disclosure" id="weekly-menu-board">
+            <summary class="sk-disclosure__summary">
+                <span class="sk-disclosure__eyebrow">Week Board</span>
+                <strong>Selected week menu board</strong>
+                <small><?php echo matron_esc(matron_week_label($_MenuWeekStart)); ?>. Students: <?php echo number_format((int)$_SelectedStudentWeekCount); ?> slots. Teachers: <?php echo number_format((int)$_SelectedTeacherWeekCount); ?> slots.</small>
+            </summary>
+            <div class="sk-panel__body">
+                <div class="sk-panel__header" style="padding:0 0 16px;">
+                    <div>
+                        <h2>Selected week menu board</h2>
+                        <p><?php echo matron_esc(matron_week_label($_MenuWeekStart)); ?> currently has <?php echo number_format((int)$_SelectedMenuSummary['slot_filled']); ?> filled slots and <?php echo number_format((int)$_SelectedMenuSummary['slot_open']); ?> open slots across the student and teacher meal plans.</p>
+                    </div>
+                    <form method="get" action="matron-dashboard.php" class="sk-actions">
+                        <div class="sk-field" style="min-width:220px;">
+                            <label for="menu_week">Week Start</label>
+                            <input type="date" id="menu_week" name="menu_week" value="<?php echo matron_esc($_MenuWeekStart); ?>">
+                        </div>
+                        <div class="sk-actions" style="margin-top:28px;">
+                            <button type="submit" class="sk-button"><i class="fa fa-filter"></i> Load selected week</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="sk-layout">
+                    <div class="sk-panel">
+                        <div class="sk-panel__header">
+                            <div>
+                                <h2>Student meal plan</h2>
+                                <p><?php echo matron_esc(matron_week_label($_MenuWeekStart)); ?> for students.</p>
+                            </div>
+                        </div>
+                        <div class="sk-panel__body">
+                            <div class="matron-menu-board">
+                                <?php foreach ($_SelectedStudentWeekGrouped as $_DayName => $_Meals) { ?>
+                                <article class="matron-menu-day">
+                                    <h3><?php echo matron_esc($_DayName); ?></h3>
+                                    <div class="matron-menu-day__meals">
+                                        <?php foreach ($_Meals as $_MealName => $_MealRow) { ?>
+                                        <div class="matron-menu-meal">
+                                            <span class="matron-menu-meal__label"><?php echo matron_esc($_MealName); ?></span>
+                                            <strong><?php echo $_MealRow ? matron_esc(matron_menu_display_text($_MealRow)) : 'Not added'; ?></strong>
+                                            <?php if ($_MealRow && trim((string)$_MealRow['notes']) !== '') { ?>
+                                            <small><?php echo matron_esc($_MealRow['notes']); ?></small>
+                                            <?php } ?>
+                                            <?php if ($_MealRow) { ?>
+                                            <form method="post" action="matron-dashboard.php?menu_week=<?php echo urlencode($_MenuWeekStart); ?>#weekly-menu-board" class="matron-inline-form">
+                                                <input type="hidden" name="menuid" value="<?php echo matron_esc($_MealRow['menuid']); ?>">
+                                                <input type="hidden" name="weekstartdate" value="<?php echo matron_esc($_MenuWeekStart); ?>">
+                                                <button type="submit" name="remove_menu_slot" class="matron-inline-button" onclick="return confirm('Remove this student menu slot from the selected week?');"><i class="fa fa-times-circle"></i> Remove</button>
+                                            </form>
+                                            <?php } ?>
+                                        </div>
+                                        <?php } ?>
+                                    </div>
+                                </article>
+                                <?php } ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="sk-panel">
+                        <div class="sk-panel__header">
+                            <div>
+                                <h2>Teacher meal plan</h2>
+                                <p><?php echo matron_esc(matron_week_label($_MenuWeekStart)); ?> for teachers.</p>
+                            </div>
+                        </div>
+                        <div class="sk-panel__body">
+                            <div class="matron-menu-board">
+                                <?php foreach ($_SelectedTeacherWeekGrouped as $_DayName => $_Meals) { ?>
+                                <article class="matron-menu-day">
+                                    <h3><?php echo matron_esc($_DayName); ?></h3>
+                                    <div class="matron-menu-day__meals">
+                                        <?php foreach ($_Meals as $_MealName => $_MealRow) { ?>
+                                        <div class="matron-menu-meal">
+                                            <span class="matron-menu-meal__label"><?php echo matron_esc($_MealName); ?></span>
+                                            <strong><?php echo $_MealRow ? matron_esc(matron_menu_display_text($_MealRow)) : 'Not added'; ?></strong>
+                                            <?php if ($_MealRow && trim((string)$_MealRow['notes']) !== '') { ?>
+                                            <small><?php echo matron_esc($_MealRow['notes']); ?></small>
+                                            <?php } ?>
+                                            <?php if ($_MealRow) { ?>
+                                            <form method="post" action="matron-dashboard.php?menu_week=<?php echo urlencode($_MenuWeekStart); ?>#weekly-menu-board" class="matron-inline-form">
+                                                <input type="hidden" name="menuid" value="<?php echo matron_esc($_MealRow['menuid']); ?>">
+                                                <input type="hidden" name="weekstartdate" value="<?php echo matron_esc($_MenuWeekStart); ?>">
+                                                <button type="submit" name="remove_menu_slot" class="matron-inline-button" onclick="return confirm('Remove this teacher menu slot from the selected week?');"><i class="fa fa-times-circle"></i> Remove</button>
+                                            </form>
+                                            <?php } ?>
+                                        </div>
+                                        <?php } ?>
+                                    </div>
+                                </article>
+                                <?php } ?>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+        </details>
+
+        <details class="sk-panel sk-disclosure" id="requisition-register">
+            <summary class="sk-disclosure__summary">
+                <span class="sk-disclosure__eyebrow">Store Requests</span>
+                <strong>Request register</strong>
+                <small>Total: <?php echo number_format((int)$_RequisitionSummary['total']); ?>. Waiting at store: <?php echo number_format((int)$_RequisitionSummary['pending']); ?>. Waiting for head: <?php echo number_format((int)$_RequisitionSummary['awaiting_headmaster']); ?>.</small>
+            </summary>
             <div class="sk-panel__body">
+                <div class="sk-panel__header" style="padding:0 0 16px;">
+                    <div>
+                        <h2>Request register</h2>
+                        <p>All requests sent to the store, together with the stage each one has reached.</p>
+                    </div>
+                </div>
                 <div class="sk-summary-grid" style="margin-bottom:16px;">
                     <article class="sk-summary-card">
                         <span>Total</span>
@@ -660,14 +796,19 @@ $_PurposeSuggestions = array(
                         <small>All requests raised so far.</small>
                     </article>
                     <article class="sk-summary-card">
-                        <span>Pending</span>
+                        <span>Waiting at Store</span>
                         <strong><?php echo number_format((int)$_RequisitionSummary['pending']); ?></strong>
-                        <small>Still waiting for store action.</small>
+                        <small>Still waiting for store review.</small>
                     </article>
                     <article class="sk-summary-card">
-                        <span>Approved</span>
+                        <span>Waiting for Head</span>
+                        <strong><?php echo number_format((int)$_RequisitionSummary['awaiting_headmaster']); ?></strong>
+                        <small>The store has checked these and sent them on for final approval.</small>
+                    </article>
+                    <article class="sk-summary-card">
+                        <span>Final Approved</span>
                         <strong><?php echo number_format((int)$_RequisitionSummary['approved']); ?></strong>
-                        <small>Confirmed by the store but not fully issued yet.</small>
+                        <small>Approved finally and now waiting to be issued.</small>
                     </article>
                     <article class="sk-summary-card">
                         <span>Issued</span>
@@ -725,11 +866,17 @@ $_PurposeSuggestions = array(
                                 </td>
                                 <td>
                                     <?php echo matron_requisition_badge_html($_Row['status']); ?>
-                                    <?php if (trim((string)$_Row['decision_by_name']) !== '') { ?>
-                                    <small>Handled by <?php echo matron_esc($_Row['decision_by_name']); ?></small>
+                                    <?php if (trim((string)$_Row['stage_note']) !== '') { ?>
+                                    <small><?php echo matron_esc($_Row['stage_note']); ?></small>
                                     <?php } ?>
-                                    <?php if (trim((string)$_Row['decisionnote']) !== '') { ?>
-                                    <small><?php echo matron_esc($_Row['decisionnote']); ?></small>
+                                    <?php if (trim((string)$_Row['store_decision_by_name']) !== '') { ?>
+                                    <small>Store: <?php echo matron_esc($_Row['store_decision_by_name']); ?></small>
+                                    <?php } ?>
+                                    <?php if (trim((string)$_Row['head_decision_by_name']) !== '') { ?>
+                                    <small>Head: <?php echo matron_esc($_Row['head_decision_by_name']); ?></small>
+                                    <?php } ?>
+                                    <?php if (!empty($_Row['is_headmaster_adjusted'])) { ?>
+                                    <small>The headmaster changed the final details before approval.</small>
                                     <?php } ?>
                                 </td>
                             </tr>
@@ -739,17 +886,22 @@ $_PurposeSuggestions = array(
                 </div>
                 <?php } ?>
             </div>
-        </section>
+        </details>
 
         <div class="sk-layout">
-            <section class="sk-panel" id="food-watch">
-                <div class="sk-panel__header">
-                    <div>
-                        <h2>Food stock watch</h2>
-                        <p><?php echo $_FoodCatalogUsesFallback ? 'Showing active store items because the store categories are still general.' : 'Food lines from the store that need attention before they affect the weekly menu.'; ?></p>
-                    </div>
-                </div>
+            <details class="sk-panel sk-disclosure" id="food-watch">
+                <summary class="sk-disclosure__summary">
+                    <span class="sk-disclosure__eyebrow">Stock Watch</span>
+                    <strong>Food stock watch</strong>
+                    <small><?php echo number_format((int)$_FoodWatchCount); ?> line<?php echo $_FoodWatchCount === 1 ? '' : 's'; ?> need attention.</small>
+                </summary>
                 <div class="sk-panel__body">
+                    <div class="sk-panel__header" style="padding:0 0 16px;">
+                        <div>
+                            <h2>Food stock watch</h2>
+                            <p><?php echo $_FoodCatalogUsesFallback ? 'Showing active store items because the store categories are still general.' : 'Food lines from the store that need attention before they affect the weekly menu.'; ?></p>
+                        </div>
+                    </div>
                     <?php if (empty($_FoodWatchRows)) { ?>
                     <div class="sk-empty">No food or kitchen item is low right now.</div>
                     <?php } else { ?>
@@ -768,16 +920,21 @@ $_PurposeSuggestions = array(
                     </div>
                     <?php } ?>
                 </div>
-            </section>
+            </details>
 
-            <section class="sk-panel">
-                <div class="sk-panel__header">
-                    <div>
-                        <h2>Recent food issues</h2>
-                        <p><?php echo $_FoodCatalogUsesFallback ? 'Latest active store items already issued while the store categories are still being refined.' : 'Latest food and kitchen items already issued for kitchen use.'; ?></p>
-                    </div>
-                </div>
+            <details class="sk-panel sk-disclosure" id="recent-food-issues">
+                <summary class="sk-disclosure__summary">
+                    <span class="sk-disclosure__eyebrow">Store Issues</span>
+                    <strong>Recent food issues</strong>
+                    <small><?php echo number_format((int)$_RecentFoodIssueCount); ?> recent issue record<?php echo $_RecentFoodIssueCount === 1 ? '' : 's'; ?> from the store.</small>
+                </summary>
                 <div class="sk-panel__body">
+                    <div class="sk-panel__header" style="padding:0 0 16px;">
+                        <div>
+                            <h2>Recent food issues</h2>
+                            <p><?php echo $_FoodCatalogUsesFallback ? 'Latest active store items already issued while the store categories are still being refined.' : 'Latest food and kitchen items already issued for kitchen use.'; ?></p>
+                        </div>
+                    </div>
                     <?php if (empty($_RecentFoodIssues)) { ?>
                     <div class="sk-empty">No recent food or kitchen issue was found.</div>
                     <?php } else { ?>
@@ -810,7 +967,7 @@ $_PurposeSuggestions = array(
                     </div>
                     <?php } ?>
                 </div>
-            </section>
+            </details>
         </div>
     </div>
 </main>
@@ -1016,6 +1173,34 @@ $_PurposeSuggestions = array(
     form.addEventListener('submit', function () {
         syncPurpose(true);
     });
+})();
+
+(function () {
+    function openHashDisclosure() {
+        var hash = window.location.hash || '';
+        if (!hash) {
+            return;
+        }
+
+        var target = document.querySelector(hash);
+        if (!target) {
+            return;
+        }
+
+        var disclosure = null;
+        if (target.tagName && target.tagName.toLowerCase() === 'details') {
+            disclosure = target;
+        } else if (typeof target.closest === 'function') {
+            disclosure = target.closest('details');
+        }
+
+        if (disclosure) {
+            disclosure.open = true;
+        }
+    }
+
+    openHashDisclosure();
+    window.addEventListener('hashchange', openHashDisclosure);
 })();
 </script>
 </body>

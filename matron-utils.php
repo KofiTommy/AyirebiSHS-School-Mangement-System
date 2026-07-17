@@ -50,7 +50,7 @@ function ensure_matron_tables($con)
     }
 
     $useCache = function_exists('xschool_schema_cache_is_fresh') && function_exists('xschool_schema_cache_mark');
-    if ($useCache && xschool_schema_cache_is_fresh('schema_matron_v1', 43200)) {
+    if ($useCache && xschool_schema_cache_is_fresh('schema_matron_v3', 43200)) {
         return;
     }
 
@@ -65,15 +65,33 @@ function ensure_matron_tables($con)
         quantity DECIMAL(12,2) NOT NULL DEFAULT 0,
         purpose VARCHAR(120) NOT NULL DEFAULT '',
         notes VARCHAR(255) NULL,
+        requestorigin VARCHAR(20) NOT NULL DEFAULT 'matron',
         status VARCHAR(20) NOT NULL DEFAULT 'pending',
         decisionnote VARCHAR(255) NULL,
+        storedecisionstatus VARCHAR(20) NULL DEFAULT NULL,
+        storedecisionnote VARCHAR(255) NULL,
         requestedby VARCHAR(30) NOT NULL,
+        storedecisionby VARCHAR(30) NULL,
+        storedecisiondatetime DATETIME NULL DEFAULT NULL,
+        headdecisionstatus VARCHAR(20) NULL DEFAULT NULL,
+        headdecisionnote VARCHAR(255) NULL,
+        headdecisionby VARCHAR(30) NULL,
+        headdecisiondatetime DATETIME NULL DEFAULT NULL,
+        approvedstoreitemid VARCHAR(40) NULL DEFAULT NULL,
+        approvedneedbydate DATE NULL DEFAULT NULL,
+        approvedweekstartdate DATE NULL DEFAULT NULL,
+        approveddayname VARCHAR(20) NULL DEFAULT NULL,
+        approvedmealtime VARCHAR(20) NULL DEFAULT NULL,
+        approvedquantity DECIMAL(12,2) NULL DEFAULT NULL,
+        approvedpurpose VARCHAR(120) NULL DEFAULT NULL,
+        approvednotes VARCHAR(255) NULL,
         decisionby VARCHAR(30) NULL,
         decisiondatetime DATETIME NULL DEFAULT NULL,
         fulfilledissueid VARCHAR(40) NULL DEFAULT NULL,
         datetimeentry DATETIME NOT NULL,
         KEY idx_matronreq_item (storeitemid),
         KEY idx_matronreq_status (status),
+        KEY idx_matronreq_origin (requestorigin),
         KEY idx_matronreq_requestdate (requestdate),
         KEY idx_matronreq_needby (needbydate),
         KEY idx_matronreq_weekslot (weekstartdate, dayname, mealtime),
@@ -97,8 +115,35 @@ function ensure_matron_tables($con)
         KEY idx_matronmenu_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    $requiredColumns = array(
+        'requestorigin' => "VARCHAR(20) NOT NULL DEFAULT 'matron'",
+        'storedecisionstatus' => "VARCHAR(20) NULL DEFAULT NULL",
+        'storedecisionnote' => "VARCHAR(255) NULL",
+        'storedecisionby' => "VARCHAR(30) NULL",
+        'storedecisiondatetime' => "DATETIME NULL DEFAULT NULL",
+        'headdecisionstatus' => "VARCHAR(20) NULL DEFAULT NULL",
+        'headdecisionnote' => "VARCHAR(255) NULL",
+        'headdecisionby' => "VARCHAR(30) NULL",
+        'headdecisiondatetime' => "DATETIME NULL DEFAULT NULL",
+        'approvedstoreitemid' => "VARCHAR(40) NULL DEFAULT NULL",
+        'approvedneedbydate' => "DATE NULL DEFAULT NULL",
+        'approvedweekstartdate' => "DATE NULL DEFAULT NULL",
+        'approveddayname' => "VARCHAR(20) NULL DEFAULT NULL",
+        'approvedmealtime' => "VARCHAR(20) NULL DEFAULT NULL",
+        'approvedquantity' => "DECIMAL(12,2) NULL DEFAULT NULL",
+        'approvedpurpose' => "VARCHAR(120) NULL DEFAULT NULL",
+        'approvednotes' => "VARCHAR(255) NULL"
+    );
+    foreach ($requiredColumns as $columnName => $columnSql) {
+        $columnNameEsc = mysqli_real_escape_string($con, $columnName);
+        $columnCheckRes = @mysqli_query($con, "SHOW COLUMNS FROM tblmatronrequisition LIKE '$columnNameEsc'");
+        if ($columnCheckRes && mysqli_num_rows($columnCheckRes) === 0) {
+            @mysqli_query($con, "ALTER TABLE tblmatronrequisition ADD COLUMN $columnName $columnSql");
+        }
+    }
+
     if ($useCache) {
-        xschool_schema_cache_mark('schema_matron_v1');
+        xschool_schema_cache_mark('schema_matron_v3');
     }
 }
 }
@@ -124,6 +169,18 @@ function matron_can_review_requisition($con = null)
         return true;
     }
     return function_exists('storekeeper_can_manage_module') && storekeeper_can_manage_module($con, 'stores_management');
+}
+}
+
+if (!function_exists('matron_can_final_approve_requisition')) {
+function matron_can_final_approve_requisition($con = null)
+{
+    if (matron_is_admin()) {
+        return true;
+    }
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === 'user' &&
+        $_SESSION['SYSTEMTYPE'] === 'Headmaster';
 }
 }
 
@@ -171,6 +228,48 @@ function matron_meal_options()
 }
 }
 
+if (!function_exists('matron_menu_audience_options')) {
+function matron_menu_audience_options()
+{
+    return array(
+        'student' => 'Students',
+        'teacher' => 'Teachers'
+    );
+}
+}
+
+if (!function_exists('matron_requisition_origin_options')) {
+function matron_requisition_origin_options()
+{
+    return array(
+        'matron' => 'Kitchen',
+        'teacher' => 'Teacher',
+        'assistant_head' => 'Assistant Head'
+    );
+}
+}
+
+if (!function_exists('matron_normalize_requisition_origin')) {
+function matron_normalize_requisition_origin($value, $defaultValue = 'matron')
+{
+    $value = strtolower(trim((string)$value));
+    $options = matron_requisition_origin_options();
+    if ($value !== '' && isset($options[$value])) {
+        return $value;
+    }
+    return isset($options[$defaultValue]) ? $defaultValue : 'matron';
+}
+}
+
+if (!function_exists('matron_requisition_origin_label')) {
+function matron_requisition_origin_label($value)
+{
+    $value = matron_normalize_requisition_origin($value, 'matron');
+    $options = matron_requisition_origin_options();
+    return isset($options[$value]) ? $options[$value] : 'Request';
+}
+}
+
 if (!function_exists('matron_normalize_option_value')) {
 function matron_normalize_option_value($value, $options, $defaultValue = '')
 {
@@ -201,6 +300,27 @@ if (!function_exists('matron_normalize_meal_name')) {
 function matron_normalize_meal_name($value, $defaultValue = 'Breakfast')
 {
     return matron_normalize_option_value($value, matron_meal_options(), $defaultValue);
+}
+}
+
+if (!function_exists('matron_normalize_menu_audience')) {
+function matron_normalize_menu_audience($value, $defaultValue = 'student')
+{
+    $value = strtolower(trim((string)$value));
+    $options = matron_menu_audience_options();
+    if ($value !== '' && isset($options[$value])) {
+        return $value;
+    }
+    return isset($options[$defaultValue]) ? $defaultValue : 'student';
+}
+}
+
+if (!function_exists('matron_menu_audience_label')) {
+function matron_menu_audience_label($value)
+{
+    $value = matron_normalize_menu_audience($value, 'student');
+    $options = matron_menu_audience_options();
+    return isset($options[$value]) ? $options[$value] : 'Students';
 }
 }
 
@@ -256,10 +376,11 @@ function matron_user_display_name($row)
 }
 }
 
-if (!function_exists('matron_store_catalog_context')) {
-function matron_store_catalog_context($con, $limit = 500)
+if (!function_exists('matron_request_catalog_context')) {
+function matron_request_catalog_context($con, $requestOrigin = 'matron', $limit = 500)
 {
     ensure_storekeeper_tables($con);
+    $requestOrigin = matron_normalize_requisition_origin($requestOrigin, 'matron');
     $limit = max(1, min(2000, (int)$limit));
     $foodRows = array();
     $activeRows = array();
@@ -273,6 +394,15 @@ function matron_store_catalog_context($con, $limit = 500)
         if (matron_is_food_category(isset($row['itemcategory']) ? $row['itemcategory'] : '')) {
             $foodRows[] = $row;
         }
+    }
+
+    if (in_array($requestOrigin, array('teacher', 'assistant_head'), true)) {
+        return array(
+            'rows' => array_slice($activeRows, 0, $limit),
+            'mode' => 'all_active',
+            'uses_fallback' => false,
+            'message' => empty($activeRows) ? 'There are no active store items available yet.' : ''
+        );
     }
 
     if (!empty($foodRows)) {
@@ -302,6 +432,13 @@ function matron_store_catalog_context($con, $limit = 500)
 }
 }
 
+if (!function_exists('matron_store_catalog_context')) {
+function matron_store_catalog_context($con, $limit = 500)
+{
+    return matron_request_catalog_context($con, 'matron', $limit);
+}
+}
+
 if (!function_exists('matron_store_catalog_uses_fallback')) {
 function matron_store_catalog_uses_fallback($con)
 {
@@ -311,10 +448,15 @@ function matron_store_catalog_uses_fallback($con)
 }
 
 if (!function_exists('matron_can_request_store_item')) {
-function matron_can_request_store_item($con, $itemRow)
+function matron_can_request_store_item($con, $itemRow, $requestOrigin = 'matron')
 {
+    $requestOrigin = matron_normalize_requisition_origin($requestOrigin, 'matron');
     if (!is_array($itemRow) || (string)$itemRow['status'] !== 'active') {
         return false;
+    }
+
+    if (in_array($requestOrigin, array('teacher', 'assistant_head'), true)) {
+        return true;
     }
 
     if (matron_is_food_category(isset($itemRow['itemcategory']) ? $itemRow['itemcategory'] : '')) {
@@ -333,29 +475,143 @@ function matron_store_item_rows($con, $limit = 500)
 }
 }
 
+if (!function_exists('matron_requisition_status_label')) {
+function matron_requisition_status_label($status)
+{
+    $status = strtolower(trim((string)$status));
+    if ($status === 'pending') {
+        return 'Waiting at Store';
+    }
+    if ($status === 'awaiting_headmaster') {
+        return 'Waiting for Head';
+    }
+    if ($status === 'approved') {
+        return 'Approved';
+    }
+    if ($status === 'issued') {
+        return 'Issued';
+    }
+    if ($status === 'rejected') {
+        return 'Rejected';
+    }
+    if ($status === 'cancelled') {
+        return 'Cancelled';
+    }
+    return ucwords(str_replace('_', ' ', $status));
+}
+}
+
 if (!function_exists('matron_requisition_badge_html')) {
 function matron_requisition_badge_html($status)
 {
     $status = strtolower(trim((string)$status));
     $className = 'neutral';
-    $label = ucwords($status);
     if ($status === 'pending') {
         $className = 'warning';
-        $label = 'Pending';
-    } elseif ($status === 'approved') {
+    } elseif ($status === 'approved' || $status === 'issued') {
         $className = 'active';
-        $label = 'Approved';
-    } elseif ($status === 'issued') {
-        $className = 'active';
-        $label = 'Issued';
     } elseif ($status === 'rejected') {
         $className = 'danger';
-        $label = 'Rejected';
     } elseif ($status === 'cancelled') {
         $className = 'inactive';
-        $label = 'Cancelled';
     }
-    return "<span class='sk-badge sk-badge--" . $className . "'>" . matron_esc($label) . "</span>";
+    return "<span class='sk-badge sk-badge--" . $className . "'>" . matron_esc(matron_requisition_status_label($status)) . "</span>";
+}
+}
+
+if (!function_exists('matron_requisition_effective_value')) {
+function matron_requisition_effective_value($row, $approvedField, $requestedField)
+{
+    if (is_array($row) && array_key_exists($approvedField, $row) && $row[$approvedField] !== null) {
+        return $row[$approvedField];
+    }
+    return is_array($row) && array_key_exists($requestedField, $row) ? $row[$requestedField] : '';
+}
+}
+
+if (!function_exists('matron_requisition_has_final_adjustment')) {
+function matron_requisition_has_final_adjustment($row)
+{
+    if (!is_array($row) || !array_key_exists('approvedstoreitemid', $row) || $row['approvedstoreitemid'] === null) {
+        return false;
+    }
+
+    $pairs = array(
+        array('approvedstoreitemid', 'requested_storeitemid'),
+        array('approvedneedbydate', 'requested_needbydate'),
+        array('approvedweekstartdate', 'requested_weekstartdate'),
+        array('approveddayname', 'requested_dayname'),
+        array('approvedmealtime', 'requested_mealtime'),
+        array('approvedquantity', 'requested_quantity'),
+        array('approvedpurpose', 'requested_purpose'),
+        array('approvednotes', 'requested_notes')
+    );
+    foreach ($pairs as $pair) {
+        $approvedValue = trim((string)(isset($row[$pair[0]]) ? $row[$pair[0]] : ''));
+        $requestedValue = trim((string)(isset($row[$pair[1]]) ? $row[$pair[1]] : ''));
+        if ($approvedValue !== $requestedValue) {
+            return true;
+        }
+    }
+    return false;
+}
+}
+
+if (!function_exists('matron_requisition_stage_note')) {
+function matron_requisition_stage_note($row)
+{
+    $row = is_array($row) ? $row : array();
+    $status = strtolower(trim((string)(isset($row['status']) ? $row['status'] : '')));
+    $storeNote = trim((string)(isset($row['storedecisionnote']) ? $row['storedecisionnote'] : ''));
+    $headNote = trim((string)(isset($row['headdecisionnote']) ? $row['headdecisionnote'] : ''));
+    $decisionNote = trim((string)(isset($row['decisionnote']) ? $row['decisionnote'] : ''));
+    $storeName = trim((string)(isset($row['store_decision_by_name']) ? $row['store_decision_by_name'] : ''));
+    $headName = trim((string)(isset($row['head_decision_by_name']) ? $row['head_decision_by_name'] : ''));
+
+    if ($status === 'pending') {
+        return 'Waiting for the storekeeper to review it.';
+    }
+    if ($status === 'awaiting_headmaster') {
+        if ($storeNote !== '') {
+            return $storeNote;
+        }
+        return $storeName !== ''
+            ? 'Checked by ' . $storeName . ' and sent to the headmaster.'
+            : 'Waiting for headmaster final approval.';
+    }
+    if ($status === 'approved') {
+        if ($headNote !== '') {
+            return $headNote;
+        }
+        return $headName !== ''
+            ? 'Final approval given by ' . $headName . '.'
+            : 'Final approval completed.';
+    }
+    if ($status === 'issued') {
+        if ($decisionNote !== '') {
+            return $decisionNote;
+        }
+        return 'The approved items have been issued from the store.';
+    }
+    if ($status === 'rejected') {
+        if ($headNote !== '') {
+            return $headNote;
+        }
+        if ($storeNote !== '') {
+            return $storeNote;
+        }
+        if ($headName !== '') {
+            return 'Rejected by ' . $headName . '.';
+        }
+        if ($storeName !== '') {
+            return 'Rejected by ' . $storeName . '.';
+        }
+        return 'This requisition was not approved.';
+    }
+    if ($status === 'cancelled') {
+        return $decisionNote !== '' ? $decisionNote : 'This requisition was cancelled.';
+    }
+    return $decisionNote;
 }
 }
 
@@ -381,10 +637,13 @@ function matron_fetch_weekly_menu_rows($con, $filters = array())
     $filters = is_array($filters) ? $filters : array();
     $weekStartDate = isset($filters['weekstartdate']) ? matron_week_start_date($filters['weekstartdate']) : '';
     $status = isset($filters['status']) ? trim((string)$filters['status']) : 'active';
+    $audience = isset($filters['audience']) ? trim((string)$filters['audience']) : '';
+    $useFallbackAudience = !isset($filters['fallback_to_all']) || (bool)$filters['fallback_to_all'];
     $limit = isset($filters['limit']) ? (int)$filters['limit'] : 100;
     $limit = max(7, min(400, $limit));
 
     $where = array("1=1");
+    $audienceOrderSql = "FIELD(m.audience,'student','teacher','all')";
     if ($weekStartDate !== '') {
         $weekStartEsc = mysqli_real_escape_string($con, $weekStartDate);
         $where[] = "m.weekstartdate='$weekStartEsc'";
@@ -392,6 +651,17 @@ function matron_fetch_weekly_menu_rows($con, $filters = array())
     if ($status !== '') {
         $statusEsc = mysqli_real_escape_string($con, $status);
         $where[] = "m.status='$statusEsc'";
+    }
+    if ($audience !== '') {
+        $audience = matron_normalize_menu_audience($audience, 'student');
+        $audienceEsc = mysqli_real_escape_string($con, $audience);
+        if ($useFallbackAudience) {
+            $where[] = "m.audience IN ('$audienceEsc','all')";
+            $audienceOrderSql = "FIELD(m.audience,'$audienceEsc','all')";
+        } else {
+            $where[] = "m.audience='$audienceEsc'";
+            $audienceOrderSql = "FIELD(m.audience,'$audienceEsc')";
+        }
     }
 
     $rows = array();
@@ -401,6 +671,7 @@ function matron_fetch_weekly_menu_rows($con, $filters = array())
         ORDER BY
             FIELD(m.dayname,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
             FIELD(m.mealtime,'Breakfast','Lunch','Supper'),
+            $audienceOrderSql,
             m.datetimeentry DESC
         LIMIT $limit";
     $res = @mysqli_query($con, $sql);
@@ -432,7 +703,7 @@ function matron_group_menu_rows($rows)
     foreach ($rows as $row) {
         $dayName = isset($row['dayname']) ? trim((string)$row['dayname']) : '';
         $mealName = isset($row['mealtime']) ? trim((string)$row['mealtime']) : '';
-        if (isset($grouped[$dayName]) && array_key_exists($mealName, $grouped[$dayName])) {
+        if (isset($grouped[$dayName]) && array_key_exists($mealName, $grouped[$dayName]) && $grouped[$dayName][$mealName] === null) {
             $grouped[$dayName][$mealName] = $row;
         }
     }
@@ -442,16 +713,21 @@ function matron_group_menu_rows($rows)
 }
 
 if (!function_exists('matron_current_week_menu_context')) {
-function matron_current_week_menu_context($con, $referenceDate = '')
+function matron_current_week_menu_context($con, $referenceDate = '', $audience = 'student')
 {
     $weekStartDate = matron_week_start_date($referenceDate);
+    $audience = matron_normalize_menu_audience($audience, 'student');
     $rows = matron_fetch_weekly_menu_rows($con, array(
         'weekstartdate' => $weekStartDate,
         'status' => 'active',
+        'audience' => $audience,
+        'fallback_to_all' => true,
         'limit' => 40
     ));
 
     return array(
+        'audience' => $audience,
+        'audience_label' => matron_menu_audience_label($audience),
         'week_start' => $weekStartDate,
         'week_end' => matron_week_end_date($weekStartDate),
         'week_label' => matron_week_label($weekStartDate),
@@ -461,19 +737,41 @@ function matron_current_week_menu_context($con, $referenceDate = '')
 }
 }
 
+if (!function_exists('matron_grouped_menu_filled_count')) {
+function matron_grouped_menu_filled_count($grouped)
+{
+    $count = 0;
+    if (!is_array($grouped)) {
+        return 0;
+    }
+    foreach ($grouped as $dayRows) {
+        if (!is_array($dayRows)) {
+            continue;
+        }
+        foreach ($dayRows as $mealRow) {
+            if (is_array($mealRow) && !empty($mealRow)) {
+                $count++;
+            }
+        }
+    }
+    return $count;
+}
+}
+
 if (!function_exists('matron_weekly_menu_summary')) {
 function matron_weekly_menu_summary($con, $weekStartDate = '')
 {
     $weekStartDate = matron_week_start_date($weekStartDate);
-    $totalSlots = count(matron_menu_day_options()) * count(matron_meal_options());
+    $audienceOptions = matron_menu_audience_options();
+    $slotsPerAudience = count(matron_menu_day_options()) * count(matron_meal_options());
+    $totalSlots = $slotsPerAudience * count($audienceOptions);
     $usedSlots = 0;
-    $res = @mysqli_query($con, "SELECT COUNT(*) AS total_slots
-        FROM tblmatronweeklymenu
-        WHERE weekstartdate='" . mysqli_real_escape_string($con, $weekStartDate) . "'
-          AND status='active'");
-    if ($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))) {
-        $usedSlots = (int)$row['total_slots'];
+
+    foreach ($audienceOptions as $audienceKey => $audienceLabel) {
+        $context = matron_current_week_menu_context($con, $weekStartDate, $audienceKey);
+        $usedSlots += matron_grouped_menu_filled_count(isset($context['grouped']) ? $context['grouped'] : array());
     }
+
     return array(
         'week_start' => $weekStartDate,
         'slot_total' => $totalSlots,
@@ -488,12 +786,27 @@ function matron_fetch_requisition_rows($con, $filters = array())
 {
     ensure_matron_tables($con);
     $filters = is_array($filters) ? $filters : array();
+    $requisitionId = isset($filters['requisitionid']) ? trim((string)$filters['requisitionid']) : '';
+    $requestedBy = isset($filters['requestedby']) ? trim((string)$filters['requestedby']) : '';
+    $requestOrigin = isset($filters['requestorigin']) ? trim((string)$filters['requestorigin']) : '';
     $status = isset($filters['status']) ? trim((string)$filters['status']) : '';
     $search = isset($filters['search']) ? trim((string)$filters['search']) : '';
     $limit = isset($filters['limit']) ? (int)$filters['limit'] : 120;
     $limit = max(10, min(2000, $limit));
 
     $where = array("1=1");
+    if ($requisitionId !== '') {
+        $requisitionIdEsc = mysqli_real_escape_string($con, $requisitionId);
+        $where[] = "mr.requisitionid='$requisitionIdEsc'";
+    }
+    if ($requestedBy !== '') {
+        $requestedByEsc = mysqli_real_escape_string($con, $requestedBy);
+        $where[] = "mr.requestedby='$requestedByEsc'";
+    }
+    if ($requestOrigin !== '') {
+        $requestOriginEsc = mysqli_real_escape_string($con, matron_normalize_requisition_origin($requestOrigin, 'matron'));
+        $where[] = "COALESCE(NULLIF(TRIM(mr.requestorigin), ''), 'matron')='$requestOriginEsc'";
+    }
     if ($status !== '') {
         $statusEsc = mysqli_real_escape_string($con, $status);
         $where[] = "mr.status='$statusEsc'";
@@ -502,41 +815,62 @@ function matron_fetch_requisition_rows($con, $filters = array())
         $searchEsc = mysqli_real_escape_string($con, $search);
         $searchLike = "%" . $searchEsc . "%";
         $where[] = "(mr.requisitionid LIKE '$searchLike'
-            OR COALESCE(si.itemname,'') LIKE '$searchLike'
+            OR COALESCE(requested_si.itemname,'') LIKE '$searchLike'
+            OR COALESCE(approved_si.itemname,'') LIKE '$searchLike'
             OR COALESCE(mr.purpose,'') LIKE '$searchLike'
+            OR COALESCE(mr.approvedpurpose,'') LIKE '$searchLike'
             OR COALESCE(mr.dayname,'') LIKE '$searchLike'
+            OR COALESCE(mr.approveddayname,'') LIKE '$searchLike'
             OR COALESCE(mr.mealtime,'') LIKE '$searchLike'
+            OR COALESCE(mr.approvedmealtime,'') LIKE '$searchLike'
             OR CONCAT_WS(' ', COALESCE(req.firstname,''), COALESCE(req.othernames,''), COALESCE(req.surname,'')) LIKE '$searchLike')";
     }
 
     $rows = array();
     $sql = "SELECT
             mr.*,
-            COALESCE(si.itemname, mr.storeitemid) AS itemname,
-            COALESCE(si.unitname, '') AS unitname,
-            COALESCE(si.itemcategory, '') AS itemcategory,
+            COALESCE(requested_si.itemname, mr.storeitemid) AS itemname,
+            COALESCE(requested_si.itemname, mr.storeitemid) AS requested_itemname,
+            COALESCE(requested_si.unitname, '') AS requested_unitname,
+            COALESCE(requested_si.itemcategory, '') AS requested_itemcategory,
+            COALESCE(approved_si.itemname, '') AS approved_itemname,
+            COALESCE(approved_si.unitname, '') AS approved_unitname,
+            COALESCE(approved_si.itemcategory, '') AS approved_itemcategory,
             req.firstname AS requested_firstname,
             req.othernames AS requested_othernames,
             req.surname AS requested_surname,
+            store_user.firstname AS store_decision_firstname,
+            store_user.othernames AS store_decision_othernames,
+            store_user.surname AS store_decision_surname,
+            head_user.firstname AS head_decision_firstname,
+            head_user.othernames AS head_decision_othernames,
+            head_user.surname AS head_decision_surname,
             decision_user.firstname AS decision_firstname,
             decision_user.othernames AS decision_othernames,
             decision_user.surname AS decision_surname
         FROM tblmatronrequisition mr
-        LEFT JOIN tblstoreitem si ON si.storeitemid=mr.storeitemid
+        LEFT JOIN tblstoreitem requested_si ON requested_si.storeitemid=mr.storeitemid
+        LEFT JOIN tblstoreitem approved_si ON approved_si.storeitemid=mr.approvedstoreitemid
         LEFT JOIN tblsystemuser req ON req.userid=mr.requestedby
+        LEFT JOIN tblsystemuser store_user ON store_user.userid=mr.storedecisionby
+        LEFT JOIN tblsystemuser head_user ON head_user.userid=mr.headdecisionby
         LEFT JOIN tblsystemuser decision_user ON decision_user.userid=mr.decisionby
         WHERE " . implode(" AND ", $where) . "
         ORDER BY
             CASE mr.status
                 WHEN 'pending' THEN 0
-                WHEN 'approved' THEN 1
-                WHEN 'issued' THEN 2
-                WHEN 'rejected' THEN 3
-                WHEN 'cancelled' THEN 4
-                ELSE 5
+                WHEN 'awaiting_headmaster' THEN 1
+                WHEN 'approved' THEN 2
+                WHEN 'issued' THEN 3
+                WHEN 'rejected' THEN 4
+                WHEN 'cancelled' THEN 5
+                ELSE 6
             END ASC,
-            CASE WHEN mr.needbydate IS NULL OR mr.needbydate='0000-00-00' THEN 1 ELSE 0 END ASC,
-            mr.needbydate ASC,
+            CASE
+                WHEN COALESCE(mr.approvedneedbydate, mr.needbydate) IS NULL OR COALESCE(mr.approvedneedbydate, mr.needbydate)='0000-00-00' THEN 1
+                ELSE 0
+            END ASC,
+            COALESCE(mr.approvedneedbydate, mr.needbydate) ASC,
             mr.datetimeentry DESC
         LIMIT $limit";
     $res = @mysqli_query($con, $sql);
@@ -548,12 +882,78 @@ function matron_fetch_requisition_rows($con, $filters = array())
                 'surname' => isset($row['requested_surname']) ? $row['requested_surname'] : '',
                 'userid' => isset($row['requestedby']) ? $row['requestedby'] : ''
             ));
+            $row['requestorigin'] = matron_normalize_requisition_origin(isset($row['requestorigin']) ? $row['requestorigin'] : 'matron', 'matron');
+            $row['requestorigin_label'] = matron_requisition_origin_label($row['requestorigin']);
             $row['decision_by_name'] = matron_user_display_name(array(
                 'firstname' => isset($row['decision_firstname']) ? $row['decision_firstname'] : '',
                 'othernames' => isset($row['decision_othernames']) ? $row['decision_othernames'] : '',
                 'surname' => isset($row['decision_surname']) ? $row['decision_surname'] : '',
                 'userid' => isset($row['decisionby']) ? $row['decisionby'] : ''
             ));
+            $row['store_decision_by_name'] = matron_user_display_name(array(
+                'firstname' => isset($row['store_decision_firstname']) ? $row['store_decision_firstname'] : '',
+                'othernames' => isset($row['store_decision_othernames']) ? $row['store_decision_othernames'] : '',
+                'surname' => isset($row['store_decision_surname']) ? $row['store_decision_surname'] : '',
+                'userid' => isset($row['storedecisionby']) ? $row['storedecisionby'] : ''
+            ));
+            $row['head_decision_by_name'] = matron_user_display_name(array(
+                'firstname' => isset($row['head_decision_firstname']) ? $row['head_decision_firstname'] : '',
+                'othernames' => isset($row['head_decision_othernames']) ? $row['head_decision_othernames'] : '',
+                'surname' => isset($row['head_decision_surname']) ? $row['head_decision_surname'] : '',
+                'userid' => isset($row['headdecisionby']) ? $row['headdecisionby'] : ''
+            ));
+
+            if ($row['store_decision_by_name'] === '' && $row['head_decision_by_name'] === '' && $row['decision_by_name'] !== '') {
+                if (in_array(strtolower(trim((string)$row['status'])), array('approved', 'issued', 'rejected'), true)) {
+                    $row['store_decision_by_name'] = $row['decision_by_name'];
+                }
+            }
+
+            $row['requested_storeitemid'] = isset($row['storeitemid']) ? (string)$row['storeitemid'] : '';
+            $row['requested_quantity'] = isset($row['quantity']) ? $row['quantity'] : 0;
+            $row['requested_needbydate'] = isset($row['needbydate']) ? $row['needbydate'] : '';
+            $row['requested_weekstartdate'] = isset($row['weekstartdate']) ? $row['weekstartdate'] : '';
+            $row['requested_dayname'] = isset($row['dayname']) ? $row['dayname'] : '';
+            $row['requested_mealtime'] = isset($row['mealtime']) ? $row['mealtime'] : '';
+            $row['requested_purpose'] = isset($row['purpose']) ? $row['purpose'] : '';
+            $row['requested_notes'] = isset($row['notes']) ? $row['notes'] : '';
+
+            $approvedStoreItemId = trim((string)(isset($row['approvedstoreitemid']) ? $row['approvedstoreitemid'] : ''));
+            $approvedItemName = trim((string)(isset($row['approved_itemname']) ? $row['approved_itemname'] : ''));
+            if ($approvedItemName === '' && $approvedStoreItemId !== '') {
+                $approvedItemName = $approvedStoreItemId;
+            }
+
+            $row['effective_storeitemid'] = (string)matron_requisition_effective_value($row, 'approvedstoreitemid', 'requested_storeitemid');
+            $row['effective_itemname'] = $approvedItemName !== '' ? $approvedItemName : trim((string)$row['requested_itemname']);
+            $row['effective_unitname'] = trim((string)(isset($row['approved_unitname']) ? $row['approved_unitname'] : '')) !== ''
+                ? (string)$row['approved_unitname']
+                : (string)$row['requested_unitname'];
+            $row['effective_itemcategory'] = trim((string)(isset($row['approved_itemcategory']) ? $row['approved_itemcategory'] : '')) !== ''
+                ? (string)$row['approved_itemcategory']
+                : (string)$row['requested_itemcategory'];
+            $row['effective_quantity'] = matron_requisition_effective_value($row, 'approvedquantity', 'requested_quantity');
+            $row['effective_needbydate'] = matron_requisition_effective_value($row, 'approvedneedbydate', 'requested_needbydate');
+            $row['effective_weekstartdate'] = matron_requisition_effective_value($row, 'approvedweekstartdate', 'requested_weekstartdate');
+            $row['effective_dayname'] = matron_requisition_effective_value($row, 'approveddayname', 'requested_dayname');
+            $row['effective_mealtime'] = matron_requisition_effective_value($row, 'approvedmealtime', 'requested_mealtime');
+            $row['effective_purpose'] = matron_requisition_effective_value($row, 'approvedpurpose', 'requested_purpose');
+            $row['effective_notes'] = matron_requisition_effective_value($row, 'approvednotes', 'requested_notes');
+            $row['is_headmaster_adjusted'] = matron_requisition_has_final_adjustment($row);
+            $row['status_label'] = matron_requisition_status_label(isset($row['status']) ? $row['status'] : '');
+            $row['stage_note'] = matron_requisition_stage_note($row);
+
+            $row['storeitemid'] = $row['effective_storeitemid'];
+            $row['itemname'] = $row['effective_itemname'];
+            $row['unitname'] = $row['effective_unitname'];
+            $row['itemcategory'] = $row['effective_itemcategory'];
+            $row['quantity'] = $row['effective_quantity'];
+            $row['needbydate'] = $row['effective_needbydate'];
+            $row['weekstartdate'] = $row['effective_weekstartdate'];
+            $row['dayname'] = $row['effective_dayname'];
+            $row['mealtime'] = $row['effective_mealtime'];
+            $row['purpose'] = $row['effective_purpose'];
+            $row['notes'] = $row['effective_notes'];
             $rows[] = $row;
         }
     }
@@ -568,6 +968,7 @@ function matron_requisition_summary($con)
     $summary = array(
         'total' => 0,
         'pending' => 0,
+        'awaiting_headmaster' => 0,
         'approved' => 0,
         'issued' => 0,
         'rejected' => 0,
@@ -576,6 +977,7 @@ function matron_requisition_summary($con)
     $res = @mysqli_query($con, "SELECT
             COUNT(*) AS total_count,
             SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending_count,
+            SUM(CASE WHEN status='awaiting_headmaster' THEN 1 ELSE 0 END) AS awaiting_headmaster_count,
             SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) AS approved_count,
             SUM(CASE WHEN status='issued' THEN 1 ELSE 0 END) AS issued_count,
             SUM(CASE WHEN status='rejected' THEN 1 ELSE 0 END) AS rejected_count,
@@ -584,6 +986,7 @@ function matron_requisition_summary($con)
     if ($res && ($row = mysqli_fetch_array($res, MYSQLI_ASSOC))) {
         $summary['total'] = (int)$row['total_count'];
         $summary['pending'] = (int)$row['pending_count'];
+        $summary['awaiting_headmaster'] = (int)$row['awaiting_headmaster_count'];
         $summary['approved'] = (int)$row['approved_count'];
         $summary['issued'] = (int)$row['issued_count'];
         $summary['rejected'] = (int)$row['rejected_count'];
@@ -847,6 +1250,7 @@ function matron_dashboard_summary($con)
         'boarding_student_items_overdue' => (int)$studentItemSummary['boarding_student_items_overdue'],
         'requisition_total' => (int)$requisitionSummary['total'],
         'requisition_pending' => (int)$requisitionSummary['pending'],
+        'requisition_waiting_headmaster' => (int)$requisitionSummary['awaiting_headmaster'],
         'requisition_approved' => (int)$requisitionSummary['approved'],
         'requisition_issued' => (int)$requisitionSummary['issued'],
         'requisition_rejected' => (int)$requisitionSummary['rejected'],
@@ -1000,6 +1404,17 @@ if (!function_exists('matron_recent_requisitions')) {
 function matron_recent_requisitions($con, $limit = 8)
 {
     return matron_fetch_requisition_rows($con, array('limit' => max(1, min(50, (int)$limit))));
+}
+}
+
+if (!function_exists('matron_get_requisition_row')) {
+function matron_get_requisition_row($con, $requisitionId)
+{
+    $rows = matron_fetch_requisition_rows($con, array(
+        'requisitionid' => $requisitionId,
+        'limit' => 10
+    ));
+    return !empty($rows) ? $rows[0] : null;
 }
 }
 

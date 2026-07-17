@@ -186,6 +186,66 @@ body.storekeeper-page {
     overflow: hidden;
 }
 
+.sk-disclosure__summary {
+    position: relative;
+    padding: 16px 54px 16px 18px;
+    cursor: pointer;
+    list-style: none;
+    background: linear-gradient(180deg, #ffffff, #f8fbfb);
+}
+
+.sk-disclosure__summary::-webkit-details-marker {
+    display: none;
+}
+
+.sk-disclosure__summary::after {
+    content: "+";
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #edf6f5;
+    color: var(--sk-brand-dark);
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.sk-disclosure[open] .sk-disclosure__summary {
+    border-bottom: 1px solid var(--sk-line);
+    background: linear-gradient(180deg, #ffffff, #f2fbfa);
+}
+
+.sk-disclosure[open] .sk-disclosure__summary::after {
+    content: "-";
+}
+
+.sk-disclosure__eyebrow {
+    display: inline-block;
+    color: var(--sk-brand);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sk-disclosure__summary strong {
+    display: block;
+    margin: 4px 0 6px;
+    color: var(--sk-ink);
+    font-size: 1rem;
+}
+
+.sk-disclosure__summary small {
+    display: block;
+    color: var(--sk-muted);
+    line-height: 1.5;
+}
+
 .sk-panel__header {
     display: flex;
     justify-content: space-between;

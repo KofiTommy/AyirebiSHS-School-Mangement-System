@@ -33,25 +33,57 @@ unset($_SESSION['Message']);
 if (isset($_POST['update_matron_requisition']) && function_exists('matron_can_review_requisition') && matron_can_review_requisition($con)) {
     $_RequisitionId = trim((string)(isset($_POST['requisitionid']) ? $_POST['requisitionid'] : ''));
     $_DecisionStatus = trim((string)(isset($_POST['decision_status']) ? $_POST['decision_status'] : ''));
-    $_AllowedStatuses = array('approved', 'issued', 'rejected');
+    $_AllowedStatuses = array('awaiting_headmaster', 'issued', 'rejected');
     if ($_RequisitionId === '' || !in_array($_DecisionStatus, $_AllowedStatuses, true)) {
         $_SESSION['Message'] = storekeeper_flash_html('error', 'That matron requisition update was not valid.');
     } else {
         $_RequisitionIdEsc = mysqli_real_escape_string($con, $_RequisitionId);
-        $_DecisionStatusEsc = mysqli_real_escape_string($con, $_DecisionStatus);
         $_DecisionByEsc = mysqli_real_escape_string($con, isset($_SESSION['USERID']) ? (string)$_SESSION['USERID'] : '');
-        $_DecisionNote = $_DecisionStatus === 'approved'
-            ? 'Approved by storekeeper.'
-            : ($_DecisionStatus === 'issued' ? 'Marked as issued from the store.' : 'Rejected by storekeeper.');
-        $_DecisionNoteEsc = mysqli_real_escape_string($con, $_DecisionNote);
-        @mysqli_query($con, "UPDATE tblmatronrequisition
-            SET status='$_DecisionStatusEsc',
-                decisionnote='$_DecisionNoteEsc',
-                decisionby='$_DecisionByEsc',
-                decisiondatetime=NOW()
-            WHERE requisitionid='$_RequisitionIdEsc'
-              AND status NOT IN ('issued','cancelled')
-            LIMIT 1");
+
+        if ($_DecisionStatus === 'awaiting_headmaster') {
+            $_StoreDecisionStatusEsc = mysqli_real_escape_string($con, 'approved');
+            $_DecisionStatusEsc = mysqli_real_escape_string($con, 'awaiting_headmaster');
+            $_DecisionNoteEsc = mysqli_real_escape_string($con, 'Checked by the storekeeper and sent to the headmaster.');
+            @mysqli_query($con, "UPDATE tblmatronrequisition
+                SET status='$_DecisionStatusEsc',
+                    storedecisionstatus='$_StoreDecisionStatusEsc',
+                    storedecisionnote='$_DecisionNoteEsc',
+                    storedecisionby='$_DecisionByEsc',
+                    storedecisiondatetime=NOW(),
+                    decisionnote='$_DecisionNoteEsc',
+                    decisionby='$_DecisionByEsc',
+                    decisiondatetime=NOW()
+                WHERE requisitionid='$_RequisitionIdEsc'
+                  AND status='pending'
+                LIMIT 1");
+        } elseif ($_DecisionStatus === 'rejected') {
+            $_DecisionStatusEsc = mysqli_real_escape_string($con, 'rejected');
+            $_StoreDecisionStatusEsc = mysqli_real_escape_string($con, 'rejected');
+            $_DecisionNoteEsc = mysqli_real_escape_string($con, 'Rejected by the storekeeper.');
+            @mysqli_query($con, "UPDATE tblmatronrequisition
+                SET status='$_DecisionStatusEsc',
+                    storedecisionstatus='$_StoreDecisionStatusEsc',
+                    storedecisionnote='$_DecisionNoteEsc',
+                    storedecisionby='$_DecisionByEsc',
+                    storedecisiondatetime=NOW(),
+                    decisionnote='$_DecisionNoteEsc',
+                    decisionby='$_DecisionByEsc',
+                    decisiondatetime=NOW()
+                WHERE requisitionid='$_RequisitionIdEsc'
+                  AND status='pending'
+                LIMIT 1");
+        } else {
+            $_DecisionStatusEsc = mysqli_real_escape_string($con, 'issued');
+            $_DecisionNoteEsc = mysqli_real_escape_string($con, 'Issued from the store after final approval.');
+            @mysqli_query($con, "UPDATE tblmatronrequisition
+                SET status='$_DecisionStatusEsc',
+                    decisionnote='$_DecisionNoteEsc',
+                    decisionby='$_DecisionByEsc',
+                    decisiondatetime=NOW()
+                WHERE requisitionid='$_RequisitionIdEsc'
+                  AND status='approved'
+                LIMIT 1");
+        }
         $_SESSION['Message'] = mysqli_affected_rows($con) > 0
             ? storekeeper_flash_html('success', 'Matron requisition updated successfully.')
             : storekeeper_flash_html('warning', 'That requisition could not be updated. It may already be closed.');
@@ -76,6 +108,11 @@ $_RecentReceipts = storekeeper_recent_receipts($con, 8);
 $_RecentIssues = storekeeper_recent_issues($con, 8);
 $_RecentStudentIssues = storekeeper_recent_student_issues($con, 8);
 $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
+$_DashboardPrintLimit = 8;
+$_RecentReceiptCount = count($_RecentReceipts);
+$_RecentIssueCount = count($_RecentIssues);
+$_RecentStudentIssueCount = count($_RecentStudentIssues);
+$_RecentRequisitionCount = count($_RecentMatronRequisitions);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -93,13 +130,14 @@ $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
             <div>
                 <span class="sk-kicker"><i class="fa fa-archive"></i> School Store</span>
                 <h1>Keep store work and student item records in one place.</h1>
-                <p>Use this page to check balances, record stock movement, follow student-issued items, and respond to kitchen requests from the matron.</p>
+                <p>Use this page to check balances, record stock movement, follow student-issued items, and respond to store requests from the kitchen or teachers.</p>
                 <div class="sk-hero__chips">
                     <span class="sk-chip"><i class="fa fa-cubes"></i> Total Items: <?php echo number_format((int)$_Summary['total_items']); ?></span>
                     <span class="sk-chip"><i class="fa fa-arrow-down"></i> Receipts This Week: <?php echo number_format((int)$_Summary['receipt_count_week']); ?></span>
                     <span class="sk-chip"><i class="fa fa-arrow-up"></i> Issues This Week: <?php echo number_format((int)$_Summary['issue_count_week']); ?></span>
                     <span class="sk-chip"><i class="fa fa-book"></i> Student Issues This Week: <?php echo number_format((int)$_Summary['student_issue_count_week']); ?></span>
-                    <span class="sk-chip"><i class="fa fa-cutlery"></i> Pending Matron Requests: <?php echo number_format((int)$_MatronRequisitionSummary['pending']); ?></span>
+                    <span class="sk-chip"><i class="fa fa-cutlery"></i> Pending Store Requests: <?php echo number_format((int)$_MatronRequisitionSummary['pending']); ?></span>
+                    <span class="sk-chip"><i class="fa fa-user-circle-o"></i> Waiting for Head: <?php echo number_format((int)$_MatronRequisitionSummary['awaiting_headmaster']); ?></span>
                 </div>
                 <div class="sk-link-grid" style="margin-top:16px;">
                     <a class="sk-link-chip" href="store-item-entry.php"><i class="fa fa-tags"></i> Item Master</a>
@@ -169,9 +207,14 @@ $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
                 <small>Student items now past the return date.</small>
             </article>
             <article class="sk-summary-card">
-                <span>Matron Requests Pending</span>
+                <span>Store Requests Pending</span>
                 <strong><?php echo number_format((int)$_MatronRequisitionSummary['pending']); ?></strong>
-                <small>Kitchen requests still waiting for store action.</small>
+                <small>Requests from staff or the kitchen still waiting for store review.</small>
+            </article>
+            <article class="sk-summary-card">
+                <span>Waiting for Head</span>
+                <strong><?php echo number_format((int)$_MatronRequisitionSummary['awaiting_headmaster']); ?></strong>
+                <small>Requests already checked by the store and now waiting for final approval.</small>
             </article>
         </section>
 
@@ -299,10 +342,10 @@ $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
                             </div>
                         </div>
                         <div class="sk-list-item">
-                            <strong>Review matron requisitions</strong>
-                            <small>Check kitchen requests from the matron and approve, issue, or reject them here.</small>
+                            <strong>Review store requisitions</strong>
+                            <small>Check requests from teachers or the kitchen, send the cleared ones to the headmaster, and issue only after final approval.</small>
                             <div class="sk-actions" style="margin-top:12px;">
-                                <a class="sk-button" href="#matron-requisitions"><i class="fa fa-cutlery"></i> Open matron requests</a>
+                                <a class="sk-button" href="#matron-requisitions"><i class="fa fa-cutlery"></i> Open store requests</a>
                             </div>
                         </div>
                     </div>
@@ -310,13 +353,23 @@ $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
             </section>
         </div>
 
-        <section class="sk-panel" id="matron-requisitions">
-            <div class="sk-panel__header">
+        <details class="sk-panel sk-disclosure" id="matron-requisitions">
+            <summary class="sk-disclosure__summary">
                 <div>
-                    <h2>Matron Requisitions</h2>
-                    <p>Kitchen requests from the matron waiting for store action.</p>
+                    <span class="sk-disclosure__eyebrow">Store Requisitions</span>
+                    <strong>Review requests from teachers and the kitchen</strong>
+                    <small>Pending: <?php echo number_format((int)$_MatronRequisitionSummary['pending']); ?> | Waiting for head: <?php echo number_format((int)$_MatronRequisitionSummary['awaiting_headmaster']); ?> | Showing latest <?php echo number_format((int)$_RecentRequisitionCount); ?></small>
                 </div>
-                <a class="sk-button--ghost" href="store-stock-issue.php"><i class="fa fa-upload"></i> Open stock issue page</a>
+            </summary>
+            <div class="sk-panel__header">
+                    <div>
+                        <h2>Store Requisitions</h2>
+                        <p>Requests from the kitchen or teachers and the stage each one has reached.</p>
+                    </div>
+                <div class="sk-actions">
+                    <a class="sk-button--ghost" href="storekeeper-dashboard-print.php?report=requisitions&amp;limit=<?php echo (int)$_DashboardPrintLimit; ?>&amp;autoprint=1" target="_blank" rel="noopener"><i class="fa fa-print"></i> Print</a>
+                    <a class="sk-button--ghost" href="store-stock-issue.php"><i class="fa fa-upload"></i> Open stock issue page</a>
+                </div>
             </div>
             <div class="sk-panel__body">
                 <?php if (empty($_RecentMatronRequisitions)) { ?>
@@ -344,14 +397,16 @@ $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
                                         <?php if ((string)$_Req['status'] === 'pending') { ?>
                                         <form method="post" action="storekeeper-dashboard.php#matron-requisitions" class="matron-inline-form">
                                             <input type="hidden" name="requisitionid" value="<?php echo matron_esc($_Req['requisitionid']); ?>">
-                                            <input type="hidden" name="decision_status" value="approved">
-                                            <button type="submit" name="update_matron_requisition" class="matron-inline-button"><i class="fa fa-check"></i> Approve</button>
+                                            <input type="hidden" name="decision_status" value="awaiting_headmaster">
+                                            <button type="submit" name="update_matron_requisition" class="matron-inline-button"><i class="fa fa-share"></i> Send to Head</button>
                                         </form>
                                         <form method="post" action="storekeeper-dashboard.php#matron-requisitions" class="matron-inline-form">
                                             <input type="hidden" name="requisitionid" value="<?php echo matron_esc($_Req['requisitionid']); ?>">
                                             <input type="hidden" name="decision_status" value="rejected">
                                             <button type="submit" name="update_matron_requisition" class="matron-inline-button" onclick="return confirm('Reject this matron requisition?');"><i class="fa fa-times"></i> Reject</button>
                                         </form>
+                                        <?php } elseif ((string)$_Req['status'] === 'awaiting_headmaster') { ?>
+                                        <span class="sk-muted">Waiting for headmaster</span>
                                         <?php } elseif ((string)$_Req['status'] === 'approved') { ?>
                                         <form method="post" action="storekeeper-dashboard.php#matron-requisitions" class="matron-inline-form">
                                             <input type="hidden" name="requisitionid" value="<?php echo matron_esc($_Req['requisitionid']); ?>">
@@ -366,7 +421,7 @@ $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
                                 <td><?php echo sk_dashboard_date($_Req['requestdate']); ?></td>
                                 <td>
                                     <?php echo matron_esc($_Req['itemname']); ?>
-                                    <small><?php echo matron_esc($_Req['requested_by_name']); ?></small>
+                                    <small><?php echo matron_esc($_Req['requested_by_name']); ?> | <?php echo matron_esc($_Req['requestorigin_label']); ?> request</small>
                                 </td>
                                 <td><?php echo storekeeper_format_quantity($_Req['quantity']); ?> <?php echo matron_esc($_Req['unitname']); ?></td>
                                 <td><?php echo sk_dashboard_date($_Req['needbydate']); ?></td>
@@ -382,8 +437,17 @@ $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
                                 </td>
                                 <td>
                                     <?php echo matron_requisition_badge_html($_Req['status']); ?>
-                                    <?php if (trim((string)$_Req['decisionnote']) !== '') { ?>
-                                    <small><?php echo matron_esc($_Req['decisionnote']); ?></small>
+                                    <?php if (trim((string)$_Req['stage_note']) !== '') { ?>
+                                    <small><?php echo matron_esc($_Req['stage_note']); ?></small>
+                                    <?php } ?>
+                                    <?php if (trim((string)$_Req['store_decision_by_name']) !== '') { ?>
+                                    <small>Store: <?php echo matron_esc($_Req['store_decision_by_name']); ?></small>
+                                    <?php } ?>
+                                    <?php if (trim((string)$_Req['head_decision_by_name']) !== '') { ?>
+                                    <small>Head: <?php echo matron_esc($_Req['head_decision_by_name']); ?></small>
+                                    <?php } ?>
+                                    <?php if (!empty($_Req['is_headmaster_adjusted'])) { ?>
+                                    <small>Headmaster changed the final details before approving.</small>
                                     <?php } ?>
                                 </td>
                             </tr>
@@ -393,10 +457,17 @@ $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
                 </div>
                 <?php } ?>
             </div>
-        </section>
+        </details>
 
         <div class="sk-layout">
-            <section class="sk-panel">
+            <details class="sk-panel sk-disclosure" id="recent-receipts">
+                <summary class="sk-disclosure__summary">
+                    <div>
+                        <span class="sk-disclosure__eyebrow">Recent Receipts</span>
+                        <strong>Latest stock received into the store</strong>
+                        <small>This week: <?php echo number_format((int)$_Summary['receipt_count_week']); ?> | Showing latest <?php echo number_format((int)$_RecentReceiptCount); ?> receipt record(s)</small>
+                    </div>
+                </summary>
                 <div class="sk-panel__header">
                     <div>
                         <h2>Recent Receipts</h2>
@@ -437,15 +508,25 @@ $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
                     </div>
                     <?php } ?>
                 </div>
-            </section>
+            </details>
 
-            <section class="sk-panel">
+            <details class="sk-panel sk-disclosure" id="recent-issues">
+                <summary class="sk-disclosure__summary">
+                    <div>
+                        <span class="sk-disclosure__eyebrow">Recent Issues</span>
+                        <strong>Latest stock issued from the store</strong>
+                        <small>This week: <?php echo number_format((int)$_Summary['issue_count_week']); ?> | Showing latest <?php echo number_format((int)$_RecentIssueCount); ?> issue record(s)</small>
+                    </div>
+                </summary>
                 <div class="sk-panel__header">
                     <div>
                         <h2>Recent Issues</h2>
                         <p>Latest stock issued from the store.</p>
                     </div>
-                    <a class="sk-button--ghost" href="store-stock-issue.php"><i class="fa fa-list"></i> Open issues page</a>
+                    <div class="sk-actions">
+                        <a class="sk-button--ghost" href="storekeeper-dashboard-print.php?report=issues&amp;limit=<?php echo (int)$_DashboardPrintLimit; ?>&amp;autoprint=1" target="_blank" rel="noopener"><i class="fa fa-print"></i> Print</a>
+                        <a class="sk-button--ghost" href="store-stock-issue.php"><i class="fa fa-list"></i> Open issues page</a>
+                    </div>
                 </div>
                 <div class="sk-panel__body">
                     <?php if (empty($_RecentIssues)) { ?>
@@ -480,16 +561,26 @@ $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
                     </div>
                     <?php } ?>
                 </div>
-            </section>
+            </details>
         </div>
 
-        <section class="sk-panel">
+        <details class="sk-panel sk-disclosure" id="recent-student-items">
+            <summary class="sk-disclosure__summary">
+                <div>
+                    <span class="sk-disclosure__eyebrow">Student Item Records</span>
+                    <strong>Latest items issued out to students</strong>
+                    <small>Items out now: <?php echo number_format((int)$_Summary['student_items_out']); ?> | Overdue: <?php echo number_format((int)$_Summary['student_items_overdue']); ?> | Showing latest <?php echo number_format((int)$_RecentStudentIssueCount); ?></small>
+                </div>
+            </summary>
             <div class="sk-panel__header">
                 <div>
                     <h2>Recent Student Item Records</h2>
                     <p>Latest items given to students, including return status and due dates.</p>
                 </div>
-                <a class="sk-button--ghost" href="store-student-issue.php"><i class="fa fa-list"></i> Open student items page</a>
+                <div class="sk-actions">
+                    <a class="sk-button--ghost" href="storekeeper-dashboard-print.php?report=student_items&amp;limit=<?php echo (int)$_DashboardPrintLimit; ?>&amp;autoprint=1" target="_blank" rel="noopener"><i class="fa fa-print"></i> Print</a>
+                    <a class="sk-button--ghost" href="store-student-issue.php"><i class="fa fa-list"></i> Open student items page</a>
+                </div>
             </div>
             <div class="sk-panel__body">
                 <?php if (empty($_RecentStudentIssues)) { ?>
@@ -531,8 +622,21 @@ $_RecentMatronRequisitions = matron_recent_requisitions($con, 8);
                 </div>
                 <?php } ?>
             </div>
-        </section>
+        </details>
     </div>
 </main>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var hash = window.location.hash || '';
+    if (!hash) {
+        return;
+    }
+
+    var target = document.querySelector(hash);
+    if (target && target.tagName && target.tagName.toLowerCase() === 'details') {
+        target.open = true;
+    }
+});
+</script>
 </body>
 </html>

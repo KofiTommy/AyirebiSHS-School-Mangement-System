@@ -424,7 +424,7 @@ $messageUnreadCount = um_message_unread_count($con, $studentId, 'Student');
 $studentPrivateChatEnabled = student_chat_is_enabled($con);
 $studentPrivateChatPendingCount = $studentPrivateChatEnabled ? student_chat_pending_inbound_count($con, $studentId) : 0;
 $studentVotingSnapshot = voting_dashboard_snapshot($con, voting_default_branch_id($con), 'Student');
-$studentWeeklyMenu = matron_current_week_menu_context($con);
+$studentWeeklyMenu = matron_current_week_menu_context($con, date('Y-m-d'), 'student');
 
 $exeatTotal = 0;
 $exeatPending = 0;
@@ -901,7 +901,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
     <div class="student-panel-stack">
         <section class="student-panel student-panel--accent student-panel--menu-board">
             <div class="student-panel__header">
-                <div><span class="student-panel__eyebrow">Dining Menu</span><h2>This week's school menu</h2></div>
+                <div><span class="student-panel__eyebrow">Dining Menu</span><h2>This week's student menu</h2></div>
             </div>
             <div class="student-menu-board__week"><?php echo sd_esc($studentWeeklyMenu["week_label"]); ?></div>
             <?php if(count($studentWeeklyMenu["rows"]) > 0){ ?>
@@ -925,7 +925,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
             </div>
             <?php } else { ?>
             <div class="student-empty-state student-empty-state--compact">
-                <p>The weekly menu has not been published yet.</p>
+                <p>The student weekly menu has not been published yet.</p>
             </div>
             <?php } ?>
         </section>
