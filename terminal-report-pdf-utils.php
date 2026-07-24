@@ -26,6 +26,37 @@ function tr_terminal_report_filename_part($value, $fallback = 'report')
 }
 }
 
+if (!function_exists('tr_terminal_report_resolve_headmaster_signature_path')) {
+function tr_terminal_report_resolve_headmaster_signature_path($signatureFile = '')
+{
+    $signatureFile = trim((string)$signatureFile);
+    if (function_exists('report_approval_signature_file_name')) {
+        $signatureFile = report_approval_signature_file_name($signatureFile);
+    } elseif ($signatureFile === '') {
+        $signatureFile = 'heads-signature.png';
+    }
+
+    $candidateNames = array($signatureFile, 'heads-signature.png');
+    foreach ($candidateNames as $candidateName) {
+        $candidateName = trim((string)$candidateName);
+        if ($candidateName === '') {
+            continue;
+        }
+        $candidatePaths = array(
+            __DIR__ . DIRECTORY_SEPARATOR . $candidateName,
+            __DIR__ . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . $candidateName
+        );
+        foreach ($candidatePaths as $candidatePath) {
+            if (file_exists($candidatePath)) {
+                return $candidatePath;
+            }
+        }
+    }
+
+    return '';
+}
+}
+
 if (!function_exists('tr_terminal_report_fetch_batch_label')) {
 function tr_terminal_report_fetch_batch_label($con, $batchId)
 {
@@ -490,12 +521,30 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
     $scopeMeta = isset($options['scope_meta']) && is_array($options['scope_meta'])
         ? $options['scope_meta']
         : tr_terminal_report_fetch_scope_meta($con, $batchId, $academicYear, $termId);
+    $approvalMeta = isset($options['approval_meta']) && is_array($options['approval_meta'])
+        ? $options['approval_meta']
+        : (function_exists('report_approval_scope_meta')
+            ? report_approval_scope_meta($con, $batchId, $academicYear, $termId, $classId)
+            : array());
     $positionObj = isset($options['position_obj']) ? $options['position_obj'] : new Position();
     $classPositionObj = isset($options['class_position_obj']) ? $options['class_position_obj'] : new ClassPosition();
     $gradeObj = isset($options['grade_obj']) ? $options['grade_obj'] : new GradingSystem();
     $companyMeta = isset($options['company_meta']) && is_array($options['company_meta'])
         ? $options['company_meta']
         : tr_terminal_report_fetch_company_meta($con);
+    $headmasterSignaturePath = tr_terminal_report_resolve_headmaster_signature_path(isset($approvalMeta['headsignaturefile']) ? $approvalMeta['headsignaturefile'] : '');
+    $headmasterApproved = !empty($approvalMeta['headmaster_approved']);
+    $headmasterSignedName = trim((string)(isset($approvalMeta['headapprovedname']) ? $approvalMeta['headapprovedname'] : ''));
+    if ($headmasterSignedName === '') {
+        $headmasterSignedName = 'Headmaster';
+    }
+    $headmasterSignedAt = trim((string)(isset($approvalMeta['headapproveddatetime']) ? $approvalMeta['headapproveddatetime'] : ''));
+    $headmasterSignedAtLabel = '';
+    if ($headmasterSignedAt !== '' && $headmasterSignedAt !== '0000-00-00 00:00:00') {
+        $signedTimestamp = strtotime($headmasterSignedAt);
+        $headmasterSignedAtLabel = $signedTimestamp ? date('d M Y H:i', $signedTimestamp) : $headmasterSignedAt;
+    }
+    $headmasterReference = trim((string)(isset($approvalMeta['headapproval_reference']) ? $approvalMeta['headapproval_reference'] : ''));
 
     $assignmentRows = tr_terminal_report_fetch_assignment_rows($con, $userId, $batchId, $termId, $classId, $academicYear);
     $markMap = tr_terminal_report_fetch_assignment_mark_map($con, $assignmentRows, $userId);
@@ -678,7 +727,36 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
     $pdf->Ln(7);
     $pdf->Cell(0, 10, tr_terminal_report_pdf_text("Head Teacher's Remarks:  " . $headTeacherRemark), 0, 0, 'L', true);
     $pdf->Ln(7);
-    $pdf->Cell(0, 10, tr_terminal_report_pdf_text('Signature:................................................'), 0, 0, 'R', true);
+    $signatureBlockWidth = 78;
+    $signatureX = max(10, $pdf->GetPageWidth() - $signatureBlockWidth - 12);
+    $signatureStartY = $pdf->GetY();
+    if ($headmasterApproved) {
+        if ($headmasterSignaturePath !== '') {
+            $pdf->Image($headmasterSignaturePath, $signatureX + 20, $signatureStartY, 34);
+        }
+        $pdf->SetXY($signatureX, $signatureStartY + ($headmasterSignaturePath !== '' ? 12 : 2));
+        $pdf->SetFont('Arial', 'B', 9);
+        $pdf->Cell($signatureBlockWidth, 5, tr_terminal_report_pdf_text('Headmaster'), 0, 1, 'R', true);
+        $pdf->SetFont('Arial', '', 8);
+        $pdf->SetX($signatureX);
+        $pdf->Cell($signatureBlockWidth, 4, tr_terminal_report_pdf_text('Digital Signature: ' . $headmasterSignedName), 0, 1, 'R', true);
+        if ($headmasterSignedAtLabel !== '') {
+            $pdf->SetX($signatureX);
+            $pdf->Cell($signatureBlockWidth, 4, tr_terminal_report_pdf_text('Time: ' . $headmasterSignedAtLabel), 0, 1, 'R', true);
+        }
+        if ($headmasterReference !== '') {
+            $pdf->SetX($signatureX);
+            $pdf->Cell($signatureBlockWidth, 4, tr_terminal_report_pdf_text('Ref: ' . $headmasterReference), 0, 1, 'R', true);
+        }
+        $pdf->SetX($signatureX);
+        $pdf->Cell($signatureBlockWidth, 0, '', 'T', 1, 'R', true);
+        $pdf->Ln(3);
+    } else {
+        $pdf->SetFont('Arial', 'I', 8);
+        $pdf->SetX($signatureX);
+        $pdf->Cell($signatureBlockWidth, 5, tr_terminal_report_pdf_text('Headmaster Signature Pending'), 0, 1, 'R', true);
+        $pdf->Ln(2);
+    }
 
     $pdf->Ln(7);
     $pdf->SetFont('Arial', 'U', 8);
@@ -731,11 +809,22 @@ function tr_terminal_report_print_single_pdf($con, $userId, $batchId, $academicY
         );
     }
 
+    $approvalMeta = function_exists('report_approval_scope_meta')
+        ? report_approval_scope_meta($con, $batchId, $academicYear, $termId, $classId)
+        : array('required' => false, 'headmaster_approved' => false);
+    if (!empty($approvalMeta['required']) && empty($approvalMeta['headmaster_approved'])) {
+        return array(
+            'success' => false,
+            'message' => 'This class report is still waiting for the headmaster signature before final printing.'
+        );
+    }
+
     $pdf = new FPDF();
     $scopeMeta = tr_terminal_report_fetch_scope_meta($con, $batchId, $academicYear, $termId);
     $companyMeta = tr_terminal_report_fetch_company_meta($con);
     tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $academicYear, $termId, $classId, array(
         'scope_meta' => $scopeMeta,
+        'approval_meta' => $approvalMeta,
         'company_meta' => $companyMeta,
         'position_obj' => new Position(),
         'class_position_obj' => new ClassPosition(),
@@ -768,11 +857,22 @@ function tr_terminal_report_print_scope_pack_pdf($con, $batchId, $academicYear, 
         );
     }
 
+    $approvalMeta = function_exists('report_approval_scope_meta')
+        ? report_approval_scope_meta($con, $batchId, $academicYear, $termId, $classId)
+        : array('required' => false, 'headmaster_approved' => false);
+    if (!empty($approvalMeta['required']) && empty($approvalMeta['headmaster_approved'])) {
+        return array(
+            'success' => false,
+            'message' => 'This class report is still waiting for the headmaster signature before final printing.'
+        );
+    }
+
     $pdf = new FPDF();
     $scopeMeta = tr_terminal_report_fetch_scope_meta($con, $batchId, $academicYear, $termId);
     $companyMeta = tr_terminal_report_fetch_company_meta($con);
     $sharedOptions = array(
         'scope_meta' => $scopeMeta,
+        'approval_meta' => $approvalMeta,
         'company_meta' => $companyMeta,
         'position_obj' => new Position(),
         'class_position_obj' => new ClassPosition(),

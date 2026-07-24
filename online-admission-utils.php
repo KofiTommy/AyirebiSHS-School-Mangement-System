@@ -81,10 +81,96 @@ function online_admission_can_manage_portal($con = null){
 }
 }
 
+if(!function_exists('online_admission_programme_full_name')){
+function online_admission_programme_full_name($programme){
+    $programme = trim((string)$programme);
+    if($programme === ''){
+        return '';
+    }
+
+    $normalized = strtolower($programme);
+    $normalized = str_replace(array('.', '-', '_'), ' ', $normalized);
+    $normalized = preg_replace('/\s+/', ' ', $normalized);
+    $normalized = trim((string)$normalized);
+
+    $map = array(
+        'agric' => 'Agricultural Science',
+        'agric science' => 'Agricultural Science',
+        'general arts' => 'General Arts',
+        'gen arts' => 'General Arts',
+        'gen art' => 'General Arts',
+        'bus' => 'Business',
+        'business' => 'Business',
+        'home econs' => 'Home Economics',
+        'home econ' => 'Home Economics',
+        'home economics' => 'Home Economics',
+        'vis arts' => 'Visual Arts',
+        'visual arts' => 'Visual Arts'
+    );
+
+    return isset($map[$normalized]) ? $map[$normalized] : $programme;
+}
+}
+
+if(!function_exists('online_admission_disability_options')){
+function online_admission_disability_options(){
+    return array(
+        'No Disability',
+        'Visually Impaired',
+        'Hearing / Speech Impaired',
+        'Physically Impaired',
+        'Mentally Impaired',
+        'Spastic / Epileptic Condition',
+        'Low Vision'
+    );
+}
+}
+
+if(!function_exists('online_admission_normalize_disability_status')){
+function online_admission_normalize_disability_status($value){
+    $value = trim((string)$value);
+    if($value === ''){
+        return '';
+    }
+
+    foreach(online_admission_disability_options() as $option){
+        if(strcasecmp($value, $option) === 0){
+            return $option;
+        }
+    }
+
+    $normalized = strtolower($value);
+    $normalized = str_replace(array('.', '-', '_'), ' ', $normalized);
+    $normalized = preg_replace('/\s+/', ' ', $normalized);
+    $normalized = trim((string)$normalized);
+
+    $aliases = array(
+        'no disability' => 'No Disability',
+        'visually impaired' => 'Visually Impaired',
+        'visually impared' => 'Visually Impaired',
+        'hearing / speech impaired' => 'Hearing / Speech Impaired',
+        'hearing speech impaired' => 'Hearing / Speech Impaired',
+        'hearing / speech impared' => 'Hearing / Speech Impaired',
+        'hearing speech impared' => 'Hearing / Speech Impaired',
+        'physically impaired' => 'Physically Impaired',
+        'physically impared' => 'Physically Impaired',
+        'mentally impaired' => 'Mentally Impaired',
+        'mentally impared' => 'Mentally Impaired',
+        'spastic / epileptic condition' => 'Spastic / Epileptic Condition',
+        'spastic epileptic condition' => 'Spastic / Epileptic Condition',
+        'spactic / epileptic condition' => 'Spastic / Epileptic Condition',
+        'spactic epileptic condition' => 'Spastic / Epileptic Condition',
+        'low vision' => 'Low Vision'
+    );
+
+    return isset($aliases[$normalized]) ? $aliases[$normalized] : '';
+}
+}
+
 if(!function_exists('ensure_online_admission_tables')){
 function ensure_online_admission_tables($con){
     ensure_house_tables($con);
-    if(xschool_schema_cache_is_fresh('schema_online_admission_v6', 43200)){
+    if(xschool_schema_cache_is_fresh('schema_online_admission_v8', 43200)){
         return;
     }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbladmissionpostedstudent (
@@ -123,6 +209,8 @@ function ensure_online_admission_tables($con){
         othernames VARCHAR(80) NULL,
         gender VARCHAR(20) NULL,
         birthdate DATE NOT NULL,
+        ghanacard VARCHAR(40) NULL,
+        disabilitystatus VARCHAR(80) NULL,
         email VARCHAR(120) NULL,
         mobile VARCHAR(30) NULL,
         residencetype VARCHAR(40) NULL,
@@ -133,6 +221,7 @@ function ensure_online_admission_tables($con){
         guardianname VARCHAR(120) NULL,
         guardianrelationship VARCHAR(60) NULL,
         guardiancontact VARCHAR(30) NULL,
+        guardianprofession VARCHAR(120) NULL,
         medicalnotes VARCHAR(255) NULL,
         studentnote VARCHAR(255) NULL,
         filename VARCHAR(190) NULL,
@@ -148,6 +237,11 @@ function ensure_online_admission_tables($con){
         reviewedby VARCHAR(30) NULL,
         reviewnote VARCHAR(255) NULL,
         revieweddatetime DATETIME NULL,
+        headapprovalstatus VARCHAR(20) NULL,
+        headapprovalnote VARCHAR(255) NULL,
+        headapprovedby VARCHAR(30) NULL,
+        headapprovedname VARCHAR(150) NULL,
+        headapproveddatetime DATETIME NULL,
         assignedhouseid VARCHAR(40) NULL,
         assignedhouseat DATETIME NULL,
         linkedstudentid VARCHAR(40) NULL,
@@ -319,10 +413,42 @@ function ensure_online_admission_tables($con){
     if($columnRes && mysqli_num_rows($columnRes) === 0){
         mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN guardiansmsstatus VARCHAR(60) NULL AFTER guardiansmssentat");
     }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'ghanacard'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN ghanacard VARCHAR(40) NULL AFTER birthdate");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'disabilitystatus'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN disabilitystatus VARCHAR(80) NULL AFTER ghanacard");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'guardianprofession'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN guardianprofession VARCHAR(120) NULL AFTER guardiancontact");
+    }
     $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'assignedhouseid'");
     if($columnRes && mysqli_num_rows($columnRes) === 0){
         mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN assignedhouseid VARCHAR(40) NULL AFTER revieweddatetime");
         mysqli_query($con, "CREATE INDEX idx_application_house ON tblonlineadmissionapplication(assignedhouseid)");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'headapprovalstatus'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN headapprovalstatus VARCHAR(20) NULL AFTER revieweddatetime");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'headapprovalnote'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN headapprovalnote VARCHAR(255) NULL AFTER headapprovalstatus");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'headapprovedby'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN headapprovedby VARCHAR(30) NULL AFTER headapprovalnote");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'headapprovedname'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN headapprovedname VARCHAR(150) NULL AFTER headapprovedby");
+    }
+    $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'headapproveddatetime'");
+    if($columnRes && mysqli_num_rows($columnRes) === 0){
+        mysqli_query($con, "ALTER TABLE tblonlineadmissionapplication ADD COLUMN headapproveddatetime DATETIME NULL AFTER headapprovedname");
     }
     $columnRes = mysqli_query($con, "SHOW COLUMNS FROM tblonlineadmissionapplication LIKE 'assignedhouseat'");
     if($columnRes && mysqli_num_rows($columnRes) === 0){
@@ -362,11 +488,12 @@ function ensure_online_admission_tables($con){
         xschool_schema_ensure_index($con, 'tblonlineadmissionapplication', 'idx_application_branch_token', "CREATE INDEX idx_application_branch_token ON tblonlineadmissionapplication(branchid, verificationtoken)");
         xschool_schema_ensure_index($con, 'tblonlineadmissionapplication', 'idx_application_house_scope', "CREATE INDEX idx_application_house_scope ON tblonlineadmissionapplication(assignedhouseid, branchid, admissionyear, status)");
         xschool_schema_ensure_index($con, 'tblonlineadmissionapplication', 'idx_application_branch_updated', "CREATE INDEX idx_application_branch_updated ON tblonlineadmissionapplication(branchid, updatedat)");
+        xschool_schema_ensure_index($con, 'tblonlineadmissionapplication', 'idx_application_headapproval_scope', "CREATE INDEX idx_application_headapproval_scope ON tblonlineadmissionapplication(branchid, status, headapprovalstatus, linkedstudentid)");
         xschool_schema_ensure_index($con, 'tblonlineadmissionpayment', 'idx_payment_application_created', "CREATE INDEX idx_payment_application_created ON tblonlineadmissionpayment(applicationid, createdat)");
         xschool_schema_ensure_index($con, 'tblonlineadmissionpayment', 'idx_payment_application_status_paid', "CREATE INDEX idx_payment_application_status_paid ON tblonlineadmissionpayment(applicationid, status, paidat, createdat)");
         xschool_schema_ensure_index($con, 'tblonlineadmissiondocument', 'idx_document_scope_status', "CREATE INDEX idx_document_scope_status ON tblonlineadmissiondocument(branchid, admissionyear, status)");
     }
-    xschool_schema_cache_mark('schema_online_admission_v6');
+    xschool_schema_cache_mark('schema_online_admission_v8');
 }
 }
 
@@ -449,6 +576,198 @@ function online_admission_status_label($status){
     if($status === "reviewed"){ return "Reviewed"; }
     if($status === "needs_attention"){ return "Needs Attention"; }
     return "Draft";
+}
+}
+
+if(!function_exists('online_admission_headmaster_approval_status')){
+function online_admission_headmaster_approval_status($application){
+    if(!is_array($application) || empty($application)){
+        return "";
+    }
+    return strtolower(trim((string)(isset($application["headapprovalstatus"]) ? $application["headapprovalstatus"] : "")));
+}
+}
+
+if(!function_exists('online_admission_application_is_headmaster_approved')){
+function online_admission_application_is_headmaster_approved($application){
+    if(!is_array($application) || empty($application)){
+        return false;
+    }
+    $approvalStatus = online_admission_headmaster_approval_status($application);
+    $approvedAt = trim((string)(isset($application["headapproveddatetime"]) ? $application["headapproveddatetime"] : ""));
+    return $approvalStatus === "approved" && $approvedAt !== "" && $approvedAt !== "0000-00-00 00:00:00";
+}
+}
+
+if(!function_exists('online_admission_headmaster_approval_name')){
+function online_admission_headmaster_approval_name($application){
+    if(!online_admission_application_is_headmaster_approved($application)){
+        return "";
+    }
+    $approvedName = trim((string)(isset($application["headapprovedname"]) ? $application["headapprovedname"] : ""));
+    if($approvedName !== ""){
+        return $approvedName;
+    }
+    return trim((string)(isset($application["headapprovedby"]) ? $application["headapprovedby"] : ""));
+}
+}
+
+if(!function_exists('online_admission_headmaster_approval_reference')){
+function online_admission_headmaster_approval_reference($application){
+    if(!online_admission_application_is_headmaster_approved($application)){
+        return "";
+    }
+    $applicationId = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', trim((string)(isset($application["applicationid"]) ? $application["applicationid"] : ""))));
+    $applicationTail = $applicationId !== "" ? substr($applicationId, -6) : "ADM";
+    $approvedAt = trim((string)(isset($application["headapproveddatetime"]) ? $application["headapproveddatetime"] : ""));
+    $timestamp = strtotime($approvedAt);
+    $timePart = $timestamp ? date("YmdHi", $timestamp) : date("YmdHi");
+    $approverId = trim((string)(isset($application["headapprovedby"]) ? $application["headapprovedby"] : ""));
+    $hashSeed = $applicationId."|".$approverId."|".$approvedAt;
+    $hashPart = strtoupper(substr(sha1($hashSeed), 0, 8));
+    return "OA-HM-".$timePart."-".$applicationTail."-".$hashPart;
+}
+}
+
+if(!function_exists('online_admission_headmaster_approval_summary')){
+function online_admission_headmaster_approval_summary($application){
+    if(!online_admission_application_is_headmaster_approved($application)){
+        return "Pending headmaster approval";
+    }
+    $approverName = online_admission_headmaster_approval_name($application);
+    if($approverName === ""){
+        $approverName = "the headmaster";
+    }
+    return "Digitally approved by ".$approverName;
+}
+}
+
+if(!function_exists('online_admission_clear_headmaster_approval')){
+function online_admission_clear_headmaster_approval($con, $applicationId, $branchId){
+    $applicationIdEsc = mysqli_real_escape_string($con, trim((string)$applicationId));
+    $branchIdEsc = mysqli_real_escape_string($con, trim((string)$branchId));
+    if($applicationIdEsc === "" || $branchIdEsc === ""){
+        return false;
+    }
+    return mysqli_query($con, "UPDATE tblonlineadmissionapplication SET
+        headapprovalstatus=NULL,
+        headapprovalnote=NULL,
+        headapprovedby=NULL,
+        headapprovedname=NULL,
+        headapproveddatetime=NULL,
+        updatedat=NOW()
+        WHERE applicationid='$applicationIdEsc'
+          AND branchid='$branchIdEsc'
+        LIMIT 1") ? true : false;
+}
+}
+
+if(!function_exists('online_admission_save_headmaster_approval')){
+function online_admission_save_headmaster_approval($con, $applicationId, $branchId, $approvedBy, $approvedName, $approvalNote = ""){
+    $application = online_admission_get_application_by_id($con, $applicationId);
+    if(!$application || (string)$application["branchid"] !== (string)$branchId){
+        return array("success" => false, "message" => "The selected admission record could not be found for this branch.");
+    }
+    if(strtolower(trim((string)$application["status"])) !== "reviewed"){
+        return array("success" => false, "message" => "Only reviewed admission forms can receive headmaster approval.");
+    }
+    if(online_admission_application_is_headmaster_approved($application)){
+        return array("success" => false, "message" => "This admission already has headmaster approval.");
+    }
+
+    $applicationIdEsc = mysqli_real_escape_string($con, trim((string)$applicationId));
+    $branchIdEsc = mysqli_real_escape_string($con, trim((string)$branchId));
+    $approvedByEsc = mysqli_real_escape_string($con, trim((string)$approvedBy));
+    $approvedName = trim((string)$approvedName);
+    if($approvedName === ""){
+        $approvedName = "Headmaster";
+    }
+    $approvedNameEsc = mysqli_real_escape_string($con, $approvedName);
+    $approvalNote = trim((string)$approvalNote);
+    if($approvalNote === ""){
+        $approvalNote = "Digitally approved by the headmaster.";
+    }
+    $approvalNoteEsc = mysqli_real_escape_string($con, $approvalNote);
+
+    $saved = mysqli_query($con, "UPDATE tblonlineadmissionapplication SET
+        headapprovalstatus='approved',
+        headapprovalnote='$approvalNoteEsc',
+        headapprovedby='$approvedByEsc',
+        headapprovedname='$approvedNameEsc',
+        headapproveddatetime=NOW(),
+        updatedat=NOW()
+        WHERE applicationid='$applicationIdEsc'
+          AND branchid='$branchIdEsc'
+          AND status='reviewed'
+          AND (headapprovalstatus IS NULL OR headapprovalstatus<> 'approved' OR headapproveddatetime IS NULL OR headapproveddatetime='0000-00-00 00:00:00')
+        LIMIT 1");
+    if(!$saved || mysqli_affected_rows($con) <= 0){
+        return array("success" => false, "message" => "The headmaster approval could not be saved right now.");
+    }
+    $refreshed = online_admission_get_application_by_id($con, $applicationId);
+    $notificationLogged = $refreshed ? online_admission_log_headmaster_approval_notification($con, $refreshed) : false;
+    return array(
+        "success" => true,
+        "message" => "Headmaster approval saved successfully.",
+        "application" => $refreshed,
+        "notification_logged" => $notificationLogged
+    );
+}
+}
+
+if(!function_exists('online_admission_bulk_headmaster_approve_reviewed')){
+function online_admission_bulk_headmaster_approve_reviewed($con, $branchId, $approvedBy, $approvedName, $applicationIds = array(), $approvalNote = "", $limit = 300){
+    $summary = array(
+        "success" => 0,
+        "failed" => 0,
+        "messages" => array()
+    );
+    $branchIdEsc = mysqli_real_escape_string($con, trim((string)$branchId));
+    $limit = max(1, min(1000, (int)$limit));
+    $idFilterSql = "";
+    $sanitizedIds = array();
+    foreach((array)$applicationIds as $applicationId){
+        $applicationId = trim((string)$applicationId);
+        if($applicationId === ""){
+            continue;
+        }
+        $sanitizedIds[] = "'".mysqli_real_escape_string($con, $applicationId)."'";
+    }
+    if(!empty($sanitizedIds)){
+        $idFilterSql = " AND applicationid IN(".implode(",", array_unique($sanitizedIds)).")";
+    }
+
+    $res = mysqli_query($con, "SELECT applicationid, firstname, othernames, surname, beceindexnumber
+        FROM tblonlineadmissionapplication
+        WHERE branchid='$branchIdEsc'
+          AND status='reviewed'
+          AND (headapprovalstatus IS NULL OR headapprovalstatus<>'approved' OR headapproveddatetime IS NULL OR headapproveddatetime='0000-00-00 00:00:00')
+          $idFilterSql
+        ORDER BY revieweddatetime ASC, updatedat ASC
+        LIMIT $limit");
+    if(!$res || mysqli_num_rows($res) === 0){
+        $summary["messages"][] = empty($sanitizedIds)
+            ? "No reviewed admissions are waiting for headmaster approval."
+            : "None of the selected admissions are waiting for headmaster approval.";
+        return $summary;
+    }
+
+    while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        $studentName = trim((string)$row["firstname"]." ".(string)$row["othernames"]." ".(string)$row["surname"]);
+        if($studentName === ""){
+            $studentName = trim((string)$row["beceindexnumber"]);
+        }
+        $approved = online_admission_save_headmaster_approval($con, $row["applicationid"], $branchId, $approvedBy, $approvedName, $approvalNote);
+        if(!empty($approved["success"])){
+            $summary["success"]++;
+        }else{
+            $summary["failed"]++;
+            if(count($summary["messages"]) < 6){
+                $summary["messages"][] = $studentName.": ".(isset($approved["message"]) ? $approved["message"] : "Approval failed.");
+            }
+        }
+    }
+    return $summary;
 }
 }
 
@@ -1137,6 +1456,10 @@ function online_admission_post_application_to_student_records($con, $application
         $result["message"] = "Review and mark this admission as Reviewed before posting.";
         return $result;
     }
+    if(!online_admission_application_is_headmaster_approved($application)){
+        $result["message"] = "Headmaster approval is required before posting this admission.";
+        return $result;
+    }
 
     $postedStudent = online_admission_get_posted_student_by_id($con, (string)$application["branchid"], (string)$application["postingid"]);
     if(!$postedStudent){
@@ -1315,11 +1638,14 @@ function online_admission_post_reviewed_applications($con, $branchId, $batchId =
         FROM tblonlineadmissionapplication
         WHERE branchid='$branchIdEsc'
           AND status='reviewed'
+          AND headapprovalstatus='approved'
+          AND headapproveddatetime IS NOT NULL
+          AND headapproveddatetime<>'0000-00-00 00:00:00'
           AND (linkedstudentid IS NULL OR linkedstudentid='')
         ORDER BY updatedat ASC
         LIMIT $limit");
     if(!$res || mysqli_num_rows($res) === 0){
-        $summary["messages"][] = "No reviewed unposted admission forms were found.";
+        $summary["messages"][] = "No headmaster-approved reviewed admissions were found for posting.";
         return $summary;
     }
     while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
@@ -2292,6 +2618,65 @@ function online_admission_log_submission_notification($con, $application, $poste
     return mysqli_query($con, "INSERT INTO tblsystemchangelog
         (actor_userid, actor_name, actor_type, action_type, target_userid, details, page_name, ip_address, datetimeentry, status)
         VALUES('$actorIdEsc', '$actorNameEsc', 'Student', 'ONLINE_ADMISSION_SUBMITTED', '$applicationIdEsc', '$detailsEsc', 'online-admission-admin.php', '', NOW(), 'unread')") ? true : false;
+}
+}
+
+if(!function_exists('online_admission_log_headmaster_approval_notification')){
+function online_admission_log_headmaster_approval_notification($con, $application){
+    if(!$con || !is_array($application) || empty($application) || !online_admission_application_is_headmaster_approved($application)){
+        return false;
+    }
+
+    $applicationId = trim((string)(isset($application["applicationid"]) ? $application["applicationid"] : ""));
+    if($applicationId === ""){
+        return false;
+    }
+
+    include_once(__DIR__.DIRECTORY_SEPARATOR."audit_notifications.php");
+    if(function_exists("ensureSystemChangeLogTable")){
+        ensureSystemChangeLogTable($con);
+    }
+
+    $studentName = trim(online_admission_candidate_name($application));
+    if($studentName === ""){
+        $studentName = "Online admission applicant";
+    }
+    $beceIndex = trim((string)(isset($application["beceindexnumber"]) ? $application["beceindexnumber"] : ""));
+    $admissionYear = trim((string)(isset($application["admissionyear"]) ? $application["admissionyear"] : ""));
+    $approvedName = online_admission_headmaster_approval_name($application);
+    if($approvedName === ""){
+        $approvedName = "Headmaster";
+    }
+    $approvalReference = online_admission_headmaster_approval_reference($application);
+    $approvalNote = trim((string)(isset($application["headapprovalnote"]) ? $application["headapprovalnote"] : ""));
+
+    $details = $studentName."'s online admission was approved by ".$approvedName;
+    if($beceIndex !== ""){
+        $details .= " (BECE: ".$beceIndex.")";
+    }
+    if($admissionYear !== ""){
+        $details .= " for ".$admissionYear;
+    }
+    if($approvalReference !== ""){
+        $details .= ". Ref: ".$approvalReference;
+    }
+    if($approvalNote !== "" && strtolower($approvalNote) !== "digitally approved by the headmaster."){
+        $details .= ". Note: ".substr($approvalNote, 0, 180);
+    }
+
+    $actorId = trim((string)(isset($application["headapprovedby"]) ? $application["headapprovedby"] : ""));
+    if($actorId === ""){
+        $actorId = $applicationId;
+    }
+
+    $actorIdEsc = mysqli_real_escape_string($con, $actorId);
+    $actorNameEsc = mysqli_real_escape_string($con, $approvedName);
+    $applicationIdEsc = mysqli_real_escape_string($con, $applicationId);
+    $detailsEsc = mysqli_real_escape_string($con, $details);
+
+    return mysqli_query($con, "INSERT INTO tblsystemchangelog
+        (actor_userid, actor_name, actor_type, action_type, target_userid, details, page_name, ip_address, datetimeentry, status)
+        VALUES('$actorIdEsc', '$actorNameEsc', 'Headmaster', 'ONLINE_ADMISSION_HEADMASTER_APPROVED', '$applicationIdEsc', '$detailsEsc', 'online-admission-admin.php', '', NOW(), 'unread')") ? true : false;
 }
 }
 

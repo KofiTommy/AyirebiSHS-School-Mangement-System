@@ -27,6 +27,63 @@ semester_registry_ensure_academic_year_column($con);
 @$_ReportApprovalAdminMessage="";
 @$_ReportPrintMessage="";
 
+if(!function_exists('tr_terminal_report_signature_preview_html')){
+function tr_terminal_report_signature_preview_html($approvalMeta){
+      if(!is_array($approvalMeta) || empty($approvalMeta['headmaster_approved'])){
+          return '';
+      }
+
+      $signatureFile = trim((string)(isset($approvalMeta['headsignaturefile']) ? $approvalMeta['headsignaturefile'] : ''));
+      if(function_exists('report_approval_signature_file_name')){
+          $signatureFile = report_approval_signature_file_name($signatureFile);
+      }
+
+      $signatureSrc = '';
+      if($signatureFile !== ''){
+          $signaturePath = __DIR__.DIRECTORY_SEPARATOR.$signatureFile;
+          if(file_exists($signaturePath)){
+              $signatureSrc = htmlspecialchars(str_replace(DIRECTORY_SEPARATOR, '/', $signatureFile), ENT_QUOTES, 'UTF-8');
+          }
+      }
+
+      $signedName = trim((string)(isset($approvalMeta['headapprovedname']) ? $approvalMeta['headapprovedname'] : ''));
+      if($signedName === ''){
+          $signedName = 'Headmaster';
+      }
+
+      $signedAt = trim((string)(isset($approvalMeta['headapproveddatetime']) ? $approvalMeta['headapproveddatetime'] : ''));
+      $signedAtLabel = '';
+      if($signedAt !== '' && $signedAt !== '0000-00-00 00:00:00'){
+          $signedAtStamp = strtotime($signedAt);
+          $signedAtLabel = $signedAtStamp ? date('d M Y H:i', $signedAtStamp) : $signedAt;
+      }
+
+      $signedReference = trim((string)(isset($approvalMeta['headapproval_reference']) ? $approvalMeta['headapproval_reference'] : ''));
+
+      $html = "<section class='tr-signature-preview' aria-label='Headmaster signature preview'>";
+      $html .= "<div class='tr-signature-preview__asset'>";
+      if($signatureSrc !== ''){
+          $html .= "<img src='".$signatureSrc."' alt='Headmaster signature'>";
+      }else{
+          $html .= "<div class='tr-signature-preview__placeholder'><i class='fa fa-pencil'></i> Signature file saved</div>";
+      }
+      $html .= "</div>";
+      $html .= "<div class='tr-signature-preview__meta'>";
+      $html .= "<span class='tr-signature-preview__label'>Headmaster</span>";
+      $html .= "<h3 class='tr-signature-preview__title'>Digital Signature</h3>";
+      $html .= "<p class='tr-signature-preview__line'>".htmlspecialchars($signedName, ENT_QUOTES, 'UTF-8')."</p>";
+      if($signedAtLabel !== ''){
+          $html .= "<p class='tr-signature-preview__line'>Time: ".htmlspecialchars($signedAtLabel, ENT_QUOTES, 'UTF-8')."</p>";
+      }
+      if($signedReference !== ''){
+          $html .= "<p class='tr-signature-preview__line'>Ref: ".htmlspecialchars($signedReference, ENT_QUOTES, 'UTF-8')."</p>";
+      }
+      $html .= "</div>";
+      $html .= "</section>";
+      return $html;
+}
+}
+
 if(isset($_POST['approve_class_report']) || isset($_POST['hold_class_report'])){
       include("dbstring.php");
       $_ApprovalStatus = isset($_POST['approve_class_report']) ? 'approved' : 'pending';
@@ -35,7 +92,7 @@ if(isset($_POST['approve_class_report']) || isset($_POST['hold_class_report'])){
               $_ApprovalSaved = report_approval_set_scope_status($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId, $_ApprovalStatus, isset($_SESSION['USERID']) ? $_SESSION['USERID'] : '');
               if($_ApprovalSaved){
                   $_ReportApprovalAdminMessage = ($_ApprovalStatus === 'approved')
-                      ? "<div style='color:green;text-align:center;background-color:white;padding:10px;'>Class report approved for student viewing.</div>"
+                      ? "<div style='color:green;text-align:center;background-color:white;padding:10px;'>Class report approved by admin and sent to the headmaster for final signature.</div>"
                       : "<div style='color:maroon;text-align:center;background-color:white;padding:10px;'>Student access to this class report has been held.</div>";
               }else{
                   $_ReportApprovalAdminMessage = "<div style='color:red;text-align:center;background-color:white;padding:10px;'>Class report approval could not be updated.</div>";
@@ -67,17 +124,27 @@ if(isset($_POST['allow_score_corrections']) || isset($_POST['lock_score_correcti
 
 if(isset($_POST["print_terminal_report"]))
 {
-      $_PrintResult = tr_terminal_report_print_single_pdf($con, $_UserID, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
-      if(empty($_PrintResult['success'])){
-          $_ReportPrintMessage = "<div class='tr-status-card tr-status-pending'><i class='fa fa-exclamation-circle'></i> ".htmlspecialchars((string)$_PrintResult['message'], ENT_QUOTES, 'UTF-8')."</div>";
+      $_PrintApprovalMeta = report_approval_scope_meta($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
+      if(!empty($_PrintApprovalMeta['required']) && empty($_PrintApprovalMeta['headmaster_approved'])){
+          $_ReportPrintMessage = "<div class='tr-status-card tr-status-pending'><i class='fa fa-exclamation-circle'></i> Final printing is locked until the headmaster signs this class report.</div>";
+      }else{
+          $_PrintResult = tr_terminal_report_print_single_pdf($con, $_UserID, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
+          if(empty($_PrintResult['success'])){
+              $_ReportPrintMessage = "<div class='tr-status-card tr-status-pending'><i class='fa fa-exclamation-circle'></i> ".htmlspecialchars((string)$_PrintResult['message'], ENT_QUOTES, 'UTF-8')."</div>";
+          }
       }
 }
 
 if(isset($_POST["print_class_report_pack"]))
 {
-      $_PrintPackResult = tr_terminal_report_print_scope_pack_pdf($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
-      if(empty($_PrintPackResult['success'])){
-          $_ReportPrintMessage = "<div class='tr-status-card tr-status-pending'><i class='fa fa-exclamation-circle'></i> ".htmlspecialchars((string)$_PrintPackResult['message'], ENT_QUOTES, 'UTF-8')."</div>";
+      $_PrintPackApprovalMeta = report_approval_scope_meta($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
+      if(!empty($_PrintPackApprovalMeta['required']) && empty($_PrintPackApprovalMeta['headmaster_approved'])){
+          $_ReportPrintMessage = "<div class='tr-status-card tr-status-pending'><i class='fa fa-exclamation-circle'></i> Final class report printing is locked until the headmaster signs this report scope.</div>";
+      }else{
+          $_PrintPackResult = tr_terminal_report_print_scope_pack_pdf($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
+          if(empty($_PrintPackResult['success'])){
+              $_ReportPrintMessage = "<div class='tr-status-card tr-status-pending'><i class='fa fa-exclamation-circle'></i> ".htmlspecialchars((string)$_PrintPackResult['message'], ENT_QUOTES, 'UTF-8')."</div>";
+          }
       }
 }
 ?>
@@ -372,6 +439,7 @@ while($row_cls=mysqli_fetch_array($_SQL_CLASS_OPT,MYSQLI_ASSOC)){
 echo "</select>";
 
 $_SelectedScopeApprovalMeta = report_approval_scope_meta($con, $_SelectedBatchId, $_SelectedAcademicYear, $_SelectedTermId, $_SelectedClassId);
+$_SelectedScopePrintReady = empty($_SelectedScopeApprovalMeta['required']) || !empty($_SelectedScopeApprovalMeta['headmaster_approved']);
 $_SelectedScopeStudentCount = 0;
 if($_SelectedBatchId!=='' && $_SelectedAcademicYear!=='' && $_SelectedTermId!=='' && $_SelectedClassId!==''){
     $_SelectedScopeStudents = tr_terminal_report_fetch_scope_students($con, $_SelectedBatchId, $_SelectedAcademicYear, $_SelectedTermId, $_SelectedClassId);
@@ -387,11 +455,34 @@ if($_SelectedClassId!=='' && $_SelectedTermId!=='' && $_SelectedAcademicYear!=='
     if($_SelectedScopeApprovalMeta['required']){
         $_ApprovalTone = $_SelectedScopeApprovalMeta['allowed'] ? "tr-status-approved" : "tr-status-pending";
         echo "<div class='tr-status-card ".$_ApprovalTone."'><i class='fa fa-shield'></i> Student Portal Status: ".$_SelectedScopeApprovalMeta['status_label']."</div>";
+        if(!empty($_SelectedScopeApprovalMeta['admin_approved'])){
+            $adminApprovalText = "Admin approval recorded";
+            if(trim((string)$_SelectedScopeApprovalMeta['approvedby']) !== ''){
+                $adminApprovalText .= " by ".htmlspecialchars((string)$_SelectedScopeApprovalMeta['approvedby'], ENT_QUOTES, 'UTF-8');
+            }
+            if(trim((string)$_SelectedScopeApprovalMeta['approveddatetime']) !== ''){
+                $adminApprovalText .= " on ".htmlspecialchars((string)$_SelectedScopeApprovalMeta['approveddatetime'], ENT_QUOTES, 'UTF-8');
+            }
+            echo "<div class='tr-status-card tr-status-info'><i class='fa fa-user-secret'></i> ".$adminApprovalText.". </div>";
+        }
+        echo "<div class='tr-status-card ".(!empty($_SelectedScopeApprovalMeta['headmaster_approved']) ? "tr-status-approved" : "tr-status-info")."'><i class='fa fa-pencil-square'></i> Headmaster Signature: ".$_SelectedScopeApprovalMeta['headapprovalstatus_label']."</div>";
+        if(!empty($_SelectedScopeApprovalMeta['headmaster_approved'])){
+            $_HeadmasterSignatureText = trim((string)$_SelectedScopeApprovalMeta['headapprovedname']) !== '' ? (string)$_SelectedScopeApprovalMeta['headapprovedname'] : 'Headmaster';
+            if(trim((string)$_SelectedScopeApprovalMeta['headapproveddatetime']) !== ''){
+                $_HeadmasterSignatureText .= " on ".(string)$_SelectedScopeApprovalMeta['headapproveddatetime'];
+            }
+            if(trim((string)$_SelectedScopeApprovalMeta['headapproval_reference']) !== ''){
+                $_HeadmasterSignatureText .= " | Ref: ".(string)$_SelectedScopeApprovalMeta['headapproval_reference'];
+            }
+            echo "<div class='tr-status-card tr-status-approved'><i class='fa fa-check-circle'></i> ".htmlspecialchars($_HeadmasterSignatureText, ENT_QUOTES, 'UTF-8')."</div>";
+        }
         echo "<div class='tr-actions tr-approval-actions'>";
-        echo "<button class='button-pay tr-btn tr-btn-primary' type='submit' name='approve_class_report'><i class='fa fa-check'></i> Approve Student View</button>";
+        if(empty($_SelectedScopeApprovalMeta['admin_approved'])){
+            echo "<button class='button-pay tr-btn tr-btn-primary' type='submit' name='approve_class_report'><i class='fa fa-check'></i> Approve And Send To Headmaster</button>";
+        }
         echo "<button class='button-show tr-btn tr-btn-warning' type='submit' name='hold_class_report'><i class='fa fa-pause'></i> Hold Student View</button>";
         echo "</div>";
-        if($_SelectedScopeApprovalMeta['approved']){
+        if(!empty($_SelectedScopeApprovalMeta['admin_approved'])){
             $_ScoreEditTone = !empty($_SelectedScopeApprovalMeta['score_edit_locked']) ? "tr-status-pending" : "tr-status-approved";
             echo "<div class='tr-status-card ".$_ScoreEditTone."'><i class='fa fa-pencil-square-o'></i> Score Entry: ".$_SelectedScopeApprovalMeta['score_edit_status_label']."</div>";
             echo "<div class='tr-actions tr-approval-actions'>";
@@ -434,8 +525,14 @@ echo "</fieldset>";
         <i class="fa fa-files-o"></i>
         <?php echo $_SelectedScopeStudentCount > 0 ? htmlspecialchars((string)$_SelectedScopeStudentCount, ENT_QUOTES, 'UTF-8') . ' student report(s) are ready in this class scope.' : 'No students were found in this class scope yet.'; ?>
     </div>
+    <?php if(!$_SelectedScopePrintReady){ ?>
+    <div class="tr-status-card tr-status-pending" style="margin-top:12px;">
+        <i class="fa fa-lock"></i>
+        Final report printing will unlock after the headmaster signs this class report.
+    </div>
+    <?php } ?>
     <div class="tr-actions" style="margin-top:12px;">
-        <button class="button-pay tr-btn tr-btn-print" type="submit" name="print_class_report_pack" <?php echo $_SelectedScopeStudentCount > 0 ? '' : 'disabled'; ?>>
+        <button class="button-pay tr-btn tr-btn-print" type="submit" name="print_class_report_pack" <?php echo ($_SelectedScopeStudentCount > 0 && $_SelectedScopePrintReady) ? '' : 'disabled'; ?>>
             <i class="fa fa-print"></i> Print Class Report Pack
         </button>
     </div>
@@ -470,7 +567,11 @@ echo "<input type='hidden' name='batchid' value='$_Batch_ID' />";
 echo "<input type='hidden' name='academicyear' value='$_Academic_Year' />";
 echo "<input type='hidden' name='termid' value='$_Term_ID' />";
 echo "<input type='hidden' name='classid' value='$_Class_ID' />";
-echo "<button class='button-pay tr-btn tr-btn-print' id='print_terminal_report' name='print_terminal_report'><i class='fa fa-print'></i> Print Report</button>";		
+if($_SelectedScopePrintReady){
+echo "<button class='button-pay tr-btn tr-btn-print' id='print_terminal_report' name='print_terminal_report'><i class='fa fa-print'></i> Print Report</button>";
+}else{
+echo "<button class='button-pay tr-btn tr-btn-print' id='print_terminal_report' name='print_terminal_report' disabled><i class='fa fa-lock'></i> Headmaster Signature Pending</button>";
+}
 }
 echo "<div class='tr-table-wrap'>";
 echo "<table class='tr-table tr-results-table'>";
@@ -613,6 +714,8 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 echo "</tbody>";
 echo "</table>";
 echo "</div>";
+$_PreviewScopeApprovalMeta = report_approval_scope_meta($con, $_Batch_ID, $_Academic_Year, $_Term_ID, $_Class_ID);
+echo tr_terminal_report_signature_preview_html($_PreviewScopeApprovalMeta);
 }
 ?>
 </form>

@@ -29,6 +29,31 @@ function aa_status_class($status){
     if($status === "submitted"){ return "aa-status aa-status--info"; }
     return "aa-status aa-status--neutral";
 }
+function aa_head_approval_class($application){
+    if(online_admission_application_is_headmaster_approved($application)){
+        return "aa-status aa-status--success";
+    }
+    if(is_array($application) && strtolower(trim((string)(isset($application["status"]) ? $application["status"] : ""))) === "reviewed"){
+        return "aa-status aa-status--warning";
+    }
+    return "aa-status aa-status--neutral";
+}
+function aa_head_approval_label($application){
+    if(online_admission_application_is_headmaster_approved($application)){
+        return "Head Approved";
+    }
+    if(is_array($application) && strtolower(trim((string)(isset($application["status"]) ? $application["status"] : ""))) === "reviewed"){
+        return "Head Approval Pending";
+    }
+    return "Awaiting Office Review";
+}
+function aa_head_approval_note($application){
+    $note = trim((string)(is_array($application) && isset($application["headapprovalnote"]) ? $application["headapprovalnote"] : ""));
+    if($note !== ""){
+        return $note;
+    }
+    return online_admission_headmaster_approval_summary($application);
+}
 function aa_payment_status_class($status){
     $status = strtolower(trim((string)$status));
     if($status === "success"){ return "aa-status aa-status--success"; }
@@ -63,6 +88,25 @@ function aa_sms_status_class($status, $sentAt = ""){
         return "aa-status aa-status--info";
     }
     return "aa-status aa-status--neutral";
+}
+function aa_application_requires_reapproval($application, $form, $imageName){
+    if(!is_array($application) || !is_array($form)){
+        return false;
+    }
+    $fields = array(
+        "firstname", "surname", "othernames", "gender", "birthdate", "email", "mobile",
+        "ghanacard", "disabilitystatus", "residencetype", "hometown", "postaladdress", "homeaddress", "religion",
+        "guardianname", "guardianrelationship", "guardiancontact", "guardianprofession", "medicalnotes",
+        "studentnote", "status", "reviewnote"
+    );
+    foreach($fields as $field){
+        $newValue = trim((string)(isset($form[$field]) ? $form[$field] : ""));
+        $oldValue = trim((string)(isset($application[$field]) ? $application[$field] : ""));
+        if($newValue !== $oldValue){
+            return true;
+        }
+    }
+    return trim((string)$imageName) !== trim((string)(isset($application["filename"]) ? $application["filename"] : ""));
 }
 function aa_help_status_class($status){
     $status = strtolower(trim((string)$status));
@@ -582,6 +626,8 @@ function aa_application_form_defaults($application){
         "birthdate" => (string)$application["birthdate"],
         "mobile" => (string)$application["mobile"],
         "email" => (string)$application["email"],
+        "ghanacard" => (string)$application["ghanacard"],
+        "disabilitystatus" => (string)$application["disabilitystatus"],
         "residencetype" => (string)$application["residencetype"],
         "religion" => (string)$application["religion"],
         "hometown" => (string)$application["hometown"],
@@ -590,6 +636,7 @@ function aa_application_form_defaults($application){
         "guardianname" => (string)$application["guardianname"],
         "guardianrelationship" => (string)$application["guardianrelationship"],
         "guardiancontact" => (string)$application["guardiancontact"],
+        "guardianprofession" => (string)$application["guardianprofession"],
         "medicalnotes" => (string)$application["medicalnotes"],
         "studentnote" => (string)$application["studentnote"],
         "status" => (string)$application["status"],
@@ -611,6 +658,8 @@ function aa_manual_admission_defaults(){
         "residentialstatus" => "",
         "mobile" => "",
         "email" => "",
+        "ghanacard" => "",
+        "disabilitystatus" => "",
         "religion" => "",
         "hometown" => "",
         "postaladdress" => "",
@@ -618,6 +667,7 @@ function aa_manual_admission_defaults(){
         "guardianname" => "",
         "guardianrelationship" => "",
         "guardiancontact" => "",
+        "guardianprofession" => "",
         "medicalnotes" => "",
         "studentnote" => "",
         "record_payment" => "0"
@@ -642,7 +692,10 @@ $isHeadmasterAdmissionViewer = function_exists('online_admission_is_headmaster')
 $canPrintAdmissionLetter = online_admission_is_admin();
 
 if($isHeadmasterAdmissionViewer){
-    $headmasterBlockedAction = ($_SERVER["REQUEST_METHOD"] === "POST")
+    $headmasterApprovalPost = isset($_POST["headmaster_approve_application"])
+        || isset($_POST["headmaster_bulk_approve_selected"])
+        || isset($_POST["headmaster_bulk_approve_all"]);
+    $headmasterBlockedAction = (($_SERVER["REQUEST_METHOD"] === "POST") && !$headmasterApprovalPost)
         || isset($_GET["edit_application"])
         || isset($_GET["export"])
         || isset($_GET["print"])
@@ -673,6 +726,51 @@ $houseForm = array(
     "description" => "",
     "autoassignenabled" => "1"
 );
+
+if(isset($_POST["headmaster_approve_application"]) || isset($_POST["headmaster_bulk_approve_selected"]) || isset($_POST["headmaster_bulk_approve_all"])){
+    if(!$isHeadmasterAdmissionViewer){
+        $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("warning", "Only the headmaster can use this admission approval action.");
+    }else{
+        $headmasterUserId = isset($_SESSION["USERID"]) ? trim((string)$_SESSION["USERID"]) : "";
+        $headmasterName = isset($_SESSION["FULLNAME"]) ? trim((string)$_SESSION["FULLNAME"]) : "Headmaster";
+        $headApprovalNote = trim((string)(isset($_POST["headapprovalnote"]) ? $_POST["headapprovalnote"] : ""));
+
+        if(isset($_POST["headmaster_approve_application"])){
+            $applicationId = trim((string)$_POST["headmaster_approve_application"]);
+            $approvalResult = online_admission_save_headmaster_approval($con, $applicationId, $branchId, $headmasterUserId, $headmasterName, $headApprovalNote);
+            $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = !empty($approvalResult["success"])
+                ? aa_alert("success", "Admission approved and digitally signed successfully.")
+                : aa_alert("warning", isset($approvalResult["message"]) ? $approvalResult["message"] : "The admission approval could not be saved.");
+        }elseif(isset($_POST["headmaster_bulk_approve_selected"])){
+            $selectedApplicationIds = isset($_POST["headmaster_application_ids"]) ? (array)$_POST["headmaster_application_ids"] : array();
+            if(empty($selectedApplicationIds)){
+                $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("warning", "Select at least one reviewed admission before using bulk approval.");
+            }else{
+                $bulkApproval = online_admission_bulk_headmaster_approve_reviewed($con, $branchId, $headmasterUserId, $headmasterName, $selectedApplicationIds, $headApprovalNote, 500);
+                $bulkMessage = $bulkApproval["success"]." admission".($bulkApproval["success"] === 1 ? "" : "s")." approved and digitally signed.";
+                if($bulkApproval["failed"] > 0){
+                    $bulkMessage .= " ".$bulkApproval["failed"]." could not be approved.";
+                }
+                if(!empty($bulkApproval["messages"])){
+                    $bulkMessage .= " ".implode(" ", $bulkApproval["messages"]);
+                }
+                $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert($bulkApproval["success"] > 0 ? "success" : "warning", $bulkMessage);
+            }
+        }else{
+            $bulkApproval = online_admission_bulk_headmaster_approve_reviewed($con, $branchId, $headmasterUserId, $headmasterName, array(), $headApprovalNote, 500);
+            $bulkMessage = $bulkApproval["success"]." reviewed admission".($bulkApproval["success"] === 1 ? "" : "s")." approved and digitally signed.";
+            if($bulkApproval["failed"] > 0){
+                $bulkMessage .= " ".$bulkApproval["failed"]." could not be approved.";
+            }
+            if(!empty($bulkApproval["messages"])){
+                $bulkMessage .= " ".implode(" ", $bulkApproval["messages"]);
+            }
+            $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert($bulkApproval["success"] > 0 ? "success" : "warning", $bulkMessage);
+        }
+    }
+    header("location:online-admission-admin.php#headmaster-approvals");
+    exit();
+}
 
 if(isset($_POST["save_admission_house"])){
     foreach($houseForm as $key => $value){
@@ -771,6 +869,8 @@ if(isset($_POST["save_manual_admission"])){
     $manualAdmissionForm["record_payment"] = isset($_POST["record_payment"]) ? "1" : "0";
     $manualAdmissionForm["beceindexnumber"] = online_admission_normalize_bece($manualAdmissionForm["beceindexnumber"]);
     $birthdate = online_admission_normalize_date($manualAdmissionForm["birthdate"]);
+    $rawManualDisabilityStatus = trim((string)$manualAdmissionForm["disabilitystatus"]);
+    $manualAdmissionForm["disabilitystatus"] = online_admission_normalize_disability_status($manualAdmissionForm["disabilitystatus"]);
     $errors = array();
     if($manualAdmissionForm["beceindexnumber"] === ""){ $errors[] = "BECE index number is required."; }
     if($birthdate === false || $birthdate === ""){ $errors[] = "A valid date of birth is required."; }
@@ -781,6 +881,9 @@ if(isset($_POST["save_manual_admission"])){
     if($manualAdmissionForm["admissionyear"] === ""){ $errors[] = "Admission year is required."; }
     if($manualAdmissionForm["offeredprogram"] === ""){ $errors[] = "Offered programme is required."; }
     if($manualAdmissionForm["residentialstatus"] === ""){ $errors[] = "Residence type is required."; }
+    if($manualAdmissionForm["disabilitystatus"] === ""){
+        $errors[] = $rawManualDisabilityStatus === "" ? "Disability status is required." : "Select a valid disability status.";
+    }
     foreach(array(
         "mobile" => "Student mobile number",
         "hometown" => "Hometown",
@@ -899,6 +1002,8 @@ if(isset($_POST["save_manual_admission"])){
                     $otherEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["othernames"]);
                     $genderEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["gender"]);
                     $birthEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["birthdate"]);
+                    $ghanaCardEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["ghanacard"]);
+                    $disabilityEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["disabilitystatus"]);
                     $emailEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["email"]);
                     $mobileEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["mobile"]);
                     $residenceEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["residentialstatus"]);
@@ -909,6 +1014,7 @@ if(isset($_POST["save_manual_admission"])){
                     $guardianNameEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["guardianname"]);
                     $guardianRelEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["guardianrelationship"]);
                     $guardianContactEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["guardiancontact"]);
+                    $guardianProfessionEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["guardianprofession"]);
                     $medicalEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["medicalnotes"]);
                     $studentNoteEsc = mysqli_real_escape_string($con, (string)$manualAdmissionForm["studentnote"]);
                     $filenameEsc = mysqli_real_escape_string($con, $imageName);
@@ -921,6 +1027,8 @@ if(isset($_POST["save_manual_admission"])){
                         othernames='$otherEsc',
                         gender='$genderEsc',
                         birthdate='$birthEsc',
+                        ghanacard='$ghanaCardEsc',
+                        disabilitystatus='$disabilityEsc',
                         email='$emailEsc',
                         mobile='$mobileEsc',
                         residencetype='$residenceEsc',
@@ -931,6 +1039,7 @@ if(isset($_POST["save_manual_admission"])){
                         guardianname='$guardianNameEsc',
                         guardianrelationship='$guardianRelEsc',
                         guardiancontact='$guardianContactEsc',
+                        guardianprofession='$guardianProfessionEsc',
                         medicalnotes='$medicalEsc',
                         studentnote='$studentNoteEsc',
                         filename='$filenameEsc',
@@ -1363,6 +1472,8 @@ if(isset($_POST["save_application_changes"])){
         if($editableApplicationForm["status"] === ""){
             $editableApplicationForm["status"] = "submitted";
         }
+        $rawEditableDisabilityStatus = trim((string)$editableApplicationForm["disabilitystatus"]);
+        $editableApplicationForm["disabilitystatus"] = online_admission_normalize_disability_status($editableApplicationForm["disabilitystatus"]);
 
         $errors = array();
         $validStatuses = array("draft", "submitted", "needs_attention", "reviewed");
@@ -1378,6 +1489,9 @@ if(isset($_POST["save_application_changes"])){
 
         if($editableApplicationForm["email"] !== "" && !filter_var($editableApplicationForm["email"], FILTER_VALIDATE_EMAIL)){
             $errors[] = "Please enter a valid email address.";
+        }
+        if($rawEditableDisabilityStatus !== "" && $editableApplicationForm["disabilitystatus"] === ""){
+            $errors[] = "Select a valid disability status.";
         }
         if(!in_array($editableApplicationForm["status"], $validStatuses, true)){
             $errors[] = "Select a valid admission status.";
@@ -1402,22 +1516,27 @@ if(isset($_POST["save_application_changes"])){
                 $reviewedAtToStore = date("Y-m-d H:i:s");
             }
             $reviewedAtSqlValue = ($reviewedAtToStore !== "") ? $reviewedAtToStore : null;
+            $headApprovalShouldClear = online_admission_application_is_headmaster_approved($editableApplication)
+                && aa_application_requires_reapproval($editableApplication, $editableApplicationForm, $imageName);
+            $clearHeadApprovalSql = $headApprovalShouldClear
+                ? ", headapprovalstatus=NULL, headapprovalnote=NULL, headapprovedby=NULL, headapprovedname=NULL, headapproveddatetime=NULL"
+                : "";
 
             $stmt = mysqli_prepare($con, "UPDATE tblonlineadmissionapplication SET
                 firstname=?, surname=?, othernames=?, gender=?, birthdate=?,
-                email=?, mobile=?, residencetype=?, hometown=?, postaladdress=?, homeaddress=?, religion=?,
-                guardianname=?, guardianrelationship=?, guardiancontact=?, medicalnotes=?, studentnote=?,
-                filename=?, status=?, reviewnote=?, reviewedby=?, revieweddatetime=?, updatedat=NOW()
+                ghanacard=?, disabilitystatus=?, email=?, mobile=?, residencetype=?, hometown=?, postaladdress=?, homeaddress=?, religion=?,
+                guardianname=?, guardianrelationship=?, guardiancontact=?, guardianprofession=?, medicalnotes=?, studentnote=?,
+                filename=?, status=?, reviewnote=?, reviewedby=?, revieweddatetime=?, updatedat=NOW()$clearHeadApprovalSql
                 WHERE applicationid=? AND branchid=?
                 LIMIT 1");
 
             if($stmt){
                 mysqli_stmt_bind_param(
                     $stmt,
-                    str_repeat("s", 24),
+                    str_repeat("s", 27),
                     $editableApplicationForm["firstname"], $editableApplicationForm["surname"], $editableApplicationForm["othernames"], $editableApplicationForm["gender"], $editableApplicationForm["birthdate"],
-                    $editableApplicationForm["email"], $editableApplicationForm["mobile"], $editableApplicationForm["residencetype"], $editableApplicationForm["hometown"], $editableApplicationForm["postaladdress"], $editableApplicationForm["homeaddress"], $editableApplicationForm["religion"],
-                    $editableApplicationForm["guardianname"], $editableApplicationForm["guardianrelationship"], $editableApplicationForm["guardiancontact"], $editableApplicationForm["medicalnotes"], $editableApplicationForm["studentnote"],
+                    $editableApplicationForm["ghanacard"], $editableApplicationForm["disabilitystatus"], $editableApplicationForm["email"], $editableApplicationForm["mobile"], $editableApplicationForm["residencetype"], $editableApplicationForm["hometown"], $editableApplicationForm["postaladdress"], $editableApplicationForm["homeaddress"], $editableApplicationForm["religion"],
+                    $editableApplicationForm["guardianname"], $editableApplicationForm["guardianrelationship"], $editableApplicationForm["guardiancontact"], $editableApplicationForm["guardianprofession"], $editableApplicationForm["medicalnotes"], $editableApplicationForm["studentnote"],
                     $imageName, $editableApplicationForm["status"], $editableApplicationForm["reviewnote"], $reviewedByToStore, $reviewedAtSqlValue,
                     $editableApplication["applicationid"], $branchId
                 );
@@ -1427,7 +1546,11 @@ if(isset($_POST["save_application_changes"])){
                     if($refreshedApplication){
                         online_admission_assign_house_for_application($con, $refreshedApplication);
                     }
-                    $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("success", "Admission form updated successfully.");
+                    $saveMessage = "Admission form updated successfully.";
+                    if($clearHeadApprovalSql !== ""){
+                        $saveMessage .= " Previous headmaster approval was cleared and will need to be signed again.";
+                    }
+                    $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = aa_alert("success", $saveMessage);
                     header("location:online-admission-admin.php?edit_application=".rawurlencode($editableApplication["applicationid"])."#edit-application");
                     exit();
                 }
@@ -1449,16 +1572,23 @@ if(isset($_POST["update_application_status"])){
     $returnAppPage = aa_positive_page(isset($_POST["app_page"]) ? $_POST["app_page"] : 1);
     $returnAppSearch = trim((string)(isset($_POST["app_search"]) ? $_POST["app_search"] : ""));
     if($applicationId !== "" && in_array($status, array("submitted", "needs_attention", "reviewed"), true)){
+        $currentApplication = aa_fetch_application_bundle($con, $branchId, $applicationId);
         $appEsc = mysqli_real_escape_string($con, $applicationId);
         $statusEsc = mysqli_real_escape_string($con, $status);
         $noteEsc = mysqli_real_escape_string($con, $reviewNote);
         $reviewedByEsc = mysqli_real_escape_string($con, isset($_SESSION["USERID"]) ? (string)$_SESSION["USERID"] : "");
+        $headApprovalShouldClear = ($currentApplication && online_admission_application_is_headmaster_approved($currentApplication)
+            && ($status !== trim((string)(isset($currentApplication["status"]) ? $currentApplication["status"] : ""))
+                || $reviewNote !== trim((string)(isset($currentApplication["reviewnote"]) ? $currentApplication["reviewnote"] : ""))));
+        $clearHeadApprovalSql = $headApprovalShouldClear
+            ? ", headapprovalstatus=NULL, headapprovalnote=NULL, headapprovedby=NULL, headapprovedname=NULL, headapproveddatetime=NULL"
+            : "";
         $updated = mysqli_query($con, "UPDATE tblonlineadmissionapplication SET
             status='$statusEsc',
             reviewnote='$noteEsc',
             reviewedby='$reviewedByEsc',
             revieweddatetime=NOW(),
-            updatedat=NOW()
+            updatedat=NOW()$clearHeadApprovalSql
             WHERE applicationid='$appEsc' AND branchid='$branchIdEsc'
             LIMIT 1");
         if($updated){
@@ -1467,9 +1597,15 @@ if(isset($_POST["update_application_status"])){
                 online_admission_assign_house_for_application($con, $refreshedApplication);
             }
         }
-        $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = $updated
-            ? aa_alert("success", "Application status updated successfully.")
+        $statusMessage = $updated
+            ? "Application status updated successfully."
             : aa_alert("error", "The application status could not be updated.");
+        if($updated && $clearHeadApprovalSql !== ""){
+            $statusMessage .= " Previous headmaster approval was cleared and must be signed again.";
+        }
+        $_SESSION["ONLINE_ADMISSION_ADMIN_MESSAGE"] = $updated
+            ? aa_alert("success", $statusMessage)
+            : $statusMessage;
         header("location:".aa_admin_url(array(
             "app_page" => $returnAppPage > 1 ? $returnAppPage : null,
             "app_search" => $returnAppSearch !== "" ? $returnAppSearch : null
@@ -1647,6 +1783,47 @@ foreach($applications as $app){
         $applicationAssignedHouseMap[$app["applicationid"]] = online_admission_application_assigned_house($con, $app);
     }
 }
+$headmasterApprovalQueueCount = 0;
+$headmasterApprovalQueueCountRes = mysqli_query($con, "SELECT COUNT(*) AS total
+    FROM tblonlineadmissionapplication
+    WHERE branchid='$branchIdEsc'
+      AND status='reviewed'
+      AND (headapprovalstatus IS NULL OR headapprovalstatus<>'approved' OR headapproveddatetime IS NULL OR headapproveddatetime='0000-00-00 00:00:00')");
+if($headmasterApprovalQueueCountRes && ($headmasterApprovalQueueRow = mysqli_fetch_array($headmasterApprovalQueueCountRes, MYSQLI_ASSOC))){
+    $headmasterApprovalQueueCount = (int)$headmasterApprovalQueueRow["total"];
+}
+$headmasterApprovedCount = 0;
+$headmasterApprovedCountRes = mysqli_query($con, "SELECT COUNT(*) AS total
+    FROM tblonlineadmissionapplication
+    WHERE branchid='$branchIdEsc'
+      AND headapprovalstatus='approved'
+      AND headapproveddatetime IS NOT NULL
+      AND headapproveddatetime<>'0000-00-00 00:00:00'");
+if($headmasterApprovedCountRes && ($headmasterApprovedRow = mysqli_fetch_array($headmasterApprovedCountRes, MYSQLI_ASSOC))){
+    $headmasterApprovedCount = (int)$headmasterApprovedRow["total"];
+}
+
+$headmasterApprovalQueue = array();
+$headmasterApprovalQueueRes = mysqli_query($con, "SELECT app.*, post.offeredprogram, post.offeredclass, post.residentialstatus AS posted_residentialstatus
+    FROM tblonlineadmissionapplication app
+    LEFT JOIN tbladmissionpostedstudent post ON post.postingid=app.postingid
+    WHERE app.branchid='$branchIdEsc'
+      AND app.status='reviewed'
+      AND (app.headapprovalstatus IS NULL OR app.headapprovalstatus<>'approved' OR app.headapproveddatetime IS NULL OR app.headapproveddatetime='0000-00-00 00:00:00')
+    ORDER BY COALESCE(app.revieweddatetime, app.updatedat) DESC, app.updatedat DESC
+    LIMIT 12");
+if($headmasterApprovalQueueRes){
+    while($row = mysqli_fetch_array($headmasterApprovalQueueRes, MYSQLI_ASSOC)){
+        $headmasterApprovalQueue[] = $row;
+    }
+}
+$headmasterApprovalHouseMap = array();
+$headmasterApprovalPaymentMap = array();
+foreach($headmasterApprovalQueue as $approvalApplication){
+    $headmasterApprovalHouseMap[$approvalApplication["applicationid"]] = online_admission_application_assigned_house($con, $approvalApplication);
+    $headmasterApprovalPaymentMap[$approvalApplication["applicationid"]] = online_admission_get_latest_payment_by_application($con, $approvalApplication["applicationid"]);
+}
+
 $paymentTotal = 0;
 $paymentCountRes = mysqli_query($con, "SELECT COUNT(*) AS total
     FROM tblonlineadmissionpayment
@@ -1718,6 +1895,9 @@ $readyToPostRes = mysqli_query($con, "SELECT COUNT(*) AS total
     FROM tblonlineadmissionapplication
     WHERE branchid='$branchIdEsc'
       AND status='reviewed'
+      AND headapprovalstatus='approved'
+      AND headapproveddatetime IS NOT NULL
+      AND headapproveddatetime<>'0000-00-00 00:00:00'
       AND (linkedstudentid IS NULL OR linkedstudentid='')");
 if($readyToPostRes && ($readyToPostRow = mysqli_fetch_array($readyToPostRes, MYSQLI_ASSOC))){
     $readyToPostCount = (int)$readyToPostRow["total"];
@@ -1730,6 +1910,16 @@ $submittedToReviewRes = mysqli_query($con, "SELECT COUNT(*) AS total
       AND (linkedstudentid IS NULL OR linkedstudentid='')");
 if($submittedToReviewRes && ($submittedToReviewRow = mysqli_fetch_array($submittedToReviewRes, MYSQLI_ASSOC))){
     $submittedToReviewCount = (int)$submittedToReviewRow["total"];
+}
+$reviewedAwaitingHeadApprovalCount = 0;
+$reviewedAwaitingHeadApprovalRes = mysqli_query($con, "SELECT COUNT(*) AS total
+    FROM tblonlineadmissionapplication
+    WHERE branchid='$branchIdEsc'
+      AND status='reviewed'
+      AND (headapprovalstatus IS NULL OR headapprovalstatus<>'approved' OR headapproveddatetime IS NULL OR headapproveddatetime='0000-00-00 00:00:00')
+      AND (linkedstudentid IS NULL OR linkedstudentid='')");
+if($reviewedAwaitingHeadApprovalRes && ($reviewedAwaitingHeadApprovalRow = mysqli_fetch_array($reviewedAwaitingHeadApprovalRes, MYSQLI_ASSOC))){
+    $reviewedAwaitingHeadApprovalCount = (int)$reviewedAwaitingHeadApprovalRow["total"];
 }
 $documentLibrary = online_admission_list_documents($con, $branchId, $documentYear);
 $studentHouses = array();
@@ -2026,7 +2216,7 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
         <div>
             <span class="rs-kicker"><i class="fa fa-globe"></i> Headmaster Admission View</span>
             <h1>Online admission summary</h1>
-            <p>Track recent posted students, submitted forms, payment activity, and the current admission position from one read-only page.</p>
+            <p>Track recent posted students, review the current admission position, and digitally approve reviewed admissions one by one or in bulk from this page.</p>
             <div class="rs-pills">
                 <span><?php echo aa_esc($branchName); ?></span>
                 <span><?php echo aa_esc($activeCycle ? $activeCycle["admissionyear"] : $documentYear); ?></span>
@@ -2063,6 +2253,16 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
             <small><?php echo number_format($stats["submitted"]); ?> pending review, <?php echo number_format($stats["reviewed"]); ?> reviewed.</small>
         </article>
         <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Ready For Head Approval</span>
+            <strong><?php echo number_format($headmasterApprovalQueueCount); ?></strong>
+            <small>Reviewed forms waiting for your digital sign-off.</small>
+        </article>
+        <article class="aa-overview-card">
+            <span class="aa-overview-card__label">Digitally Approved</span>
+            <strong><?php echo number_format($headmasterApprovedCount); ?></strong>
+            <small>Admissions already signed by the headmaster.</small>
+        </article>
+        <article class="aa-overview-card">
             <span class="aa-overview-card__label">Needs Attention</span>
             <strong><?php echo number_format($stats["needs_attention"]); ?></strong>
             <small>Submitted forms flagged for follow-up.</small>
@@ -2077,6 +2277,63 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
             <strong><?php echo number_format($paymentSummary["pending_total"]); ?></strong>
             <small><?php echo number_format($paymentSummary["failed_total"]); ?> failed or abandoned payment attempt(s).</small>
         </article>
+    </section>
+
+    <section class="rs-panel aa-section" id="headmaster-approvals">
+        <div class="rs-side-head">
+            <span class="rs-kicker rs-kicker--dark">Headmaster Approval</span>
+            <h2>Reviewed Admissions Waiting For Signature</h2>
+            <span class="aa-section-chip aa-section-chip--warning"><?php echo number_format($headmasterApprovalQueueCount); ?></span>
+        </div>
+        <p class="aa-search-meta">Only reviewed forms can be approved here. Your approval saves the signer name, signed time, and a digital approval reference for the admission record and its documents.</p>
+        <?php if(count($headmasterApprovalQueue) > 0){ ?>
+        <form method="post" action="online-admission-admin.php#headmaster-approvals" class="aa-head-approval-form">
+            <div class="aa-head-approval-bar">
+                <div class="aa-search-input">
+                    <label for="headapprovalnote">Headmaster Approval Note</label>
+                    <input type="text" id="headapprovalnote" name="headapprovalnote" placeholder="Optional note saved on each approval, for example: Approved for admission.">
+                </div>
+                <div class="aa-head-approval-actions">
+                    <button type="submit" name="headmaster_bulk_approve_selected" class="aa-button aa-button--success" onclick="return confirm('Approve and digitally sign the selected reviewed admissions?');"><i class="fa fa-check-circle"></i> Approve Selected</button>
+                    <button type="submit" name="headmaster_bulk_approve_all" class="aa-button aa-button--primary" onclick="return confirm('Approve and digitally sign all reviewed admissions waiting in this branch?');"><i class="fa fa-bolt"></i> Approve All Ready</button>
+                </div>
+            </div>
+            <div class="aa-app-list">
+                <?php foreach($headmasterApprovalQueue as $approvalApp){ $approvalPayment = isset($headmasterApprovalPaymentMap[$approvalApp["applicationid"]]) ? $headmasterApprovalPaymentMap[$approvalApp["applicationid"]] : null; ?>
+                <article class="aa-app-card aa-app-card--approval">
+                    <div class="aa-app-card__top">
+                        <div>
+                            <h3><?php echo aa_esc(trim($approvalApp["firstname"]." ".$approvalApp["othernames"]." ".$approvalApp["surname"])); ?></h3>
+                            <p><?php echo aa_esc($approvalApp["beceindexnumber"]); ?> · <?php echo aa_esc($approvalApp["admissionyear"]); ?></p>
+                        </div>
+                        <label class="aa-check-chip">
+                            <input type="checkbox" name="headmaster_application_ids[]" value="<?php echo aa_esc($approvalApp["applicationid"]); ?>">
+                            <span>Select</span>
+                        </label>
+                    </div>
+                    <div class="aa-app-card__meta">
+                        <span><?php echo aa_esc($approvalApp["residencetype"] !== "" ? $approvalApp["residencetype"] : "Residence pending"); ?></span>
+                        <?php if(trim((string)(isset($approvalApp["offeredclass"]) ? $approvalApp["offeredclass"] : "")) !== ""){ ?><span>Class: <?php echo aa_esc($approvalApp["offeredclass"]); ?></span><?php } ?>
+                        <?php if(isset($headmasterApprovalHouseMap[$approvalApp["applicationid"]]) && $headmasterApprovalHouseMap[$approvalApp["applicationid"]] && trim((string)$headmasterApprovalHouseMap[$approvalApp["applicationid"]]["housename"]) !== ""){ ?><span>House: <?php echo aa_esc($headmasterApprovalHouseMap[$approvalApp["applicationid"]]["housename"]); ?></span><?php } ?>
+                        <span><?php echo aa_esc($approvalApp["guardianname"] !== "" ? $approvalApp["guardianname"] : "Guardian pending"); ?></span>
+                        <span><?php echo aa_esc($approvalApp["mobile"] !== "" ? $approvalApp["mobile"] : "Mobile pending"); ?></span>
+                        <span class="<?php echo $approvalPayment ? aa_payment_status_class($approvalPayment["status"]) : "aa-status aa-status--neutral"; ?>"><?php echo aa_esc($approvalPayment ? online_admission_payment_status_label($approvalPayment["status"]) : "Payment not started"); ?></span>
+                        <span class="<?php echo aa_head_approval_class($approvalApp); ?>"><?php echo aa_esc(aa_head_approval_label($approvalApp)); ?></span>
+                        <span><?php echo aa_esc($approvalApp["revieweddatetime"] !== "" ? "Reviewed ".aa_date($approvalApp["revieweddatetime"], "d M Y, g:i a") : "Reviewed date pending"); ?></span>
+                    </div>
+                    <div class="aa-help-message">
+                        <strong>Office Review Note:</strong> <?php echo aa_esc(trim((string)$approvalApp["reviewnote"]) !== "" ? $approvalApp["reviewnote"] : "No review note was added."); ?>
+                    </div>
+                    <div class="aa-app-card__actions">
+                        <button type="submit" name="headmaster_approve_application" value="<?php echo aa_esc($approvalApp["applicationid"]); ?>" class="aa-button aa-button--success aa-app-link" onclick="return confirm('Approve and digitally sign this admission?');"><i class="fa fa-pencil-square-o"></i> Approve And Sign</button>
+                    </div>
+                </article>
+                <?php } ?>
+            </div>
+        </form>
+        <?php } else { ?>
+        <div class="rs-empty"><h3>No reviewed admissions are waiting for your signature.</h3><p><?php echo $headmasterApprovedCount > 0 ? "The reviewed queue is clear right now. Newly reviewed admission forms will appear here for approval." : "Office-reviewed admissions will appear here as soon as they are ready for final headmaster approval."; ?></p></div>
+        <?php } ?>
     </section>
 
     <div class="aa-main-stack">
@@ -2171,6 +2428,8 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                         <span><?php echo aa_esc($app["guardianname"] !== "" ? $app["guardianname"] : "Guardian pending"); ?></span>
                         <span><?php echo aa_esc($app["mobile"] !== "" ? $app["mobile"] : "Mobile pending"); ?></span>
                         <span class="<?php echo $appPayment ? aa_payment_status_class($appPayment["status"]) : "aa-status aa-status--neutral"; ?>"><?php echo aa_esc($appPayment ? online_admission_payment_status_label($appPayment["status"]) : "Payment not started"); ?></span>
+                        <span class="<?php echo aa_head_approval_class($app); ?>"><?php echo aa_esc(aa_head_approval_label($app)); ?></span>
+                        <?php if(online_admission_application_is_headmaster_approved($app)){ ?><span>Ref: <?php echo aa_esc(online_admission_headmaster_approval_reference($app)); ?></span><?php } ?>
                         <span><?php echo aa_esc(aa_date($app["updatedat"], "d M Y, g:i a")); ?></span>
                     </div>
                 </article>
@@ -2366,6 +2625,27 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                 <section class="rs-section">
                     <div class="aa-editor-head">
                         <div>
+                            <span class="rs-kicker rs-kicker--dark">Student Information</span>
+                            <h3>Student Information</h3>
+                        </div>
+                    </div>
+                    <div class="rs-grid rs-grid--2 aa-editor-grid">
+                        <div class="rs-field"><label for="ghanacard">Ghana Card Number (Optional)</label><input type="text" id="ghanacard" name="ghanacard" value="<?php echo aa_esc($manualAdmissionForm["ghanacard"]); ?>"></div>
+                        <div class="rs-field">
+                            <label for="disabilitystatus">Disability Status</label>
+                            <select id="disabilitystatus" name="disabilitystatus" required>
+                                <option value="">Select disability status</option>
+                                <?php foreach(online_admission_disability_options() as $disabilityOption){ ?>
+                                <option value="<?php echo aa_esc($disabilityOption); ?>"<?php echo $manualAdmissionForm["disabilitystatus"] === $disabilityOption ? " selected" : ""; ?>><?php echo aa_esc($disabilityOption); ?></option>
+                                <?php } ?>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="rs-section">
+                    <div class="aa-editor-head">
+                        <div>
                             <span class="rs-kicker rs-kicker--dark">Address</span>
                             <h3>Address</h3>
                         </div>
@@ -2388,6 +2668,7 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                         <div class="rs-field"><label for="guardianname">Parent / Guardian Name</label><input type="text" id="guardianname" name="guardianname" value="<?php echo aa_esc($manualAdmissionForm["guardianname"]); ?>" required></div>
                         <div class="rs-field"><label for="guardianrelationship">Relationship</label><input type="text" id="guardianrelationship" name="guardianrelationship" value="<?php echo aa_esc($manualAdmissionForm["guardianrelationship"]); ?>" required></div>
                         <div class="rs-field"><label for="guardiancontact">Contact Number</label><input type="text" id="guardiancontact" name="guardiancontact" value="<?php echo aa_esc($manualAdmissionForm["guardiancontact"]); ?>" required></div>
+                        <div class="rs-field"><label for="guardianprofession">Profession</label><input type="text" id="guardianprofession" name="guardianprofession" value="<?php echo aa_esc($manualAdmissionForm["guardianprofession"]); ?>"></div>
                     </div>
                 </section>
 
@@ -2925,7 +3206,7 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
             </div>
             <div class="aa-editor-top-actions">
                 <span class="<?php echo aa_status_class($editableApplicationForm["status"]); ?>"><?php echo aa_esc(online_admission_status_label($editableApplicationForm["status"])); ?></span>
-                <?php if($canPrintAdmissionLetter && online_admission_application_is_submitted($editableApplication)){ ?>
+                <?php if($canPrintAdmissionLetter && online_admission_application_is_headmaster_approved($editableApplication)){ ?>
                 <a href="online-admission-letter.php?applicationid=<?php echo aa_esc($editableApplication["applicationid"]); ?>" class="aa-link aa-link--ghost aa-editor-close" target="_blank" rel="noopener"><i class="fa fa-print"></i> Print Admission Letter</a>
                 <?php } ?>
                 <?php if($editablePayment && strtolower(trim((string)$editablePayment["status"])) === "initialized" && trim((string)$editablePayment["authorizationurl"]) !== ""){ ?>
@@ -2996,6 +3277,27 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                 <section class="rs-section">
                     <div class="rs-panel-head aa-editor-head">
                         <div>
+                            <span class="rs-kicker rs-kicker--dark">Student Information</span>
+                            <h3>Student Information</h3>
+                        </div>
+                    </div>
+                    <div class="rs-grid rs-grid--2 aa-editor-grid">
+                        <div class="rs-field"><label for="edit_ghanacard">Ghana Card Number (Optional)</label><input type="text" id="edit_ghanacard" name="ghanacard" value="<?php echo aa_esc($editableApplicationForm["ghanacard"]); ?>"></div>
+                        <div class="rs-field">
+                            <label for="edit_disabilitystatus">Disability Status</label>
+                            <select id="edit_disabilitystatus" name="disabilitystatus">
+                                <option value="">Select disability status</option>
+                                <?php foreach(online_admission_disability_options() as $disabilityOption){ ?>
+                                <option value="<?php echo aa_esc($disabilityOption); ?>"<?php echo $editableApplicationForm["disabilitystatus"] === $disabilityOption ? " selected" : ""; ?>><?php echo aa_esc($disabilityOption); ?></option>
+                                <?php } ?>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="rs-section">
+                    <div class="rs-panel-head aa-editor-head">
+                        <div>
                             <span class="rs-kicker rs-kicker--dark">Address</span>
                             <h3>Address Details</h3>
                         </div>
@@ -3018,6 +3320,7 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                         <div class="rs-field"><label for="edit_guardianname">Parent / Guardian Name</label><input type="text" id="edit_guardianname" name="guardianname" value="<?php echo aa_esc($editableApplicationForm["guardianname"]); ?>"></div>
                         <div class="rs-field"><label for="edit_guardianrelationship">Relationship</label><input type="text" id="edit_guardianrelationship" name="guardianrelationship" value="<?php echo aa_esc($editableApplicationForm["guardianrelationship"]); ?>"></div>
                         <div class="rs-field"><label for="edit_guardiancontact">Contact Number</label><input type="text" id="edit_guardiancontact" name="guardiancontact" value="<?php echo aa_esc($editableApplicationForm["guardiancontact"]); ?>"></div>
+                        <div class="rs-field"><label for="edit_guardianprofession">Profession</label><input type="text" id="edit_guardianprofession" name="guardianprofession" value="<?php echo aa_esc($editableApplicationForm["guardianprofession"]); ?>"></div>
                     </div>
                 </section>
 
@@ -3072,26 +3375,26 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                 <strong><?php echo number_format($stats["linked"]); ?></strong>
             </article>
             <article>
-                <span>Reviewed And Unposted</span>
+                <span>Head Approved And Unposted</span>
                 <strong><?php echo number_format($readyToPostCount); ?></strong>
+            </article>
+            <article>
+                <span>Reviewed Waiting For Head</span>
+                <strong><?php echo number_format($reviewedAwaitingHeadApprovalCount); ?></strong>
             </article>
             <article>
                 <span>Waiting For Review</span>
                 <strong><?php echo number_format($submittedToReviewCount); ?></strong>
             </article>
-            <article>
-                <span>Class Placement</span>
-                <strong>Done Later</strong>
-            </article>
         </div>
 
         <div class="aa-posting-actions">
-            <form method="post" action="online-admission-admin.php#student-record-posting" onsubmit="return confirm('Post all reviewed and unposted online admissions into student records? Class placement will be done later.');">
+            <form method="post" action="online-admission-admin.php#student-record-posting" onsubmit="return confirm('Post all headmaster-approved and unposted online admissions into student records? Class placement will be done later.');">
                 <button type="submit" name="post_reviewed_admissions" class="aa-button aa-button--success">
-                    <i class="fa fa-database"></i> Post Reviewed Admissions
+                    <i class="fa fa-database"></i> Post Head Approved Admissions
                 </button>
             </form>
-            <p><?php echo $readyToPostCount > 0 ? "Only reviewed, paid/eligible, unposted admissions will be posted. Class and semester records are not created here; assign the class later from the normal student registration flow." : "There are no reviewed admissions ready to post yet. Mark submitted applications as Reviewed under Admission Submissions first, then return here to post them."; ?></p>
+            <p><?php echo $readyToPostCount > 0 ? "Only headmaster-approved, paid/eligible, unposted admissions will be posted. Class and semester records are not created here; assign the class later from the normal student registration flow." : "There are no headmaster-approved admissions ready to post yet. Review the form first, then let the headmaster digitally approve it before returning here."; ?></p>
         </div>
     </section>
 
@@ -3137,6 +3440,8 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                     <?php if($appLinkedStudentId !== ""){ ?><span class="aa-status aa-status--success">Student ID: <?php echo aa_esc($appLinkedStudentId); ?></span><?php } ?>
                     <?php if($appPayment && trim((string)$appPayment["admissioncode"]) !== ""){ ?><span>Internal Code: <?php echo aa_esc($appPayment["admissioncode"]); ?></span><?php } ?>
                     <span class="<?php echo $appPayment ? aa_payment_status_class($appPayment["status"]) : "aa-status aa-status--neutral"; ?>"><?php echo aa_esc($appPayment ? online_admission_payment_status_label($appPayment["status"]) : "Payment not started"); ?></span>
+                    <span class="<?php echo aa_head_approval_class($app); ?>"><?php echo aa_esc(aa_head_approval_label($app)); ?></span>
+                    <?php if(online_admission_application_is_headmaster_approved($app)){ ?><span>Ref: <?php echo aa_esc(online_admission_headmaster_approval_reference($app)); ?></span><?php } ?>
                     <span><?php echo aa_esc(aa_date($app["updatedat"], "d M Y, g:i a")); ?></span>
                 </div>
                 <form method="post" action="online-admission-admin.php#applications" class="aa-review-form">
@@ -3156,14 +3461,16 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                     <?php if($appPayment && strtolower(trim((string)$appPayment["status"])) === "initialized" && trim((string)$appPayment["authorizationurl"]) !== ""){ ?>
                     <a href="<?php echo aa_esc($appPayment["authorizationurl"]); ?>" class="aa-link aa-link--ghost aa-app-link" target="_blank" rel="noopener"><i class="fa fa-credit-card"></i> Open Paystack Link</a>
                     <?php } ?>
-                    <?php if($canPrintAdmissionLetter && online_admission_application_is_submitted($app)){ ?>
+                    <?php if($canPrintAdmissionLetter && online_admission_application_is_headmaster_approved($app)){ ?>
                     <a href="online-admission-letter.php?applicationid=<?php echo aa_esc($app["applicationid"]); ?>" class="aa-link aa-link--ghost aa-app-link" target="_blank" rel="noopener"><i class="fa fa-print"></i> Print Admission Letter</a>
                     <?php } ?>
-                    <?php if($canPrintAdmissionLetter && $appLinkedStudentId === "" && strtolower(trim((string)$app["status"])) === "reviewed"){ ?>
+                    <?php if($canPrintAdmissionLetter && $appLinkedStudentId === "" && online_admission_application_is_headmaster_approved($app)){ ?>
                     <form method="post" action="online-admission-admin.php#applications" class="aa-inline-post-form" onsubmit="return confirm('Post this admission into student records?');">
                         <input type="hidden" name="applicationid" value="<?php echo aa_esc($app["applicationid"]); ?>">
                         <button type="submit" name="post_single_admission" class="aa-button aa-button--success"><i class="fa fa-database"></i> Post Student</button>
                     </form>
+                    <?php }elseif($canPrintAdmissionLetter && strtolower(trim((string)$app["status"])) === "reviewed" && !online_admission_application_is_headmaster_approved($app)){ ?>
+                    <span class="aa-inline-note">Waiting for headmaster digital approval before printing or posting.</span>
                     <?php }elseif($appLinkedStudentId !== ""){ ?>
                     <a href="student-history.php?studentid=<?php echo aa_esc($appLinkedStudentId); ?>" class="aa-link aa-link--ghost aa-app-link"><i class="fa fa-user"></i> Open Student Record</a>
                     <?php } ?>

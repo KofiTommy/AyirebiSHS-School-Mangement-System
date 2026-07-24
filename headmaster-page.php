@@ -112,6 +112,66 @@ function hm_dashboard_date($value){
 }
 }
 
+if(!function_exists('hm_report_scope_selection_key')){
+function hm_report_scope_selection_key($batchId, $academicYear, $termId, $classId){
+    return trim((string)$batchId).'|'.trim((string)$academicYear).'|'.trim((string)$termId).'|'.trim((string)$classId);
+}
+}
+
+if(!function_exists('hm_report_scope_selection_token')){
+function hm_report_scope_selection_token($batchId, $academicYear, $termId, $classId){
+    return json_encode(array(
+        'batchid' => trim((string)$batchId),
+        'academicyear' => trim((string)$academicYear),
+        'termid' => trim((string)$termId),
+        'classid' => trim((string)$classId)
+    ));
+}
+}
+
+if(!function_exists('hm_report_scope_selection_from_token')){
+function hm_report_scope_selection_from_token($token){
+    $token = trim((string)$token);
+    if($token === ''){
+        return null;
+    }
+
+    $decoded = json_decode($token, true);
+    if(is_array($decoded)){
+        $batchId = trim((string)(isset($decoded['batchid']) ? $decoded['batchid'] : ''));
+        $academicYear = trim((string)(isset($decoded['academicyear']) ? $decoded['academicyear'] : ''));
+        $termId = trim((string)(isset($decoded['termid']) ? $decoded['termid'] : ''));
+        $classId = trim((string)(isset($decoded['classid']) ? $decoded['classid'] : ''));
+        if($batchId !== '' && $academicYear !== '' && $termId !== '' && $classId !== ''){
+            return array(
+                'batchid' => $batchId,
+                'academicyear' => $academicYear,
+                'termid' => $termId,
+                'classid' => $classId
+            );
+        }
+    }
+
+    $legacyParts = explode('|', $token);
+    if(count($legacyParts) === 4){
+        $batchId = trim((string)$legacyParts[0]);
+        $academicYear = trim((string)$legacyParts[1]);
+        $termId = trim((string)$legacyParts[2]);
+        $classId = trim((string)$legacyParts[3]);
+        if($batchId !== '' && $academicYear !== '' && $termId !== '' && $classId !== ''){
+            return array(
+                'batchid' => $batchId,
+                'academicyear' => $academicYear,
+                'termid' => $termId,
+                'classid' => $classId
+            );
+        }
+    }
+
+    return null;
+}
+}
+
 if(!function_exists('hm_requisition_item_options_html')){
 function hm_requisition_item_options_html($items, $selectedId, $fallbackLabel = ''){
     $selectedId = trim((string)$selectedId);
@@ -147,6 +207,159 @@ $branchUserFilter = $currentBranchId !== '' ? " AND su.branchid='$currentBranchI
 $branchAdmissionFilter = $currentBranchId !== '' ? " WHERE branchid='$currentBranchIdEsc' " : '';
 $branchHelpFilter = $currentBranchId !== '' ? " WHERE branchid='$currentBranchIdEsc' " : '';
 
+if(isset($_POST['headmaster_report_bulk_action']) && report_approval_is_headmaster_user()){
+    $action = trim((string)$_POST['headmaster_report_bulk_action']);
+    $selectedScopesRaw = isset($_POST['selected_report_scope']) && is_array($_POST['selected_report_scope'])
+        ? $_POST['selected_report_scope']
+        : array();
+    $signFinalApproval = isset($_POST['headmaster_report_bulk_sign_confirm']) && (string)$_POST['headmaster_report_bulk_sign_confirm'] === '1';
+    $approvalNote = trim((string)(isset($_POST['headmaster_report_bulk_note']) ? $_POST['headmaster_report_bulk_note'] : ''));
+    $headmasterSignedName = isset($_SESSION['FULLNAME']) ? trim((string)$_SESSION['FULLNAME']) : 'Headmaster';
+
+    if($action !== 'approve'){
+        $_SESSION['Message'] = hm_flash_html('error', 'That bulk report approval action was not recognised.');
+    } elseif(empty($selectedScopesRaw)){
+        $_SESSION['Message'] = hm_flash_html('warning', 'Select at least one class report before appending the signature in bulk.');
+    } elseif(!$signFinalApproval){
+        $_SESSION['Message'] = hm_flash_html('error', 'Confirm the digital signature before approving the selected class reports.');
+    } else {
+        $selectedScopes = array();
+        $seenScopeKeys = array();
+        foreach($selectedScopesRaw as $scopeToken){
+            $scopeParts = hm_report_scope_selection_from_token($scopeToken);
+            if(!$scopeParts){
+                continue;
+            }
+            $scopeKey = hm_report_scope_selection_key(
+                $scopeParts['batchid'],
+                $scopeParts['academicyear'],
+                $scopeParts['termid'],
+                $scopeParts['classid']
+            );
+            if(isset($seenScopeKeys[$scopeKey])){
+                continue;
+            }
+            $seenScopeKeys[$scopeKey] = true;
+            $selectedScopes[] = $scopeParts;
+        }
+
+        if(empty($selectedScopes)){
+            $_SESSION['Message'] = hm_flash_html('error', 'The selected report scopes were not valid. Refresh the page and try again.');
+        } else {
+            $approvedCount = 0;
+            $alreadySignedCount = 0;
+            $notReadyCount = 0;
+            $failedCount = 0;
+
+            foreach($selectedScopes as $scopeParts){
+                $batchId = $scopeParts['batchid'];
+                $academicYear = $scopeParts['academicyear'];
+                $termId = $scopeParts['termid'];
+                $classId = $scopeParts['classid'];
+                $scopeMeta = report_approval_scope_meta($con, $batchId, $academicYear, $termId, $classId);
+
+                if(!$scopeMeta['required'] || empty($scopeMeta['admin_approved'])){
+                    $notReadyCount++;
+                    continue;
+                }
+                if(!empty($scopeMeta['headmaster_approved'])){
+                    $alreadySignedCount++;
+                    continue;
+                }
+
+                $approvalSaved = report_approval_set_headmaster_status(
+                    $con,
+                    $batchId,
+                    $academicYear,
+                    $termId,
+                    $classId,
+                    'approved',
+                    $currentUserId,
+                    $headmasterSignedName,
+                    $approvalNote,
+                    'heads-signature.png'
+                );
+
+                if($approvalSaved){
+                    $approvedCount++;
+                } else {
+                    $failedCount++;
+                }
+            }
+
+            $messageParts = array();
+            if($approvedCount > 0){
+                $messageParts[] = number_format($approvedCount).' class report(s) were digitally signed and released.';
+            }
+            if($alreadySignedCount > 0){
+                $messageParts[] = number_format($alreadySignedCount).' already had the headmaster signature.';
+            }
+            if($notReadyCount > 0){
+                $messageParts[] = number_format($notReadyCount).' were not ready for final signature.';
+            }
+            if($failedCount > 0){
+                $messageParts[] = number_format($failedCount).' could not be signed.';
+            }
+            if(empty($messageParts)){
+                $messageParts[] = 'No class report was signed from the selected list.';
+            }
+
+            $messageTone = 'success';
+            if($approvedCount === 0 && $alreadySignedCount > 0 && $notReadyCount === 0 && $failedCount === 0){
+                $messageTone = 'info';
+            } elseif($approvedCount === 0 || $notReadyCount > 0 || $failedCount > 0){
+                $messageTone = 'warning';
+            }
+
+            $_SESSION['Message'] = hm_flash_html($messageTone, implode(' ', $messageParts));
+        }
+    }
+
+    header("location:headmaster-page.php#hm-report-approval");
+    exit();
+}
+
+if(isset($_POST['headmaster_report_approval_action']) && report_approval_is_headmaster_user()){
+    $batchId = trim((string)(isset($_POST['batchid']) ? $_POST['batchid'] : ''));
+    $academicYear = trim((string)(isset($_POST['academicyear']) ? $_POST['academicyear'] : ''));
+    $termId = trim((string)(isset($_POST['termid']) ? $_POST['termid'] : ''));
+    $classId = trim((string)(isset($_POST['classid']) ? $_POST['classid'] : ''));
+    $action = trim((string)$_POST['headmaster_report_approval_action']);
+    $signFinalApproval = isset($_POST['headmaster_report_sign_confirm']) && (string)$_POST['headmaster_report_sign_confirm'] === '1';
+    $approvalNote = trim((string)(isset($_POST['headmaster_report_note']) ? $_POST['headmaster_report_note'] : ''));
+    $headmasterSignedName = isset($_SESSION['FULLNAME']) ? trim((string)$_SESSION['FULLNAME']) : 'Headmaster';
+    $scopeMeta = report_approval_scope_meta($con, $batchId, $academicYear, $termId, $classId);
+
+    if($action !== 'approve'){
+        $_SESSION['Message'] = hm_flash_html('error', 'That report approval action was not recognised.');
+    } elseif(!$scopeMeta['required'] || empty($scopeMeta['admin_approved'])){
+        $_SESSION['Message'] = hm_flash_html('warning', 'That class report is not ready for final signature yet.');
+    } elseif(!empty($scopeMeta['headmaster_approved'])){
+        $_SESSION['Message'] = hm_flash_html('info', 'That class report already has the headmaster signature.');
+    } elseif(!$signFinalApproval){
+        $_SESSION['Message'] = hm_flash_html('error', 'Confirm the digital signature before approving this class report.');
+    } else {
+        $approvalSaved = report_approval_set_headmaster_status(
+            $con,
+            $batchId,
+            $academicYear,
+            $termId,
+            $classId,
+            'approved',
+            $currentUserId,
+            $headmasterSignedName,
+            $approvalNote,
+            'heads-signature.png'
+        );
+        $_SESSION['Message'] = $approvalSaved
+            ? hm_flash_html('success', 'The class report was digitally signed and released for students.')
+            : hm_flash_html('warning', 'That class report could not be signed. Please refresh and try again.');
+    }
+
+    header("location:headmaster-page.php#hm-report-approval");
+    exit();
+}
+
 if(isset($_POST['headmaster_requisition_action']) && matron_can_final_approve_requisition($con)){
     $requisitionId = trim((string)(isset($_POST['requisitionid']) ? $_POST['requisitionid'] : ''));
     $action = trim((string)$_POST['headmaster_requisition_action']);
@@ -168,6 +381,7 @@ if(isset($_POST['headmaster_requisition_action']) && matron_can_final_approve_re
         $approvedPurpose = trim((string)(isset($_POST['approvedpurpose']) ? $_POST['approvedpurpose'] : (isset($requisitionRow['purpose']) ? $requisitionRow['purpose'] : '')));
         $approvedNotes = trim((string)(isset($_POST['approvednotes']) ? $_POST['approvednotes'] : (isset($requisitionRow['notes']) ? $requisitionRow['notes'] : '')));
         $headDecisionNote = trim((string)(isset($_POST['headdecisionnote']) ? $_POST['headdecisionnote'] : ''));
+        $signFinalApproval = isset($_POST['headmaster_sign_confirm']) && (string)$_POST['headmaster_sign_confirm'] === '1';
         $approvedItemRow = storekeeper_get_item_row($con, $approvedStoreItemId);
         $itemAllowed = $approvedItemRow && (
             matron_can_request_store_item($con, $approvedItemRow, isset($requisitionRow['requestorigin']) ? (string)$requisitionRow['requestorigin'] : 'matron') ||
@@ -175,7 +389,9 @@ if(isset($_POST['headmaster_requisition_action']) && matron_can_final_approve_re
             $approvedStoreItemId === (string)$requisitionRow['effective_storeitemid']
         );
 
-        if(!$itemAllowed){
+        if(!$signFinalApproval){
+            $_SESSION['Message'] = hm_flash_html('error', 'Confirm the digital signature before giving final approval.');
+        } elseif(!$itemAllowed){
             $_SESSION['Message'] = hm_flash_html('error', 'Choose a valid store item before giving final approval.');
         } elseif($approvedQuantity === '' || !is_numeric($approvedQuantity) || (float)$approvedQuantity <= 0){
             $_SESSION['Message'] = hm_flash_html('error', 'Approved quantity must be a valid number greater than zero.');
@@ -194,7 +410,7 @@ if(isset($_POST['headmaster_requisition_action']) && matron_can_final_approve_re
             $approvedQuantitySql = number_format((float)$approvedQuantity, 2, '.', '');
             $approvedPurposeEsc = mysqli_real_escape_string($con, $approvedPurpose);
             $approvedNotesEsc = mysqli_real_escape_string($con, $approvedNotes);
-            $headDecisionNote = $headDecisionNote !== '' ? $headDecisionNote : 'Approved by the headmaster.';
+            $headDecisionNote = $headDecisionNote !== '' ? $headDecisionNote : 'Approved and digitally signed by the headmaster.';
             $headDecisionNoteEsc = mysqli_real_escape_string($con, $headDecisionNote);
             @mysqli_query($con, "UPDATE tblmatronrequisition
                 SET status='approved',
@@ -217,7 +433,7 @@ if(isset($_POST['headmaster_requisition_action']) && matron_can_final_approve_re
                   AND status='awaiting_headmaster'
                 LIMIT 1");
             $_SESSION['Message'] = mysqli_affected_rows($con) > 0
-                ? hm_flash_html('success', 'Final approval saved successfully.')
+                ? hm_flash_html('success', 'Final approval saved and digitally signed successfully.')
                 : hm_flash_html('warning', 'That requisition could not be updated. Please refresh and try again.');
         }
     } elseif($action === 'reject'){
@@ -385,7 +601,11 @@ $yearSql = semester_registry_resolved_year_sql("tr");
 $releaseWhere = "(CAST($yearSql AS UNSIGNED) > 2026 OR (CAST($yearSql AS UNSIGNED) = 2026 AND tr.termname >= 2))";
 $approvalSummarySql = mysqli_query($con, "SELECT
         COUNT(*) AS total_scopes,
-        SUM(CASE WHEN ra.status='approved' THEN 1 ELSE 0 END) AS approved_scopes
+        SUM(CASE WHEN ra.status='approved'
+            AND COALESCE(ra.headapprovalstatus, '')='approved'
+            AND ra.headapproveddatetime IS NOT NULL
+            AND ra.headapproveddatetime<>'0000-00-00 00:00:00'
+            THEN 1 ELSE 0 END) AS approved_scopes
     FROM (
         SELECT DISTINCT tr.batchid, $yearSql AS academic_year, tr.termname, tr.class_entryid AS classid
         FROM tbltermregistry tr
@@ -395,8 +615,7 @@ $approvalSummarySql = mysqli_query($con, "SELECT
         ON ra.batchid=sc.batchid
        AND ra.academicyear=sc.academic_year
        AND ra.termname=sc.termname
-       AND ra.classid=sc.classid
-       AND ra.status='approved'");
+       AND ra.classid=sc.classid");
 $reportApprovalTotal = 0;
 $reportApprovedTotal = 0;
 if($approvalSummarySql && ($approvalRow = mysqli_fetch_array($approvalSummarySql, MYSQLI_ASSOC))){
@@ -554,6 +773,32 @@ if($admissionSummarySql && ($admissionRow = mysqli_fetch_array($admissionSummary
     $admissionSubmittedToday = (int)$admissionRow['submitted_today'];
 }
 $admissionPendingTotal = $admissionSubmittedTotal + $admissionNeedsAttentionTotal;
+$admissionAwaitingHeadApprovalWhere = " WHERE status='reviewed'
+    AND (headapprovalstatus IS NULL OR headapprovalstatus<>'approved' OR headapproveddatetime IS NULL OR headapproveddatetime='0000-00-00 00:00:00')";
+if($currentBranchId !== ''){
+    $admissionAwaitingHeadApprovalWhere .= " AND branchid='$currentBranchIdEsc'";
+}
+$admissionAwaitingHeadApprovalCount = (int)hm_fetch_scalar(
+    $con,
+    "SELECT COUNT(*) AS total_waiting FROM tblonlineadmissionapplication".$admissionAwaitingHeadApprovalWhere,
+    'total_waiting',
+    0
+);
+$admissionAwaitingHeadApprovalLatestName = '';
+$admissionAwaitingHeadApprovalLatestAt = '';
+$admissionAwaitingHeadApprovalLatestRes = mysqli_query($con, "SELECT firstname, othernames, surname, beceindexnumber, revieweddatetime, updatedat
+    FROM tblonlineadmissionapplication".$admissionAwaitingHeadApprovalWhere."
+    ORDER BY COALESCE(revieweddatetime, updatedat) DESC
+    LIMIT 1");
+if($admissionAwaitingHeadApprovalLatestRes && ($admissionAwaitingHeadApprovalLatestRow = mysqli_fetch_array($admissionAwaitingHeadApprovalLatestRes, MYSQLI_ASSOC))){
+    $admissionAwaitingHeadApprovalLatestName = trim((string)$admissionAwaitingHeadApprovalLatestRow['firstname'].' '.(string)$admissionAwaitingHeadApprovalLatestRow['othernames'].' '.(string)$admissionAwaitingHeadApprovalLatestRow['surname']);
+    if($admissionAwaitingHeadApprovalLatestName === ''){
+        $admissionAwaitingHeadApprovalLatestName = trim((string)$admissionAwaitingHeadApprovalLatestRow['beceindexnumber']);
+    }
+    $admissionAwaitingHeadApprovalLatestAt = trim((string)$admissionAwaitingHeadApprovalLatestRow['revieweddatetime']) !== ''
+        ? trim((string)$admissionAwaitingHeadApprovalLatestRow['revieweddatetime'])
+        : trim((string)$admissionAwaitingHeadApprovalLatestRow['updatedat']);
+}
 
 $helpRequestTotal = (int)hm_fetch_scalar($con, "SELECT COUNT(*) AS total_help FROM tblonlineadmissionhelprequest".$branchHelpFilter, 'total_help', 0);
 $unreadMessages = (int)um_message_unread_count($con, $currentUserId, 'Headmaster');
@@ -604,11 +849,36 @@ $matronHeadApprovalQueue = matron_fetch_requisition_rows($con, array(
     'status' => 'awaiting_headmaster',
     'limit' => 12
 ));
+$headmasterReportApprovalQueue = report_approval_fetch_headmaster_queue($con, $currentBranchId, 12);
+$headmasterReportApprovalCount = count($headmasterReportApprovalQueue);
+$headmasterNextReportApproval = !empty($headmasterReportApprovalQueue) ? $headmasterReportApprovalQueue[0] : null;
 $headmasterRequisitionCatalog = matron_request_catalog_context($con, 'teacher', 500);
 $headmasterRequisitionItems = isset($headmasterRequisitionCatalog['rows']) && is_array($headmasterRequisitionCatalog['rows'])
     ? $headmasterRequisitionCatalog['rows']
     : array();
 $headmasterRequisitionNoticeCount = count($matronHeadApprovalQueue);
+$headmasterDashboardNoticeCount = (int)$headmasterRequisitionNoticeCount + (int)$admissionAwaitingHeadApprovalCount + (int)$headmasterReportApprovalCount;
+$headmasterDashboardNoticeHref = $headmasterReportApprovalCount > 0
+    ? '#hm-report-approval'
+    : ($admissionAwaitingHeadApprovalCount > 0 ? 'online-admission-admin.php#headmaster-approvals' : '#hm-matron-approval');
+$headmasterDashboardNoticeDetail = 'No request waiting';
+$headmasterDashboardNoticeParts = array();
+if($headmasterReportApprovalCount > 0){
+    $headmasterDashboardNoticeParts[] = number_format((int)$headmasterReportApprovalCount).' class report approval(s)';
+}
+if($admissionAwaitingHeadApprovalCount > 0){
+    $headmasterDashboardNoticeParts[] = number_format((int)$admissionAwaitingHeadApprovalCount).' admission approval(s)';
+}
+if($headmasterRequisitionNoticeCount > 0){
+    $headmasterDashboardNoticeParts[] = number_format((int)$headmasterRequisitionNoticeCount).' store request(s)';
+}
+if(count($headmasterDashboardNoticeParts) === 1){
+    $headmasterDashboardNoticeDetail = $headmasterDashboardNoticeParts[0].' waiting';
+}elseif(count($headmasterDashboardNoticeParts) === 2){
+    $headmasterDashboardNoticeDetail = $headmasterDashboardNoticeParts[0].' and '.$headmasterDashboardNoticeParts[1].' waiting';
+}elseif(count($headmasterDashboardNoticeParts) >= 3){
+    $headmasterDashboardNoticeDetail = $headmasterDashboardNoticeParts[0].', '.$headmasterDashboardNoticeParts[1].', and '.$headmasterDashboardNoticeParts[2].' waiting';
+}
 $headmasterHistoryStatus = isset($_GET['requisition_history_status']) ? trim((string)$_GET['requisition_history_status']) : '';
 $headmasterHistoryOrigin = isset($_GET['requisition_history_origin']) ? trim((string)$_GET['requisition_history_origin']) : '';
 $headmasterHistorySearch = isset($_GET['requisition_history_search']) ? trim((string)$_GET['requisition_history_search']) : '';
@@ -701,6 +971,37 @@ if($reportPendingTotal > 0){
         'label' => 'Open Examination Report'
     );
 }
+if($headmasterReportApprovalCount > 0){
+    $headmasterReportDetail = number_format($headmasterReportApprovalCount).' class report scope'.($headmasterReportApprovalCount === 1 ? ' is' : 's are').' approved by admin and waiting for your digital signature.';
+    if($headmasterNextReportApproval){
+        $nextClassLabel = trim((string)(isset($headmasterNextReportApproval['class_name']) ? $headmasterNextReportApproval['class_name'] : ''));
+        $nextBatchLabel = trim((string)(isset($headmasterNextReportApproval['batch_label']) ? $headmasterNextReportApproval['batch_label'] : ''));
+        $nextYearLabel = trim((string)(isset($headmasterNextReportApproval['academicyear']) ? $headmasterNextReportApproval['academicyear'] : ''));
+        $nextTermLabel = trim((string)(isset($headmasterNextReportApproval['termname']) ? $headmasterNextReportApproval['termname'] : ''));
+        $nextScopeBits = array();
+        if($nextClassLabel !== ''){
+            $nextScopeBits[] = $nextClassLabel;
+        }
+        if($nextBatchLabel !== ''){
+            $nextScopeBits[] = $nextBatchLabel;
+        }
+        if($nextYearLabel !== ''){
+            $nextScopeBits[] = $nextYearLabel;
+        }
+        if($nextTermLabel !== ''){
+            $nextScopeBits[] = 'Semester '.$nextTermLabel;
+        }
+        if(!empty($nextScopeBits)){
+            $headmasterReportDetail .= ' Next to sign: '.implode(' | ', $nextScopeBits).'.';
+        }
+    }
+    $attentionItems[] = array(
+        'title' => 'Class reports are waiting for your signature.',
+        'detail' => $headmasterReportDetail,
+        'href' => 'headmaster-page.php#hm-report-approval',
+        'label' => 'Open report approvals'
+    );
+}
 if($pendingScoreAssignments > 0){
     $attentionItems[] = array(
         'title' => 'Score entry is still outstanding.',
@@ -715,6 +1016,22 @@ if($admissionPendingTotal > 0){
         'detail' => number_format($admissionPendingTotal).' submitted admission form'.($admissionPendingTotal === 1 ? ' is' : 's are').' still open.',
         'href' => 'online-admission-admin.php',
         'label' => 'Open Admission Desk'
+    );
+}
+if($admissionAwaitingHeadApprovalCount > 0){
+    $admissionApprovalDetail = number_format($admissionAwaitingHeadApprovalCount).' reviewed admission form'.($admissionAwaitingHeadApprovalCount === 1 ? ' is' : 's are').' ready for your digital approval.';
+    if($admissionAwaitingHeadApprovalLatestName !== ''){
+        $admissionApprovalDetail .= ' Latest: '.$admissionAwaitingHeadApprovalLatestName;
+        if($admissionAwaitingHeadApprovalLatestAt !== ''){
+            $admissionApprovalDetail .= ' on '.hm_dashboard_date($admissionAwaitingHeadApprovalLatestAt);
+        }
+        $admissionApprovalDetail .= '.';
+    }
+    $attentionItems[] = array(
+        'title' => 'Online admissions are waiting for your approval.',
+        'detail' => $admissionApprovalDetail,
+        'href' => 'online-admission-admin.php#headmaster-approvals',
+        'label' => 'Open admission approvals'
     );
 }
 if($unreadMessages > 0){
@@ -846,13 +1163,13 @@ include("links.php");
                         <span><?php echo hm_esc(date("d M Y")); ?></span>
                     </div>
                     <div class="hm-hero__utility">
-                        <a class="hm-notice-bell<?php echo $headmasterRequisitionNoticeCount > 0 ? ' hm-notice-bell--active' : ''; ?>" href="#hm-matron-approval">
+                        <a class="hm-notice-bell<?php echo $headmasterDashboardNoticeCount > 0 ? ' hm-notice-bell--active' : ''; ?>" href="<?php echo hm_esc($headmasterDashboardNoticeHref); ?>">
                             <span class="hm-notice-bell__icon"><i class="fa fa-bell"></i></span>
                             <span class="hm-notice-bell__body">
                                 <strong>Approval queue</strong>
-                                <small><?php echo $headmasterRequisitionNoticeCount > 0 ? number_format((int)$headmasterRequisitionNoticeCount) . ' request(s) waiting' : 'No request waiting'; ?></small>
+                                <small><?php echo hm_esc($headmasterDashboardNoticeDetail); ?></small>
                             </span>
-                            <span class="hm-notice-bell__count"><?php echo number_format((int)$headmasterRequisitionNoticeCount); ?></span>
+                            <span class="hm-notice-bell__count"><?php echo number_format((int)$headmasterDashboardNoticeCount); ?></span>
                         </a>
                         <div class="hm-live-clock-wrap">
                             <div class="xschool-live-clock hm-live-clock" data-live-clock>
@@ -891,6 +1208,18 @@ include("links.php");
 
         <?php if($headmasterMessage !== ''){ ?>
         <?php echo $headmasterMessage; ?>
+        <?php } ?>
+        <?php if($headmasterReportApprovalCount > 0){ ?>
+        <div class="hm-inline-flash hm-inline-flash--info">
+            <?php echo number_format((int)$headmasterReportApprovalCount); ?> class report approval request<?php echo $headmasterReportApprovalCount === 1 ? '' : 's'; ?> <?php echo $headmasterReportApprovalCount === 1 ? 'is' : 'are'; ?> waiting for your digital signature.
+            <a href="headmaster-page.php#hm-report-approval">Open the report approval queue</a>.
+        </div>
+        <?php } ?>
+        <?php if($admissionAwaitingHeadApprovalCount > 0){ ?>
+        <div class="hm-inline-flash hm-inline-flash--info">
+            <?php echo number_format((int)$admissionAwaitingHeadApprovalCount); ?> online admission approval request<?php echo $admissionAwaitingHeadApprovalCount === 1 ? '' : 's'; ?> <?php echo $admissionAwaitingHeadApprovalCount === 1 ? 'is' : 'are'; ?> waiting for your digital sign-off.
+            <a href="online-admission-admin.php#headmaster-approvals">Open the admission approval queue</a>.
+        </div>
         <?php } ?>
 
         <section class="hm-section">
@@ -1268,6 +1597,186 @@ include("links.php");
             </details>
         </section>
 
+        <section class="hm-section" id="hm-report-approval">
+            <div class="hm-section__head">
+                <div>
+                    <span class="hm-section__eyebrow">Digital Signature</span>
+                    <h2>Class reports waiting for your signature</h2>
+                </div>
+            </div>
+            <section class="hm-panel">
+                <div class="hm-approval-overview">
+                    <article class="hm-approval-overview__item">
+                        <span>Waiting Now</span>
+                        <strong><?php echo number_format((int)$headmasterReportApprovalCount); ?></strong>
+                    </article>
+                    <article class="hm-approval-overview__item">
+                        <span>Released</span>
+                        <strong><?php echo number_format((int)$reportApprovedTotal); ?></strong>
+                    </article>
+                    <article class="hm-approval-overview__item">
+                        <span>Total Scopes</span>
+                        <strong><?php echo number_format((int)$reportApprovalTotal); ?></strong>
+                    </article>
+                </div>
+                <?php if(empty($headmasterReportApprovalQueue)){ ?>
+                <div class="hm-empty-state">
+                    <h3>No class report is waiting for your signature.</h3>
+                    <p>When an administrator approves a report scope, it will appear here for the final digital signature.</p>
+                </div>
+                <?php } else { ?>
+                <div class="hm-bulk-approval-panel">
+                    <span class="hm-section__eyebrow">Bulk Signature</span>
+                    <p class="hm-panel__note">Select multiple class reports to append the same digital signature and note in one approval. Use the individual cards below if you need to review or comment on reports one by one.</p>
+                    <form method="post" action="headmaster-page.php#hm-report-approval" class="hm-approval-form">
+                        <div class="hm-bulk-selector">
+                            <?php foreach($headmasterReportApprovalQueue as $_BulkReportApprovalRow){ ?>
+                            <?php
+                                $_BulkReportClassLabel = trim((string)(isset($_BulkReportApprovalRow['class_name']) ? $_BulkReportApprovalRow['class_name'] : ''));
+                                if($_BulkReportClassLabel === ''){
+                                    $_BulkReportClassLabel = trim((string)(isset($_BulkReportApprovalRow['classid']) ? $_BulkReportApprovalRow['classid'] : 'Class'));
+                                }
+                                $_BulkReportBatchLabel = trim((string)(isset($_BulkReportApprovalRow['batch_label']) ? $_BulkReportApprovalRow['batch_label'] : ''));
+                                if($_BulkReportBatchLabel === ''){
+                                    $_BulkReportBatchLabel = trim((string)(isset($_BulkReportApprovalRow['batchid']) ? $_BulkReportApprovalRow['batchid'] : ''));
+                                }
+                                $_BulkReportAcademicYearLabel = trim((string)(isset($_BulkReportApprovalRow['academicyear']) ? $_BulkReportApprovalRow['academicyear'] : ''));
+                                $_BulkReportTermLabel = trim((string)(isset($_BulkReportApprovalRow['termname']) ? $_BulkReportApprovalRow['termname'] : ''));
+                                $_BulkReportStudentTotal = isset($_BulkReportApprovalRow['student_total']) ? (int)$_BulkReportApprovalRow['student_total'] : 0;
+                                $_BulkReportToken = hm_report_scope_selection_token(
+                                    isset($_BulkReportApprovalRow['batchid']) ? $_BulkReportApprovalRow['batchid'] : '',
+                                    isset($_BulkReportApprovalRow['academicyear']) ? $_BulkReportApprovalRow['academicyear'] : '',
+                                    isset($_BulkReportApprovalRow['termname']) ? $_BulkReportApprovalRow['termname'] : '',
+                                    isset($_BulkReportApprovalRow['classid']) ? $_BulkReportApprovalRow['classid'] : ''
+                                );
+                            ?>
+                            <label class="hm-bulk-selector__item">
+                                <input type="checkbox" name="selected_report_scope[]" value="<?php echo hm_esc((string)$_BulkReportToken); ?>">
+                                <span class="hm-bulk-selector__content">
+                                    <strong><?php echo hm_esc($_BulkReportClassLabel); ?> | <?php echo hm_esc($_BulkReportBatchLabel); ?></strong>
+                                    <small><?php echo hm_esc($_BulkReportAcademicYearLabel); ?> | Semester <?php echo hm_esc($_BulkReportTermLabel); ?> | <?php echo number_format($_BulkReportStudentTotal); ?> student report(s)</small>
+                                </span>
+                            </label>
+                            <?php } ?>
+                        </div>
+                        <div class="hm-field hm-field--wide">
+                            <label for="hm_report_bulk_note">Headmaster Comment</label>
+                            <textarea id="hm_report_bulk_note" name="headmaster_report_bulk_note" placeholder="Optional note that will be saved with every selected digital signature."></textarea>
+                        </div>
+                        <div class="hm-signature-ack">
+                            <input id="hm_report_bulk_sign_confirm" type="checkbox" name="headmaster_report_bulk_sign_confirm" value="1">
+                            <label for="hm_report_bulk_sign_confirm">
+                                Digitally sign every selected class report as <?php echo hm_esc($headmasterName); ?>. Each report sheet will show Headmaster, your digital signature, your name, the signing time, and the approval reference.
+                            </label>
+                        </div>
+                        <div class="hm-approval-form__actions">
+                            <button type="submit" name="headmaster_report_bulk_action" value="approve" class="hm-action-button hm-action-button--success">Append Signature To Selected Reports</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="hm-approval-list">
+                    <?php foreach($headmasterReportApprovalQueue as $_ReportApprovalRow){ ?>
+                    <?php
+                        $_ReportClassLabel = trim((string)(isset($_ReportApprovalRow['class_name']) ? $_ReportApprovalRow['class_name'] : ''));
+                        if($_ReportClassLabel === ''){
+                            $_ReportClassLabel = trim((string)(isset($_ReportApprovalRow['classid']) ? $_ReportApprovalRow['classid'] : 'Class'));
+                        }
+                        $_ReportBatchLabel = trim((string)(isset($_ReportApprovalRow['batch_label']) ? $_ReportApprovalRow['batch_label'] : ''));
+                        if($_ReportBatchLabel === ''){
+                            $_ReportBatchLabel = trim((string)(isset($_ReportApprovalRow['batchid']) ? $_ReportApprovalRow['batchid'] : ''));
+                        }
+                        $_ReportAcademicYearLabel = trim((string)(isset($_ReportApprovalRow['academicyear']) ? $_ReportApprovalRow['academicyear'] : ''));
+                        $_ReportTermLabel = trim((string)(isset($_ReportApprovalRow['termname']) ? $_ReportApprovalRow['termname'] : ''));
+                        $_ReportStudentTotal = isset($_ReportApprovalRow['student_total']) ? (int)$_ReportApprovalRow['student_total'] : 0;
+                        $_ReportAdminName = trim((string)(isset($_ReportApprovalRow['approved_by_name']) ? $_ReportApprovalRow['approved_by_name'] : ''));
+                        if($_ReportAdminName === ''){
+                            $_ReportAdminName = 'Administrator';
+                        }
+                        $_ReportApprovedAt = trim((string)(isset($_ReportApprovalRow['approveddatetime']) ? $_ReportApprovalRow['approveddatetime'] : ''));
+                        $_ReportApprovedAtLabel = $_ReportApprovedAt !== '' && $_ReportApprovedAt !== '0000-00-00 00:00:00'
+                            ? (strtotime($_ReportApprovedAt) ? date("d M Y H:i", strtotime($_ReportApprovedAt)) : $_ReportApprovedAt)
+                            : 'Not recorded';
+                    ?>
+                    <details class="hm-approval-card">
+                        <summary class="hm-approval-summary">
+                            <div class="hm-approval-summary__main">
+                                <span class="hm-section__eyebrow">Class Report Approval</span>
+                                <strong><?php echo hm_esc($_ReportClassLabel); ?> report is waiting for your digital signature</strong>
+                                <small><?php echo number_format($_ReportStudentTotal); ?> student report(s) | <?php echo hm_esc($_ReportBatchLabel); ?> | <?php echo hm_esc($_ReportAcademicYearLabel); ?> | Semester <?php echo hm_esc($_ReportTermLabel); ?></small>
+                            </div>
+                            <div class="hm-approval-summary__meta">
+                                <span><?php echo hm_esc($_ReportAdminName); ?></span>
+                                <span><?php echo hm_esc($_ReportApprovedAtLabel); ?></span>
+                            </div>
+                            <span class="hm-status-pill hm-status-pill--warning">Awaiting Signature</span>
+                        </summary>
+
+                        <div class="hm-approval-card__body">
+                            <div class="hm-approval-card__summary">
+                                <div>
+                                    <span>Class</span>
+                                    <strong><?php echo hm_esc($_ReportClassLabel); ?></strong>
+                                </div>
+                                <div>
+                                    <span>Batch</span>
+                                    <strong><?php echo hm_esc($_ReportBatchLabel); ?></strong>
+                                </div>
+                                <div>
+                                    <span>Academic Year</span>
+                                    <strong><?php echo hm_esc($_ReportAcademicYearLabel); ?></strong>
+                                </div>
+                                <div>
+                                    <span>Semester</span>
+                                    <strong><?php echo hm_esc($_ReportTermLabel); ?></strong>
+                                </div>
+                                <div>
+                                    <span>Students</span>
+                                    <strong><?php echo number_format($_ReportStudentTotal); ?></strong>
+                                </div>
+                                <div>
+                                    <span>Admin Approval</span>
+                                    <strong><?php echo hm_esc($_ReportApprovedAtLabel); ?></strong>
+                                </div>
+                            </div>
+
+                            <div class="hm-data-list">
+                                <div>
+                                    <span>Approved By</span>
+                                    <strong><?php echo hm_esc($_ReportAdminName); ?></strong>
+                                </div>
+                                <div>
+                                    <span>Status</span>
+                                    <strong>Waiting for final headmaster signature before students can view or print the report.</strong>
+                                </div>
+                            </div>
+
+                            <form method="post" action="headmaster-page.php#hm-report-approval" class="hm-approval-form">
+                                <input type="hidden" name="batchid" value="<?php echo hm_esc((string)$_ReportApprovalRow['batchid']); ?>">
+                                <input type="hidden" name="academicyear" value="<?php echo hm_esc((string)$_ReportApprovalRow['academicyear']); ?>">
+                                <input type="hidden" name="termid" value="<?php echo hm_esc((string)$_ReportApprovalRow['termname']); ?>">
+                                <input type="hidden" name="classid" value="<?php echo hm_esc((string)$_ReportApprovalRow['classid']); ?>">
+                                <div class="hm-field hm-field--wide">
+                                    <label for="hm_report_note_<?php echo hm_esc($_ReportApprovalRow['approvalid']); ?>">Headmaster Comment</label>
+                                    <textarea id="hm_report_note_<?php echo hm_esc($_ReportApprovalRow['approvalid']); ?>" name="headmaster_report_note" placeholder="Optional note that will be saved with this digital signature."></textarea>
+                                </div>
+                                <div class="hm-signature-ack">
+                                    <input id="hm_report_sign_<?php echo hm_esc($_ReportApprovalRow['approvalid']); ?>" type="checkbox" name="headmaster_report_sign_confirm" value="1">
+                                    <label for="hm_report_sign_<?php echo hm_esc($_ReportApprovalRow['approvalid']); ?>">
+                                        Digitally sign this class report as <?php echo hm_esc($headmasterName); ?>. The report sheet will show Headmaster, your digital signature, your name, the signing time, and the approval reference.
+                                    </label>
+                                </div>
+                                <div class="hm-approval-form__actions">
+                                    <button type="submit" name="headmaster_report_approval_action" value="approve" class="hm-action-button hm-action-button--success">Append Signature</button>
+                                </div>
+                            </form>
+                        </div>
+                    </details>
+                    <?php } ?>
+                </div>
+                <?php } ?>
+            </section>
+        </section>
+
         <section class="hm-section" id="hm-matron-approval">
             <div class="hm-section__head">
                 <div>
@@ -1393,6 +1902,12 @@ include("links.php");
                                         <textarea id="hm_decision_<?php echo hm_esc($_ApprovalReq['requisitionid']); ?>" name="headdecisionnote" placeholder="Optional note about what you changed or why you approved it."></textarea>
                                     </div>
                                 </div>
+                                <div class="hm-signature-ack">
+                                    <input id="hm_sign_<?php echo hm_esc($_ApprovalReq['requisitionid']); ?>" type="checkbox" name="headmaster_sign_confirm" value="1">
+                                    <label for="hm_sign_<?php echo hm_esc($_ApprovalReq['requisitionid']); ?>">
+                                        Digitally sign this final approval as <?php echo hm_esc($headmasterName); ?>. The printed requisition will show your name, approval time, and an approval reference.
+                                    </label>
+                                </div>
                                 <div class="hm-approval-form__actions">
                                     <button type="submit" name="headmaster_requisition_action" value="approve" class="hm-action-button hm-action-button--success">Approve Final</button>
                                     <button type="submit" name="headmaster_requisition_action" value="reject" class="hm-action-button hm-action-button--danger" onclick="return confirm('Reject this requisition?');">Reject</button>
@@ -1490,7 +2005,12 @@ include("links.php");
                                             <small><?php echo hm_esc($_HistoryReq['stage_note']); ?></small>
                                             <?php } ?>
                                         </td>
-                                        <td><span class="hm-status-pill hm-status-pill--<?php echo hm_esc(hm_status_tone($_HistoryReq['status'])); ?>"><?php echo hm_esc($_HistoryReq['status_label']); ?></span></td>
+                                        <td>
+                                            <span class="hm-status-pill hm-status-pill--<?php echo hm_esc(hm_status_tone($_HistoryReq['status'])); ?>"><?php echo hm_esc($_HistoryReq['status_label']); ?></span>
+                                            <?php if(!empty($_HistoryReq['has_head_signature'])){ ?>
+                                            <small>Signed ref: <?php echo hm_esc((string)$_HistoryReq['head_signature_reference']); ?></small>
+                                            <?php } ?>
+                                        </td>
                                         <td><a class="hm-inline-print" href="headmaster-requisition-print.php?requisitionid=<?php echo rawurlencode((string)$_HistoryReq['requisitionid']); ?>&autoprint=1" target="_blank" rel="noopener"><i class="fa fa-print"></i> Print</a></td>
                                     </tr>
                                     <?php } ?>

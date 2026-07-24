@@ -257,6 +257,8 @@ if($branchId !== "" &&
 $form = array(
     "mobile" => $application ? (string)$application["mobile"] : ($postedStudent ? (string)$postedStudent["mobile"] : ""),
     "email" => $application ? (string)$application["email"] : "",
+    "ghanacard" => $application ? (string)$application["ghanacard"] : "",
+    "disabilitystatus" => $application ? (string)$application["disabilitystatus"] : "",
     "residencetype" => $application ? (string)$application["residencetype"] : ($postedStudent ? (string)$postedStudent["residentialstatus"] : ""),
     "hometown" => $application ? (string)$application["hometown"] : "",
     "postaladdress" => $application ? (string)$application["postaladdress"] : "",
@@ -265,6 +267,7 @@ $form = array(
     "guardianname" => $application ? (string)$application["guardianname"] : "",
     "guardianrelationship" => $application ? (string)$application["guardianrelationship"] : "",
     "guardiancontact" => $application ? (string)$application["guardiancontact"] : "",
+    "guardianprofession" => $application ? (string)$application["guardianprofession"] : "",
     "medicalnotes" => $application ? (string)$application["medicalnotes"] : "",
     "studentnote" => $application ? (string)$application["studentnote"] : ""
 );
@@ -332,6 +335,8 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
         $form[$key] = trim((string)(isset($_POST[$key]) ? $_POST[$key] : ""));
     }
     $form["residencetype"] = online_admission_application_residence($application, $postedStudent);
+    $rawDisabilityStatus = $form["disabilitystatus"];
+    $form["disabilitystatus"] = online_admission_normalize_disability_status($form["disabilitystatus"]);
 
     $errors = array();
     $isSubmit = isset($_POST["submit_admission"]);
@@ -348,6 +353,7 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
             "hometown" => "Hometown",
             "homeaddress" => "Home address",
             "religion" => "Religion",
+            "disabilitystatus" => "Disability status",
             "guardianname" => "Parent / guardian name",
             "guardianrelationship" => "Guardian relationship",
             "guardiancontact" => "Guardian contact"
@@ -356,6 +362,10 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
                 $errors[] = $label." is required.";
             }
         }
+    }
+
+    if($rawDisabilityStatus !== "" && $form["disabilitystatus"] === ""){
+        $errors[] = "Select a valid disability status.";
     }
 
     if($form["email"] !== "" && !filter_var($form["email"], FILTER_VALIDATE_EMAIL)){
@@ -385,6 +395,8 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
         $otherEsc = mysqli_real_escape_string($con, (string)$postedStudent["othernames"]);
         $genderEsc = mysqli_real_escape_string($con, (string)$postedStudent["gender"]);
         $birthEsc = mysqli_real_escape_string($con, (string)$postedStudent["birthdate"]);
+        $ghanaCardEsc = mysqli_real_escape_string($con, $form["ghanacard"]);
+        $disabilityEsc = mysqli_real_escape_string($con, $form["disabilitystatus"]);
         $emailEsc = mysqli_real_escape_string($con, $form["email"]);
         $mobileEsc = mysqli_real_escape_string($con, $form["mobile"]);
         $residenceEsc = mysqli_real_escape_string($con, $form["residencetype"]);
@@ -395,6 +407,7 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
         $guardianNameEsc = mysqli_real_escape_string($con, $form["guardianname"]);
         $guardianRelEsc = mysqli_real_escape_string($con, $form["guardianrelationship"]);
         $guardianContactEsc = mysqli_real_escape_string($con, $form["guardiancontact"]);
+        $guardianProfessionEsc = mysqli_real_escape_string($con, $form["guardianprofession"]);
         $medicalEsc = mysqli_real_escape_string($con, $form["medicalnotes"]);
         $studentNoteEsc = mysqli_real_escape_string($con, $form["studentnote"]);
         $filenameEsc = mysqli_real_escape_string($con, $imageName);
@@ -410,6 +423,8 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
                 othernames='$otherEsc',
                 gender='$genderEsc',
                 birthdate='$birthEsc',
+                ghanacard='$ghanaCardEsc',
+                disabilitystatus='$disabilityEsc',
                 email='$emailEsc',
                 mobile='$mobileEsc',
                 residencetype='$residenceEsc',
@@ -420,6 +435,7 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
                 guardianname='$guardianNameEsc',
                 guardianrelationship='$guardianRelEsc',
                 guardiancontact='$guardianContactEsc',
+                guardianprofession='$guardianProfessionEsc',
                 medicalnotes='$medicalEsc',
                 studentnote='$studentNoteEsc',
                 filename='$filenameEsc',
@@ -433,13 +449,13 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
         }else{
             $sql = "INSERT INTO tblonlineadmissionapplication(
                 applicationid, postingid, beceindexnumber, admissionyear, firstname, surname, othernames, gender, birthdate,
-                email, mobile, residencetype, hometown, postaladdress, homeaddress, religion, guardianname,
-                guardianrelationship, guardiancontact, medicalnotes, studentnote, filename, uploadeddatetime, status,
+                ghanacard, disabilitystatus, email, mobile, residencetype, hometown, postaladdress, homeaddress, religion, guardianname,
+                guardianrelationship, guardiancontact, guardianprofession, medicalnotes, studentnote, filename, uploadeddatetime, status,
                 submittedat, updatedat, branchid
             ) VALUES(
                 '$applicationIdEsc', '$postingIdEsc', '$beceEsc', '$yearEsc', '$firstEsc', '$surnameEsc', '$otherEsc', '$genderEsc', '$birthEsc',
-                '$emailEsc', '$mobileEsc', '$residenceEsc', '$hometownEsc', '$postalEsc', '$homeEsc', '$religionEsc', '$guardianNameEsc',
-                '$guardianRelEsc', '$guardianContactEsc', '$medicalEsc', '$studentNoteEsc', '$filenameEsc', ".($imageName !== "" ? "NOW()" : "NULL").", '$statusEsc',
+                '$ghanaCardEsc', '$disabilityEsc', '$emailEsc', '$mobileEsc', '$residenceEsc', '$hometownEsc', '$postalEsc', '$homeEsc', '$religionEsc', '$guardianNameEsc',
+                '$guardianRelEsc', '$guardianContactEsc', '$guardianProfessionEsc', '$medicalEsc', '$studentNoteEsc', '$filenameEsc', ".($imageName !== "" ? "NOW()" : "NULL").", '$statusEsc',
                 ".($isSubmit ? "NOW()" : "NULL").", NOW(), '$branchIdEsc'
             )";
             $saved = mysqli_query($con, $sql);
@@ -506,6 +522,22 @@ $showResumeAccess = $paymentEnabled ? ($paymentContinueReady || $resumeRequested
 $resumeOnlyMode = (!$postedStudent && $showResumeAccess);
 $applicationStatusText = $application ? online_admission_status_label($application["status"]) : "Not started";
 $applicationStatusSummary = $application ? oa_status_summary($application["status"]) : "";
+$headmasterApproved = $application ? online_admission_application_is_headmaster_approved($application) : false;
+$headmasterApprovalStatusText = !$application
+    ? "Not available"
+    : ($headmasterApproved ? "Approved" : (oa_application_status($application) === "reviewed" ? "Pending" : "Not ready"));
+$headmasterApprovalDateText = ($application && $headmasterApproved)
+    ? oa_format_datetime($application["headapproveddatetime"])
+    : "Not available";
+$headmasterApprovalName = ($application && $headmasterApproved)
+    ? online_admission_headmaster_approval_name($application)
+    : "";
+$headmasterApprovalReference = ($application && $headmasterApproved)
+    ? online_admission_headmaster_approval_reference($application)
+    : "";
+if($application && $headmasterApproved){
+    $applicationStatusSummary = "Reviewed by the school and approved by the headmaster.";
+}
 $downloadUrl = ($application && $accessAuthorized) ? "online-admission-download.php" : "";
 $paymentContinueUrl = ($latestPayment && !$paymentPaid && strtolower(trim((string)$latestPayment["status"])) === "initialized" && trim((string)$latestPayment["authorizationurl"]) !== "")
     ? trim((string)$latestPayment["authorizationurl"])
@@ -886,6 +918,24 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
 
                 <section class="oa-form-section">
                     <div class="oa-form-head">
+                        <h3>Student Information</h3>
+                    </div>
+                    <div class="oa-grid oa-grid--two">
+                        <div class="oa-field"><label for="ghanacard">Ghana Card Number (Optional)</label><input type="text" id="ghanacard" name="ghanacard" value="<?php echo oa_esc($form["ghanacard"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
+                        <div class="oa-field">
+                            <label for="disabilitystatus">Disability Status</label>
+                            <select id="disabilitystatus" name="disabilitystatus"<?php echo $isLocked ? " disabled" : ""; ?>>
+                                <option value="">Select disability status</option>
+                                <?php foreach(online_admission_disability_options() as $disabilityOption){ ?>
+                                <option value="<?php echo oa_esc($disabilityOption); ?>"<?php echo $form["disabilitystatus"] === $disabilityOption ? " selected" : ""; ?>><?php echo oa_esc($disabilityOption); ?></option>
+                                <?php } ?>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="oa-form-section">
+                    <div class="oa-form-head">
                         <h3>Address</h3>
                     </div>
                     <div class="oa-grid oa-grid--two">
@@ -903,6 +953,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                         <div class="oa-field"><label for="guardianname">Parent / Guardian Name</label><input type="text" id="guardianname" name="guardianname" value="<?php echo oa_esc($form["guardianname"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
                         <div class="oa-field"><label for="guardianrelationship">Relationship</label><input type="text" id="guardianrelationship" name="guardianrelationship" value="<?php echo oa_esc($form["guardianrelationship"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
                         <div class="oa-field"><label for="guardiancontact">Contact Number</label><input type="tel" id="guardiancontact" name="guardiancontact" value="<?php echo oa_esc($form["guardiancontact"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
+                        <div class="oa-field"><label for="guardianprofession">Profession</label><input type="text" id="guardianprofession" name="guardianprofession" value="<?php echo oa_esc($form["guardianprofession"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
                     </div>
                 </section>
 
@@ -948,11 +999,22 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                         <strong><?php echo oa_esc($application ? oa_format_datetime($application["revieweddatetime"]) : "Not available"); ?></strong>
                     </article>
                     <article>
+                        <span>Headmaster Approval</span>
+                        <strong><?php echo oa_esc($headmasterApprovalStatusText); ?></strong>
+                    </article>
+                    <article>
+                        <span>Approval Recorded</span>
+                        <strong><?php echo oa_esc($headmasterApprovalDateText); ?></strong>
+                    </article>
+                    <article>
                         <span>Assigned House</span>
                         <strong><?php echo oa_esc($assignedHouse && trim((string)$assignedHouse["housename"]) !== "" ? $assignedHouse["housename"] : "Pending"); ?></strong>
                     </article>
                 </div>
                 <div class="oa-payment-state oa-payment-state--info"><?php echo oa_esc($applicationStatusSummary); ?></div>
+                <?php if($headmasterApproved){ ?>
+                <div class="oa-payment-state oa-payment-state--success">Headmaster approval has been recorded<?php echo $headmasterApprovalName !== "" ? " by ".oa_esc($headmasterApprovalName) : ""; ?><?php echo $headmasterApprovalReference !== "" ? ". Ref: ".oa_esc($headmasterApprovalReference) : ""; ?>.</div>
+                <?php } ?>
                 <div class="oa-download-hub">
                     <div class="oa-form-head oa-form-head--compact">
                         <h3>Downloads</h3>

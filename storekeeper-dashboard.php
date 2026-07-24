@@ -446,6 +446,9 @@ $_RecentRequisitionCount = count($_RecentMatronRequisitions);
                                     <?php if (trim((string)$_Req['head_decision_by_name']) !== '') { ?>
                                     <small>Head: <?php echo matron_esc($_Req['head_decision_by_name']); ?></small>
                                     <?php } ?>
+                                    <?php if (!empty($_Req['has_head_signature'])) { ?>
+                                    <small>Signed ref: <?php echo matron_esc((string)$_Req['head_signature_reference']); ?></small>
+                                    <?php } ?>
                                     <?php if (!empty($_Req['is_headmaster_adjusted'])) { ?>
                                     <small>Headmaster changed the final details before approving.</small>
                                     <?php } ?>

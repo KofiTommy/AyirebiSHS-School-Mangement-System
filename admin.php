@@ -8,7 +8,7 @@ if(isset($_POST['mark_changes_read'])){
     include("dbstring.php");
     include("audit_notifications.php");
     ensureSystemChangeLogTable($con);
-    mysqli_query($con, "UPDATE tblsystemchangelog SET status='read' WHERE status='unread' AND actor_type IN ('Teacher','Student','Portal')");
+    mysqli_query($con, "UPDATE tblsystemchangelog SET status='read' WHERE status='unread' AND actor_type IN ('Teacher','Student','Portal','Headmaster')");
     header("Location: admin.php#system-change-notifications");
     exit();
 }
@@ -73,6 +73,7 @@ function admin_dashboard_action_label($actionType){
         "RESULT_REOPEN" => "Results Reopened",
         "MARK_DELETE" => "Mark Deleted",
         "ONLINE_ADMISSION_SUBMITTED" => "Online Admission Submitted",
+        "ONLINE_ADMISSION_HEADMASTER_APPROVED" => "Headmaster Admission Approved",
         "ONLINE_ADMISSION_HELP_REQUEST" => "Online Admission Help Request",
         "PORTAL_HELP_REQUEST" => "Portal Help Request"
     );
@@ -91,6 +92,9 @@ function admin_dashboard_activity_icon($actionType, $source = "log"){
     $actionType = strtoupper(trim((string)$actionType));
     if($source === "registration"){
         return ($actionType === "TEACHER") ? "fa-user-plus" : "fa-graduation-cap";
+    }
+    if($actionType === "ONLINE_ADMISSION_HEADMASTER_APPROVED"){
+        return "fa-check-circle";
     }
     if(strpos($actionType, "PASSWORD") !== false){
         return "fa-key";
@@ -119,6 +123,9 @@ function admin_dashboard_activity_tone($actionType, $source = "log"){
     $actionType = strtoupper(trim((string)$actionType));
     if($source === "registration"){
         return ($actionType === "TEACHER") ? "accent" : "success";
+    }
+    if($actionType === "ONLINE_ADMISSION_HEADMASTER_APPROVED"){
+        return "success";
     }
     if(strpos($actionType, "PASSWORD") !== false){
         return "warning";
@@ -2514,7 +2521,7 @@ include("links.php");
                         $_SQL_UNREAD = mysqli_query($con, "SELECT COUNT(*) AS total_unread
                             FROM tblsystemchangelog
                             WHERE status='unread'
-                              AND actor_type IN ('Teacher','Student','Portal')");
+                              AND actor_type IN ('Teacher','Student','Portal','Headmaster')");
                         if($_SQL_UNREAD && $row_unread = mysqli_fetch_array($_SQL_UNREAD, MYSQLI_ASSOC)){
                             $_UnreadChangeCount = (int)$row_unread['total_unread'];
                         }
@@ -2569,6 +2576,9 @@ include("links.php");
                                 if(strtoupper($_ActionType) === 'ONLINE_ADMISSION_SUBMITTED' && $_TargetUserId !== ''){
                                     $_Link = 'online-admission-admin.php?edit_application='.urlencode($_TargetUserId).'#edit-application';
                                     $_LinkLabel = 'Review Admission';
+                                } elseif(strtoupper($_ActionType) === 'ONLINE_ADMISSION_HEADMASTER_APPROVED' && $_TargetUserId !== ''){
+                                    $_Link = 'online-admission-admin.php?edit_application='.urlencode($_TargetUserId).'#edit-application';
+                                    $_LinkLabel = 'Open Approved Admission';
                                 } elseif(strtoupper($_ActionType) === 'ONLINE_ADMISSION_HELP_REQUEST'){
                                     $_Link = 'online-admission-admin.php#help-requests';
                                     $_LinkLabel = 'Open Help Requests';
@@ -2707,7 +2717,7 @@ include("links.php");
                         <?php
                         $_SQL_CHANGE_LOG = mysqli_query($con, "SELECT *
                             FROM tblsystemchangelog
-                            WHERE actor_type IN ('Teacher','Student','Portal')
+                            WHERE actor_type IN ('Teacher','Student','Portal','Headmaster')
                             ORDER BY (CASE WHEN status='unread' THEN 0 ELSE 1 END), datetimeentry DESC
                             LIMIT 120");
                         ?>
@@ -2719,7 +2729,7 @@ include("links.php");
                                     <span class="system-change-icon"><i class="fa fa-bell"></i></span>
                                     <div>
                                         <h3>System Change Notifications</h3>
-                                        <p>Track teacher, student, portal help, and online admission activity in the audit view.</p>
+                                        <p>Track teacher, student, headmaster, portal help, and online admission activity in the audit view.</p>
                                     </div>
                                 </div>
                                 <div class="system-change-actions">
@@ -2758,6 +2768,9 @@ include("links.php");
                                                 if(strtoupper(trim((string)$row_log['action_type'])) === 'ONLINE_ADMISSION_SUBMITTED' && trim((string)$row_log['target_userid']) !== ''){
                                                     $_AdmissionReviewLink = 'online-admission-admin.php?edit_application='.urlencode(trim((string)$row_log['target_userid'])).'#edit-application';
                                                     $_NotificationAction = "<br><a class='system-change-action-link' href='".admin_dashboard_safe($_AdmissionReviewLink)."'><i class='fa fa-arrow-right'></i> Review Admission</a>";
+                                                }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'ONLINE_ADMISSION_HEADMASTER_APPROVED' && trim((string)$row_log['target_userid']) !== ''){
+                                                    $_AdmissionReviewLink = 'online-admission-admin.php?edit_application='.urlencode(trim((string)$row_log['target_userid'])).'#edit-application';
+                                                    $_NotificationAction = "<br><a class='system-change-action-link' href='".admin_dashboard_safe($_AdmissionReviewLink)."'><i class='fa fa-arrow-right'></i> Open Approved Admission</a>";
                                                 }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'ONLINE_ADMISSION_HELP_REQUEST'){
                                                     $_NotificationAction = "<br><a class='system-change-action-link' href='online-admission-admin.php#help-requests'><i class='fa fa-arrow-right'></i> Open Help Requests</a>";
                                                 }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'PORTAL_HELP_REQUEST'){

@@ -986,6 +986,61 @@ body.hm-page .card.total .student-batch-toggle__empty {
     line-height: 1.35;
 }
 
+.hm-bulk-approval-panel {
+    margin-bottom: 18px;
+    padding: 18px;
+    border: 1px solid rgba(15, 118, 110, 0.14);
+    border-radius: 22px;
+    background: linear-gradient(135deg, rgba(15, 118, 110, 0.07), rgba(14, 165, 233, 0.05));
+}
+
+.hm-bulk-selector {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.hm-bulk-selector__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 15px;
+    border: 1px solid var(--hm-line);
+    border-radius: 16px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.hm-bulk-selector__item:hover,
+.hm-bulk-selector__item:focus-within {
+    border-color: rgba(15, 118, 110, 0.35);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+}
+
+.hm-bulk-selector__item input {
+    margin: 4px 0 0;
+    accent-color: var(--hm-blue);
+}
+
+.hm-bulk-selector__content {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.hm-bulk-selector__content strong {
+    color: var(--hm-ink);
+    font-size: 0.96rem;
+    line-height: 1.4;
+}
+
+.hm-bulk-selector__content small {
+    color: var(--hm-muted);
+    line-height: 1.5;
+}
+
 .hm-approval-form {
     display: grid;
     gap: 14px;
@@ -1037,6 +1092,29 @@ body.hm-page .card.total .student-batch-toggle__empty {
     outline: none;
     border-color: var(--hm-blue);
     box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+}
+
+.hm-signature-ack {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 14px 16px;
+    border: 1px solid rgba(15, 118, 110, 0.16);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(15, 118, 110, 0.06), rgba(14, 165, 233, 0.05));
+}
+
+.hm-signature-ack input {
+    margin: 3px 0 0;
+    accent-color: var(--hm-blue);
+}
+
+.hm-signature-ack label {
+    margin: 0;
+    color: var(--hm-muted);
+    font-size: 0.9rem;
+    line-height: 1.55;
 }
 
 .hm-approval-form__actions {
@@ -1680,6 +1758,10 @@ body.hm-page .card.total .student-batch-toggle__empty {
 
     .hm-approval-card__summary,
     .hm-approval-form__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .hm-bulk-selector {
         grid-template-columns: 1fr;
     }
 

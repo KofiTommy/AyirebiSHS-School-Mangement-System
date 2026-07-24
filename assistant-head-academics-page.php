@@ -193,7 +193,11 @@ $yearSql = semester_registry_resolved_year_sql("tr");
 $releaseWhere = "(CAST($yearSql AS UNSIGNED) > 2026 OR (CAST($yearSql AS UNSIGNED) = 2026 AND tr.termname >= 2))";
 $approvalSummarySql = mysqli_query($con, "SELECT
         COUNT(*) AS total_scopes,
-        SUM(CASE WHEN ra.status='approved' THEN 1 ELSE 0 END) AS approved_scopes
+        SUM(CASE WHEN ra.status='approved'
+            AND COALESCE(ra.headapprovalstatus, '')='approved'
+            AND ra.headapproveddatetime IS NOT NULL
+            AND ra.headapproveddatetime<>'0000-00-00 00:00:00'
+            THEN 1 ELSE 0 END) AS approved_scopes
     FROM (
         SELECT DISTINCT tr.batchid, $yearSql AS academic_year, tr.termname, tr.class_entryid AS classid
         FROM tbltermregistry tr
@@ -203,8 +207,7 @@ $approvalSummarySql = mysqli_query($con, "SELECT
         ON ra.batchid=sc.batchid
        AND ra.academicyear=sc.academic_year
        AND ra.termname=sc.termname
-       AND ra.classid=sc.classid
-       AND ra.status='approved'");
+       AND ra.classid=sc.classid");
 $reportApprovalTotal = 0;
 $reportApprovedTotal = 0;
 if($approvalSummarySql && ($approvalRow = mysqli_fetch_array($approvalSummarySql, MYSQLI_ASSOC))){

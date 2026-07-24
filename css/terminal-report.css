@@ -337,6 +337,66 @@
     text-decoration: none;
 }
 
+.tr-signature-preview {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: minmax(180px, 260px) 1fr;
+    gap: 20px;
+    align-items: center;
+    padding: 20px 22px;
+    border: 1px solid rgba(18, 63, 112, 0.12);
+    border-radius: 18px;
+    background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%);
+}
+
+.tr-signature-preview__asset {
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px dashed rgba(18, 63, 112, 0.16);
+}
+
+.tr-signature-preview__asset img {
+    max-width: 100%;
+    max-height: 120px;
+    object-fit: contain;
+}
+
+.tr-signature-preview__placeholder {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #174b7e;
+    font-weight: 800;
+}
+
+.tr-signature-preview__label {
+    display: inline-block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #174b7e;
+}
+
+.tr-signature-preview__title {
+    margin: 0 0 8px;
+    color: #0f2f54;
+    font-size: 22px;
+    font-weight: 900;
+}
+
+.tr-signature-preview__line {
+    margin: 0 0 6px;
+    color: #27405e;
+    font-weight: 700;
+}
+
 #myBtn {
     border-radius: 999px;
     background: #123f70;
@@ -359,6 +419,10 @@
 
     .tr-hero-card {
         min-width: 0;
+    }
+
+    .tr-signature-preview {
+        grid-template-columns: 1fr;
     }
 
     .tr-filter-panel {

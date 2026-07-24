@@ -615,6 +615,92 @@ function matron_requisition_stage_note($row)
 }
 }
 
+if (!function_exists('matron_requisition_signature_signed_at')) {
+function matron_requisition_signature_signed_at($row)
+{
+    if (!is_array($row) || empty($row)) {
+        return '';
+    }
+
+    $status = strtolower(trim((string)(isset($row['status']) ? $row['status'] : '')));
+    if (!in_array($status, array('approved', 'issued'), true)) {
+        return '';
+    }
+
+    $headStatus = strtolower(trim((string)(isset($row['headdecisionstatus']) ? $row['headdecisionstatus'] : '')));
+    if ($headStatus !== '' && $headStatus !== 'approved') {
+        return '';
+    }
+
+    $headDecisionBy = trim((string)(isset($row['headdecisionby']) ? $row['headdecisionby'] : ''));
+    $headDecisionAt = trim((string)(isset($row['headdecisiondatetime']) ? $row['headdecisiondatetime'] : ''));
+    if ($headDecisionBy === '' || $headDecisionAt === '' || $headDecisionAt === '0000-00-00 00:00:00') {
+        return '';
+    }
+
+    return $headDecisionAt;
+}
+}
+
+if (!function_exists('matron_requisition_has_headmaster_signature')) {
+function matron_requisition_has_headmaster_signature($row)
+{
+    return matron_requisition_signature_signed_at($row) !== '';
+}
+}
+
+if (!function_exists('matron_requisition_signature_name')) {
+function matron_requisition_signature_name($row)
+{
+    if (!matron_requisition_has_headmaster_signature($row)) {
+        return '';
+    }
+
+    $displayName = trim((string)(isset($row['head_decision_by_name']) ? $row['head_decision_by_name'] : ''));
+    if ($displayName !== '') {
+        return $displayName;
+    }
+
+    return trim((string)(isset($row['headdecisionby']) ? $row['headdecisionby'] : ''));
+}
+}
+
+if (!function_exists('matron_requisition_signature_reference')) {
+function matron_requisition_signature_reference($row)
+{
+    if (!matron_requisition_has_headmaster_signature($row)) {
+        return '';
+    }
+
+    $requisitionId = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', trim((string)(isset($row['requisitionid']) ? $row['requisitionid'] : ''))));
+    $requisitionTail = $requisitionId !== '' ? substr($requisitionId, -6) : 'REQ';
+    $signedAt = matron_requisition_signature_signed_at($row);
+    $timestamp = strtotime($signedAt);
+    $timePart = $timestamp ? date('YmdHi', $timestamp) : date('YmdHi');
+    $signerId = trim((string)(isset($row['headdecisionby']) ? $row['headdecisionby'] : ''));
+    $hashSeed = $requisitionId . '|' . $signerId . '|' . $signedAt;
+    $hashPart = strtoupper(substr(sha1($hashSeed), 0, 8));
+
+    return 'HM-' . $timePart . '-' . $requisitionTail . '-' . $hashPart;
+}
+}
+
+if (!function_exists('matron_requisition_signature_summary')) {
+function matron_requisition_signature_summary($row)
+{
+    if (!matron_requisition_has_headmaster_signature($row)) {
+        return '';
+    }
+
+    $signerName = matron_requisition_signature_name($row);
+    if ($signerName === '') {
+        $signerName = 'Headmaster';
+    }
+
+    return 'Digitally signed by ' . $signerName . '.';
+}
+}
+
 if (!function_exists('matron_requisition_slot_label')) {
 function matron_requisition_slot_label($dayName, $mealTime)
 {
@@ -942,6 +1028,11 @@ function matron_fetch_requisition_rows($con, $filters = array())
             $row['is_headmaster_adjusted'] = matron_requisition_has_final_adjustment($row);
             $row['status_label'] = matron_requisition_status_label(isset($row['status']) ? $row['status'] : '');
             $row['stage_note'] = matron_requisition_stage_note($row);
+            $row['head_signature_signed_at'] = matron_requisition_signature_signed_at($row);
+            $row['has_head_signature'] = matron_requisition_has_headmaster_signature($row);
+            $row['head_signature_name'] = matron_requisition_signature_name($row);
+            $row['head_signature_reference'] = matron_requisition_signature_reference($row);
+            $row['head_signature_summary'] = matron_requisition_signature_summary($row);
 
             $row['storeitemid'] = $row['effective_storeitemid'];
             $row['itemname'] = $row['effective_itemname'];

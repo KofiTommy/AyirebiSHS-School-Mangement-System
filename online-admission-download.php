@@ -164,12 +164,20 @@ $pdf->detailRow("Admission Year", oa_pdf_value($postedStudent["admissionyear"]))
 $pdf->detailRow("Submitted On", oa_pdf_datetime($application["submittedat"]));
 $pdf->detailRow("Last Updated", oa_pdf_datetime($application["updatedat"]));
 $pdf->detailRow("Reviewed On", oa_pdf_datetime($application["revieweddatetime"]));
+$pdf->detailRow("Headmaster Approval", online_admission_application_is_headmaster_approved($application) ? "Digitally approved" : "Pending");
+if(online_admission_application_is_headmaster_approved($application)){
+    $pdf->detailRow("Approved By", oa_pdf_value(online_admission_headmaster_approval_name($application), "Headmaster"));
+    $pdf->detailRow("Approved On", oa_pdf_datetime(isset($application["headapproveddatetime"]) ? $application["headapproveddatetime"] : ""));
+    $pdf->detailRow("Approval Reference", oa_pdf_value(online_admission_headmaster_approval_reference($application)));
+}
 $pdf->detailRow("Verification / Resume Token", oa_pdf_value($application["verificationtoken"]));
 
 $pdf->sectionHeading("Student Details");
 $pdf->detailRow("BECE Index Number", oa_pdf_value($postedStudent["beceindexnumber"]));
 $pdf->detailRow("Date of Birth", oa_pdf_date($postedStudent["birthdate"]));
 $pdf->detailRow("Gender", oa_pdf_value($postedStudent["gender"]));
+$pdf->detailRow("Ghana Card Number", oa_pdf_value(isset($application["ghanacard"]) ? $application["ghanacard"] : "", "Not provided"));
+$pdf->detailRow("Disability Status", oa_pdf_value(isset($application["disabilitystatus"]) ? $application["disabilitystatus"] : "", "Not provided"));
 $pdf->detailRow("Programme", oa_pdf_value($postedStudent["offeredprogram"], "To be confirmed"));
 $pdf->detailRow("Class", oa_pdf_value($postedStudent["offeredclass"], "To be assigned"));
 $pdf->detailRow("Assigned House", oa_pdf_value($assignedHouse && trim((string)$assignedHouse["housename"]) !== "" ? $assignedHouse["housename"] : ""));
@@ -187,6 +195,7 @@ $pdf->sectionHeading("Parent / Guardian");
 $pdf->detailRow("Name", oa_pdf_value($application["guardianname"]));
 $pdf->detailRow("Relationship", oa_pdf_value($application["guardianrelationship"]));
 $pdf->detailRow("Contact Number", oa_pdf_value($application["guardiancontact"]));
+$pdf->detailRow("Profession", oa_pdf_value(isset($application["guardianprofession"]) ? $application["guardianprofession"] : "", "Not provided"));
 
 $pdf->sectionHeading("Additional Notes");
 $pdf->detailRow("Medical Notes", oa_pdf_value($application["medicalnotes"]));

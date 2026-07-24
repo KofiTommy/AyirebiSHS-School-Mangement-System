@@ -33,6 +33,18 @@ function hmpr_date($value)
 }
 }
 
+if (!function_exists('hmpr_datetime')) {
+function hmpr_datetime($value)
+{
+    $value = trim((string)$value);
+    if ($value === '' || $value === '0000-00-00 00:00:00') {
+        return '-';
+    }
+    $timestamp = strtotime($value);
+    return $timestamp ? date("d M Y, H:i", $timestamp) : $value;
+}
+}
+
 if (!function_exists('hmpr_logo_path')) {
 function hmpr_logo_path($rawLogo)
 {
@@ -47,6 +59,25 @@ function hmpr_logo_path($rawLogo)
     $directPath = __DIR__ . DIRECTORY_SEPARATOR . $rawLogo;
     if (file_exists($directPath)) {
         return $rawLogo;
+    }
+    return '';
+}
+}
+
+if (!function_exists('hmpr_head_signature_path')) {
+function hmpr_head_signature_path($rawFile = 'heads-signature.png')
+{
+    $rawFile = trim((string)$rawFile);
+    if ($rawFile === '') {
+        $rawFile = 'heads-signature.png';
+    }
+    $directPath = __DIR__ . DIRECTORY_SEPARATOR . $rawFile;
+    if (file_exists($directPath)) {
+        return str_replace(DIRECTORY_SEPARATOR, '/', $rawFile);
+    }
+    $imagePath = __DIR__ . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . $rawFile;
+    if (file_exists($imagePath)) {
+        return 'images/' . rawurlencode($rawFile);
     }
     return '';
 }
@@ -87,6 +118,7 @@ $schoolAddress = trim((string)(isset($_Address) ? $_Address : ''));
 $schoolLocation = trim((string)(isset($_Location) ? $_Location : ''));
 $schoolPhone = trim(implode(' / ', array_filter(array(trim((string)(isset($_Telephone1) ? $_Telephone1 : '')), trim((string)(isset($_Telephone2) ? $_Telephone2 : ''))))));
 $logoPath = hmpr_logo_path(isset($_Logo) ? $_Logo : '');
+$headSignaturePath = hmpr_head_signature_path('heads-signature.png');
 $printTitle = $printRequisitionId !== '' ? 'Requisition Printout' : 'Past Requisitions Report';
 ?>
 <!DOCTYPE html>
@@ -232,6 +264,82 @@ body {
     color: #9a3412;
     line-height: 1.6;
 }
+.print-signature {
+    margin-top: 18px;
+    padding: 18px 20px;
+    border-radius: 18px;
+    border: 1px solid #cfe4df;
+    background: linear-gradient(135deg, #f1fbf8, #f7fbff);
+}
+.print-signature__eyebrow {
+    display: inline-block;
+    margin-bottom: 10px;
+    color: #0f766e;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.print-signature__layout {
+    display: grid;
+    grid-template-columns: minmax(170px, 240px) 1fr;
+    gap: 16px;
+    align-items: center;
+}
+.print-signature__asset {
+    min-height: 108px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px dashed #c7d8e5;
+    background: rgba(255, 255, 255, 0.9);
+}
+.print-signature__asset img {
+    max-width: 100%;
+    max-height: 100px;
+    object-fit: contain;
+}
+.print-signature__placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 92px;
+    color: #64748b;
+    font-weight: 700;
+    text-align: center;
+}
+.print-signature__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.print-signature__grid div {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid #dbe7ef;
+}
+.print-signature__grid span {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.print-signature__grid strong {
+    display: block;
+    margin-top: 8px;
+    line-height: 1.5;
+    color: #112033;
+}
+.print-signature p {
+    margin: 12px 0 0;
+    color: #4b5563;
+    line-height: 1.6;
+}
 .print-empty {
     margin-top: 20px;
     padding: 18px;
@@ -262,6 +370,10 @@ body {
         grid-template-columns: 1fr;
     }
     .print-detail-grid {
+        grid-template-columns: 1fr;
+    }
+    .print-signature__layout,
+    .print-signature__grid {
         grid-template-columns: 1fr;
     }
 }
@@ -318,6 +430,43 @@ body {
         <?php if (!empty($row['is_headmaster_adjusted'])) { ?>
         <div class="print-note">The headmaster adjusted the final requisition details before approval.</div>
         <?php } ?>
+        <?php if (!empty($row['has_head_signature'])) { ?>
+        <div class="print-signature">
+            <span class="print-signature__eyebrow">Headmaster Digital Signature</span>
+            <div class="print-signature__layout">
+                <div class="print-signature__asset">
+                    <?php if ($headSignaturePath !== '') { ?>
+                    <img src="<?php echo hmpr_esc($headSignaturePath); ?>" alt="Headmaster signature">
+                    <?php } else { ?>
+                    <div class="print-signature__placeholder">Signature file not found</div>
+                    <?php } ?>
+                </div>
+                <div class="print-signature__grid">
+                    <div>
+                        <span>Role</span>
+                        <strong>Headmaster</strong>
+                    </div>
+                    <div>
+                        <span>Signature</span>
+                        <strong>Digital Signature</strong>
+                    </div>
+                    <div>
+                        <span>Signed By</span>
+                        <strong><?php echo hmpr_esc(trim((string)$row['head_signature_name']) !== '' ? $row['head_signature_name'] : 'Headmaster'); ?></strong>
+                    </div>
+                    <div>
+                        <span>Signed On</span>
+                        <strong><?php echo hmpr_esc(hmpr_datetime($row['head_signature_signed_at'])); ?></strong>
+                    </div>
+                    <div>
+                        <span>Approval Ref</span>
+                        <strong><?php echo hmpr_esc($row['head_signature_reference']); ?></strong>
+                    </div>
+                </div>
+            </div>
+            <p>This requisition was digitally signed during final headmaster approval and is ready for store action.</p>
+        </div>
+        <?php } ?>
         <?php } else { ?>
         <h2 class="print-section-title">Past Requisitions</h2>
         <table class="print-table">
@@ -348,7 +497,12 @@ body {
                         <small><?php echo hmpr_esc($row['stage_note']); ?></small>
                         <?php } ?>
                     </td>
-                    <td><?php echo hmpr_esc($row['status_label']); ?></td>
+                    <td>
+                        <?php echo hmpr_esc($row['status_label']); ?>
+                        <?php if (!empty($row['has_head_signature'])) { ?>
+                        <small>Signed ref: <?php echo hmpr_esc($row['head_signature_reference']); ?></small>
+                        <?php } ?>
+                    </td>
                 </tr>
                 <?php } ?>
             </tbody>

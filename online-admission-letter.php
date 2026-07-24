@@ -39,10 +39,13 @@ if($adminBranchId !== "" && (string)$application["branchid"] !== $adminBranchId)
 if(!online_admission_application_is_submitted($application)){
     oa_letter_admin_redirect("Submit the student's online admission form before printing the admission letter.");
 }
+if(!online_admission_application_is_headmaster_approved($application)){
+    oa_letter_admin_redirect("Headmaster approval is required before printing the admission letter.");
+}
 
-$postedStudent = online_admission_get_posted_student_by_id($con, (string)$application["branchid"], (string)$application["postingid"]);
-if(!$postedStudent){
-    oa_letter_admin_redirect("The posted student record linked to this admission form is no longer available.");
+$postedStudent = null;
+if(trim((string)$application["postingid"]) !== ""){
+    $postedStudent = online_admission_get_posted_student_by_id($con, (string)$application["branchid"], (string)$application["postingid"]);
 }
 
 $school = array(
@@ -85,18 +88,22 @@ if($schoolRes && $schoolRow = mysqli_fetch_array($schoolRes, MYSQLI_ASSOC)){
 }
 
 $candidateName = trim(online_admission_candidate_name($application));
-if($candidateName === ""){
+if($candidateName === "" && is_array($postedStudent)){
     $candidateName = trim((string)$postedStudent["firstname"]." ".(string)$postedStudent["othernames"]." ".(string)$postedStudent["surname"]);
 }
-$programme = trim((string)$postedStudent["offeredprogram"]) !== "" ? trim((string)$postedStudent["offeredprogram"]) : "To be confirmed";
-$className = trim((string)$postedStudent["offeredclass"]) !== "" ? trim((string)$postedStudent["offeredclass"]) : "To be assigned";
-$residence = trim((string)$application["residencetype"]) !== "" ? trim((string)$application["residencetype"]) : trim((string)$postedStudent["residentialstatus"]);
+$programme = (is_array($postedStudent) && trim((string)$postedStudent["offeredprogram"]) !== "") ? trim((string)$postedStudent["offeredprogram"]) : "To be confirmed";
+$programme = online_admission_programme_full_name($programme);
+$className = (is_array($postedStudent) && trim((string)$postedStudent["offeredclass"]) !== "") ? trim((string)$postedStudent["offeredclass"]) : "To be assigned";
+$residence = trim((string)$application["residencetype"]) !== "" ? trim((string)$application["residencetype"]) : (is_array($postedStudent) ? trim((string)$postedStudent["residentialstatus"]) : "");
 if($residence === ""){
     $residence = "To be confirmed";
 }
 $assignedHouse = online_admission_application_assigned_house($con, $application);
 $assignedHouseName = ($assignedHouse && trim((string)$assignedHouse["housename"]) !== "") ? trim((string)$assignedHouse["housename"]) : "To be announced";
-$admissionYear = trim((string)$postedStudent["admissionyear"]);
+$admissionYear = trim((string)$application["admissionyear"]);
+if($admissionYear === "" && is_array($postedStudent)){
+    $admissionYear = trim((string)$postedStudent["admissionyear"]);
+}
 $token = trim((string)$application["verificationtoken"]);
 $submittedAt = trim((string)$application["submittedat"]);
 $submittedText = $submittedAt !== "" ? date("d M Y", strtotime($submittedAt)) : date("d M Y");
@@ -127,6 +134,71 @@ function oa_letter_body_text($pdf, $text, $fontFamily = "Arial", $fontStyle = ""
     $pdf->SetTextColor((int)$textColor[0], (int)$textColor[1], (int)$textColor[2]);
     $pdf->MultiCell(0, $lineHeight, oa_letter_pdf_text($text), 0, "L");
     $pdf->Ln(1);
+}
+
+function oa_letter_signature_notice($application, $roleLabel = "Headmaster"){
+    $roleLabel = trim((string)$roleLabel);
+    if($roleLabel === ""){
+        $roleLabel = "Authorized Signatory";
+    }
+    if(online_admission_application_is_headmaster_approved($application)){
+        $approvedName = online_admission_headmaster_approval_name($application);
+        if($approvedName === ""){
+            $approvedName = $roleLabel;
+        }
+        $approvedAt = trim((string)(isset($application["headapproveddatetime"]) ? $application["headapproveddatetime"] : ""));
+        $approvedAtText = $approvedAt !== "" ? date("d M Y, g:i a", strtotime($approvedAt)) : "Recorded";
+        return array(
+            "Approved by: ".$approvedName,
+            "Signed on: ".$approvedAtText,
+            "Ref: ".online_admission_headmaster_approval_reference($application)
+        );
+    }
+    return array(
+        $roleLabel." Signature: ____________________",
+        "Status: Pending authorized signature",
+        "To be completed by the school office."
+    );
+}
+
+function oa_letter_signature_asset_path($fileName = "heads-signature.png"){
+    $fileName = trim((string)$fileName);
+    if($fileName === ""){
+        $fileName = "heads-signature.png";
+    }
+    foreach(array(
+        __DIR__.DIRECTORY_SEPARATOR.$fileName,
+        __DIR__.DIRECTORY_SEPARATOR."images".DIRECTORY_SEPARATOR.$fileName
+    ) as $candidate){
+        if(file_exists($candidate)){
+            return $candidate;
+        }
+    }
+    return "";
+}
+
+function oa_letter_signature_context($application, $roleLabel = "Headmaster"){
+    $roleLabel = trim((string)$roleLabel);
+    if($roleLabel === ""){
+        $roleLabel = "Authorized Signatory";
+    }
+    $approved = online_admission_application_is_headmaster_approved($application);
+    $approvedName = $approved ? online_admission_headmaster_approval_name($application) : "";
+    if($approvedName === ""){
+        $approvedName = $roleLabel;
+    }
+    $approvedAt = trim((string)(isset($application["headapproveddatetime"]) ? $application["headapproveddatetime"] : ""));
+    $approvedAtText = ($approved && $approvedAt !== "") ? date("d M Y, g:i a", strtotime($approvedAt)) : "";
+    $reference = $approved ? online_admission_headmaster_approval_reference($application) : "";
+    return array(
+        "approved" => $approved,
+        "role_label" => $roleLabel,
+        "digital_label" => "Digital Signature",
+        "approved_name" => $approvedName,
+        "approved_at_text" => $approvedAtText,
+        "reference" => $reference,
+        "signature_path" => $approved ? oa_letter_signature_asset_path("heads-signature.png") : ""
+    );
 }
 
 function oa_letter_find_template_pdf(){
@@ -166,9 +238,13 @@ function oa_letter_gender_short($application, $postedStudent = null){
 
 $academicYearLabel = oa_letter_academic_year_label($admissionYear);
 $genderShort = oa_letter_gender_short($application, $postedStudent);
-$beceIndexNumber = trim((string)$postedStudent["beceindexnumber"]);
+$beceIndexNumber = trim((string)$application["beceindexnumber"]);
+if($beceIndexNumber === "" && is_array($postedStudent)){
+    $beceIndexNumber = trim((string)$postedStudent["beceindexnumber"]);
+}
+$beceIndexText = $beceIndexNumber !== "" ? $beceIndexNumber : "Not available";
 $ourReferenceNumber = "ADM/".$academicYearLabel;
-$yourReferenceNumber = $token !== "" ? $token : $beceIndexNumber;
+$yourReferenceNumber = $token !== "" ? $token : $beceIndexText;
 $letterDateLong = date("d F Y");
 $schoolNameForLetter = trim($school["name"]) !== "" ? trim($school["name"]) : "the school";
 $programmeText = (trim((string)$programme) !== "" && strtolower(trim((string)$programme)) !== "to be confirmed")
@@ -185,6 +261,7 @@ $classSentence = (trim((string)$className) !== "" && strtolower(trim((string)$cl
     : "";
 $templatePdfPath = oa_letter_find_template_pdf();
 $usedTemplateLetter = false;
+$signatureContext = oa_letter_signature_context($application, "Headmaster");
 
 if($templatePdfPath !== "" && class_exists("\\setasign\\Fpdi\\Fpdi")){
     try{
@@ -229,7 +306,7 @@ if($templatePdfPath !== "" && class_exists("\\setasign\\Fpdi\\Fpdi")){
             $whiteBlock(18, 170, 172, 16);
             $whiteBlock(18, 188, 172, 18);
             $whiteBlock(18, 206, 125, 13);
-            $whiteBlock(136, 233, 50, 22);
+            $whiteBlock(136, 224, 50, 31);
 
             $pdf->SetTextColor(38, 38, 38);
             $pdf->SetFont("Times", "", 8.6);
@@ -251,7 +328,7 @@ if($templatePdfPath !== "" && class_exists("\\setasign\\Fpdi\\Fpdi")){
             $pdf->Cell($X(20), $Y(5), oa_letter_pdf_text("M/F: ".$genderShort), 0, 0, "L");
 
             $pdf->SetXY($X(18), $Y(111));
-            $pdf->Cell($X(118), $Y(5), oa_letter_pdf_text("INDEX NUMBER: ".$beceIndexNumber), 0, 0, "L");
+            $pdf->Cell($X(118), $Y(5), oa_letter_pdf_text("INDEX NUMBER: ".$beceIndexText), 0, 0, "L");
 
             $pdf->SetFont("Times", "", 10);
             $pdf->SetXY($X(18), $Y(125));
@@ -277,15 +354,27 @@ if($templatePdfPath !== "" && class_exists("\\setasign\\Fpdi\\Fpdi")){
             $pdf->SetX($X(18));
             $pdf->Cell($X(120), $Y(5), oa_letter_pdf_text($houseValueLine), 0, 1, "L");
 
-            $pdf->SetFont("Times", "", 10);
-            $pdf->SetXY($X(140), $Y(235));
-            $pdf->Cell($X(34), $Y(5), oa_letter_pdf_text("Signed"), 0, 1, "L");
-            $pdf->SetFont("Times", "B", 9.5);
+            $pdf->SetDrawColor(120, 120, 120);
+            if($signatureContext["signature_path"] !== ""){
+                $pdf->Image($signatureContext["signature_path"], $X(142), $Y(224), $X(18));
+            }
+            $pdf->Line($X(140), $Y(251), $X(184), $Y(251));
+            $pdf->SetFont("Times", "B", 9.3);
+            $pdf->SetXY($X(140), $Y(236));
+            $pdf->MultiCell($X(44), $Y(4.1), oa_letter_pdf_text($signatureContext["role_label"]), 0, "L");
+            $pdf->SetFont("Times", "", 8.1);
             $pdf->SetX($X(140));
-            $pdf->Cell($X(44), $Y(5), oa_letter_pdf_text("Emmanuel O-Frimpong Adjorlolo"), 0, 1, "L");
-            $pdf->SetFont("Times", "", 10);
+            $pdf->MultiCell($X(44), $Y(3.6), oa_letter_pdf_text($signatureContext["digital_label"]), 0, "L");
             $pdf->SetX($X(140));
-            $pdf->Cell($X(40), $Y(5), oa_letter_pdf_text("HEADMASTER"), 0, 1, "L");
+            $pdf->MultiCell($X(44), $Y(3.6), oa_letter_pdf_text($signatureContext["approved_name"]), 0, "L");
+            if($signatureContext["approved_at_text"] !== ""){
+                $pdf->SetX($X(140));
+                $pdf->MultiCell($X(44), $Y(3.5), oa_letter_pdf_text("Time: ".$signatureContext["approved_at_text"]), 0, "L");
+            }
+            if($signatureContext["reference"] !== ""){
+                $pdf->SetX($X(140));
+                $pdf->MultiCell($X(44), $Y(3.5), oa_letter_pdf_text("Ref: ".$signatureContext["reference"]), 0, "L");
+            }
 
             $usedTemplateLetter = true;
         }
@@ -341,7 +430,7 @@ if(!$usedTemplateLetter){
     $pdf->SetFont('Arial', 'B', 12);
     $pdf->Cell(0, 7, oa_letter_pdf_text($candidateName), 0, 1, 'L');
     $pdf->SetFont('Arial', '', 11);
-    $pdf->Cell(0, 7, oa_letter_pdf_text("BECE Index Number: ".$beceIndexNumber), 0, 1, 'L');
+    $pdf->Cell(0, 7, oa_letter_pdf_text("BECE Index Number: ".$beceIndexText), 0, 1, 'L');
     $pdf->Cell(0, 7, oa_letter_pdf_text("Admission Year: ".($admissionYear !== "" ? $admissionYear : "Current Year")), 0, 1, 'L');
 
     $pdf->Ln(6);
@@ -381,6 +470,37 @@ if(!$usedTemplateLetter){
     oa_letter_body_text($pdf, "We look forward to welcoming you. For support, contact the school using the details on the portal or the help options provided on the admission page.");
 
     $pdf->Ln(10);
+    $pdf->SetFillColor(240, 246, 251);
+    $pdf->SetDrawColor(213, 224, 234);
+    $pdf->SetTextColor(23, 49, 75);
+    $pdf->SetFont('Arial', 'B', 11);
+    $pdf->Cell(0, 9, oa_letter_pdf_text("Headmaster Authorization"), 1, 1, 'L', true);
+    $signatureTopY = $pdf->GetY() + 2;
+    if($signatureContext["signature_path"] !== ""){
+        $pdf->Image($signatureContext["signature_path"], 20, $signatureTopY, 28);
+    }
+    $pdf->SetXY(56, $signatureTopY + 1);
+    $pdf->SetFont('Arial', 'B', 11);
+    $pdf->SetTextColor(23, 49, 75);
+    $pdf->Cell(0, 6, oa_letter_pdf_text($signatureContext["role_label"]), 0, 1, 'L');
+    $pdf->SetX(56);
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->SetTextColor(45, 58, 74);
+    $pdf->Cell(0, 6, oa_letter_pdf_text($signatureContext["digital_label"]), 0, 1, 'L');
+    $pdf->SetX(56);
+    $pdf->Cell(0, 6, oa_letter_pdf_text($signatureContext["approved_name"]), 0, 1, 'L');
+    if($signatureContext["approved_at_text"] !== ""){
+        $pdf->SetX(56);
+        $pdf->Cell(0, 6, oa_letter_pdf_text("Time: ".$signatureContext["approved_at_text"]), 0, 1, 'L');
+    }
+    if($signatureContext["reference"] !== ""){
+        $pdf->SetX(56);
+        $pdf->Cell(0, 6, oa_letter_pdf_text("Ref: ".$signatureContext["reference"]), 0, 1, 'L');
+    }
+    $pdf->Ln(2);
+    $pdf->Line(56, $pdf->GetY(), 120, $pdf->GetY());
+
+    $pdf->Ln(6);
     $pdf->SetFont('Arial', 'B', 11);
     $pdf->Cell(0, 7, oa_letter_pdf_text("Admissions Office"), 0, 1, 'L');
     $pdf->SetFont('Arial', '', 10);
