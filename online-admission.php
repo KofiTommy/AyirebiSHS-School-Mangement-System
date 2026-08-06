@@ -1021,7 +1021,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                 <?php }elseif(!$paymentAllowed){ ?>
                 <div class="oa-payment-state oa-payment-state--neutral">Payment is not open for this record yet.</div>
                 <?php }else{ ?>
-                <div class="oa-payment-state oa-payment-state--info">Pay on Paystack first. Your verification token will be issued after payment, then you can sign in again.</div>
+                <div class="oa-payment-state oa-payment-state--info">Enter the mobile number you will use for payment. Your verification token and admission confirmation will be sent to that number.</div>
                 <?php if($latestPayment && trim((string)$latestPayment["reference"]) !== ""){ ?>
                 <div class="oa-payment-meta">
                     <span><strong>Reference:</strong> <?php echo oa_esc($latestPayment["reference"]); ?></span>
@@ -1029,9 +1029,21 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                 </div>
                 <?php } ?>
                 <div class="oa-form-actions oa-form-actions--stacked">
-                    <a href="<?php echo oa_esc($paymentContinueUrl); ?>" class="oa-submit"><i class="fa fa-credit-card"></i> <?php echo ($latestPayment && strtolower(trim((string)$latestPayment["status"])) === "initialized") ? "Continue Paystack Checkout" : "Pay with Paystack"; ?></a>
-                    <?php if($latestPayment && strtolower(trim((string)$latestPayment["status"])) !== "success"){ ?>
-                    <a href="online-admission-paystack-init.php" class="oa-secondary"><i class="fa fa-refresh"></i> Start Fresh Payment</a>
+                    <?php if($latestPayment && strtolower(trim((string)$latestPayment["status"])) === "initialized"){ ?>
+                    <a href="<?php echo oa_esc($paymentContinueUrl); ?>" class="oa-submit"><i class="fa fa-credit-card"></i> Continue Paystack Checkout</a>
+                    <form method="post" action="online-admission-paystack-init.php" class="oa-payment-phone-form">
+                        <label for="payment_phone">Use a different payment number</label>
+                        <input type="tel" id="payment_phone" name="payment_phone" value="<?php echo oa_esc($latestPayment["mobile"]); ?>" placeholder="Example: 0241234567" autocomplete="tel" inputmode="tel" maxlength="30" required>
+                        <small>Starting fresh creates a new Paystack checkout. The previous unfinished checkout will not be used.</small>
+                        <button type="submit" class="oa-secondary"><i class="fa fa-refresh"></i> Start Fresh Payment</button>
+                    </form>
+                    <?php }else{ ?>
+                    <form method="post" action="online-admission-paystack-init.php" class="oa-payment-phone-form">
+                        <label for="payment_phone">Mobile number for payment SMS</label>
+                        <input type="tel" id="payment_phone" name="payment_phone" value="<?php echo oa_esc($latestPayment && trim((string)$latestPayment["mobile"]) !== "" ? $latestPayment["mobile"] : $postedStudent["mobile"]); ?>" placeholder="Example: 0241234567" autocomplete="tel" inputmode="tel" maxlength="30" required>
+                        <small>This number receives the payment token and the successful-registration confirmation.</small>
+                        <button type="submit" class="oa-submit"><i class="fa fa-credit-card"></i> Pay with Paystack</button>
+                    </form>
                     <?php } ?>
                 </div>
                 <?php } ?>

@@ -81,6 +81,11 @@ if($amount <= 0){
     admission_payment_redirect("warning", "The school has not set the admission fee amount yet.");
 }
 
+$paymentPhone = online_admission_normalize_sms_phone(isset($_POST["payment_phone"]) ? $_POST["payment_phone"] : "");
+if($paymentPhone === ""){
+    admission_payment_redirect("warning", "Enter the Ghana mobile number that will receive your payment token and admission confirmation SMS.");
+}
+
 $reference = online_admission_payment_reference();
 $studentName = trim($postedStudent["firstname"]." ".$postedStudent["othernames"]." ".$postedStudent["surname"]);
 $continueUrl = online_admission_app_url("online-admission.php");
@@ -97,7 +102,7 @@ $payload = array(
         "postingid" => (string)$postedStudent["postingid"],
         "beceindexnumber" => (string)$postedStudent["beceindexnumber"],
         "admissionyear" => (string)$postedStudent["admissionyear"],
-        "mobile" => (string)$postedStudent["mobile"],
+        "mobile" => $paymentPhone,
         "cancel_action" => $continueUrl."?payment_cancel=1",
         "custom_fields" => array(
             array(
@@ -141,7 +146,7 @@ $saved = online_admission_create_payment_record($con, array(
     "amount" => $amount,
     "currency" => strtoupper(trim((string)$paymentSetting["currency"])) !== "" ? strtoupper(trim((string)$paymentSetting["currency"])) : "GHS",
     "email" => online_admission_payment_customer_email($paymentProfile),
-    "mobile" => (string)$postedStudent["mobile"],
+    "mobile" => $paymentPhone,
     "status" => "initialized",
     "gatewayresponse" => isset($response["message"]) ? (string)$response["message"] : "Initialized",
     "rawresponse" => isset($response["_raw"]) ? (string)$response["_raw"] : ""

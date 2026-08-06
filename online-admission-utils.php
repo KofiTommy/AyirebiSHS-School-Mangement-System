@@ -3391,6 +3391,7 @@ function online_admission_send_payment_token_sms($con, $application, $postedStud
     }
     $phone = "";
     foreach(array(
+        isset($payment["mobile"]) ? $payment["mobile"] : "",
         isset($application["mobile"]) ? $application["mobile"] : "",
         is_array($postedStudent) && isset($postedStudent["mobile"]) ? $postedStudent["mobile"] : ""
     ) as $candidatePhone){
@@ -3428,9 +3429,22 @@ function online_admission_send_guardian_submission_sms($con, $application, $scho
         $result["status"] = trim((string)(isset($application["guardiansmsstatus"]) ? $application["guardiansmsstatus"] : "")) !== "" ? trim((string)$application["guardiansmsstatus"]) : "ALREADY_SENT";
         return $result;
     }
-    $phone = online_admission_normalize_sms_phone(isset($application["guardiancontact"]) ? $application["guardiancontact"] : "");
+    // The payment notification number is captured immediately before Paystack
+    // checkout and is the primary number for the final admission confirmation.
+    $successfulPayment = online_admission_get_successful_payment_by_application($con, $application["applicationid"]);
+    $phone = "";
+    foreach(array(
+        is_array($successfulPayment) && isset($successfulPayment["mobile"]) ? $successfulPayment["mobile"] : "",
+        isset($application["mobile"]) ? $application["mobile"] : "",
+        isset($application["guardiancontact"]) ? $application["guardiancontact"] : ""
+    ) as $candidatePhone){
+        $phone = online_admission_normalize_sms_phone($candidatePhone);
+        if($phone !== ""){
+            break;
+        }
+    }
     if($phone === ""){
-        $result["status"] = "NO_GUARDIAN_PHONE";
+        $result["status"] = "NO_CONFIRMATION_PHONE";
         return $result;
     }
     $studentName = online_admission_candidate_name($application);

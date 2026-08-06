@@ -481,6 +481,46 @@ body.online-admission-page {
     transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
+.oa-payment-phone-form {
+    width: 100%;
+    display: grid;
+    gap: 9px;
+}
+
+.oa-payment-phone-form label {
+    color: #30475e;
+    font-weight: 700;
+}
+
+.oa-payment-phone-form small {
+    color: #688094;
+    line-height: 1.45;
+}
+
+/* Mobile browsers render dropdown menus using native controls. Explicit light
+   colours prevent selected labels/options from inheriting an unreadable theme. */
+.online-admission-page select {
+    color: #17314b !important;
+    background-color: #ffffff !important;
+    color-scheme: light;
+    -webkit-text-fill-color: #17314b;
+    opacity: 1;
+    font-size: 16px;
+}
+
+.online-admission-page select option {
+    color: #17314b !important;
+    background-color: #ffffff !important;
+    -webkit-text-fill-color: #17314b;
+    opacity: 1;
+}
+
+.online-admission-page select option:checked {
+    color: #ffffff !important;
+    background-color: #1f6f80 !important;
+    -webkit-text-fill-color: #ffffff;
+}
+
 .online-admission-page textarea {
     min-height: 116px;
     resize: vertical;
