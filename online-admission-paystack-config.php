@@ -1,6 +1,8 @@
 <?php
 return array(
-    "public_key" => "pk_test_9165b2a4070e82f1fac70f891886a55d50b3aefc",
-    "secret_key" => "sk_test_ff7189cd4377381c72f558d81f3dc93e20de68ce",
+    // Do not put live keys in this tracked file. Use environment variables or
+    // online-admission-paystack-config.local.php (which is git-ignored).
+    "public_key" => "",
+    "secret_key" => "",
     "callback_path" => "online-admission-paystack-callback.php"
 );

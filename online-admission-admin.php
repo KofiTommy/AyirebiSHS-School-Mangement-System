@@ -2756,10 +2756,11 @@ if($printAction === "house_students" && $selectedHouseId !== ""){
                 <p class="aa-copy">Control whether students pay online and set the fee for the active cycle.</p>
                 <div class="aa-payment-config-meta">
                     <span class="<?php echo $paystackReady ? "aa-status aa-status--success" : "aa-status aa-status--warning"; ?>"><?php echo $paystackReady ? "Paystack Ready" : "Keys Missing"; ?></span>
+                    <?php if($paystackReady){ ?><span class="<?php echo online_admission_paystack_is_live_mode($paystackConfig) ? "aa-status aa-status--warning" : "aa-status aa-status--neutral"; ?>"><?php echo online_admission_paystack_is_live_mode($paystackConfig) ? "LIVE MODE" : "Test mode"; ?></span><?php } ?>
                     <span class="aa-status aa-status--neutral">Verified posting unlock</span>
                 </div>
                 <?php if(!$paystackReady){ ?>
-                <div class="aa-payment-warning">Add your Paystack test keys in <code>online-admission-paystack-config.php</code> or server environment variables before enabling sandbox payment.</div>
+                <div class="aa-payment-warning">Add matching Paystack keys through server environment variables or <code>online-admission-paystack-config.local.php</code>. Do not put live keys in the tracked configuration file.</div>
                 <?php } ?>
                 <form method="post" action="online-admission-admin.php#payment-settings" class="aa-payment-form">
                     <input type="hidden" name="payablestatus" value="verified">

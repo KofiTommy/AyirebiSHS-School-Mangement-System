@@ -13,6 +13,79 @@ function oa_alert($type, $message){
     elseif($type === "warning"){ $class = "oa-alert oa-alert--warning"; }
     return "<div class=\"$class\">".oa_esc($message)."</div>";
 }
+function oa_csrf_token(){
+    if(!isset($_SESSION["ONLINE_ADMISSION_CSRF"]) || trim((string)$_SESSION["ONLINE_ADMISSION_CSRF"]) === ""){
+        $_SESSION["ONLINE_ADMISSION_CSRF"] = bin2hex(random_bytes(32));
+    }
+    return (string)$_SESSION["ONLINE_ADMISSION_CSRF"];
+}
+function oa_csrf_input(){
+    return '<input type="hidden" name="oa_csrf_token" value="'.oa_esc(oa_csrf_token()).'">';
+}
+function oa_csrf_is_valid_post(){
+    $posted = isset($_POST["oa_csrf_token"]) ? trim((string)$_POST["oa_csrf_token"]) : "";
+    $sessionToken = isset($_SESSION["ONLINE_ADMISSION_CSRF"]) ? trim((string)$_SESSION["ONLINE_ADMISSION_CSRF"]) : "";
+    return $posted !== "" && $sessionToken !== "" && hash_equals($sessionToken, $posted);
+}
+function oa_text_limit($value, $maxLength){
+    $value = trim((string)$value);
+    if($maxLength > 0 && function_exists('mb_substr')){
+        return mb_substr($value, 0, $maxLength);
+    }
+    return $maxLength > 0 ? substr($value, 0, $maxLength) : $value;
+}
+function oa_text_length($value){
+    return function_exists('mb_strlen') ? mb_strlen((string)$value) : strlen((string)$value);
+}
+function oa_require_max_length($value, $maxLength, $label, &$errors){
+    if(oa_text_length($value) > (int)$maxLength){
+        $errors[] = $label." must be ".number_format((int)$maxLength)." characters or fewer.";
+    }
+}
+function oa_add_field_error(&$fieldErrors, $field, $message){
+    $field = trim((string)$field);
+    $message = trim((string)$message);
+    if($field === "" || $message === ""){
+        return;
+    }
+    if(!isset($fieldErrors[$field]) || !is_array($fieldErrors[$field])){
+        $fieldErrors[$field] = array();
+    }
+    if(!in_array($message, $fieldErrors[$field], true)){
+        $fieldErrors[$field][] = $message;
+    }
+}
+function oa_field_has_error($fieldErrors, $field){
+    return isset($fieldErrors[$field]) && is_array($fieldErrors[$field]) && !empty($fieldErrors[$field]);
+}
+function oa_field_error_text($fieldErrors, $field){
+    return oa_field_has_error($fieldErrors, $field) ? (string)$fieldErrors[$field][0] : "";
+}
+function oa_invalid_attr($fieldErrors, $field, $describedBy = ""){
+    $describedByIds = array();
+    $describedBy = trim((string)$describedBy);
+    if($describedBy !== ""){
+        $describedByIds[] = $describedBy;
+    }
+    if(oa_field_has_error($fieldErrors, $field)){
+        $describedByIds[] = $field."_error";
+    }
+    $attr = "";
+    if(!empty($describedByIds)){
+        $attr .= ' aria-describedby="'.oa_esc(implode(" ", $describedByIds)).'"';
+    }
+    if(oa_field_has_error($fieldErrors, $field)){
+        $attr .= ' aria-invalid="true"';
+    }
+    return $attr;
+}
+function oa_field_error_html($fieldErrors, $field){
+    $message = oa_field_error_text($fieldErrors, $field);
+    if($message === ""){
+        return "";
+    }
+    return '<small class="oa-field-error" id="'.oa_esc($field.'_error').'" aria-live="polite">'.oa_esc($message).'</small>';
+}
 function oa_status_class($status){
     $status = strtolower(trim((string)$status));
     if($status === "reviewed"){ return "oa-status oa-status--success"; }
@@ -20,18 +93,27 @@ function oa_status_class($status){
     if($status === "submitted"){ return "oa-status oa-status--info"; }
     return "oa-status oa-status--neutral";
 }
-function oa_status_summary($status){
-    $status = strtolower(trim((string)$status));
-    if($status === "reviewed"){
-        return "Reviewed by the school. Editing is now closed.";
+function oa_public_submission_status_label($application){
+    return online_admission_application_is_submitted($application) ? "Submitted" : "Not Submitted";
+}
+function oa_public_submission_status_class($application){
+    return online_admission_application_is_submitted($application) ? "oa-status oa-status--success" : "oa-status oa-status--danger";
+}
+function oa_status_summary($application){
+    if(!is_array($application) || empty($application)){
+        return "You have not submitted your form yet.";
     }
+    $status = oa_application_status($application);
     if($status === "needs_attention"){
-        return "Update the form and submit again.";
+        return "The school asked you to update the form and submit it again.";
     }
-    if($status === "submitted"){
-        return "Submitted successfully. Wait for the school to review it.";
+    if($status === "reviewed"){
+        return "Your submitted form has been checked by the school.";
     }
-    return "Draft not submitted yet.";
+    if(online_admission_application_is_submitted($application)){
+        return "Your form has been submitted successfully and received by the school.";
+    }
+    return "You have not submitted your form yet.";
 }
 function oa_application_status($application){
     if(!is_array($application) || empty($application)){
@@ -148,6 +230,15 @@ if($branchId !== "" && !$portalOpen){
     oa_clear_access_session();
 }
 
+$verifyFieldErrors = array();
+$accessFieldErrors = array();
+$helpFieldErrors = array();
+$formFieldErrors = array();
+$verifyFormAlert = "";
+$accessFormAlert = "";
+$helpFormAlert = "";
+$admissionFormAlert = "";
+
 $verifyForm = array(
     "beceindexnumber" => isset($_POST["beceindexnumber"]) ? trim((string)$_POST["beceindexnumber"]) : "",
     "birthdate" => isset($_POST["birthdate"]) ? trim((string)$_POST["birthdate"]) : "",
@@ -161,42 +252,57 @@ $accessForm = array(
 $resumeRequested = isset($_GET["resume_admission"]) || isset($_POST["continue_admission"]);
 
 if(isset($_POST["verify_posting"]) && $branchId !== ""){
-    if(!$portalOpen){
+    if(!oa_csrf_is_valid_post()){
+        $flashMessage = oa_alert("error", "Your session expired. Please refresh the page and try again.");
+    }elseif(!$portalOpen){
         $flashMessage = oa_alert("warning", "Online admission is currently closed.");
     }else{
-    $beceIndex = online_admission_normalize_bece(isset($_POST["beceindexnumber"]) ? $_POST["beceindexnumber"] : "");
-    $birthdate = online_admission_normalize_date(isset($_POST["birthdate"]) ? $_POST["birthdate"] : "");
-    $admissionYear = trim((string)(isset($_POST["admissionyear"]) ? $_POST["admissionyear"] : date("Y")));
+        $beceIndex = online_admission_normalize_bece(isset($_POST["beceindexnumber"]) ? $_POST["beceindexnumber"] : "");
+        $birthdateInput = trim((string)(isset($_POST["birthdate"]) ? $_POST["birthdate"] : ""));
+        $birthdate = online_admission_normalize_date($birthdateInput);
+        $admissionYear = trim((string)(isset($_POST["admissionyear"]) ? $_POST["admissionyear"] : date("Y")));
 
-    if($beceIndex === "" || $birthdate === false || $birthdate === "" || $admissionYear === ""){
-        $flashMessage = oa_alert("warning", "Enter your BECE index number, date of birth, and admission year to continue.");
-    }else{
-        $postedStudent = online_admission_find_posted_student($con, $branchId, $beceIndex, $birthdate, $admissionYear);
-        if($postedStudent){
-            $application = online_admission_ensure_application_for_posting($con, $postedStudent);
-            if($application){
-                $successfulPayment = online_admission_get_successful_payment_by_application($con, $application["applicationid"]);
-                if($paymentEnabled && online_admission_payment_is_paid($successfulPayment)){
-                    $application = online_admission_ensure_application_token($con, $application);
-                    oa_clear_access_session();
-                    $_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"] = "1";
-                    $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Payment already confirmed. Continue Admission is now available. Use token ".trim((string)$application["verificationtoken"])." to sign in.");
-                }else{
-                    oa_set_public_session($postedStudent, $application);
-                    if($paymentEnabled){
-                        $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Continue to payment. Your verification token will be issued after payment is confirmed.");
-                    }else{
-                        $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Your form is now open.");
-                    }
-                }
-                header("location:online-admission.php");
-                exit();
-            }
-            $flashMessage = oa_alert("error", "Your posting was verified, but the admission record could not be prepared right now. Please try again.");
-        }else{
-            $flashMessage = oa_alert("warning", "We could not verify your placement with those details. Check your BECE index number, date of birth, and admission year, or contact the school for support.");
+        if($beceIndex === ""){
+            oa_add_field_error($verifyFieldErrors, "beceindexnumber", "Enter your BECE index number.");
         }
-    }
+        if($birthdateInput === ""){
+            oa_add_field_error($verifyFieldErrors, "birthdate", "Enter your date of birth.");
+        }elseif($birthdate === false || $birthdate === ""){
+            oa_add_field_error($verifyFieldErrors, "birthdate", "Enter a valid date of birth.");
+        }
+        if($admissionYear === ""){
+            oa_add_field_error($verifyFieldErrors, "admissionyear", "Enter your admission year.");
+        }
+
+        if(!empty($verifyFieldErrors)){
+            $verifyFormAlert = oa_alert("warning", "Please correct the highlighted fields and try again.");
+        }else{
+            $postedStudent = online_admission_find_posted_student($con, $branchId, $beceIndex, $birthdate, $admissionYear);
+            if($postedStudent){
+                $application = online_admission_ensure_application_for_posting($con, $postedStudent);
+                if($application){
+                    $successfulPayment = online_admission_get_successful_payment_by_application($con, $application["applicationid"]);
+                    if($paymentEnabled && online_admission_payment_is_paid($successfulPayment)){
+                        $application = online_admission_ensure_application_token($con, $application);
+                        oa_clear_access_session();
+                        $_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"] = "1";
+                        $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Payment already confirmed. Continue Admission is now available. Use token ".trim((string)$application["verificationtoken"])." to sign in.");
+                    }else{
+                        oa_set_public_session($postedStudent, $application);
+                        if($paymentEnabled){
+                            $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Continue to payment. Your verification token will be issued after payment is confirmed.");
+                        }else{
+                            $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", "Posting verified. Your form is now open.");
+                        }
+                    }
+                    header("location:online-admission.php");
+                    exit();
+                }
+                $flashMessage = oa_alert("error", "Your posting was verified, but the admission record could not be prepared right now. Please try again.");
+            }else{
+                $verifyFormAlert = oa_alert("warning", "We could not verify your placement with those details. Check your BECE index number, date of birth, and admission year, or contact the school for support.");
+            }
+        }
     }
 }
 
@@ -205,31 +311,46 @@ $application = null;
 $accessAuthorized = false;
 
 if(isset($_POST["continue_admission"]) && $branchId !== ""){
-    if(!$portalOpen){
+    if(!oa_csrf_is_valid_post()){
+        $flashMessage = oa_alert("error", "Your session expired. Please refresh the page and try again.");
+    }elseif(!$portalOpen){
         $flashMessage = oa_alert("warning", "Online admission is currently closed.");
     }else{
-    $beceIndex = online_admission_normalize_bece(isset($_POST["access_beceindexnumber"]) ? $_POST["access_beceindexnumber"] : "");
-    $birthdate = online_admission_normalize_date(isset($_POST["access_birthdate"]) ? $_POST["access_birthdate"] : "");
-    $verificationToken = strtoupper(trim((string)(isset($_POST["verificationtoken"]) ? $_POST["verificationtoken"] : "")));
+        $beceIndex = online_admission_normalize_bece(isset($_POST["access_beceindexnumber"]) ? $_POST["access_beceindexnumber"] : "");
+        $birthdateInput = trim((string)(isset($_POST["access_birthdate"]) ? $_POST["access_birthdate"] : ""));
+        $birthdate = online_admission_normalize_date($birthdateInput);
+        $verificationToken = strtoupper(trim((string)(isset($_POST["verificationtoken"]) ? $_POST["verificationtoken"] : "")));
 
-    if($beceIndex === "" || $birthdate === false || $birthdate === "" || $verificationToken === ""){
-        $flashMessage = oa_alert("warning", $paymentEnabled ? "Enter your BECE index number, date of birth, and token." : "Enter your BECE index number, date of birth, and resume token.");
-    }else{
-        $application = online_admission_find_application_by_access($con, $branchId, $beceIndex, $birthdate, $verificationToken);
-        if($application){
-            $postedStudent = online_admission_get_posted_student_by_id($con, $branchId, $application["postingid"]);
-            if($postedStudent && $application){
-                online_admission_attach_payments_to_application($con, $postedStudent["postingid"], $application["applicationid"]);
-                online_admission_mark_token_used($con, $application["applicationid"]);
-                oa_set_public_session($postedStudent, $application);
-                unset($_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"]);
-                $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", $paymentEnabled ? "Admission reopened." : "Draft reopened.");
-                header("location:online-admission.php");
-                exit();
-            }
+        if($beceIndex === ""){
+            oa_add_field_error($accessFieldErrors, "access_beceindexnumber", "Enter your BECE index number.");
         }
-        $flashMessage = oa_alert("warning", $paymentEnabled ? "We could not reopen your admission with those details." : "We could not reopen your saved admission with those details.");
-    }
+        if($birthdateInput === ""){
+            oa_add_field_error($accessFieldErrors, "access_birthdate", "Enter your date of birth.");
+        }elseif($birthdate === false || $birthdate === ""){
+            oa_add_field_error($accessFieldErrors, "access_birthdate", "Enter a valid date of birth.");
+        }
+        if($verificationToken === ""){
+            oa_add_field_error($accessFieldErrors, "verificationtoken", $paymentEnabled ? "Enter your verification token." : "Enter your resume token.");
+        }
+
+        if(!empty($accessFieldErrors)){
+            $accessFormAlert = oa_alert("warning", "Please correct the highlighted fields and try again.");
+        }else{
+            $application = online_admission_find_application_by_access($con, $branchId, $beceIndex, $birthdate, $verificationToken);
+            if($application){
+                $postedStudent = online_admission_get_posted_student_by_id($con, $branchId, $application["postingid"]);
+                if($postedStudent && $application){
+                    online_admission_attach_payments_to_application($con, $postedStudent["postingid"], $application["applicationid"]);
+                    online_admission_mark_token_used($con, $application["applicationid"]);
+                    oa_set_public_session($postedStudent, $application);
+                    unset($_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"]);
+                    $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", $paymentEnabled ? "Admission reopened." : "Draft reopened.");
+                    header("location:online-admission.php");
+                    exit();
+                }
+            }
+            $accessFormAlert = oa_alert("warning", $paymentEnabled ? "We could not reopen your admission with those details." : "We could not reopen your saved admission with those details.");
+        }
     }
 }
 
@@ -290,12 +411,38 @@ $isLocked = oa_application_is_locked($application);
 if(isset($_POST["submit_help_request"])){
     if($branchId === ""){
         $flashMessage = oa_alert("error", "Help request could not be sent right now.");
+    }elseif(!oa_csrf_is_valid_post()){
+        $flashMessage = oa_alert("error", "Your session expired. Please refresh the page and try again.");
     }else{
+        $helpForm["studentname"] = oa_text_limit($helpForm["studentname"], 150);
+        $helpForm["contactphone"] = oa_text_limit($helpForm["contactphone"], 30);
+        $helpForm["beceindexnumber"] = online_admission_normalize_bece($helpForm["beceindexnumber"]);
+        $helpForm["admissionyear"] = oa_text_limit($helpForm["admissionyear"], 20);
+        $helpForm["verificationtoken"] = strtoupper(oa_text_limit($helpForm["verificationtoken"], 40));
+        $helpForm["helpmessage"] = oa_text_limit($helpForm["helpmessage"], 4000);
         $helpErrors = array();
-        if($helpForm["studentname"] === ""){ $helpErrors[] = "Enter your name."; }
-        if($helpForm["contactphone"] === ""){ $helpErrors[] = "Enter a contact number."; }
-        if($helpForm["helpmessage"] === ""){ $helpErrors[] = "Enter your message."; }
+        if($helpForm["studentname"] === ""){
+            $helpErrors[] = "Enter your name.";
+            oa_add_field_error($helpFieldErrors, "help_studentname", "Enter your name.");
+        }
+        if($helpForm["contactphone"] === ""){
+            $helpErrors[] = "Enter a contact number.";
+            oa_add_field_error($helpFieldErrors, "help_contactphone", "Enter a contact number.");
+        }
+        if($helpForm["helpmessage"] === ""){
+            $helpErrors[] = "Enter your message.";
+            oa_add_field_error($helpFieldErrors, "helpmessage", "Enter your message.");
+        }
+        $normalizedHelpPhone = online_admission_normalize_sms_phone($helpForm["contactphone"]);
+        if($helpForm["contactphone"] !== "" && $normalizedHelpPhone === ""){
+            $helpErrors[] = "Enter a valid contact number.";
+            oa_add_field_error($helpFieldErrors, "help_contactphone", "Enter a valid contact number.");
+        }
+        oa_require_max_length($helpForm["studentname"], 150, "Full name", $helpErrors);
+        oa_require_max_length($helpForm["admissionyear"], 20, "Admission year", $helpErrors);
+        oa_require_max_length($helpForm["verificationtoken"], 40, "Token", $helpErrors);
         if(empty($helpErrors)){
+            $helpForm["contactphone"] = $normalizedHelpPhone !== "" ? $normalizedHelpPhone : $helpForm["contactphone"];
             $savedHelp = online_admission_create_help_request($con, array(
                 "applicationid" => $application ? (string)$application["applicationid"] : "",
                 "postingid" => $postedStudent ? (string)$postedStudent["postingid"] : "",
@@ -321,56 +468,99 @@ if(isset($_POST["submit_help_request"])){
             }
             $flashMessage = oa_alert("error", "Your help request could not be sent right now.");
         }else{
-            $flashMessage = oa_alert("warning", implode(" ", $helpErrors));
+            $helpFormAlert = oa_alert("warning", "Please correct the highlighted fields and try again.");
         }
     }
 }
 
 if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$portalOpen){
     $flashMessage = oa_alert("warning", "Online admission is currently closed by the school. Your form cannot be updated right now.");
+}elseif($postedStudent && $application && $accessAuthorized && $portalOpen && !oa_csrf_is_valid_post() && (isset($_POST["save_draft"]) || isset($_POST["submit_admission"]))){
+    $flashMessage = oa_alert("error", "Your session expired. Please refresh the page and try again.");
 }elseif($postedStudent && $application && $accessAuthorized && $portalOpen && $isLocked && (isset($_POST["save_draft"]) || isset($_POST["submit_admission"]))){
     $flashMessage = oa_alert("warning", oa_application_lock_message($application));
 }elseif($postedStudent && $application && $accessAuthorized && $portalOpen && !$isLocked && (isset($_POST["save_draft"]) || isset($_POST["submit_admission"]))){
     foreach($form as $key => $value){
         $form[$key] = trim((string)(isset($_POST[$key]) ? $_POST[$key] : ""));
     }
+    $form["mobile"] = oa_text_limit($form["mobile"], 30);
+    $form["email"] = oa_text_limit($form["email"], 120);
+    $form["ghanacard"] = strtoupper(oa_text_limit($form["ghanacard"], 40));
+    $form["hometown"] = oa_text_limit($form["hometown"], 120);
+    $form["postaladdress"] = oa_text_limit($form["postaladdress"], 255);
+    $form["homeaddress"] = oa_text_limit($form["homeaddress"], 255);
+    $form["religion"] = oa_text_limit($form["religion"], 40);
+    $form["guardianname"] = oa_text_limit($form["guardianname"], 120);
+    $form["guardianrelationship"] = oa_text_limit($form["guardianrelationship"], 60);
+    $form["guardiancontact"] = oa_text_limit($form["guardiancontact"], 30);
+    $form["guardianprofession"] = oa_text_limit($form["guardianprofession"], 120);
+    $form["medicalnotes"] = oa_text_limit($form["medicalnotes"], 255);
+    $form["studentnote"] = oa_text_limit($form["studentnote"], 255);
     $form["residencetype"] = online_admission_application_residence($application, $postedStudent);
     $rawDisabilityStatus = $form["disabilitystatus"];
     $form["disabilitystatus"] = online_admission_normalize_disability_status($form["disabilitystatus"]);
 
     $errors = array();
+    $formNotices = array();
     $isSubmit = isset($_POST["submit_admission"]);
     if($isSubmit){
         if($paymentEnabled){
             $successfulPayment = online_admission_get_successful_payment_by_application($con, $application["applicationid"]);
             if(!$successfulPayment){
-                $errors[] = "Please complete the admission payment first. The form unlocks only after your payment is confirmed.";
+                $paymentMessage = "Please complete the admission payment first. The form unlocks only after your payment is confirmed.";
+                $errors[] = $paymentMessage;
+                $formNotices[] = $paymentMessage;
             }
         }
         foreach(array(
-            "mobile" => "Mobile number",
-            "residencetype" => "Residence type",
-            "hometown" => "Hometown",
-            "homeaddress" => "Home address",
-            "religion" => "Religion",
-            "disabilitystatus" => "Disability status",
-            "guardianname" => "Parent / guardian name",
-            "guardianrelationship" => "Guardian relationship",
-            "guardiancontact" => "Guardian contact"
-        ) as $field => $label){
+            "mobile" => array("error_field" => "mobile", "message" => "Mobile number is required."),
+            "residencetype" => array("error_field" => "residencetype_display", "message" => "Residence type is not ready on your placement record yet. Please contact the school."),
+            "hometown" => array("error_field" => "hometown", "message" => "Hometown is required."),
+            "homeaddress" => array("error_field" => "homeaddress", "message" => "Home address is required."),
+            "religion" => array("error_field" => "religion", "message" => "Religion is required."),
+            "disabilitystatus" => array("error_field" => "disabilitystatus", "message" => "Disability status is required."),
+            "guardianname" => array("error_field" => "guardianname", "message" => "Parent / guardian name is required."),
+            "guardianrelationship" => array("error_field" => "guardianrelationship", "message" => "Guardian relationship is required."),
+            "guardiancontact" => array("error_field" => "guardiancontact", "message" => "Guardian contact is required.")
+        ) as $field => $meta){
             if(trim((string)$form[$field]) === ""){
-                $errors[] = $label." is required.";
+                $errors[] = $meta["message"];
+                oa_add_field_error($formFieldErrors, $meta["error_field"], $meta["message"]);
             }
         }
     }
 
     if($rawDisabilityStatus !== "" && $form["disabilitystatus"] === ""){
         $errors[] = "Select a valid disability status.";
+        oa_add_field_error($formFieldErrors, "disabilitystatus", "Select a valid disability status.");
     }
 
     if($form["email"] !== "" && !filter_var($form["email"], FILTER_VALIDATE_EMAIL)){
         $errors[] = "Please enter a valid email address.";
+        oa_add_field_error($formFieldErrors, "email", "Please enter a valid email address.");
     }
+    $normalizedStudentPhone = online_admission_normalize_sms_phone($form["mobile"]);
+    if($form["mobile"] !== "" && $normalizedStudentPhone === ""){
+        $errors[] = "Please enter a valid student mobile number.";
+        oa_add_field_error($formFieldErrors, "mobile", "Please enter a valid student mobile number.");
+    }
+    $normalizedGuardianPhone = online_admission_normalize_sms_phone($form["guardiancontact"]);
+    if($form["guardiancontact"] !== "" && $normalizedGuardianPhone === ""){
+        $errors[] = "Please enter a valid guardian contact number.";
+        oa_add_field_error($formFieldErrors, "guardiancontact", "Please enter a valid guardian contact number.");
+    }
+    oa_require_max_length($form["mobile"], 30, "Mobile number", $errors);
+    oa_require_max_length($form["email"], 120, "Email address", $errors);
+    oa_require_max_length($form["ghanacard"], 40, "Ghana Card number", $errors);
+    oa_require_max_length($form["hometown"], 120, "Hometown", $errors);
+    oa_require_max_length($form["postaladdress"], 255, "Postal address", $errors);
+    oa_require_max_length($form["homeaddress"], 255, "Home address", $errors);
+    oa_require_max_length($form["guardianname"], 120, "Parent / guardian name", $errors);
+    oa_require_max_length($form["guardianrelationship"], 60, "Guardian relationship", $errors);
+    oa_require_max_length($form["guardiancontact"], 30, "Guardian contact", $errors);
+    oa_require_max_length($form["guardianprofession"], 120, "Guardian profession", $errors);
+    oa_require_max_length($form["medicalnotes"], 255, "Medical notes", $errors);
+    oa_require_max_length($form["studentnote"], 255, "Student note", $errors);
 
     $imageName = $application ? trim((string)$application["filename"]) : "";
     if(isset($_FILES["admissionphoto"]) && isset($_FILES["admissionphoto"]["error"]) && (int)$_FILES["admissionphoto"]["error"] !== UPLOAD_ERR_NO_FILE){
@@ -378,12 +568,15 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
         $storedImage = online_admission_store_image($_FILES["admissionphoto"], $imageError);
         if($storedImage === false){
             $errors[] = $imageError;
+            oa_add_field_error($formFieldErrors, "admissionphoto", $imageError);
         }elseif($storedImage !== ""){
             $imageName = $storedImage;
         }
     }
 
     if(empty($errors)){
+        $form["mobile"] = $normalizedStudentPhone !== "" ? $normalizedStudentPhone : $form["mobile"];
+        $form["guardiancontact"] = $normalizedGuardianPhone !== "" ? $normalizedGuardianPhone : $form["guardiancontact"];
         $status = $isSubmit ? "submitted" : "draft";
         $applicationId = (string)$application["applicationid"];
         $applicationIdEsc = mysqli_real_escape_string($con, $applicationId);
@@ -501,7 +694,15 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
         }
         $flashMessage = oa_alert("error", "Your admission details could not be saved right now. Please try again.");
     }else{
-        $flashMessage = oa_alert("warning", implode(" ", $errors));
+        foreach($formNotices as $formNotice){
+            $admissionFormAlert .= oa_alert("warning", $formNotice);
+        }
+        if(!empty($formFieldErrors)){
+            $admissionFormAlert .= oa_alert("warning", "Please correct the highlighted fields and try again.");
+        }
+        if($admissionFormAlert === ""){
+            $flashMessage = oa_alert("warning", implode(" ", $errors));
+        }
     }
 }
 
@@ -520,8 +721,9 @@ $verificationToken = ($application && trim((string)$application["verificationtok
 $paymentContinueReady = isset($_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"]) && (string)$_SESSION["ONLINE_ADMISSION_PAYMENT_READY_TO_CONTINUE"] === "1";
 $showResumeAccess = $paymentEnabled ? ($paymentContinueReady || $resumeRequested) : $resumeRequested;
 $resumeOnlyMode = (!$postedStudent && $showResumeAccess);
-$applicationStatusText = $application ? online_admission_status_label($application["status"]) : "Not started";
-$applicationStatusSummary = $application ? oa_status_summary($application["status"]) : "";
+$applicationStatusText = oa_public_submission_status_label($application);
+$applicationStatusClass = oa_public_submission_status_class($application);
+$applicationStatusSummary = oa_status_summary($application);
 $headmasterApproved = $application ? online_admission_application_is_headmaster_approved($application) : false;
 $headmasterApprovalStatusText = !$application
     ? "Not available"
@@ -661,17 +863,22 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                 <h2>Verify Your Posting</h2>
             </div>
             <form method="post" action="online-admission.php" class="oa-form oa-form--verify">
+                <?php echo oa_csrf_input(); ?>
+                <?php if($verifyFormAlert !== ""){ ?><div class="oa-form-feedback"><?php echo $verifyFormAlert; ?></div><?php } ?>
                 <div class="oa-field">
                     <label for="beceindexnumber">BECE Index Number</label>
-                    <input type="text" id="beceindexnumber" name="beceindexnumber" placeholder="Example: 1234567890" value="<?php echo oa_esc($verifyForm["beceindexnumber"]); ?>" required>
+                    <input type="text" id="beceindexnumber" name="beceindexnumber" placeholder="Example: 1234567890" value="<?php echo oa_esc($verifyForm["beceindexnumber"]); ?>" inputmode="numeric" autocomplete="off" maxlength="60" required<?php echo oa_invalid_attr($verifyFieldErrors, "beceindexnumber"); ?>>
+                    <?php echo oa_field_error_html($verifyFieldErrors, "beceindexnumber"); ?>
                 </div>
                 <div class="oa-field">
                     <label for="birthdate">Date of Birth</label>
-                    <input type="date" id="birthdate" name="birthdate" value="<?php echo oa_esc($verifyForm["birthdate"]); ?>" required>
+                    <input type="date" id="birthdate" name="birthdate" value="<?php echo oa_esc($verifyForm["birthdate"]); ?>" autocomplete="bday" required<?php echo oa_invalid_attr($verifyFieldErrors, "birthdate"); ?>>
+                    <?php echo oa_field_error_html($verifyFieldErrors, "birthdate"); ?>
                 </div>
                 <div class="oa-field">
                     <label for="admissionyear">Admission Year</label>
-                    <input type="text" id="admissionyear" name="admissionyear" value="<?php echo oa_esc($verifyForm["admissionyear"]); ?>" required>
+                    <input type="text" id="admissionyear" name="admissionyear" value="<?php echo oa_esc($verifyForm["admissionyear"]); ?>" inputmode="numeric" autocomplete="off" maxlength="20" required<?php echo oa_invalid_attr($verifyFieldErrors, "admissionyear"); ?>>
+                    <?php echo oa_field_error_html($verifyFieldErrors, "admissionyear"); ?>
                 </div>
                 <button type="submit" name="verify_posting" class="oa-submit"><i class="fa fa-check-circle"></i> <?php echo oa_esc($paymentEnabled ? "Verify and Continue" : "Verify and Open Form"); ?></button>
             </form>
@@ -698,17 +905,22 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                 <h2><?php echo oa_esc($paymentEnabled ? "Enter Verification Token" : "Enter Resume Token"); ?></h2>
             </div>
             <form method="post" action="online-admission.php" class="oa-form oa-form--verify">
+                <?php echo oa_csrf_input(); ?>
+                <?php if($accessFormAlert !== ""){ ?><div class="oa-form-feedback"><?php echo $accessFormAlert; ?></div><?php } ?>
                 <div class="oa-field">
                     <label for="access_beceindexnumber">BECE Index Number</label>
-                    <input type="text" id="access_beceindexnumber" name="access_beceindexnumber" placeholder="Example: 1234567890" value="<?php echo oa_esc($accessForm["access_beceindexnumber"]); ?>" required>
+                    <input type="text" id="access_beceindexnumber" name="access_beceindexnumber" placeholder="Example: 1234567890" value="<?php echo oa_esc($accessForm["access_beceindexnumber"]); ?>" inputmode="numeric" autocomplete="off" maxlength="60" required<?php echo oa_invalid_attr($accessFieldErrors, "access_beceindexnumber"); ?>>
+                    <?php echo oa_field_error_html($accessFieldErrors, "access_beceindexnumber"); ?>
                 </div>
                 <div class="oa-field">
                     <label for="access_birthdate">Date of Birth</label>
-                    <input type="date" id="access_birthdate" name="access_birthdate" value="<?php echo oa_esc($accessForm["access_birthdate"]); ?>" required>
+                    <input type="date" id="access_birthdate" name="access_birthdate" value="<?php echo oa_esc($accessForm["access_birthdate"]); ?>" autocomplete="bday" required<?php echo oa_invalid_attr($accessFieldErrors, "access_birthdate"); ?>>
+                    <?php echo oa_field_error_html($accessFieldErrors, "access_birthdate"); ?>
                 </div>
                 <div class="oa-field">
                     <label for="verificationtoken"><?php echo oa_esc($paymentEnabled ? "Verification Token" : "Resume Token"); ?></label>
-                    <input type="text" id="verificationtoken" name="verificationtoken" value="<?php echo oa_esc($accessForm["verificationtoken"]); ?>" placeholder="<?php echo oa_esc($paymentEnabled ? "Enter your token" : "Enter your resume token"); ?>" required>
+                    <input type="text" id="verificationtoken" name="verificationtoken" value="<?php echo oa_esc($accessForm["verificationtoken"]); ?>" placeholder="<?php echo oa_esc($paymentEnabled ? "Enter your token" : "Enter your resume token"); ?>" autocomplete="one-time-code" autocapitalize="characters" maxlength="40" required<?php echo oa_invalid_attr($accessFieldErrors, "verificationtoken"); ?>>
+                    <?php echo oa_field_error_html($accessFieldErrors, "verificationtoken"); ?>
                 </div>
                 <button type="submit" name="continue_admission" class="oa-submit"><i class="fa fa-unlock-alt"></i> <?php echo oa_esc($paymentEnabled ? "Verify Token and Continue" : "Verify Resume Token"); ?></button>
             </form>
@@ -743,7 +955,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
             <p><?php echo oa_esc($postedStudent["beceindexnumber"]); ?> - <?php echo oa_esc($postedStudent["admissionyear"]); ?><?php if($assignedHouse && trim((string)$assignedHouse["housename"]) !== ""){ ?> - <?php echo oa_esc($assignedHouse["housename"]); ?><?php } ?></p>
         </div>
         <span class="oa-verified-bar__meta"><?php echo oa_esc($paymentEnabled ? "Token: ".($verificationToken !== "" ? $verificationToken : "Pending") : ($verificationToken !== "" ? "Resume Token: ".$verificationToken : "Direct form access")); ?></span>
-        <?php if($application){ ?><span class="<?php echo oa_status_class($application["status"]); ?>"><?php echo oa_esc(online_admission_status_label($application["status"])); ?></span><?php } ?>
+        <?php if($application){ ?><span class="<?php echo $applicationStatusClass; ?>"><?php echo oa_esc($applicationStatusText); ?></span><?php } ?>
     </div>
 
     <div class="oa-layout">
@@ -888,14 +1100,17 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
             </div>
 
             <form method="post" action="online-admission.php" enctype="multipart/form-data" class="oa-form">
+                <?php echo oa_csrf_input(); ?>
+                <?php if($admissionFormAlert !== ""){ ?><div class="oa-form-feedback"><?php echo $admissionFormAlert; ?></div><?php } ?>
                 <div class="oa-inline-photo-card">
                     <div class="oa-photo-preview">
                         <img src="<?php echo oa_esc($application ? online_admission_photo_src($application["filename"]) : "uploads/comm.gif"); ?>" alt="Admission photo preview" id="oa-photo-preview">
                     </div>
                     <div class="oa-photo-copy">
                         <label for="admissionphoto">Upload Photo</label>
-                        <input type="file" id="admissionphoto" name="admissionphoto" accept=".jpg,.jpeg,.png,.gif,.webp,image/*"<?php echo $isLocked ? " disabled" : ""; ?>>
-                        <small>Accepted formats: JPG, PNG, GIF, WEBP. Maximum size: 5MB.</small>
+                        <input type="file" id="admissionphoto" name="admissionphoto" accept=".jpg,.jpeg,.png,.gif,.webp,image/*" capture="user"<?php echo oa_invalid_attr($formFieldErrors, "admissionphoto", "admissionphoto_help"); ?><?php echo $isLocked ? " disabled" : ""; ?>>
+                        <small id="admissionphoto_help">Accepted formats: JPG, PNG, GIF, WEBP. Maximum size: 5MB. You can use your phone camera.</small>
+                        <?php echo oa_field_error_html($formFieldErrors, "admissionphoto"); ?>
                     </div>
                 </div>
 
@@ -904,15 +1119,16 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                         <h3>Contact Details</h3>
                     </div>
                     <div class="oa-grid oa-grid--two">
-                        <div class="oa-field"><label for="mobile">Student Mobile Number</label><input type="tel" id="mobile" name="mobile" value="<?php echo oa_esc($form["mobile"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
-                        <div class="oa-field"><label for="email">Email Address</label><input type="email" id="email" name="email" value="<?php echo oa_esc($form["email"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
+                        <div class="oa-field"><label for="mobile">Student Mobile Number</label><input type="tel" id="mobile" name="mobile" value="<?php echo oa_esc($form["mobile"]); ?>" autocomplete="tel" inputmode="tel" maxlength="30" placeholder="Example: 0241234567"<?php echo oa_invalid_attr($formFieldErrors, "mobile"); ?><?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_field_error_html($formFieldErrors, "mobile"); ?></div>
+                        <div class="oa-field"><label for="email">Email Address</label><input type="email" id="email" name="email" value="<?php echo oa_esc($form["email"]); ?>" autocomplete="email" inputmode="email" maxlength="120" placeholder="Optional"<?php echo oa_invalid_attr($formFieldErrors, "email"); ?><?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_field_error_html($formFieldErrors, "email"); ?></div>
                         <div class="oa-field">
                             <label for="residencetype_display">Residence Type</label>
-                            <input type="text" id="residencetype_display" value="<?php echo oa_esc($form["residencetype"] !== "" ? $form["residencetype"] : "Not set by school yet"); ?>" readonly>
+                            <input type="text" id="residencetype_display" value="<?php echo oa_esc($form["residencetype"] !== "" ? $form["residencetype"] : "Not set by school yet"); ?>" readonly<?php echo oa_invalid_attr($formFieldErrors, "residencetype_display"); ?>>
                             <input type="hidden" name="residencetype" value="<?php echo oa_esc($form["residencetype"]); ?>">
                             <small>Locked to your placement record.</small>
+                            <?php echo oa_field_error_html($formFieldErrors, "residencetype_display"); ?>
                         </div>
-                        <div class="oa-field"><label for="religion">Religion</label><select id="religion" name="religion"<?php echo $isLocked ? " disabled" : ""; ?>><option value="">Select religion</option><option value="Christian"<?php echo $form["religion"] === "Christian" ? " selected" : ""; ?>>Christian</option><option value="Muslim"<?php echo $form["religion"] === "Muslim" ? " selected" : ""; ?>>Muslim</option><option value="Tradition"<?php echo $form["religion"] === "Tradition" ? " selected" : ""; ?>>Tradition</option><option value="Others"<?php echo $form["religion"] === "Others" ? " selected" : ""; ?>>Others</option></select></div>
+                        <div class="oa-field"><label for="religion">Religion</label><select id="religion" name="religion"<?php echo oa_invalid_attr($formFieldErrors, "religion"); ?><?php echo $isLocked ? " disabled" : ""; ?>><option value="">Select religion</option><option value="Christian"<?php echo $form["religion"] === "Christian" ? " selected" : ""; ?>>Christian</option><option value="Muslim"<?php echo $form["religion"] === "Muslim" ? " selected" : ""; ?>>Muslim</option><option value="Tradition"<?php echo $form["religion"] === "Tradition" ? " selected" : ""; ?>>Tradition</option><option value="Others"<?php echo $form["religion"] === "Others" ? " selected" : ""; ?>>Others</option></select><?php echo oa_field_error_html($formFieldErrors, "religion"); ?></div>
                     </div>
                 </section>
 
@@ -921,15 +1137,16 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                         <h3>Student Information</h3>
                     </div>
                     <div class="oa-grid oa-grid--two">
-                        <div class="oa-field"><label for="ghanacard">Ghana Card Number (Optional)</label><input type="text" id="ghanacard" name="ghanacard" value="<?php echo oa_esc($form["ghanacard"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
+                        <div class="oa-field"><label for="ghanacard">Ghana Card Number (Optional)</label><input type="text" id="ghanacard" name="ghanacard" value="<?php echo oa_esc($form["ghanacard"]); ?>" autocomplete="off" autocapitalize="characters" maxlength="40" placeholder="Example: GHA-123456789-0"<?php echo $isLocked ? " readonly" : ""; ?>></div>
                         <div class="oa-field">
                             <label for="disabilitystatus">Disability Status</label>
-                            <select id="disabilitystatus" name="disabilitystatus"<?php echo $isLocked ? " disabled" : ""; ?>>
+                            <select id="disabilitystatus" name="disabilitystatus"<?php echo oa_invalid_attr($formFieldErrors, "disabilitystatus"); ?><?php echo $isLocked ? " disabled" : ""; ?>>
                                 <option value="">Select disability status</option>
                                 <?php foreach(online_admission_disability_options() as $disabilityOption){ ?>
                                 <option value="<?php echo oa_esc($disabilityOption); ?>"<?php echo $form["disabilitystatus"] === $disabilityOption ? " selected" : ""; ?>><?php echo oa_esc($disabilityOption); ?></option>
                                 <?php } ?>
                             </select>
+                            <?php echo oa_field_error_html($formFieldErrors, "disabilitystatus"); ?>
                         </div>
                     </div>
                 </section>
@@ -939,9 +1156,9 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                         <h3>Address</h3>
                     </div>
                     <div class="oa-grid oa-grid--two">
-                        <div class="oa-field"><label for="hometown">Hometown</label><input type="text" id="hometown" name="hometown" value="<?php echo oa_esc($form["hometown"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
-                        <div class="oa-field"><label for="postaladdress">Postal Address</label><textarea id="postaladdress" name="postaladdress" rows="3"<?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_esc($form["postaladdress"]); ?></textarea></div>
-                        <div class="oa-field oa-field--full"><label for="homeaddress">Home Address</label><textarea id="homeaddress" name="homeaddress" rows="3"<?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_esc($form["homeaddress"]); ?></textarea></div>
+                        <div class="oa-field"><label for="hometown">Hometown</label><input type="text" id="hometown" name="hometown" value="<?php echo oa_esc($form["hometown"]); ?>" autocomplete="address-level2" maxlength="120"<?php echo oa_invalid_attr($formFieldErrors, "hometown"); ?><?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_field_error_html($formFieldErrors, "hometown"); ?></div>
+                        <div class="oa-field"><label for="postaladdress">Postal Address</label><textarea id="postaladdress" name="postaladdress" rows="3" autocomplete="street-address" maxlength="255"<?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_esc($form["postaladdress"]); ?></textarea></div>
+                        <div class="oa-field oa-field--full"><label for="homeaddress">Home Address</label><textarea id="homeaddress" name="homeaddress" rows="3" autocomplete="street-address" maxlength="255"<?php echo oa_invalid_attr($formFieldErrors, "homeaddress"); ?><?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_esc($form["homeaddress"]); ?></textarea><?php echo oa_field_error_html($formFieldErrors, "homeaddress"); ?></div>
                     </div>
                 </section>
 
@@ -950,10 +1167,10 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                         <h3>Parent / Guardian</h3>
                     </div>
                     <div class="oa-grid oa-grid--two">
-                        <div class="oa-field"><label for="guardianname">Parent / Guardian Name</label><input type="text" id="guardianname" name="guardianname" value="<?php echo oa_esc($form["guardianname"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
-                        <div class="oa-field"><label for="guardianrelationship">Relationship</label><input type="text" id="guardianrelationship" name="guardianrelationship" value="<?php echo oa_esc($form["guardianrelationship"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
-                        <div class="oa-field"><label for="guardiancontact">Contact Number</label><input type="tel" id="guardiancontact" name="guardiancontact" value="<?php echo oa_esc($form["guardiancontact"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
-                        <div class="oa-field"><label for="guardianprofession">Profession</label><input type="text" id="guardianprofession" name="guardianprofession" value="<?php echo oa_esc($form["guardianprofession"]); ?>"<?php echo $isLocked ? " readonly" : ""; ?>></div>
+                        <div class="oa-field"><label for="guardianname">Parent / Guardian Name</label><input type="text" id="guardianname" name="guardianname" value="<?php echo oa_esc($form["guardianname"]); ?>" autocomplete="name" maxlength="120"<?php echo oa_invalid_attr($formFieldErrors, "guardianname"); ?><?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_field_error_html($formFieldErrors, "guardianname"); ?></div>
+                        <div class="oa-field"><label for="guardianrelationship">Relationship</label><input type="text" id="guardianrelationship" name="guardianrelationship" value="<?php echo oa_esc($form["guardianrelationship"]); ?>" maxlength="60"<?php echo oa_invalid_attr($formFieldErrors, "guardianrelationship"); ?><?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_field_error_html($formFieldErrors, "guardianrelationship"); ?></div>
+                        <div class="oa-field"><label for="guardiancontact">Contact Number</label><input type="tel" id="guardiancontact" name="guardiancontact" value="<?php echo oa_esc($form["guardiancontact"]); ?>" autocomplete="tel" inputmode="tel" maxlength="30" placeholder="Example: 0241234567"<?php echo oa_invalid_attr($formFieldErrors, "guardiancontact"); ?><?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_field_error_html($formFieldErrors, "guardiancontact"); ?></div>
+                        <div class="oa-field"><label for="guardianprofession">Profession</label><input type="text" id="guardianprofession" name="guardianprofession" value="<?php echo oa_esc($form["guardianprofession"]); ?>" autocomplete="organization-title" maxlength="120"<?php echo $isLocked ? " readonly" : ""; ?>></div>
                     </div>
                 </section>
 
@@ -962,8 +1179,8 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                         <h3>Extra Information</h3>
                     </div>
                     <div class="oa-grid oa-grid--two">
-                        <div class="oa-field"><label for="medicalnotes">Medical Notes</label><textarea id="medicalnotes" name="medicalnotes" rows="3"<?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_esc($form["medicalnotes"]); ?></textarea></div>
-                        <div class="oa-field"><label for="studentnote">Student Note</label><textarea id="studentnote" name="studentnote" rows="3"<?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_esc($form["studentnote"]); ?></textarea></div>
+                        <div class="oa-field"><label for="medicalnotes">Medical Notes</label><textarea id="medicalnotes" name="medicalnotes" rows="3" maxlength="255"<?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_esc($form["medicalnotes"]); ?></textarea></div>
+                        <div class="oa-field"><label for="studentnote">Student Note</label><textarea id="studentnote" name="studentnote" rows="3" maxlength="255"<?php echo $isLocked ? " readonly" : ""; ?>><?php echo oa_esc($form["studentnote"]); ?></textarea></div>
                     </div>
                 </section>
 
@@ -984,7 +1201,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                 <div class="oa-payment-summary">
                     <article>
                         <span>Current Status</span>
-                        <strong><?php echo oa_esc($applicationStatusText); ?></strong>
+                        <strong><span class="<?php echo $applicationStatusClass; ?>"><?php echo oa_esc($applicationStatusText); ?></span></strong>
                     </article>
                     <article>
                         <span>Submitted On</span>
@@ -1058,18 +1275,6 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                     <?php } ?>
                 </div>
                 <?php } ?>
-                </div>
-            </section>
-
-            <section class="oa-card">
-                <div class="oa-section-head">
-                    <h2>Admission Status</h2>
-                </div>
-                <div class="oa-status-guide">
-                    <article><strong>Draft</strong><span>Not submitted.</span></article>
-                    <article><strong>Submitted</strong><span>Received by school.</span></article>
-                    <article><strong>Needs Attention</strong><span>Update required.</span></article>
-                    <article><strong>Reviewed</strong><span>Checked by school.</span></article>
                 </div>
             </section>
 
@@ -1159,30 +1364,35 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
             </div>
         </div>
         <form method="post" action="online-admission.php#help-request" class="oa-form oa-form--verify oa-help-form">
+            <?php echo oa_csrf_input(); ?>
+            <?php if($helpFormAlert !== ""){ ?><div class="oa-form-feedback"><?php echo $helpFormAlert; ?></div><?php } ?>
             <div class="oa-grid oa-grid--two">
                 <div class="oa-field">
                     <label for="help_studentname">Full Name</label>
-                    <input type="text" id="help_studentname" name="help_studentname" value="<?php echo oa_esc($helpForm["studentname"]); ?>" required>
+                    <input type="text" id="help_studentname" name="help_studentname" value="<?php echo oa_esc($helpForm["studentname"]); ?>" autocomplete="name" maxlength="150" required<?php echo oa_invalid_attr($helpFieldErrors, "help_studentname"); ?>>
+                    <?php echo oa_field_error_html($helpFieldErrors, "help_studentname"); ?>
                 </div>
                 <div class="oa-field">
                     <label for="help_contactphone">Contact Number</label>
-                    <input type="tel" id="help_contactphone" name="help_contactphone" value="<?php echo oa_esc($helpForm["contactphone"]); ?>" required>
+                    <input type="tel" id="help_contactphone" name="help_contactphone" value="<?php echo oa_esc($helpForm["contactphone"]); ?>" autocomplete="tel" inputmode="tel" maxlength="30" placeholder="Example: 0241234567" required<?php echo oa_invalid_attr($helpFieldErrors, "help_contactphone"); ?>>
+                    <?php echo oa_field_error_html($helpFieldErrors, "help_contactphone"); ?>
                 </div>
                 <div class="oa-field">
                     <label for="help_beceindexnumber">BECE Index Number</label>
-                    <input type="text" id="help_beceindexnumber" name="help_beceindexnumber" value="<?php echo oa_esc($helpForm["beceindexnumber"]); ?>">
+                    <input type="text" id="help_beceindexnumber" name="help_beceindexnumber" value="<?php echo oa_esc($helpForm["beceindexnumber"]); ?>" inputmode="numeric" autocomplete="off" maxlength="60">
                 </div>
                 <div class="oa-field">
                     <label for="help_admissionyear">Admission Year</label>
-                    <input type="text" id="help_admissionyear" name="help_admissionyear" value="<?php echo oa_esc($helpForm["admissionyear"]); ?>">
+                    <input type="text" id="help_admissionyear" name="help_admissionyear" value="<?php echo oa_esc($helpForm["admissionyear"]); ?>" inputmode="numeric" autocomplete="off" maxlength="20">
                 </div>
                 <div class="oa-field oa-field--full">
                     <label for="help_verificationtoken">Token</label>
-                    <input type="text" id="help_verificationtoken" name="help_verificationtoken" value="<?php echo oa_esc($helpForm["verificationtoken"]); ?>" placeholder="Optional">
+                    <input type="text" id="help_verificationtoken" name="help_verificationtoken" value="<?php echo oa_esc($helpForm["verificationtoken"]); ?>" autocomplete="one-time-code" autocapitalize="characters" maxlength="40" placeholder="Optional">
                 </div>
                 <div class="oa-field oa-field--full">
                     <label for="helpmessage">Message</label>
-                    <textarea id="helpmessage" name="helpmessage" rows="4" required><?php echo oa_esc($helpForm["helpmessage"]); ?></textarea>
+                    <textarea id="helpmessage" name="helpmessage" rows="4" maxlength="4000" required<?php echo oa_invalid_attr($helpFieldErrors, "helpmessage"); ?>><?php echo oa_esc($helpForm["helpmessage"]); ?></textarea>
+                    <?php echo oa_field_error_html($helpFieldErrors, "helpmessage"); ?>
                 </div>
             </div>
             <div class="oa-form-actions">
@@ -1206,6 +1416,20 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
         };
         reader.readAsDataURL(file);
     });
+}());
+(function () {
+    var invalidField = document.querySelector('.online-admission-page [aria-invalid="true"]');
+    if (!invalidField) { return; }
+    window.setTimeout(function () {
+        if (typeof invalidField.scrollIntoView === "function") {
+            invalidField.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        try {
+            invalidField.focus({ preventScroll: true });
+        } catch (error) {
+            invalidField.focus();
+        }
+    }, 120);
 }());
 </script>
 </body>

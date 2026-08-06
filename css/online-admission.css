@@ -1,6 +1,7 @@
 body.online-admission-page {
     margin: 0;
     min-height: 100vh;
+    min-height: 100dvh;
     color: #17314b;
     background:
         radial-gradient(circle at top left, rgba(210, 161, 62, 0.16), transparent 24%),
@@ -439,6 +440,26 @@ body.online-admission-page {
     color: #30475e;
 }
 
+.oa-field small,
+.oa-photo-copy small {
+    display: block;
+    margin-top: 8px;
+    color: #688094;
+    line-height: 1.55;
+}
+
+.oa-form-feedback {
+    margin-bottom: 18px;
+}
+
+.oa-field-error {
+    display: block;
+    margin-top: 8px;
+    color: #b42318;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
 .online-admission-page input[type="text"],
 .online-admission-page input[type="email"],
 .online-admission-page input[type="tel"],
@@ -473,6 +494,13 @@ body.online-admission-page {
     transform: translateY(-1px);
 }
 
+.online-admission-page input[aria-invalid="true"],
+.online-admission-page select[aria-invalid="true"],
+.online-admission-page textarea[aria-invalid="true"] {
+    border-color: #d64545;
+    box-shadow: 0 0 0 4px rgba(214, 69, 69, 0.12);
+}
+
 .online-admission-page input[readonly],
 .online-admission-page textarea[readonly] {
     background: #f5f8fb;
@@ -493,6 +521,7 @@ body.online-admission-page {
     font-weight: 700;
     cursor: pointer;
     text-decoration: none;
+    text-align: center;
 }
 
 .oa-submit {
@@ -617,6 +646,7 @@ body.online-admission-page {
     display: block;
     margin-top: 10px;
     color: #103645;
+    overflow-wrap: anywhere;
 }
 
 .oa-payment-note {
@@ -701,6 +731,7 @@ body.online-admission-page {
 .oa-payment-meta span {
     color: #365168;
     line-height: 1.6;
+    overflow-wrap: anywhere;
 }
 
 .oa-verified-bar {
@@ -715,9 +746,14 @@ body.online-admission-page {
     border: 1px solid rgba(205, 214, 226, 0.92);
 }
 
+.oa-verified-bar > div {
+    min-width: 0;
+}
+
 .oa-verified-bar h2 {
     margin: 10px 0 6px;
     font-size: 1.6rem;
+    overflow-wrap: anywhere;
 }
 
 .oa-verified-bar p {
@@ -741,6 +777,9 @@ body.online-admission-page {
     font-size: 0.88rem;
     font-weight: 700;
     letter-spacing: 0.04em;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .oa-status {
@@ -754,6 +793,8 @@ body.online-admission-page {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 700;
+    text-align: center;
+    white-space: normal;
 }
 
 .oa-status--success {
@@ -774,6 +815,11 @@ body.online-admission-page {
 .oa-status--neutral {
     background: #f1f5f9;
     color: #475569;
+}
+
+.oa-status--danger {
+    background: #fef2f2;
+    color: #b91c1c;
 }
 
 .oa-student-summary {
@@ -810,6 +856,7 @@ body.online-admission-page {
     padding-top: 0;
     color: #9a3412;
     font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 .oa-form-section + .oa-form-section {
@@ -841,12 +888,6 @@ body.online-admission-page {
     background: #eaf1f7;
     border: 4px solid #fff;
     box-shadow: 0 18px 28px rgba(16, 37, 57, 0.14);
-}
-
-.oa-photo-copy small {
-    display: block;
-    margin-top: 8px;
-    color: #688094;
 }
 
 .oa-inline-photo-card {
@@ -912,7 +953,7 @@ body.online-admission-page {
 
 @media (max-width: 900px) {
     .oa-shell {
-        padding: 20px 16px 34px;
+        padding: 20px 16px 88px;
     }
 
     .oa-topbar,
@@ -925,6 +966,16 @@ body.online-admission-page {
 
     .oa-help-card__actions {
         justify-content: stretch;
+    }
+
+    .oa-topbar__actions {
+        width: 100%;
+    }
+
+    .oa-top-link,
+    .oa-verified-bar__meta,
+    .oa-status {
+        width: 100%;
     }
 
     .oa-help-card__actions .oa-submit,
@@ -952,10 +1003,15 @@ body.online-admission-page {
         bottom: 16px;
         min-height: 50px;
         padding: 0 16px;
+        max-width: calc(100vw - 32px);
     }
 }
 
 @media (max-width: 640px) {
+    .oa-shell {
+        padding: 16px 12px 92px;
+    }
+
     .oa-hero,
     .oa-card,
     .oa-verified-bar {
@@ -974,6 +1030,21 @@ body.online-admission-page {
         width: 58px;
         height: 58px;
         border-radius: 18px;
+    }
+
+    .oa-hero {
+        padding: 22px 18px;
+    }
+
+    .oa-hero h1 {
+        max-width: none;
+        font-size: clamp(2rem, 9vw, 2.8rem);
+    }
+
+    .oa-step-row span {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
     }
 
     .oa-form,
@@ -998,5 +1069,57 @@ body.online-admission-page {
     .oa-inline-photo-card .oa-photo-preview img {
         width: 118px;
         height: 118px;
+    }
+}
+
+@media (max-width: 480px) {
+    .oa-topbar,
+    .oa-verified-bar {
+        padding: 16px 14px;
+    }
+
+    .oa-card:not(.oa-card--main) {
+        padding: 18px;
+    }
+
+    .oa-form,
+    .oa-card--main > .oa-section-head,
+    .oa-student-summary,
+    .oa-review-note {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .oa-card--main > .oa-section-head {
+        padding-top: 22px;
+    }
+
+    .oa-top-link,
+    .oa-submit,
+    .oa-secondary {
+        min-height: 50px;
+        padding: 10px 14px;
+    }
+
+    .oa-note-grid article,
+    .oa-step-guide article,
+    .oa-document-card,
+    .oa-payment-summary article,
+    .oa-payment-meta,
+    .oa-payment-callout,
+    .oa-payment-state {
+        padding: 14px;
+    }
+
+    .oa-floating-help {
+        width: 54px;
+        min-width: 54px;
+        height: 54px;
+        padding: 0;
+        border-radius: 50%;
+    }
+
+    .oa-floating-help span {
+        display: none;
     }
 }

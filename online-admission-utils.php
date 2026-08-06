@@ -2935,10 +2935,23 @@ function online_admission_hubtel_is_ready($config){
 if(!function_exists('online_admission_paystack_config')){
 function online_admission_paystack_config(){
     $config = array(
-        "public_key" => trim((string)getenv("PAYSTACK_PUBLIC_KEY")),
-        "secret_key" => trim((string)getenv("PAYSTACK_SECRET_KEY")),
+        "public_key" => "",
+        "secret_key" => "",
         "callback_path" => "online-admission-paystack-callback.php"
     );
+    // Keep live keys out of version-controlled files. A local file is useful on
+    // shared-hosting/XAMPP installations where environment variables are not set.
+    $localConfigFile = __DIR__.DIRECTORY_SEPARATOR."online-admission-paystack-config.local.php";
+    if(file_exists($localConfigFile)){
+        $loaded = include $localConfigFile;
+        if(is_array($loaded)){
+            foreach($loaded as $key => $value){
+                if(array_key_exists($key, $config) && trim((string)$value) !== ""){
+                    $config[$key] = trim((string)$value);
+                }
+            }
+        }
+    }
     $configFile = __DIR__.DIRECTORY_SEPARATOR."online-admission-paystack-config.php";
     if(file_exists($configFile)){
         $loaded = include $configFile;
@@ -2952,13 +2965,35 @@ function online_admission_paystack_config(){
             }
         }
     }
+    // Environment variables take precedence so production hosts can keep keys
+    // completely outside the application directory.
+    $environmentKeys = array(
+        "public_key" => getenv("PAYSTACK_PUBLIC_KEY"),
+        "secret_key" => getenv("PAYSTACK_SECRET_KEY")
+    );
+    foreach($environmentKeys as $key => $value){
+        if(trim((string)$value) !== ""){
+            $config[$key] = trim((string)$value);
+        }
+    }
     return $config;
 }
 }
 
 if(!function_exists('online_admission_paystack_is_ready')){
 function online_admission_paystack_is_ready($config){
-    return isset($config["secret_key"]) && trim((string)$config["secret_key"]) !== "";
+    $publicKey = trim((string)(isset($config["public_key"]) ? $config["public_key"] : ""));
+    $secretKey = trim((string)(isset($config["secret_key"]) ? $config["secret_key"] : ""));
+    return strpos($publicKey, "REPLACE_") === false && strpos($secretKey, "REPLACE_") === false &&
+        preg_match('/^pk_(test|live)_/', $publicKey) && preg_match('/^sk_(test|live)_/', $secretKey) &&
+        substr($publicKey, 3, 4) === substr($secretKey, 3, 4);
+}
+}
+
+if(!function_exists('online_admission_paystack_is_live_mode')){
+function online_admission_paystack_is_live_mode($config){
+    return strpos(trim((string)(isset($config["public_key"]) ? $config["public_key"] : "")), "pk_live_") === 0 &&
+        strpos(trim((string)(isset($config["secret_key"]) ? $config["secret_key"] : "")), "sk_live_") === 0;
 }
 }
 
@@ -4081,6 +4116,11 @@ function online_admission_store_image($file, &$errorMessage){
     $allowedMimes = array("image/jpeg", "image/png", "image/gif", "image/webp");
     if($mime !== "" && !in_array($mime, $allowedMimes, true)){
         $errorMessage = "The selected file is not a valid image.";
+        return false;
+    }
+    $imageInfo = @getimagesize($file["tmp_name"]);
+    if($imageInfo === false){
+        $errorMessage = "The selected file is not a readable image.";
         return false;
     }
 

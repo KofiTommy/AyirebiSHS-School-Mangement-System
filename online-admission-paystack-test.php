@@ -60,6 +60,9 @@ if(isset($_POST["run_paystack_test"])){
     if(!$isReady){
         $errors[] = "Paystack is not configured yet. Add your test secret key first.";
     }
+    if(!$isTestMode){
+        $errors[] = "Sandbox testing is disabled while live Paystack keys are configured. Switch to test keys before using this page.";
+    }
 
     if(empty($errors)){
         $reference = "PSTEST-".date("YmdHis")."-".strtoupper(substr(md5(uniqid('', true)), 0, 8));
