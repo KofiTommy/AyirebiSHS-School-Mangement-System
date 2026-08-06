@@ -170,7 +170,7 @@ function online_admission_normalize_disability_status($value){
 if(!function_exists('ensure_online_admission_tables')){
 function ensure_online_admission_tables($con){
     ensure_house_tables($con);
-    if(xschool_schema_cache_is_fresh('schema_online_admission_v8', 43200)){
+    if(xschool_schema_cache_is_fresh('schema_online_admission_v9', 43200)){
         return;
     }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbladmissionpostedstudent (
@@ -301,6 +301,28 @@ function ensure_online_admission_tables($con){
         INDEX idx_onlineadmissionpayment_application (applicationid),
         INDEX idx_onlineadmissionpayment_status (status),
         INDEX idx_onlineadmissionpayment_branch (branchid)
+    )");
+
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblonlineadmissionsmsoutbox (
+        smsid VARCHAR(40) NOT NULL PRIMARY KEY,
+        dedupekey VARCHAR(120) NOT NULL,
+        paymentid VARCHAR(40) NULL,
+        applicationid VARCHAR(40) NULL,
+        recipient VARCHAR(30) NOT NULL,
+        messagetype VARCHAR(40) NOT NULL,
+        messagebody TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        attempts INT NOT NULL DEFAULT 0,
+        providerresponse VARCHAR(255) NULL,
+        nextattemptat DATETIME NULL,
+        lastattemptat DATETIME NULL,
+        sentat DATETIME NULL,
+        createdat DATETIME NOT NULL,
+        updatedat DATETIME NOT NULL,
+        UNIQUE KEY uq_admissionsms_dedupe (dedupekey),
+        INDEX idx_admissionsms_due (status, nextattemptat),
+        INDEX idx_admissionsms_payment (paymentid),
+        INDEX idx_admissionsms_application (applicationid)
     )");
 
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblonlineadmissionhelprequest (
@@ -493,7 +515,7 @@ function ensure_online_admission_tables($con){
         xschool_schema_ensure_index($con, 'tblonlineadmissionpayment', 'idx_payment_application_status_paid', "CREATE INDEX idx_payment_application_status_paid ON tblonlineadmissionpayment(applicationid, status, paidat, createdat)");
         xschool_schema_ensure_index($con, 'tblonlineadmissiondocument', 'idx_document_scope_status', "CREATE INDEX idx_document_scope_status ON tblonlineadmissiondocument(branchid, admissionyear, status)");
     }
-    xschool_schema_cache_mark('schema_online_admission_v8');
+    xschool_schema_cache_mark('schema_online_admission_v9');
 }
 }
 
@@ -3339,13 +3361,124 @@ function online_admission_update_help_request($con, $branchId, $requestId, $stat
 }
 
 if(!function_exists('online_admission_sms_gateway_send')){
+function online_admission_sms_config(){
+    $config = array(
+        "api_key" => trim((string)getenv("SMS_GH_API_KEY")),
+        "sender_id" => trim((string)getenv("SMS_GH_SENDER_ID")),
+        "api_url" => trim((string)getenv("SMS_GH_API_URL"))
+    );
+    $configFile = __DIR__.DIRECTORY_SEPARATOR."online-admission-sms-config.local.php";
+    if(file_exists($configFile)){
+        $loaded = include $configFile;
+        if(is_array($loaded)){
+            foreach($config as $key => $value){
+                if(isset($loaded[$key]) && trim((string)$loaded[$key]) !== ""){
+                    $config[$key] = trim((string)$loaded[$key]);
+                }
+            }
+        }
+    }
+    if($config["api_url"] === ""){
+        // Retain the provider's documented endpoint by default. If BulkSMS Ghana
+        // confirms an HTTPS endpoint for this account, set it in the local file.
+        $config["api_url"] = "http://clientlogin.bulksmsgh.com/smsapi";
+    }
+    return $config;
+}
+}
+
+if(!function_exists('online_admission_sms_gateway_send')){
 function online_admission_sms_gateway_send($phone, $message, &$resultCode = null){
-    include_once(__DIR__.DIRECTORY_SEPARATOR."house-master-utils.php");
-    if(!function_exists('send_bulk_sms_message')){
-        $resultCode = "SMS_GATEWAY_UNAVAILABLE";
+    $resultCode = "";
+    $config = online_admission_sms_config();
+    if($config["api_key"] === "" || strpos($config["api_key"], "REPLACE_") !== false || $config["sender_id"] === ""){
+        $resultCode = "SMS_NOT_CONFIGURED";
         return false;
     }
-    return send_bulk_sms_message($phone, $message, $resultCode);
+    $url = $config["api_url"].(strpos($config["api_url"], "?") === false ? "?" : "&").http_build_query(array(
+        "key" => $config["api_key"],
+        "to" => $phone,
+        "msg" => $message,
+        "sender_id" => $config["sender_id"]
+    ), "", "&", PHP_QUERY_RFC3986);
+    $response = false;
+    if(function_exists('curl_init')){
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+        if(stripos($url, "https://") === 0){
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        }
+        $response = curl_exec($ch);
+        if($response === false){
+            $resultCode = trim((string)curl_error($ch));
+        }
+        curl_close($ch);
+    }
+    if($response === false){
+        $resultCode = $resultCode !== "" ? $resultCode : "SMS_GATEWAY_TIMEOUT";
+        return false;
+    }
+    $resultCode = trim((string)$response);
+    return $resultCode === "1000";
+}
+}
+
+if(!function_exists('online_admission_queue_sms')){
+function online_admission_queue_sms($con, $dedupeKey, $paymentId, $applicationId, $phone, $messageType, $message){
+    $dedupeKey = trim((string)$dedupeKey);
+    $existingRes = mysqli_query($con, "SELECT * FROM tblonlineadmissionsmsoutbox WHERE dedupekey='".mysqli_real_escape_string($con, $dedupeKey)."' LIMIT 1");
+    if($existingRes && $existing = mysqli_fetch_array($existingRes, MYSQLI_ASSOC)){
+        return $existing;
+    }
+    $smsId = online_admission_generate_id("ADMSMS_");
+    $stmt = mysqli_prepare($con, "INSERT INTO tblonlineadmissionsmsoutbox(smsid, dedupekey, paymentid, applicationid, recipient, messagetype, messagebody, status, attempts, nextattemptat, createdat, updatedat) VALUES(?, ?, ?, ?, ?, ?, ?, 'pending', 0, NOW(), NOW(), NOW())");
+    if(!$stmt){ return false; }
+    mysqli_stmt_bind_param($stmt, "sssssss", $smsId, $dedupeKey, $paymentId, $applicationId, $phone, $messageType, $message);
+    $saved = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    if(!$saved){ return false; }
+    return array("smsid" => $smsId, "status" => "pending", "attempts" => 0);
+}
+}
+
+if(!function_exists('online_admission_deliver_queued_sms')){
+function online_admission_deliver_queued_sms($con, $smsId){
+    $smsIdEsc = mysqli_real_escape_string($con, (string)$smsId);
+    $res = mysqli_query($con, "SELECT * FROM tblonlineadmissionsmsoutbox WHERE smsid='$smsIdEsc' LIMIT 1");
+    $sms = $res ? mysqli_fetch_array($res, MYSQLI_ASSOC) : null;
+    if(!$sms){ return array("sent" => false, "status" => "SMS_QUEUE_NOT_FOUND"); }
+    if((string)$sms["status"] === "sent"){ return array("sent" => true, "status" => (string)$sms["providerresponse"]); }
+    if((int)$sms["attempts"] >= 3){ return array("sent" => false, "status" => "SMS_RETRY_LIMIT"); }
+    $statusCode = "";
+    $sent = online_admission_sms_gateway_send($sms["recipient"], $sms["messagebody"], $statusCode);
+    $attempts = (int)$sms["attempts"] + 1;
+    $statusEsc = mysqli_real_escape_string($con, $sent ? "sent" : "pending");
+    $responseEsc = mysqli_real_escape_string($con, $statusCode !== "" ? $statusCode : ($sent ? "SENT" : "FAILED"));
+    $nextAttemptSql = $sent ? "NULL" : "DATE_ADD(NOW(), INTERVAL ".min(30, 5 * $attempts)." MINUTE)";
+    mysqli_query($con, "UPDATE tblonlineadmissionsmsoutbox SET status='$statusEsc', attempts=$attempts, providerresponse='$responseEsc', lastattemptat=NOW(), nextattemptat=$nextAttemptSql, sentat=".($sent ? "NOW()" : "sentat").", updatedat=NOW() WHERE smsid='$smsIdEsc' LIMIT 1");
+    return array("sent" => $sent, "status" => $statusCode !== "" ? $statusCode : ($sent ? "SENT" : "FAILED"));
+}
+}
+
+if(!function_exists('online_admission_queue_and_send_sms')){
+function online_admission_queue_and_send_sms($con, $dedupeKey, $paymentId, $applicationId, $phone, $messageType, $message){
+    $sms = online_admission_queue_sms($con, $dedupeKey, $paymentId, $applicationId, $phone, $messageType, $message);
+    if(!$sms){ return array("sent" => false, "status" => "SMS_QUEUE_FAILED"); }
+    return online_admission_deliver_queued_sms($con, $sms["smsid"]);
+}
+}
+
+if(!function_exists('online_admission_process_due_sms_outbox')){
+function online_admission_process_due_sms_outbox($con, $limit = 3){
+    $limit = max(1, min(10, (int)$limit));
+    $res = mysqli_query($con, "SELECT smsid FROM tblonlineadmissionsmsoutbox WHERE status='pending' AND attempts < 3 AND (nextattemptat IS NULL OR nextattemptat <= NOW()) ORDER BY createdat ASC LIMIT $limit");
+    if(!$res){ return; }
+    while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        online_admission_deliver_queued_sms($con, $row["smsid"]);
+    }
 }
 }
 
@@ -3407,11 +3540,10 @@ function online_admission_send_payment_token_sms($con, $application, $postedStud
     }
     $schoolLabel = trim((string)$schoolName) !== "" ? trim((string)$schoolName) : "The school";
     $message = $schoolLabel.": Admission payment confirmed. Token: ".$token.". Log in again with your BECE index number, date of birth and token to open your form.";
-    $statusCode = "";
-    $sent = online_admission_sms_gateway_send($phone, $message, $statusCode);
-    online_admission_mark_payment_student_sms($con, $payment["paymentid"], $statusCode, $sent);
-    $result["sent"] = $sent;
-    $result["status"] = $statusCode !== "" ? $statusCode : ($sent ? "SENT" : "FAILED");
+    $delivery = online_admission_queue_and_send_sms($con, "payment-token:".(string)$payment["paymentid"], (string)$payment["paymentid"], (string)$application["applicationid"], $phone, "payment_token", $message);
+    online_admission_mark_payment_student_sms($con, $payment["paymentid"], $delivery["status"], !empty($delivery["sent"]));
+    $result["sent"] = !empty($delivery["sent"]);
+    $result["status"] = $delivery["status"];
     $result["phone"] = $phone;
     $result["skipped"] = false;
     return $result;
@@ -3453,11 +3585,10 @@ function online_admission_send_guardian_submission_sms($con, $application, $scho
     }
     $schoolLabel = trim((string)$schoolName) !== "" ? trim((string)$schoolName) : "The school";
     $message = $schoolLabel.": ".$studentName."'s online admission form has been submitted successfully. The school will review it and contact you if any correction is needed.";
-    $statusCode = "";
-    $sent = online_admission_sms_gateway_send($phone, $message, $statusCode);
-    online_admission_mark_guardian_submission_sms($con, $application["applicationid"], $statusCode, $sent);
-    $result["sent"] = $sent;
-    $result["status"] = $statusCode !== "" ? $statusCode : ($sent ? "SENT" : "FAILED");
+    $delivery = online_admission_queue_and_send_sms($con, "registration-confirmation:".(string)$application["applicationid"], "", (string)$application["applicationid"], $phone, "registration_confirmation", $message);
+    online_admission_mark_guardian_submission_sms($con, $application["applicationid"], $delivery["status"], !empty($delivery["sent"]));
+    $result["sent"] = !empty($delivery["sent"]);
+    $result["status"] = $delivery["status"];
     $result["phone"] = $phone;
     $result["skipped"] = false;
     return $result;

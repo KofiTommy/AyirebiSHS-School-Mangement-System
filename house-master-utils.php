@@ -663,10 +663,31 @@ function send_bulk_sms_message($phone, $message, &$resultCode = null){
         return false;
     }
 
-    $key = "e7c782f1f1c83d0f373c";
-    $senderId = "AYISEC";
+    $smsConfig = array(
+        "api_key" => trim((string)getenv("SMS_GH_API_KEY")),
+        "sender_id" => trim((string)getenv("SMS_GH_SENDER_ID")),
+        "api_url" => trim((string)getenv("SMS_GH_API_URL"))
+    );
+    $smsConfigFile = __DIR__.DIRECTORY_SEPARATOR."online-admission-sms-config.local.php";
+    if(file_exists($smsConfigFile)){
+        $loadedSmsConfig = include $smsConfigFile;
+        if(is_array($loadedSmsConfig)){
+            foreach($smsConfig as $configKey => $configValue){
+                if(isset($loadedSmsConfig[$configKey]) && trim((string)$loadedSmsConfig[$configKey]) !== ""){
+                    $smsConfig[$configKey] = trim((string)$loadedSmsConfig[$configKey]);
+                }
+            }
+        }
+    }
+    if($smsConfig["api_key"] === "" || strpos($smsConfig["api_key"], "REPLACE_") !== false || $smsConfig["sender_id"] === ""){
+        $resultCode = "SMS_NOT_CONFIGURED";
+        return false;
+    }
+    $key = $smsConfig["api_key"];
+    $senderId = $smsConfig["sender_id"];
+    $apiUrl = $smsConfig["api_url"] !== "" ? $smsConfig["api_url"] : "http://clientlogin.bulksmsgh.com/smsapi";
     $msg = urlencode($message);
-    $url = "http://clientlogin.bulksmsgh.com/smsapi?key={$key}&to={$phone}&msg={$msg}&sender_id={$senderId}";
+    $url = $apiUrl.(strpos($apiUrl, "?") === false ? "?" : "&")."key={$key}&to={$phone}&msg={$msg}&sender_id={$senderId}";
 
     $response = false;
     if(function_exists('curl_init')){

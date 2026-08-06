@@ -4,6 +4,7 @@ include("dbstring.php");
 include_once("company.php");
 include_once("online-admission-utils.php");
 ensure_online_admission_tables($con);
+online_admission_process_due_sms_outbox($con);
 
 function oa_esc($value){ return htmlspecialchars((string)$value, ENT_QUOTES, "UTF-8"); }
 function oa_alert($type, $message){
