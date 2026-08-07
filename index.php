@@ -312,6 +312,10 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
                 <h2><?php echo $_LandingSchoolNameSafe; ?></h2>
             </div>
         </div>
+        <div class="landing-product-mark" aria-label="LiveCampus">
+            <img src="images/LiveCampus.png" alt="LiveCampus">
+            <span>LiveCampus</span>
+        </div>
         <div class="landing-topbar__meta">
             <?php if($_PublicAdmissionOpen){ ?>
             <div class="landing-chip landing-chip--accent"><i class="fa fa-check-circle"></i> Online Admission Open</div>
@@ -328,6 +332,16 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
             <div class="landing-copy">
                 <span class="landing-eyebrow">Mobile-First Access</span>
                 <h1>Welcome to <?php echo $_LandingSchoolNameSafe ; ?> Student Management System.</h1>
+                <?php if($_PublicAdmissionOpen){ ?>
+                <div class="landing-admission-notice" role="status">
+                    <div class="landing-admission-notice__icon"><i class="fa fa-graduation-cap"></i></div>
+                    <div>
+                        <strong>Attention: New Students &amp; Parents</strong>
+                        <h2>Start your admission as a fresher</h2>
+                        <p>Click <b>Start Online Admission</b> below and follow the steps: verify posting, pay if required, use your token, then fill and submit your form.</p>
+                    </div>
+                </div>
+                <?php } ?>
                 <p><?php echo $_PublicAdmissionOpen ? "New students should use start admission. Existing users should use portal login." : "Sign in to continue."; ?></p>
             </div>
 
@@ -456,7 +470,14 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
     </main>
 
     <footer class="landing-footer">
-        <p>&copy 2026. LiveCampus V2.20.2.2</p>
+        <p class="landing-footer__product">
+            <img src="images/LiveCampus.png" alt="LiveCampus" class="landing-footer__product-logo">
+            <span>&copy; 2026 LiveCampus V2.20.2.2</span>
+        </p>
+        <a class="landing-footer__developer" href="https://tokaatechconsult.com/" target="_blank" rel="noopener noreferrer" aria-label="Visit Tokaa Tech Consult">
+            <img src="images/Tokaa Logo.png" alt="Tokaa Tech Consult" class="landing-footer__developer-logo">
+            <span>Developed by <strong>Tokaa Tech Consult</strong></span>
+        </a>
         <p>
             <?php if($_LandingWhatsappUrl !== ""){ ?><a href="<?php echo htmlspecialchars($_LandingWhatsappUrl, ENT_QUOTES, "UTF-8"); ?>" class="landing-footer__link" target="_blank" rel="noopener noreferrer">WhatsApp</a> | <?php } ?>
             <a href="<?php echo htmlspecialchars($_LandingFacebookUrl, ENT_QUOTES, "UTF-8"); ?>" class="landing-footer__link" target="_blank" rel="noopener noreferrer">Facebook Page</a> |
