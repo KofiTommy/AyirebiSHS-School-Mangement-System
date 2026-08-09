@@ -5,6 +5,7 @@ include_once("company.php");
 include_once("online-admission-utils.php");
 ensure_online_admission_tables($con);
 online_admission_process_due_sms_outbox($con);
+online_admission_process_due_email_outbox($con);
 
 function oa_esc($value){ return htmlspecialchars((string)$value, ENT_QUOTES, "UTF-8"); }
 function oa_alert($type, $message){
@@ -242,12 +243,10 @@ $admissionFormAlert = "";
 
 $verifyForm = array(
     "beceindexnumber" => isset($_POST["beceindexnumber"]) ? trim((string)$_POST["beceindexnumber"]) : "",
-    "birthdate" => isset($_POST["birthdate"]) ? trim((string)$_POST["birthdate"]) : "",
     "admissionyear" => isset($_POST["admissionyear"]) ? trim((string)$_POST["admissionyear"]) : date("Y")
 );
 $accessForm = array(
     "access_beceindexnumber" => isset($_POST["access_beceindexnumber"]) ? trim((string)$_POST["access_beceindexnumber"]) : "",
-    "access_birthdate" => isset($_POST["access_birthdate"]) ? trim((string)$_POST["access_birthdate"]) : "",
     "verificationtoken" => isset($_POST["verificationtoken"]) ? strtoupper(trim((string)$_POST["verificationtoken"])) : ""
 );
 $resumeRequested = isset($_GET["resume_admission"]) || isset($_POST["continue_admission"]);
@@ -259,17 +258,10 @@ if(isset($_POST["verify_posting"]) && $branchId !== ""){
         $flashMessage = oa_alert("warning", "Online admission is currently closed.");
     }else{
         $beceIndex = online_admission_normalize_bece(isset($_POST["beceindexnumber"]) ? $_POST["beceindexnumber"] : "");
-        $birthdateInput = trim((string)(isset($_POST["birthdate"]) ? $_POST["birthdate"] : ""));
-        $birthdate = online_admission_normalize_date($birthdateInput);
         $admissionYear = trim((string)(isset($_POST["admissionyear"]) ? $_POST["admissionyear"] : date("Y")));
 
         if($beceIndex === ""){
             oa_add_field_error($verifyFieldErrors, "beceindexnumber", "Enter your BECE index number.");
-        }
-        if($birthdateInput === ""){
-            oa_add_field_error($verifyFieldErrors, "birthdate", "Enter your date of birth.");
-        }elseif($birthdate === false || $birthdate === ""){
-            oa_add_field_error($verifyFieldErrors, "birthdate", "Enter a valid date of birth.");
         }
         if($admissionYear === ""){
             oa_add_field_error($verifyFieldErrors, "admissionyear", "Enter your admission year.");
@@ -278,7 +270,7 @@ if(isset($_POST["verify_posting"]) && $branchId !== ""){
         if(!empty($verifyFieldErrors)){
             $verifyFormAlert = oa_alert("warning", "Please correct the highlighted fields and try again.");
         }else{
-            $postedStudent = online_admission_find_posted_student($con, $branchId, $beceIndex, $birthdate, $admissionYear);
+            $postedStudent = online_admission_find_posted_student($con, $branchId, $beceIndex, $admissionYear);
             if($postedStudent){
                 $application = online_admission_ensure_application_for_posting($con, $postedStudent);
                 if($application){
@@ -301,7 +293,7 @@ if(isset($_POST["verify_posting"]) && $branchId !== ""){
                 }
                 $flashMessage = oa_alert("error", "Your posting was verified, but the admission record could not be prepared right now. Please try again.");
             }else{
-                $verifyFormAlert = oa_alert("warning", "We could not verify your placement with those details. Check your BECE index number, date of birth, and admission year, or contact the school for support.");
+                $verifyFormAlert = oa_alert("warning", "We could not verify your placement with those details. Check your BECE index number and admission year, or contact the school for support.");
             }
         }
     }
@@ -318,17 +310,10 @@ if(isset($_POST["continue_admission"]) && $branchId !== ""){
         $flashMessage = oa_alert("warning", "Online admission is currently closed.");
     }else{
         $beceIndex = online_admission_normalize_bece(isset($_POST["access_beceindexnumber"]) ? $_POST["access_beceindexnumber"] : "");
-        $birthdateInput = trim((string)(isset($_POST["access_birthdate"]) ? $_POST["access_birthdate"] : ""));
-        $birthdate = online_admission_normalize_date($birthdateInput);
         $verificationToken = strtoupper(trim((string)(isset($_POST["verificationtoken"]) ? $_POST["verificationtoken"] : "")));
 
         if($beceIndex === ""){
             oa_add_field_error($accessFieldErrors, "access_beceindexnumber", "Enter your BECE index number.");
-        }
-        if($birthdateInput === ""){
-            oa_add_field_error($accessFieldErrors, "access_birthdate", "Enter your date of birth.");
-        }elseif($birthdate === false || $birthdate === ""){
-            oa_add_field_error($accessFieldErrors, "access_birthdate", "Enter a valid date of birth.");
         }
         if($verificationToken === ""){
             oa_add_field_error($accessFieldErrors, "verificationtoken", $paymentEnabled ? "Enter your verification token." : "Enter your resume token.");
@@ -337,7 +322,7 @@ if(isset($_POST["continue_admission"]) && $branchId !== ""){
         if(!empty($accessFieldErrors)){
             $accessFormAlert = oa_alert("warning", "Please correct the highlighted fields and try again.");
         }else{
-            $application = online_admission_find_application_by_access($con, $branchId, $beceIndex, $birthdate, $verificationToken);
+            $application = online_admission_find_application_by_access($con, $branchId, $beceIndex, $verificationToken);
             if($application){
                 $postedStudent = online_admission_get_posted_student_by_id($con, $branchId, $application["postingid"]);
                 if($postedStudent && $application){
@@ -676,15 +661,16 @@ if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$porta
                     : oa_alert("success", "Admission draft saved successfully.");
             }elseif($isSubmit){
                 $guardianSmsResult = $savedApplication ? online_admission_send_guardian_submission_sms($con, $savedApplication, $companyName) : array("sent" => false, "status" => "INVALID_CONTEXT");
+                $guardianEmailResult = $savedApplication ? online_admission_send_submission_confirmation_email($con, $savedApplication, $companyName) : array("sent" => false, "status" => "INVALID_CONTEXT");
                 $accessToken = $savedApplication ? trim((string)$savedApplication["verificationtoken"]) : "";
                 $houseMessage = ($assignedHouse && trim((string)$assignedHouse["housename"]) !== "") ? " Auto house: ".$assignedHouse["housename"]."." : "";
                 if($paymentEnabled){
-                    $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", !empty($guardianSmsResult["sent"])
-                        ? "Admission submitted successfully. A confirmation SMS has been sent.".$houseMessage
+                    $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", (!empty($guardianSmsResult["sent"]) || !empty($guardianEmailResult["sent"]))
+                        ? "Admission submitted successfully. A confirmation message has been sent.".$houseMessage
                         : "Admission submitted successfully.".$houseMessage);
                 }else{
-                    $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", !empty($guardianSmsResult["sent"])
-                        ? "Admission submitted successfully. A confirmation SMS has been sent. Resume token: ".($accessToken !== "" ? $accessToken : "available on your portal").".".$houseMessage
+                    $_SESSION["ONLINE_ADMISSION_MESSAGE"] = oa_alert("success", (!empty($guardianSmsResult["sent"]) || !empty($guardianEmailResult["sent"]))
+                        ? "Admission submitted successfully. A confirmation message has been sent. Resume token: ".($accessToken !== "" ? $accessToken : "available on your portal").".".$houseMessage
                         : "Admission submitted successfully. Resume token: ".($accessToken !== "" ? $accessToken : "available on your portal").".".$houseMessage);
                 }
             }else{
@@ -840,7 +826,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
             <h3><?php echo oa_esc($resumeOnlyMode ? "Required" : "Have These Ready"); ?></h3>
             <ul>
                 <li>BECE index number</li>
-                <li>Date of birth</li>
+                <li>Admission year</li>
                 <li><?php echo oa_esc($resumeOnlyMode ? "Token" : "Token if returning"); ?></li>
                 <?php if(!$resumeOnlyMode && $paymentEnabled){ ?><li>Phone or payment method for Paystack</li><?php } ?>
                 <?php if(!$resumeOnlyMode){ ?><li>Parent or guardian contact</li><?php } ?>
@@ -872,11 +858,6 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                     <?php echo oa_field_error_html($verifyFieldErrors, "beceindexnumber"); ?>
                 </div>
                 <div class="oa-field">
-                    <label for="birthdate">Date of Birth</label>
-                    <input type="date" id="birthdate" name="birthdate" value="<?php echo oa_esc($verifyForm["birthdate"]); ?>" autocomplete="bday" required<?php echo oa_invalid_attr($verifyFieldErrors, "birthdate"); ?>>
-                    <?php echo oa_field_error_html($verifyFieldErrors, "birthdate"); ?>
-                </div>
-                <div class="oa-field">
                     <label for="admissionyear">Admission Year</label>
                     <input type="text" id="admissionyear" name="admissionyear" value="<?php echo oa_esc($verifyForm["admissionyear"]); ?>" inputmode="numeric" autocomplete="off" maxlength="20" required<?php echo oa_invalid_attr($verifyFieldErrors, "admissionyear"); ?>>
                     <?php echo oa_field_error_html($verifyFieldErrors, "admissionyear"); ?>
@@ -886,7 +867,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
             <div class="oa-step-guide">
                 <article>
                     <strong>Before You Click Verify</strong>
-                    <span>Use the BECE index number and date of birth exactly as they appear on the student placement records.</span>
+                    <span>Use the BECE index number and admission year exactly as they appear on the student placement records.</span>
                 </article>
                 <article>
                     <strong>For Parents</strong>
@@ -912,11 +893,6 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                     <label for="access_beceindexnumber">BECE Index Number</label>
                     <input type="text" id="access_beceindexnumber" name="access_beceindexnumber" placeholder="Example: 1234567890" value="<?php echo oa_esc($accessForm["access_beceindexnumber"]); ?>" inputmode="numeric" autocomplete="off" maxlength="60" required<?php echo oa_invalid_attr($accessFieldErrors, "access_beceindexnumber"); ?>>
                     <?php echo oa_field_error_html($accessFieldErrors, "access_beceindexnumber"); ?>
-                </div>
-                <div class="oa-field">
-                    <label for="access_birthdate">Date of Birth</label>
-                    <input type="date" id="access_birthdate" name="access_birthdate" value="<?php echo oa_esc($accessForm["access_birthdate"]); ?>" autocomplete="bday" required<?php echo oa_invalid_attr($accessFieldErrors, "access_birthdate"); ?>>
-                    <?php echo oa_field_error_html($accessFieldErrors, "access_birthdate"); ?>
                 </div>
                 <div class="oa-field">
                     <label for="verificationtoken"><?php echo oa_esc($paymentEnabled ? "Verification Token" : "Resume Token"); ?></label>
@@ -989,7 +965,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                     </article>
                     <article>
                         <strong>Step 3: Reopen Admission</strong>
-                        <span>After payment, come back and log in again with the student's BECE index number, date of birth, and the issued token.</span>
+                        <span>After payment, come back and log in again with the student's BECE index number and the issued token.</span>
                     </article>
                     <article>
                         <strong>Important</strong>
@@ -1022,7 +998,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                 <?php }elseif(!$paymentAllowed){ ?>
                 <div class="oa-payment-state oa-payment-state--neutral">Payment is not open for this record yet.</div>
                 <?php }else{ ?>
-                <div class="oa-payment-state oa-payment-state--info">Enter the mobile number you will use for payment. Your verification token and admission confirmation will be sent to that number.</div>
+                <div class="oa-payment-state oa-payment-state--info">Enter the mobile number you will use for payment. You may also add an email address to receive a payment receipt, verification token, and admission confirmation.</div>
                 <?php if($latestPayment && trim((string)$latestPayment["reference"]) !== ""){ ?>
                 <div class="oa-payment-meta">
                     <span><strong>Reference:</strong> <?php echo oa_esc($latestPayment["reference"]); ?></span>
@@ -1035,6 +1011,8 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                     <form method="post" action="online-admission-paystack-init.php" class="oa-payment-phone-form">
                         <label for="payment_phone">Use a different payment number</label>
                         <input type="tel" id="payment_phone" name="payment_phone" value="<?php echo oa_esc($latestPayment["mobile"]); ?>" placeholder="Example: 0241234567" autocomplete="tel" inputmode="tel" maxlength="30" required>
+                        <label for="payment_email">Email for receipt and token (optional)</label>
+                        <input type="email" id="payment_email" name="payment_email" value="<?php echo oa_esc($latestPayment["email"]); ?>" placeholder="name@example.com" autocomplete="email" inputmode="email" maxlength="120">
                         <small>Starting fresh creates a new Paystack checkout. The previous unfinished checkout will not be used.</small>
                         <button type="submit" class="oa-secondary"><i class="fa fa-refresh"></i> Start Fresh Payment</button>
                     </form>
@@ -1042,7 +1020,9 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                     <form method="post" action="online-admission-paystack-init.php" class="oa-payment-phone-form">
                         <label for="payment_phone">Mobile number for payment SMS</label>
                         <input type="tel" id="payment_phone" name="payment_phone" value="<?php echo oa_esc($latestPayment && trim((string)$latestPayment["mobile"]) !== "" ? $latestPayment["mobile"] : $postedStudent["mobile"]); ?>" placeholder="Example: 0241234567" autocomplete="tel" inputmode="tel" maxlength="30" required>
-                        <small>This number receives the payment token and the successful-registration confirmation.</small>
+                        <label for="payment_email">Email for receipt and token (optional)</label>
+                        <input type="email" id="payment_email" name="payment_email" value="<?php echo oa_esc($latestPayment && trim((string)$latestPayment["email"]) !== "" ? $latestPayment["email"] : ""); ?>" placeholder="name@example.com" autocomplete="email" inputmode="email" maxlength="120">
+                        <small>The phone receives SMS. If provided, the email also receives the payment receipt, token, and successful-registration confirmation.</small>
                         <button type="submit" class="oa-submit"><i class="fa fa-credit-card"></i> Pay with Paystack</button>
                     </form>
                     <?php } ?>

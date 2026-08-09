@@ -170,7 +170,7 @@ function online_admission_normalize_disability_status($value){
 if(!function_exists('ensure_online_admission_tables')){
 function ensure_online_admission_tables($con){
     ensure_house_tables($con);
-    if(xschool_schema_cache_is_fresh('schema_online_admission_v9', 43200)){
+    if(xschool_schema_cache_is_fresh('schema_online_admission_v11', 43200)){
         return;
     }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbladmissionpostedstudent (
@@ -323,6 +323,28 @@ function ensure_online_admission_tables($con){
         INDEX idx_admissionsms_due (status, nextattemptat),
         INDEX idx_admissionsms_payment (paymentid),
         INDEX idx_admissionsms_application (applicationid)
+    )");
+
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblonlineadmissionemailoutbox (
+        emailid VARCHAR(40) NOT NULL PRIMARY KEY,
+        dedupekey VARCHAR(120) NOT NULL,
+        paymentid VARCHAR(40) NULL,
+        applicationid VARCHAR(40) NULL,
+        recipient VARCHAR(120) NOT NULL,
+        subjectline VARCHAR(190) NOT NULL,
+        messagebody TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        attempts INT NOT NULL DEFAULT 0,
+        providerresponse VARCHAR(255) NULL,
+        nextattemptat DATETIME NULL,
+        lastattemptat DATETIME NULL,
+        sentat DATETIME NULL,
+        createdat DATETIME NOT NULL,
+        updatedat DATETIME NOT NULL,
+        UNIQUE KEY uq_admissionemail_dedupe (dedupekey),
+        INDEX idx_admissionemail_due (status, nextattemptat),
+        INDEX idx_admissionemail_payment (paymentid),
+        INDEX idx_admissionemail_application (applicationid)
     )");
 
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblonlineadmissionhelprequest (
@@ -507,6 +529,7 @@ function ensure_online_admission_tables($con){
     }
     if(function_exists('xschool_schema_ensure_index')){
         xschool_schema_ensure_index($con, 'tbladmissionpostedstudent', 'idx_posted_access_scope', "CREATE INDEX idx_posted_access_scope ON tbladmissionpostedstudent(beceindexnumber, birthdate, admissionyear, branchid, status)");
+        xschool_schema_ensure_index($con, 'tbladmissionpostedstudent', 'idx_posted_index_year_scope', "CREATE INDEX idx_posted_index_year_scope ON tbladmissionpostedstudent(beceindexnumber, admissionyear, branchid, status)");
         xschool_schema_ensure_index($con, 'tblonlineadmissionapplication', 'idx_application_branch_token', "CREATE INDEX idx_application_branch_token ON tblonlineadmissionapplication(branchid, verificationtoken)");
         xschool_schema_ensure_index($con, 'tblonlineadmissionapplication', 'idx_application_house_scope', "CREATE INDEX idx_application_house_scope ON tblonlineadmissionapplication(assignedhouseid, branchid, admissionyear, status)");
         xschool_schema_ensure_index($con, 'tblonlineadmissionapplication', 'idx_application_branch_updated', "CREATE INDEX idx_application_branch_updated ON tblonlineadmissionapplication(branchid, updatedat)");
@@ -515,7 +538,7 @@ function ensure_online_admission_tables($con){
         xschool_schema_ensure_index($con, 'tblonlineadmissionpayment', 'idx_payment_application_status_paid', "CREATE INDEX idx_payment_application_status_paid ON tblonlineadmissionpayment(applicationid, status, paidat, createdat)");
         xschool_schema_ensure_index($con, 'tblonlineadmissiondocument', 'idx_document_scope_status', "CREATE INDEX idx_document_scope_status ON tblonlineadmissiondocument(branchid, admissionyear, status)");
     }
-    xschool_schema_cache_mark('schema_online_admission_v9');
+    xschool_schema_cache_mark('schema_online_admission_v11');
 }
 }
 
@@ -794,16 +817,14 @@ function online_admission_bulk_headmaster_approve_reviewed($con, $branchId, $app
 }
 
 if(!function_exists('online_admission_find_posted_student')){
-function online_admission_find_posted_student($con, $branchId, $beceIndex, $birthdate, $admissionYear){
+function online_admission_find_posted_student($con, $branchId, $beceIndex, $admissionYear){
     $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
     $beceEsc = mysqli_real_escape_string($con, online_admission_normalize_bece($beceIndex));
-    $birthEsc = mysqli_real_escape_string($con, (string)$birthdate);
     $yearEsc = mysqli_real_escape_string($con, trim((string)$admissionYear));
     $sql = "SELECT *
             FROM tbladmissionpostedstudent
             WHERE branchid='$branchIdEsc'
               AND beceindexnumber='$beceEsc'
-              AND birthdate='$birthEsc'
               AND admissionyear='$yearEsc'
               AND status='active'
             LIMIT 1";
@@ -1779,10 +1800,9 @@ function online_admission_ensure_application_token($con, $application){
 }
 
 if(!function_exists('online_admission_find_application_by_access')){
-function online_admission_find_application_by_access($con, $branchId, $beceIndex, $birthdate, $token){
+function online_admission_find_application_by_access($con, $branchId, $beceIndex, $token){
     $branchIdEsc = mysqli_real_escape_string($con, (string)$branchId);
     $beceEsc = mysqli_real_escape_string($con, online_admission_normalize_bece($beceIndex));
-    $birthEsc = mysqli_real_escape_string($con, (string)$birthdate);
     $tokenEsc = mysqli_real_escape_string($con, strtoupper(trim((string)$token)));
     $res = mysqli_query($con, "SELECT app.*
         FROM tblonlineadmissionapplication app
@@ -1790,7 +1810,6 @@ function online_admission_find_application_by_access($con, $branchId, $beceIndex
         WHERE app.branchid='$branchIdEsc'
           AND app.verificationtoken='$tokenEsc'
           AND post.beceindexnumber='$beceEsc'
-          AND post.birthdate='$birthEsc'
           AND post.status='active'
         LIMIT 1");
     if($res && $row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
@@ -3482,6 +3501,103 @@ function online_admission_process_due_sms_outbox($con, $limit = 3){
 }
 }
 
+if(!function_exists('online_admission_email_config')){
+function online_admission_email_config(){
+    $config = array("enabled" => false, "host" => "", "port" => 465, "encryption" => "ssl", "username" => "", "password" => "", "from_email" => "", "from_name" => "School Admissions", "timeout" => 15);
+    $localPath = __DIR__.DIRECTORY_SEPARATOR."online-admission-email-config.local.php";
+    if(is_file($localPath)){ $local = include $localPath; if(is_array($local)){ $config = array_merge($config, $local); } }
+    $environmentMap = array("enabled" => "ADMISSION_EMAIL_ENABLED", "host" => "ADMISSION_SMTP_HOST", "port" => "ADMISSION_SMTP_PORT", "encryption" => "ADMISSION_SMTP_ENCRYPTION", "username" => "ADMISSION_SMTP_USERNAME", "password" => "ADMISSION_SMTP_PASSWORD", "from_email" => "ADMISSION_EMAIL_FROM", "from_name" => "ADMISSION_EMAIL_FROM_NAME");
+    foreach($environmentMap as $key => $environmentName){ $value = getenv($environmentName); if($value !== false && trim((string)$value) !== ""){ $config[$key] = $value; } }
+    $config["enabled"] = filter_var($config["enabled"], FILTER_VALIDATE_BOOLEAN);
+    $config["port"] = max(1, min(65535, (int)$config["port"]));
+    $config["timeout"] = max(5, min(30, (int)$config["timeout"]));
+    $config["encryption"] = strtolower(trim((string)$config["encryption"]));
+    return $config;
+}
+}
+
+if(!function_exists('online_admission_email_smtp_read')){
+function online_admission_email_smtp_read($socket, $expected, &$resultCode){
+    while(!feof($socket)){
+        $line = fgets($socket, 1024);
+        if($line === false){ break; }
+        if(preg_match('/^([0-9]{3})[ ]/', $line, $matches)){
+            $code = (int)$matches[1];
+            if(in_array($code, (array)$expected, true)){ return true; }
+            $resultCode = "SMTP_".$code; return false;
+        }
+    }
+    $resultCode = "SMTP_NO_RESPONSE"; return false;
+}
+}
+
+if(!function_exists('online_admission_email_smtp_send')){
+function online_admission_email_smtp_send($recipient, $subject, $message, &$resultCode = null){
+    $resultCode = ""; $recipient = trim((string)$recipient);
+    if(!filter_var($recipient, FILTER_VALIDATE_EMAIL) || preg_match('/[\r\n]/', $recipient)){ $resultCode = "INVALID_EMAIL"; return false; }
+    $config = online_admission_email_config();
+    if(empty($config["enabled"])){ $resultCode = "EMAIL_NOT_CONFIGURED"; return false; }
+    $host = trim((string)$config["host"]); $from = trim((string)$config["from_email"]);
+    if($host === "" || !filter_var($from, FILTER_VALIDATE_EMAIL) || trim((string)$config["username"]) === "" || trim((string)$config["password"]) === ""){ $resultCode = "EMAIL_CONFIG_INVALID"; return false; }
+    $context = stream_context_create(array("ssl" => array("verify_peer" => true, "verify_peer_name" => true, "peer_name" => $host)));
+    $errorNo = 0; $errorMessage = ""; $transport = $config["encryption"] === "ssl" ? "ssl://" : "";
+    $socket = @stream_socket_client($transport.$host.":".$config["port"], $errorNo, $errorMessage, $config["timeout"], STREAM_CLIENT_CONNECT, $context);
+    if(!$socket){ $resultCode = "SMTP_CONNECT_FAILED"; return false; }
+    stream_set_timeout($socket, $config["timeout"]);
+    $read = function($expected) use ($socket, &$resultCode){ return online_admission_email_smtp_read($socket, $expected, $resultCode); };
+    $hostname = preg_replace('/[^A-Za-z0-9.-]/', '', (string)(isset($_SERVER["HTTP_HOST"]) ? $_SERVER["HTTP_HOST"] : "localhost"));
+    $ok = $read(array(220));
+    if($ok){ $ok = fwrite($socket, "EHLO ".($hostname !== "" ? $hostname : "localhost")."\r\n") !== false && $read(array(250)); }
+    if($ok && $config["encryption"] === "tls"){
+        $ok = fwrite($socket, "STARTTLS\r\n") !== false && $read(array(220));
+        if($ok){ $ok = @stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT); }
+        if(!$ok && $resultCode === ""){ $resultCode = "SMTP_TLS_FAILED"; }
+        if($ok){ $ok = fwrite($socket, "EHLO ".($hostname !== "" ? $hostname : "localhost")."\r\n") !== false && $read(array(250)); }
+    }
+    if($ok){ $ok = fwrite($socket, "AUTH LOGIN\r\n") !== false && $read(array(334)); }
+    if($ok){ $ok = fwrite($socket, base64_encode((string)$config["username"])."\r\n") !== false && $read(array(334)); }
+    if($ok){ $ok = fwrite($socket, base64_encode((string)$config["password"])."\r\n") !== false && $read(array(235)); }
+    if($ok){ $ok = fwrite($socket, "MAIL FROM:<".$from.">\r\n") !== false && $read(array(250)); }
+    if($ok){ $ok = fwrite($socket, "RCPT TO:<".$recipient.">\r\n") !== false && $read(array(250, 251)); }
+    if($ok){ $ok = fwrite($socket, "DATA\r\n") !== false && $read(array(354)); }
+    $safeSubject = trim(preg_replace('/[\r\n]+/', ' ', (string)$subject)); $safeName = trim(preg_replace('/[\r\n]+/', ' ', (string)$config["from_name"]));
+    $body = rtrim(str_replace(array("\r\n", "\r"), "\n", (string)$message));
+    $headers = "From: =?UTF-8?B?".base64_encode($safeName)."?= <".$from.">\r\nTo: <".$recipient.">\r\nSubject: =?UTF-8?B?".base64_encode($safeSubject)."?=\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n";
+    if($ok){ $ok = fwrite($socket, $headers."\r\n".chunk_split(base64_encode($body), 76, "\r\n")."\r\n.\r\n") !== false && $read(array(250)); }
+    @fwrite($socket, "QUIT\r\n"); fclose($socket); if($ok){ $resultCode = "SENT"; } return $ok;
+}
+}
+
+if(!function_exists('online_admission_queue_and_send_email')){
+function online_admission_queue_and_send_email($con, $dedupeKey, $paymentId, $applicationId, $recipient, $subject, $message){
+    $recipient = trim((string)$recipient); if(!filter_var($recipient, FILTER_VALIDATE_EMAIL)){ return array("sent" => false, "status" => "NO_VALID_EMAIL"); }
+    $emailId = online_admission_generate_id("ADMEML_");
+    $stmt = mysqli_prepare($con, "INSERT IGNORE INTO tblonlineadmissionemailoutbox(emailid, dedupekey, paymentid, applicationid, recipient, subjectline, messagebody, status, attempts, nextattemptat, createdat, updatedat) VALUES(?, ?, ?, ?, ?, ?, ?, 'pending', 0, NOW(), NOW(), NOW())");
+    if(!$stmt){ return array("sent" => false, "status" => "EMAIL_QUEUE_FAILED"); }
+    mysqli_stmt_bind_param($stmt, "sssssss", $emailId, $dedupeKey, $paymentId, $applicationId, $recipient, $subject, $message); mysqli_stmt_execute($stmt); mysqli_stmt_close($stmt);
+    $row = mysqli_query($con, "SELECT emailid FROM tblonlineadmissionemailoutbox WHERE dedupekey='".mysqli_real_escape_string($con, $dedupeKey)."' LIMIT 1"); $stored = $row ? mysqli_fetch_array($row, MYSQLI_ASSOC) : null;
+    if(!$stored){ return array("sent" => false, "status" => "EMAIL_QUEUE_FAILED"); } return online_admission_deliver_queued_email($con, $stored["emailid"]);
+}
+}
+
+if(!function_exists('online_admission_deliver_queued_email')){
+function online_admission_deliver_queued_email($con, $emailId){
+    $emailIdEsc = mysqli_real_escape_string($con, (string)$emailId); $res = mysqli_query($con, "SELECT * FROM tblonlineadmissionemailoutbox WHERE emailid='$emailIdEsc' LIMIT 1"); $email = $res ? mysqli_fetch_array($res, MYSQLI_ASSOC) : null;
+    if(!$email){ return array("sent" => false, "status" => "EMAIL_QUEUE_NOT_FOUND"); } if((string)$email["status"] === "sent"){ return array("sent" => true, "status" => (string)$email["providerresponse"]); } if((int)$email["attempts"] >= 3){ return array("sent" => false, "status" => "EMAIL_RETRY_LIMIT"); }
+    $status = ""; $sent = online_admission_email_smtp_send($email["recipient"], $email["subjectline"], $email["messagebody"], $status); $attempts = (int)$email["attempts"] + 1;
+    $next = $attempts === 1 ? "DATE_ADD(NOW(), INTERVAL 5 MINUTE)" : ($attempts === 2 ? "DATE_ADD(NOW(), INTERVAL 30 MINUTE)" : "DATE_ADD(NOW(), INTERVAL 6 HOUR)");
+    $statusEsc = mysqli_real_escape_string($con, $sent ? "sent" : "pending"); $responseEsc = mysqli_real_escape_string($con, $status !== "" ? $status : ($sent ? "SENT" : "FAILED"));
+    mysqli_query($con, "UPDATE tblonlineadmissionemailoutbox SET status='$statusEsc', attempts=$attempts, providerresponse='$responseEsc', lastattemptat=NOW(), nextattemptat=".($sent ? "NULL" : $next).", sentat=".($sent ? "NOW()" : "sentat").", updatedat=NOW() WHERE emailid='$emailIdEsc' LIMIT 1"); return array("sent" => $sent, "status" => $status);
+}
+}
+
+if(!function_exists('online_admission_process_due_email_outbox')){
+function online_admission_process_due_email_outbox($con, $limit = 3){
+    $limit = max(1, min(10, (int)$limit)); $res = mysqli_query($con, "SELECT emailid FROM tblonlineadmissionemailoutbox WHERE status='pending' AND attempts < 3 AND (nextattemptat IS NULL OR nextattemptat <= NOW()) ORDER BY createdat ASC LIMIT $limit");
+    if($res){ while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){ online_admission_deliver_queued_email($con, $row["emailid"]); } }
+}
+}
+
 if(!function_exists('online_admission_mark_payment_student_sms')){
 function online_admission_mark_payment_student_sms($con, $paymentId, $status, $sent){
     $updates = array(
@@ -3539,7 +3655,7 @@ function online_admission_send_payment_token_sms($con, $application, $postedStud
         return $result;
     }
     $schoolLabel = trim((string)$schoolName) !== "" ? trim((string)$schoolName) : "The school";
-    $message = $schoolLabel.": Admission payment confirmed. Token: ".$token.". Log in again with your BECE index number, date of birth and token to open your form.";
+    $message = $schoolLabel.": Admission payment confirmed. Token: ".$token.". Log in again with your BECE index number and token to open your form.";
     $delivery = online_admission_queue_and_send_sms($con, "payment-token:".(string)$payment["paymentid"], (string)$payment["paymentid"], (string)$application["applicationid"], $phone, "payment_token", $message);
     online_admission_mark_payment_student_sms($con, $payment["paymentid"], $delivery["status"], !empty($delivery["sent"]));
     $result["sent"] = !empty($delivery["sent"]);
@@ -3595,6 +3711,43 @@ function online_admission_send_guardian_submission_sms($con, $application, $scho
 }
 }
 
+if(!function_exists('online_admission_send_payment_token_email')){
+function online_admission_send_payment_token_email($con, $application, $payment, $schoolName = ""){
+    $result = array("sent" => false, "status" => "", "skipped" => true);
+    if(!is_array($application) || !is_array($payment)){ $result["status"] = "INVALID_CONTEXT"; return $result; }
+    $email = trim((string)(isset($payment["email"]) ? $payment["email"] : ""));
+    if(!filter_var($email, FILTER_VALIDATE_EMAIL)){ $email = trim((string)(isset($application["email"]) ? $application["email"] : "")); }
+    if(!filter_var($email, FILTER_VALIDATE_EMAIL)){ $result["status"] = "NO_VALID_EMAIL"; return $result; }
+    $school = trim((string)$schoolName) !== "" ? trim((string)$schoolName) : "The school";
+    $token = trim((string)(isset($application["verificationtoken"]) ? $application["verificationtoken"] : ""));
+    if($token === ""){ $result["status"] = "NO_TOKEN"; return $result; }
+    $student = online_admission_candidate_name($application); if($student === ""){ $student = "Applicant"; }
+    $amount = number_format((float)(isset($payment["amount"]) ? $payment["amount"] : 0), 2);
+    $currency = trim((string)(isset($payment["currency"]) ? $payment["currency"] : "GHS"));
+    $body = "Dear ".$student.",\n\n".$school." has confirmed your online admission payment.\n\nPayment receipt\nReference: ".(string)$payment["reference"]."\nAmount: ".$currency." ".$amount."\n\nYour verification token: ".$token."\n\nReturn to the online admission portal and sign in with your BECE index number and this token to complete your form. Keep this email private.\n\nThis is an automated message; please do not reply.";
+    $delivery = online_admission_queue_and_send_email($con, "payment-token-email:".(string)$payment["paymentid"], (string)$payment["paymentid"], (string)$application["applicationid"], $email, $school." admission payment receipt and token", $body);
+    $result = $delivery; $result["skipped"] = false; return $result;
+}
+}
+
+if(!function_exists('online_admission_send_submission_confirmation_email')){
+function online_admission_send_submission_confirmation_email($con, $application, $schoolName = ""){
+    $result = array("sent" => false, "status" => "", "skipped" => true);
+    if(!is_array($application) || trim((string)(isset($application["applicationid"]) ? $application["applicationid"] : "")) === ""){ $result["status"] = "INVALID_CONTEXT"; return $result; }
+    $email = trim((string)(isset($application["email"]) ? $application["email"] : ""));
+    if(!filter_var($email, FILTER_VALIDATE_EMAIL)){
+        $payment = online_admission_get_successful_payment_by_application($con, $application["applicationid"]);
+        $email = trim((string)(is_array($payment) && isset($payment["email"]) ? $payment["email"] : ""));
+    }
+    if(!filter_var($email, FILTER_VALIDATE_EMAIL)){ $result["status"] = "NO_VALID_EMAIL"; return $result; }
+    $school = trim((string)$schoolName) !== "" ? trim((string)$schoolName) : "The school";
+    $student = online_admission_candidate_name($application); if($student === ""){ $student = "Applicant"; }
+    $body = "Dear ".$student.",\n\nYour online admission form has been submitted successfully to ".$school.". The school will review it and contact you if any correction or further information is needed.\n\nBECE index number: ".(string)$application["beceindexnumber"]."\nAdmission year: ".(string)$application["admissionyear"]."\n\nPlease keep this email as your submission confirmation.\n\nThis is an automated message; please do not reply.";
+    $delivery = online_admission_queue_and_send_email($con, "registration-confirmation-email:".(string)$application["applicationid"], "", (string)$application["applicationid"], $email, $school." online admission submitted", $body);
+    $result = $delivery; $result["skipped"] = false; return $result;
+}
+}
+
 if(!function_exists('online_admission_mark_posted_placement_sms')){
 function online_admission_mark_posted_placement_sms($con, $postingId, $status, $sent, $recordedBy = ""){
     $postingIdEsc = mysqli_real_escape_string($con, trim((string)$postingId));
@@ -3629,7 +3782,7 @@ function online_admission_build_posted_placement_sms($postedStudent, $schoolName
         $portalUrl = online_admission_app_url("online-admission.php");
     }
 
-    return $schoolLabel.": ".$studentName." has been placed in our school. Visit ".$portalUrl." and click Verify Posting. Use BECE ".$beceIndex.", DOB ".$birthdate.", year ".$admissionYear." and follow the steps to enroll online.";
+    return $schoolLabel.": ".$studentName." has been placed in our school. Visit ".$portalUrl." and click Verify Posting. Use BECE ".$beceIndex." and year ".$admissionYear." and follow the steps to enroll online.";
 }
 }
 
@@ -4107,7 +4260,9 @@ function online_admission_process_paystack_payment_result($con, $payment, $data,
 
     $updatedPayment = online_admission_get_payment_by_reference($con, (string)$payment["reference"]);
     if($storedStatus === "success" && $application){
-        online_admission_send_payment_token_sms($con, $application, $postedStudent, $updatedPayment ? $updatedPayment : $payment);
+        $confirmedPayment = $updatedPayment ? $updatedPayment : $payment;
+        online_admission_send_payment_token_sms($con, $application, $postedStudent, $confirmedPayment);
+        online_admission_send_payment_token_email($con, $application, $confirmedPayment);
     }
 
     return array(
