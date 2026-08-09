@@ -152,7 +152,10 @@ $saved = online_admission_create_payment_record($con, array(
     "gatewaytransactionid" => "",
     "amount" => $amount,
     "currency" => strtoupper(trim((string)$paymentSetting["currency"])) !== "" ? strtoupper(trim((string)$paymentSetting["currency"])) : "GHS",
-    "email" => $paymentEmail !== "" ? $paymentEmail : online_admission_payment_customer_email($paymentProfile),
+    // Keep only an applicant-provided address on the payment record. Paystack
+    // still receives its required customer address above, but the school
+    // fallback address must never receive an applicant's token email.
+    "email" => $paymentEmail,
     "mobile" => $paymentPhone,
     "status" => "initialized",
     "gatewayresponse" => isset($response["message"]) ? (string)$response["message"] : "Initialized",

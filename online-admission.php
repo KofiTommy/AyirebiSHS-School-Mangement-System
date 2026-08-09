@@ -459,7 +459,10 @@ if(isset($_POST["submit_help_request"])){
     }
 }
 
-if((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$portalOpen){
+$finalReviewConfirmed = isset($_POST["final_review_confirmed"]) && (string)$_POST["final_review_confirmed"] === "1";
+if(isset($_POST["submit_admission"]) && !$finalReviewConfirmed){
+    $flashMessage = oa_alert("warning", "Please review your details and confirm the declaration before submitting your admission form.");
+}elseif((isset($_POST["save_draft"]) || isset($_POST["submit_admission"])) && !$portalOpen){
     $flashMessage = oa_alert("warning", "Online admission is currently closed by the school. Your form cannot be updated right now.");
 }elseif($postedStudent && $application && $accessAuthorized && $portalOpen && !oa_csrf_is_valid_post() && (isset($_POST["save_draft"]) || isset($_POST["submit_admission"]))){
     $flashMessage = oa_alert("error", "Your session expired. Please refresh the page and try again.");
@@ -1178,9 +1181,30 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                 </section>
 
                 <?php if(!$isLocked){ ?>
+                <noscript><div class="oa-payment-state oa-payment-state--warning">Enable JavaScript in your browser to review and submit this admission form.</div></noscript>
                 <div class="oa-form-actions">
                     <button type="submit" name="save_draft" class="oa-secondary"><i class="fa fa-save"></i> Save Draft</button>
-                    <button type="submit" name="submit_admission" class="oa-submit"><i class="fa fa-paper-plane"></i> Submit Admission</button>
+                    <button type="button" id="oa-open-final-review" class="oa-submit"><i class="fa fa-clipboard-check"></i> Review Before Submitting</button>
+                </div>
+                <div class="oa-review-modal" id="oa-final-review" role="dialog" aria-modal="true" aria-labelledby="oa-review-title" hidden>
+                    <div class="oa-review-modal__backdrop" data-oa-close-review></div>
+                    <section class="oa-review-modal__panel" role="document">
+                        <button type="button" class="oa-review-modal__close" aria-label="Close review" data-oa-close-review><i class="fa fa-times"></i></button>
+                        <span class="oa-kicker"><i class="fa fa-check-circle"></i> Final review</span>
+                        <h3 id="oa-review-title">Check your details before submitting</h3>
+                        <p>Your form will lock after submission unless the school asks for a correction.</p>
+                        <dl class="oa-review-static">
+                            <div><dt>Student</dt><dd><?php echo oa_esc(trim($postedStudent["firstname"]." ".$postedStudent["othernames"]." ".$postedStudent["surname"])); ?></dd></div>
+                            <div><dt>BECE index number</dt><dd><?php echo oa_esc($postedStudent["beceindexnumber"]); ?></dd></div>
+                            <div><dt>Admission year</dt><dd><?php echo oa_esc($postedStudent["admissionyear"]); ?></dd></div>
+                        </dl>
+                        <div class="oa-review-list" id="oa-review-list" aria-live="polite"></div>
+                        <label class="oa-review-declaration"><input type="checkbox" id="oa-review-confirm"> <span>I confirm that the details shown are correct and I want to submit this admission form to the school.</span></label>
+                        <div class="oa-form-actions oa-review-actions">
+                            <button type="button" class="oa-secondary" data-oa-close-review><i class="fa fa-pencil"></i> Go Back and Edit</button>
+                            <button type="button" class="oa-submit" id="oa-confirm-final-submission" disabled><i class="fa fa-paper-plane"></i> Confirm and Submit</button>
+                        </div>
+                    </section>
                 </div>
                 <?php } ?>
             </form>
@@ -1225,7 +1249,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                 <?php if($headmasterApproved){ ?>
                 <div class="oa-payment-state oa-payment-state--success">Headmaster approval has been recorded<?php echo $headmasterApprovalName !== "" ? " by ".oa_esc($headmasterApprovalName) : ""; ?><?php echo $headmasterApprovalReference !== "" ? ". Ref: ".oa_esc($headmasterApprovalReference) : ""; ?>.</div>
                 <?php } ?>
-                <div class="oa-download-hub">
+                <div class="oa-download-hub<?php echo ($application && online_admission_application_is_submitted($application) && (!$paymentEnabled || $paymentPaid) && $hasStudentDownloads) ? " oa-download-hub--ready" : ""; ?>">
                     <div class="oa-form-head oa-form-head--compact">
                         <h3>Downloads</h3>
                     </div>
@@ -1236,7 +1260,7 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                 <?php }elseif(!$hasStudentDownloads){ ?>
                 <div class="oa-payment-state oa-payment-state--warning">Your downloads are not ready yet.</div>
                 <?php }else{ ?>
-                <div class="oa-payment-state oa-payment-state--info">Download the required documents below and keep them safely. Bring them with you when reporting to the school, and return any document the school expects you to submit after signing or completing it.</div>
+                <div class="oa-download-ready"><i class="fa fa-check-circle"></i><div><strong>Admission submitted — downloads ready</strong><span>Download the available documents below and keep them safely for reporting to the school.</span></div></div>
                 <div class="oa-document-list">
                     <?php if($admissionLetterWithheld){ ?>
                     <article class="oa-document-card oa-document-card--notice">
@@ -1246,24 +1270,27 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
                     </article>
                     <?php } ?>
                     <?php if($prospectusUrl !== ""){ ?>
-                    <article class="oa-document-card">
+                    <article class="oa-document-card oa-document-card--ready">
                         <strong><?php echo oa_esc($prospectusLabel); ?></strong>
                         <span><?php echo oa_esc($prospectusNote !== "" ? $prospectusNote : "Assigned automatically for your residence and gender."); ?></span>
-                        <a href="<?php echo oa_esc($prospectusUrl); ?>" class="oa-secondary"><i class="fa fa-download"></i> Download</a>
+                        <span class="oa-document-badge oa-document-badge--ready"><i class="fa fa-check-circle"></i> Ready to download</span>
+                        <a href="<?php echo oa_esc($prospectusUrl); ?>" class="oa-download-button"><i class="fa fa-download"></i> Download <?php echo oa_esc($prospectusLabel); ?></a>
                     </article>
                     <?php } ?>
                     <?php foreach($visibleStudentDocuments as $documentRow){ ?>
-                    <article class="oa-document-card">
+                    <article class="oa-document-card oa-document-card--ready">
                         <strong><?php echo oa_esc(online_admission_document_display_title($documentRow)); ?></strong>
                         <span><?php echo oa_esc(trim((string)$documentRow["originalfilename"]) !== "" ? $documentRow["originalfilename"] : $documentRow["filename"]); ?></span>
-                        <a href="online-admission-document.php?documentid=<?php echo oa_esc($documentRow["documentid"]); ?>" class="oa-secondary"><i class="fa fa-download"></i> Download</a>
+                        <span class="oa-document-badge oa-document-badge--ready"><i class="fa fa-check-circle"></i> Ready to download</span>
+                        <a href="online-admission-document.php?documentid=<?php echo oa_esc($documentRow["documentid"]); ?>" class="oa-download-button"><i class="fa fa-download"></i> Download document</a>
                     </article>
                     <?php } ?>
                     <?php if($downloadUrl !== ""){ ?>
-                    <article class="oa-document-card">
+                    <article class="oa-document-card oa-document-card--ready">
                         <strong>Admission Form PDF</strong>
                         <span>Download a copy of your completed online admission form.</span>
-                        <a href="<?php echo oa_esc($downloadUrl); ?>" class="oa-secondary"><i class="fa fa-download"></i> Download</a>
+                        <span class="oa-document-badge oa-document-badge--ready"><i class="fa fa-check-circle"></i> Ready to download</span>
+                        <a href="<?php echo oa_esc($downloadUrl); ?>" class="oa-download-button"><i class="fa fa-download"></i> Download completed form</a>
                     </article>
                     <?php } ?>
                 </div>
@@ -1423,6 +1450,61 @@ $hasStudentDownloads = ($prospectusUrl !== "" || !empty($visibleStudentDocuments
             invalidField.focus();
         }
     }, 120);
+}());
+(function () {
+    var openButton = document.getElementById("oa-open-final-review");
+    var modal = document.getElementById("oa-final-review");
+    var reviewList = document.getElementById("oa-review-list");
+    var confirmation = document.getElementById("oa-review-confirm");
+    var confirmButton = document.getElementById("oa-confirm-final-submission");
+    if (!openButton || !modal || !reviewList || !confirmation || !confirmButton) { return; }
+    var form = openButton.closest("form");
+    if (!form) { return; }
+    var fields = [
+        ["Mobile number", "mobile"], ["Email address", "email"], ["Ghana Card number", "ghanacard"],
+        ["Disability status", "disabilitystatus"], ["Residence type", "residencetype"], ["Hometown", "hometown"],
+        ["Postal address", "postaladdress"], ["Home address", "homeaddress"], ["Religion", "religion"],
+        ["Parent / guardian", "guardianname"], ["Relationship", "guardianrelationship"], ["Guardian contact", "guardiancontact"],
+        ["Guardian profession", "guardianprofession"], ["Medical notes", "medicalnotes"], ["Student note", "studentnote"]
+    ];
+    function addReviewItem(label, value) {
+        if (!value) { return; }
+        var item = document.createElement("div");
+        var key = document.createElement("strong");
+        var text = document.createElement("span");
+        key.textContent = label; text.textContent = value;
+        item.appendChild(key); item.appendChild(text); reviewList.appendChild(item);
+    }
+    function showReview() {
+        if (typeof form.reportValidity === "function" && !form.reportValidity()) { return; }
+        reviewList.innerHTML = "";
+        fields.forEach(function (field) {
+            var control = form.querySelector('[name="' + field[1] + '"]');
+            if (!control) { return; }
+            var value = "";
+            if (control.tagName === "SELECT" && control.selectedIndex >= 0) {
+                value = control.options[control.selectedIndex].text;
+            } else {
+                value = control.value || "";
+            }
+            addReviewItem(field[0], value.replace(/^\s+|\s+$/g, ""));
+        });
+        var photo = form.querySelector('[name="admissionphoto"]');
+        if (photo && photo.files && photo.files[0]) { addReviewItem("Admission photo", photo.files[0].name); }
+        confirmation.checked = false; confirmButton.disabled = true;
+        modal.hidden = false; document.body.classList.add("oa-review-open");
+        window.setTimeout(function () { confirmation.focus(); }, 30);
+    }
+    function closeReview() { modal.hidden = true; document.body.classList.remove("oa-review-open"); openButton.focus(); }
+    openButton.addEventListener("click", showReview);
+    confirmation.addEventListener("change", function () { confirmButton.disabled = !confirmation.checked; });
+    Array.prototype.forEach.call(modal.querySelectorAll("[data-oa-close-review]"), function (button) { button.addEventListener("click", closeReview); });
+    confirmButton.addEventListener("click", function () {
+        if (!confirmation.checked) { return; }
+        var reviewFlag = document.createElement("input"); reviewFlag.type = "hidden"; reviewFlag.name = "final_review_confirmed"; reviewFlag.value = "1";
+        var submitFlag = document.createElement("input"); submitFlag.type = "hidden"; submitFlag.name = "submit_admission"; submitFlag.value = "1";
+        form.appendChild(reviewFlag); form.appendChild(submitFlag); confirmButton.disabled = true; form.submit();
+    });
 }());
 </script>
 </body>

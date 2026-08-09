@@ -397,6 +397,85 @@ body.online-admission-page {
     margin-top: 18px;
 }
 
+.oa-review-open {
+    overflow: hidden;
+}
+
+.oa-review-modal[hidden] {
+    display: none;
+}
+
+.oa-review-modal {
+    position: fixed;
+    z-index: 10050;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+}
+
+.oa-review-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 27, 44, 0.68);
+}
+
+.oa-review-modal__panel {
+    position: relative;
+    z-index: 1;
+    width: min(680px, 100%);
+    max-height: min(86vh, 820px);
+    overflow: auto;
+    padding: 28px;
+    border-radius: 24px;
+    background: #fff;
+    box-shadow: 0 24px 70px rgba(5, 27, 44, 0.32);
+}
+
+.oa-review-modal__panel h3 { margin: 8px 34px 8px 0; color: #123046; }
+.oa-review-modal__panel > p { margin: 0 0 18px; color: #5f768f; line-height: 1.6; }
+.oa-review-modal__close { position: absolute; top: 18px; right: 18px; border: 0; background: #eef4f8; color: #27435b; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; }
+.oa-review-static, .oa-review-list { display: grid; gap: 10px; }
+.oa-review-static { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 16px; }
+.oa-review-static div, .oa-review-list div { padding: 11px 13px; border: 1px solid #d9e5ec; border-radius: 13px; background: #f8fbfc; }
+.oa-review-static dt, .oa-review-list strong { display: block; color: #5f768f; font-size: 0.78rem; font-weight: 700; }
+.oa-review-static dd, .oa-review-list span { display: block; margin: 3px 0 0; color: #123046; overflow-wrap: anywhere; }
+.oa-review-declaration { display: flex; gap: 10px; align-items: flex-start; margin-top: 18px; padding: 14px; border-radius: 14px; background: #fff8df; color: #534100; font-weight: 600; line-height: 1.5; }
+.oa-review-declaration input { width: 19px; height: 19px; margin-top: 2px; flex: 0 0 auto; }
+.oa-review-actions { margin-top: 18px; }
+
+.oa-download-hub--ready .oa-form-head h3 {
+    color: #087443;
+}
+
+.oa-download-ready {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    padding: 16px;
+    border: 1px solid #86efac;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #ecfdf3, #f0fdf4);
+    color: #075a35;
+}
+
+.oa-download-ready > i {
+    margin-top: 3px;
+    font-size: 1.3rem;
+}
+
+.oa-download-ready strong,
+.oa-download-ready span {
+    display: block;
+}
+
+.oa-download-ready span {
+    margin-top: 3px;
+    color: #397457;
+    line-height: 1.55;
+}
+
 .oa-form,
 .oa-card--main > .oa-section-head,
 .oa-student-summary,
@@ -644,6 +723,19 @@ body.online-admission-page {
     border-color: #fed7aa;
 }
 
+.oa-document-card--ready {
+    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+    border-color: #86efac;
+}
+
+.oa-document-card--ready strong {
+    color: #075a35;
+}
+
+.oa-document-card--ready > span:not(.oa-document-badge) {
+    color: #397457;
+}
+
 .oa-document-badge {
     display: inline-flex;
     align-items: center;
@@ -658,6 +750,39 @@ body.online-admission-page {
     font-weight: 800;
     letter-spacing: .03em;
     text-transform: uppercase;
+}
+
+.oa-document-badge--ready {
+    color: #087443 !important;
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.oa-download-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: fit-content;
+    padding: 11px 15px;
+    border-radius: 12px;
+    background: #087443;
+    color: #fff;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 8px 18px rgba(8, 116, 67, 0.18);
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.oa-download-button:hover,
+.oa-download-button:focus {
+    background: #056137;
+    color: #fff;
+    transform: translateY(-1px);
 }
 
 .oa-payment-summary {
@@ -1161,5 +1286,31 @@ body.online-admission-page {
 
     .oa-floating-help span {
         display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .oa-review-modal {
+        padding: 10px;
+    }
+
+    .oa-review-modal__panel {
+        max-height: 90vh;
+        padding: 22px 16px;
+        border-radius: 20px;
+    }
+
+    .oa-review-static {
+        grid-template-columns: 1fr;
+    }
+
+    .oa-review-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .oa-review-actions .oa-secondary,
+    .oa-review-actions .oa-submit {
+        width: 100%;
     }
 }

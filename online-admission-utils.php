@@ -3458,7 +3458,15 @@ function online_admission_queue_sms($con, $dedupeKey, $paymentId, $applicationId
     mysqli_stmt_bind_param($stmt, "sssssss", $smsId, $dedupeKey, $paymentId, $applicationId, $phone, $messageType, $message);
     $saved = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
-    if(!$saved){ return false; }
+    if(!$saved){
+        // Another request may have inserted this same dedupe key between the
+        // lookup above and this insert. Use that one; do not create a second.
+        $existingRes = mysqli_query($con, "SELECT * FROM tblonlineadmissionsmsoutbox WHERE dedupekey='".mysqli_real_escape_string($con, $dedupeKey)."' LIMIT 1");
+        if($existingRes && $existing = mysqli_fetch_array($existingRes, MYSQLI_ASSOC)){
+            return $existing;
+        }
+        return false;
+    }
     return array("smsid" => $smsId, "status" => "pending", "attempts" => 0);
 }
 }
@@ -3470,14 +3478,32 @@ function online_admission_deliver_queued_sms($con, $smsId){
     $sms = $res ? mysqli_fetch_array($res, MYSQLI_ASSOC) : null;
     if(!$sms){ return array("sent" => false, "status" => "SMS_QUEUE_NOT_FOUND"); }
     if((string)$sms["status"] === "sent"){ return array("sent" => true, "status" => (string)$sms["providerresponse"]); }
+    if((string)$sms["status"] === "sending"){ return array("sent" => false, "status" => "SMS_ALREADY_PROCESSING"); }
     if((int)$sms["attempts"] >= 3){ return array("sent" => false, "status" => "SMS_RETRY_LIMIT"); }
+
+    // Payment callbacks and webhooks can run at the same time. Claim this
+    // outbox record before contacting the provider so only one request can
+    // send it. The conditional update is atomic at the database level.
+    $claimed = mysqli_query($con, "UPDATE tblonlineadmissionsmsoutbox
+        SET status='sending', attempts=attempts+1, lastattemptat=NOW(), updatedat=NOW()
+        WHERE smsid='$smsIdEsc' AND status='pending' AND attempts < 3
+        LIMIT 1");
+    if(!$claimed || mysqli_affected_rows($con) !== 1){
+        $currentRes = mysqli_query($con, "SELECT status, providerresponse FROM tblonlineadmissionsmsoutbox WHERE smsid='$smsIdEsc' LIMIT 1");
+        $current = $currentRes ? mysqli_fetch_array($currentRes, MYSQLI_ASSOC) : null;
+        if($current && (string)$current["status"] === "sent"){
+            return array("sent" => true, "status" => (string)$current["providerresponse"]);
+        }
+        return array("sent" => false, "status" => "SMS_ALREADY_PROCESSING");
+    }
+
     $statusCode = "";
     $sent = online_admission_sms_gateway_send($sms["recipient"], $sms["messagebody"], $statusCode);
     $attempts = (int)$sms["attempts"] + 1;
     $statusEsc = mysqli_real_escape_string($con, $sent ? "sent" : "pending");
     $responseEsc = mysqli_real_escape_string($con, $statusCode !== "" ? $statusCode : ($sent ? "SENT" : "FAILED"));
     $nextAttemptSql = $sent ? "NULL" : "DATE_ADD(NOW(), INTERVAL ".min(30, 5 * $attempts)." MINUTE)";
-    mysqli_query($con, "UPDATE tblonlineadmissionsmsoutbox SET status='$statusEsc', attempts=$attempts, providerresponse='$responseEsc', lastattemptat=NOW(), nextattemptat=$nextAttemptSql, sentat=".($sent ? "NOW()" : "sentat").", updatedat=NOW() WHERE smsid='$smsIdEsc' LIMIT 1");
+    mysqli_query($con, "UPDATE tblonlineadmissionsmsoutbox SET status='$statusEsc', providerresponse='$responseEsc', nextattemptat=$nextAttemptSql, sentat=".($sent ? "NOW()" : "sentat").", updatedat=NOW() WHERE smsid='$smsIdEsc' AND status='sending' LIMIT 1");
     return array("sent" => $sent, "status" => $statusCode !== "" ? $statusCode : ($sent ? "SENT" : "FAILED"));
 }
 }
@@ -3583,11 +3609,17 @@ function online_admission_queue_and_send_email($con, $dedupeKey, $paymentId, $ap
 if(!function_exists('online_admission_deliver_queued_email')){
 function online_admission_deliver_queued_email($con, $emailId){
     $emailIdEsc = mysqli_real_escape_string($con, (string)$emailId); $res = mysqli_query($con, "SELECT * FROM tblonlineadmissionemailoutbox WHERE emailid='$emailIdEsc' LIMIT 1"); $email = $res ? mysqli_fetch_array($res, MYSQLI_ASSOC) : null;
-    if(!$email){ return array("sent" => false, "status" => "EMAIL_QUEUE_NOT_FOUND"); } if((string)$email["status"] === "sent"){ return array("sent" => true, "status" => (string)$email["providerresponse"]); } if((int)$email["attempts"] >= 3){ return array("sent" => false, "status" => "EMAIL_RETRY_LIMIT"); }
+    if(!$email){ return array("sent" => false, "status" => "EMAIL_QUEUE_NOT_FOUND"); } if((string)$email["status"] === "sent"){ return array("sent" => true, "status" => (string)$email["providerresponse"]); } if((string)$email["status"] === "sending"){ return array("sent" => false, "status" => "EMAIL_ALREADY_PROCESSING"); } if((int)$email["attempts"] >= 3){ return array("sent" => false, "status" => "EMAIL_RETRY_LIMIT"); }
+    $claimed = mysqli_query($con, "UPDATE tblonlineadmissionemailoutbox SET status='sending', attempts=attempts+1, lastattemptat=NOW(), updatedat=NOW() WHERE emailid='$emailIdEsc' AND status='pending' AND attempts < 3 LIMIT 1");
+    if(!$claimed || mysqli_affected_rows($con) !== 1){
+        $currentRes = mysqli_query($con, "SELECT status, providerresponse FROM tblonlineadmissionemailoutbox WHERE emailid='$emailIdEsc' LIMIT 1"); $current = $currentRes ? mysqli_fetch_array($currentRes, MYSQLI_ASSOC) : null;
+        if($current && (string)$current["status"] === "sent"){ return array("sent" => true, "status" => (string)$current["providerresponse"]); }
+        return array("sent" => false, "status" => "EMAIL_ALREADY_PROCESSING");
+    }
     $status = ""; $sent = online_admission_email_smtp_send($email["recipient"], $email["subjectline"], $email["messagebody"], $status); $attempts = (int)$email["attempts"] + 1;
     $next = $attempts === 1 ? "DATE_ADD(NOW(), INTERVAL 5 MINUTE)" : ($attempts === 2 ? "DATE_ADD(NOW(), INTERVAL 30 MINUTE)" : "DATE_ADD(NOW(), INTERVAL 6 HOUR)");
     $statusEsc = mysqli_real_escape_string($con, $sent ? "sent" : "pending"); $responseEsc = mysqli_real_escape_string($con, $status !== "" ? $status : ($sent ? "SENT" : "FAILED"));
-    mysqli_query($con, "UPDATE tblonlineadmissionemailoutbox SET status='$statusEsc', attempts=$attempts, providerresponse='$responseEsc', lastattemptat=NOW(), nextattemptat=".($sent ? "NULL" : $next).", sentat=".($sent ? "NOW()" : "sentat").", updatedat=NOW() WHERE emailid='$emailIdEsc' LIMIT 1"); return array("sent" => $sent, "status" => $status);
+    mysqli_query($con, "UPDATE tblonlineadmissionemailoutbox SET status='$statusEsc', providerresponse='$responseEsc', nextattemptat=".($sent ? "NULL" : $next).", sentat=".($sent ? "NOW()" : "sentat").", updatedat=NOW() WHERE emailid='$emailIdEsc' AND status='sending' LIMIT 1"); return array("sent" => $sent, "status" => $status);
 }
 }
 
