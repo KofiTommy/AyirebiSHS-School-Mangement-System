@@ -3479,14 +3479,17 @@ function online_admission_deliver_queued_sms($con, $smsId){
     if(!$sms){ return array("sent" => false, "status" => "SMS_QUEUE_NOT_FOUND"); }
     if((string)$sms["status"] === "sent"){ return array("sent" => true, "status" => (string)$sms["providerresponse"]); }
     if((string)$sms["status"] === "sending"){ return array("sent" => false, "status" => "SMS_ALREADY_PROCESSING"); }
-    if((int)$sms["attempts"] >= 3){ return array("sent" => false, "status" => "SMS_RETRY_LIMIT"); }
+    // SMS gateways can accept a message even when the HTTP response is lost.
+    // Retrying automatically can therefore deliver the same SMS more than once.
+    // Admission token and submission notices are intentionally attempted once.
+    if((int)$sms["attempts"] >= 1){ return array("sent" => false, "status" => "SMS_ALREADY_ATTEMPTED"); }
 
     // Payment callbacks and webhooks can run at the same time. Claim this
     // outbox record before contacting the provider so only one request can
     // send it. The conditional update is atomic at the database level.
     $claimed = mysqli_query($con, "UPDATE tblonlineadmissionsmsoutbox
         SET status='sending', attempts=attempts+1, lastattemptat=NOW(), updatedat=NOW()
-        WHERE smsid='$smsIdEsc' AND status='pending' AND attempts < 3
+        WHERE smsid='$smsIdEsc' AND status='pending' AND attempts < 1
         LIMIT 1");
     if(!$claimed || mysqli_affected_rows($con) !== 1){
         $currentRes = mysqli_query($con, "SELECT status, providerresponse FROM tblonlineadmissionsmsoutbox WHERE smsid='$smsIdEsc' LIMIT 1");
@@ -3500,9 +3503,9 @@ function online_admission_deliver_queued_sms($con, $smsId){
     $statusCode = "";
     $sent = online_admission_sms_gateway_send($sms["recipient"], $sms["messagebody"], $statusCode);
     $attempts = (int)$sms["attempts"] + 1;
-    $statusEsc = mysqli_real_escape_string($con, $sent ? "sent" : "pending");
+    $statusEsc = mysqli_real_escape_string($con, $sent ? "sent" : "failed");
     $responseEsc = mysqli_real_escape_string($con, $statusCode !== "" ? $statusCode : ($sent ? "SENT" : "FAILED"));
-    $nextAttemptSql = $sent ? "NULL" : "DATE_ADD(NOW(), INTERVAL ".min(30, 5 * $attempts)." MINUTE)";
+    $nextAttemptSql = "NULL";
     mysqli_query($con, "UPDATE tblonlineadmissionsmsoutbox SET status='$statusEsc', providerresponse='$responseEsc', nextattemptat=$nextAttemptSql, sentat=".($sent ? "NOW()" : "sentat").", updatedat=NOW() WHERE smsid='$smsIdEsc' AND status='sending' LIMIT 1");
     return array("sent" => $sent, "status" => $statusCode !== "" ? $statusCode : ($sent ? "SENT" : "FAILED"));
 }
@@ -3519,7 +3522,7 @@ function online_admission_queue_and_send_sms($con, $dedupeKey, $paymentId, $appl
 if(!function_exists('online_admission_process_due_sms_outbox')){
 function online_admission_process_due_sms_outbox($con, $limit = 3){
     $limit = max(1, min(10, (int)$limit));
-    $res = mysqli_query($con, "SELECT smsid FROM tblonlineadmissionsmsoutbox WHERE status='pending' AND attempts < 3 AND (nextattemptat IS NULL OR nextattemptat <= NOW()) ORDER BY createdat ASC LIMIT $limit");
+    $res = mysqli_query($con, "SELECT smsid FROM tblonlineadmissionsmsoutbox WHERE status='pending' AND attempts = 0 AND (nextattemptat IS NULL OR nextattemptat <= NOW()) ORDER BY createdat ASC LIMIT $limit");
     if(!$res){ return; }
     while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
         online_admission_deliver_queued_sms($con, $row["smsid"]);
@@ -3661,6 +3664,28 @@ function online_admission_send_payment_token_sms($con, $application, $postedStud
         $result["status"] = "INVALID_CONTEXT";
         return $result;
     }
+    // A verification token belongs to the application, not to a Paystack
+    // checkout. Do not send another token SMS if this application already has
+    // an attempted token message from a previous checkout record.
+    $applicationIdEsc = mysqli_real_escape_string($con, (string)$application["applicationid"]);
+    $existingTokenRes = mysqli_query($con, "SELECT smsid, status, attempts, providerresponse
+        FROM tblonlineadmissionsmsoutbox
+        WHERE applicationid='$applicationIdEsc' AND messagetype='payment_token'
+        ORDER BY createdat ASC LIMIT 1");
+    if($existingTokenRes && ($existingToken = mysqli_fetch_array($existingTokenRes, MYSQLI_ASSOC))){
+        if((string)$existingToken["status"] === "pending" && (int)$existingToken["attempts"] === 0){
+            $delivery = online_admission_deliver_queued_sms($con, $existingToken["smsid"]);
+            $result["sent"] = !empty($delivery["sent"]);
+            $result["status"] = $delivery["status"];
+            $result["skipped"] = false;
+            return $result;
+        }
+        $result["sent"] = (string)$existingToken["status"] === "sent";
+        $result["status"] = $result["sent"]
+            ? (trim((string)$existingToken["providerresponse"]) !== "" ? (string)$existingToken["providerresponse"] : "ALREADY_SENT_FOR_APPLICATION")
+            : "TOKEN_SMS_ALREADY_ATTEMPTED";
+        return $result;
+    }
     if(trim((string)(isset($payment["studentsmssentat"]) ? $payment["studentsmssentat"] : "")) !== ""){
         $result["status"] = trim((string)(isset($payment["studentsmsstatus"]) ? $payment["studentsmsstatus"] : "")) !== "" ? trim((string)$payment["studentsmsstatus"]) : "ALREADY_SENT";
         return $result;
@@ -3688,7 +3713,7 @@ function online_admission_send_payment_token_sms($con, $application, $postedStud
     }
     $schoolLabel = trim((string)$schoolName) !== "" ? trim((string)$schoolName) : "The school";
     $message = $schoolLabel.": Admission payment confirmed. Token: ".$token.". Log in again with your BECE index number and token to open your form.";
-    $delivery = online_admission_queue_and_send_sms($con, "payment-token:".(string)$payment["paymentid"], (string)$payment["paymentid"], (string)$application["applicationid"], $phone, "payment_token", $message);
+    $delivery = online_admission_queue_and_send_sms($con, "payment-token:".(string)$application["applicationid"], (string)$payment["paymentid"], (string)$application["applicationid"], $phone, "payment_token", $message);
     online_admission_mark_payment_student_sms($con, $payment["paymentid"], $delivery["status"], !empty($delivery["sent"]));
     $result["sent"] = !empty($delivery["sent"]);
     $result["status"] = $delivery["status"];
@@ -3757,7 +3782,7 @@ function online_admission_send_payment_token_email($con, $application, $payment,
     $amount = number_format((float)(isset($payment["amount"]) ? $payment["amount"] : 0), 2);
     $currency = trim((string)(isset($payment["currency"]) ? $payment["currency"] : "GHS"));
     $body = "Dear ".$student.",\n\n".$school." has confirmed your online admission payment.\n\nPayment receipt\nReference: ".(string)$payment["reference"]."\nAmount: ".$currency." ".$amount."\n\nYour verification token: ".$token."\n\nReturn to the online admission portal and sign in with your BECE index number and this token to complete your form. Keep this email private.\n\nThis is an automated message; please do not reply.";
-    $delivery = online_admission_queue_and_send_email($con, "payment-token-email:".(string)$payment["paymentid"], (string)$payment["paymentid"], (string)$application["applicationid"], $email, $school." admission payment receipt and token", $body);
+    $delivery = online_admission_queue_and_send_email($con, "payment-token-email:".(string)$application["applicationid"], (string)$payment["paymentid"], (string)$application["applicationid"], $email, $school." admission payment receipt and token", $body);
     $result = $delivery; $result["skipped"] = false; return $result;
 }
 }
@@ -3774,8 +3799,8 @@ function online_admission_send_submission_confirmation_email($con, $application,
     if(!filter_var($email, FILTER_VALIDATE_EMAIL)){ $result["status"] = "NO_VALID_EMAIL"; return $result; }
     $school = trim((string)$schoolName) !== "" ? trim((string)$schoolName) : "The school";
     $student = online_admission_candidate_name($application); if($student === ""){ $student = "Applicant"; }
-    $body = "Dear ".$student.",\n\nYour online admission form has been submitted successfully to ".$school.". The school will review it and contact you if any correction or further information is needed.\n\nBECE index number: ".(string)$application["beceindexnumber"]."\nAdmission year: ".(string)$application["admissionyear"]."\n\nPlease keep this email as your submission confirmation.\n\nThis is an automated message; please do not reply.";
-    $delivery = online_admission_queue_and_send_email($con, "registration-confirmation-email:".(string)$application["applicationid"], "", (string)$application["applicationid"], $email, $school." online admission submitted", $body);
+    $body = $school.": ".$student."'s online admission form has been submitted successfully. The school will review it and contact you if any correction is needed.\n\nPlease keep this email as your submission confirmation.\n\nThis is an automated message; please do not reply.";
+    $delivery = online_admission_queue_and_send_email($con, "registration-confirmation-email:".(string)$application["applicationid"], "", (string)$application["applicationid"], $email, $school." admission form submitted successfully", $body);
     $result = $delivery; $result["skipped"] = false; return $result;
 }
 }
