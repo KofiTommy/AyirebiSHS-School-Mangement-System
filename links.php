@@ -6,6 +6,7 @@
 <link rel="stylesheet" type="text/css" href="css/menu.css"/>
 <link rel="stylesheet" type="text/css" href="css/formstyle.css"/>
 <link rel="stylesheet" type="text/css" href="css/buttonstyle.css">
+<link rel="stylesheet" type="text/css" href="css/result-access-payments.css">
 <!-- External Scripts -->
 
 <?php

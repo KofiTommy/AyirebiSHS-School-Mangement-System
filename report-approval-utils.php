@@ -349,6 +349,14 @@ function report_approval_set_scope_status($con, $batchId, $academicYear, $termNa
     $status = strtolower(trim((string)$status)) === 'approved' ? 'approved' : 'pending';
     $approvedBy = trim((string)$approvedBy);
 
+    if($status === 'approved' && file_exists(__DIR__.DIRECTORY_SEPARATOR.'department-result-workflow-utils.php')){
+        include_once(__DIR__.DIRECTORY_SEPARATOR.'department-result-workflow-utils.php');
+        $departmentWorkflow = drw_scope_ready_for_admin_release($con, $batchId, $academicYear, $termName, $classId);
+        if(!empty($departmentWorkflow['required']) && empty($departmentWorkflow['ready'])){
+            return false;
+        }
+    }
+
     if($batchId === '' || $academicYear === '' || $termName <= 0 || $classId === ''){
         return false;
     }

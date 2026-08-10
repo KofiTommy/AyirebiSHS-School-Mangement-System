@@ -18,6 +18,7 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher")
     <a href="#" class="dropbtn"><i class="fa fa-globe" ></i> Tools</a>
     <div class="dropdown-content">
     <a href="view-subject-assigned.php"><i class="fa fa-book" ></i> View Subject(s) Assigned</a>
+    <a href="department-result-approval.php"><i class="fa fa-check-square-o" ></i> Submit / Review Department Results</a>
     
     </div>
   </li>
@@ -114,6 +115,8 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
       <a href="view-subject-classified.php"><i class="fa fa-plus" ></i> View Subject Classified</a>
      <a href="subject-assignment.php"><i class="fa fa-plus" ></i> Subject Assignment</a>
     <a href="view-all-subject-assigned.php"><i class="fa fa-plus" ></i> View Subject(s) Assigned</a>
+    <a href="department-management.php"><i class="fa fa-sitemap" ></i> Departments & HOD Setup</a>
+    <a href="department-result-approval.php"><i class="fa fa-check-square-o" ></i> Department Result Workflow</a>
     
     </div>
   </li>
@@ -127,6 +130,8 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
      <a href="scores-report.php"><i class="fa fa-book" ></i> Scores Report</a>
     
      <a href="terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>
+     <a href="result-access-admin.php"><i class="fa fa-lock" ></i> Result Access Control</a>
+     <a href="result-access-payments.php"><i class="fa fa-money" ></i> Result Payments</a>
      <a href="examinationtimetable.php"><i class="fa fa-plus" ></i> Exam Time Table Entry</a>
      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
      
@@ -193,6 +198,8 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
       <a href="view-subject-classified.php"><i class="fa fa-book" ></i> View Subject Classified</a>
      <a href="subject-assignment.php"><i class="fa fa-plus" ></i> Subject Assignment</a>
     <a href="view-all-subject-assigned.php"><i class="fa fa-book" ></i> View Subject(s) Assigned</a>
+    <a href="department-management.php"><i class="fa fa-sitemap" ></i> Departments & HOD Setup</a>
+    <a href="department-result-approval.php"><i class="fa fa-check-square-o" ></i> Department Result Workflow</a>
     
     </div>
   </li>
@@ -205,6 +212,8 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
    -->
      <a href="student-terminal-data.php"><i class="fa fa-plus" ></i> Student Terminal Data</a>
      <a href="terminal-report.php"><i class="fa fa-book" ></i> Terminal Report</a>
+     <a href="result-access-admin.php"><i class="fa fa-lock" ></i> Result Access Control</a>
+     <a href="result-access-payments.php"><i class="fa fa-money" ></i> Result Payments</a>
      <a href="scores-report.php"><i class="fa fa-book" ></i> Scores Report</a>
     
      <a href="examinationtimetable.php"><i class="fa fa-plus" ></i> Exam Time Table Entry</a>

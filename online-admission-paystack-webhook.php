@@ -1,6 +1,7 @@
 <?php
 include("dbstring.php");
 include_once("online-admission-utils.php");
+include_once("result-access-utils.php");
 ensure_online_admission_tables($con);
 
 function paystack_webhook_response($statusCode, $message){
@@ -43,7 +44,12 @@ if($reference === ""){
 
 $payment = online_admission_get_payment_by_reference($con, $reference);
 if(!$payment){
-    paystack_webhook_response(200, "UNKNOWN_REFERENCE");
+    $resultPayment = result_access_get_payment_by_reference($con, $reference);
+    if(!$resultPayment){
+        paystack_webhook_response(200, "UNKNOWN_REFERENCE");
+    }
+    $resultProcessed = result_access_mark_payment_from_paystack($con, $resultPayment, $data, $rawPayload);
+    paystack_webhook_response(200, !empty($resultProcessed['success']) ? "OK" : "INTEGRITY_FAILED");
 }
 
 $processed = online_admission_process_paystack_payment_result(

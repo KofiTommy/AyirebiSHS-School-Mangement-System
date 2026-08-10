@@ -226,7 +226,7 @@ if($cbCanManageBillingCatalog && isset($_POST["save_price_item"])){
     $insertPrice = mysqli_query($con, "INSERT INTO tblitemprice(itempriceid,class_entryid,term,batch,itemid,price,datetimeprice,status,recordedby,branchid)
         VALUES('$itemPriceEsc','$classEsc','$termEsc','$batchEsc','$itemEsc','$priceEsc',NOW(),'active','$recordedByEsc','$branchEsc')");
     if($insertPrice){
-        $_SESSION['Message'] = cb_flash("success", "Class billing item saved successfully.");
+        $_SESSION['Message'] = cb_flash("success", $classId === '__BATCH__' ? "Batch billing item saved successfully for all classes in the selected batch." : "Class billing item saved successfully.");
     }else{
         $_SESSION['Message'] = cb_flash("error", "Class billing item could not be saved. ".mysqli_error($con));
     }
@@ -305,10 +305,10 @@ if($editItemId !== ""){
 
 $priceEditRow = null;
 if($editPriceId !== ""){
-    $priceEditRow = cb_fetch_one($con, "SELECT ip.*, itm.itemname, ce.class_name, b.batch AS batch_name
+    $priceEditRow = cb_fetch_one($con, "SELECT ip.*, itm.itemname, CASE WHEN ip.class_entryid='__BATCH__' THEN 'Entire Batch (all classes)' ELSE ce.class_name END AS class_name, b.batch AS batch_name
         FROM tblitemprice ip
         INNER JOIN tblitem itm ON ip.itemid=itm.itemid
-        INNER JOIN tblclassentry ce ON ip.class_entryid=ce.class_entryid
+        LEFT JOIN tblclassentry ce ON ip.class_entryid=ce.class_entryid
         INNER JOIN tblbatch b ON ip.batch=b.batchid
         WHERE ip.itempriceid='".mysqli_real_escape_string($con, $editPriceId)."'
         LIMIT 1");
@@ -362,13 +362,13 @@ $priceScopeFilter = "";
 if(!$cbCanManageBillingCatalog){
     $priceScopeFilter = " WHERE ".teacher_billing_allowed_scope_sql($con, $cbScopeTeacherId, "ip.class_entryid", "ip.batch", "ip.term");
 }
-$priceResult = mysqli_query($con, "SELECT ip.*, itm.itemname, itm.status AS item_status, ce.class_name, b.batch AS batch_name
+$priceResult = mysqli_query($con, "SELECT ip.*, itm.itemname, itm.status AS item_status, CASE WHEN ip.class_entryid='__BATCH__' THEN 'Entire Batch (all classes)' ELSE ce.class_name END AS class_name, b.batch AS batch_name
     FROM tblitemprice ip
     INNER JOIN tblitem itm ON ip.itemid=itm.itemid
-    INNER JOIN tblclassentry ce ON ip.class_entryid=ce.class_entryid
+    LEFT JOIN tblclassentry ce ON ip.class_entryid=ce.class_entryid
     INNER JOIN tblbatch b ON ip.batch=b.batchid
     $priceScopeFilter
-    ORDER BY ce.class_name ASC, ip.term ASC, b.batch ASC, itm.itemname ASC");
+    ORDER BY b.batch ASC, ip.term ASC, CASE WHEN ip.class_entryid='__BATCH__' THEN 0 ELSE 1 END ASC, ce.class_name ASC, itm.itemname ASC");
 if($priceResult){
     while($row = mysqli_fetch_array($priceResult, MYSQLI_ASSOC)){
         $allPriceRows[] = $row;
@@ -403,10 +403,10 @@ $inactivePriceCount = $cbCanManageBillingCatalog
             <div class="billing-manager-hero__copy">
                 <span class="billing-manager-eyebrow">Billing Manager</span>
                 <h1><?php echo $cbCanManageBillingCatalog ? "Billing setup in one place" : "Billing items for your assigned classes"; ?></h1>
-                <p><?php echo $cbCanManageBillingCatalog ? "Manage billing items, assign class prices by batch and semester, and retire items safely without breaking old billing history." : "Review the active billing items and class prices available for the classes, batches, and semesters assigned to you."; ?></p>
+                <p><?php echo $cbCanManageBillingCatalog ? "Create billing items and set a price for an entire batch or a specific class and semester, without affecting previous bills." : "Review the active billing items and prices available for the classes, batches, and semesters assigned to you."; ?></p>
             </div>
             <div class="billing-manager-hero__meta">
-                <span class="billing-manager-chip"><i class="fa fa-list"></i> One item dropdown for class billing</span>
+                <span class="billing-manager-chip"><i class="fa fa-list"></i> Batch-wide or class-specific pricing</span>
                 <?php if($cbCanManageBillingCatalog){ ?>
                 <span class="billing-manager-chip"><i class="fa fa-archive"></i> Safe archive when history already exists</span>
                 <a href="teacher-billing-assignment.php" class="billing-manager-chip" style="text-decoration:none;"><i class="fa fa-users"></i> Teacher Billing Assignment</a>
@@ -491,8 +491,8 @@ $inactivePriceCount = $cbCanManageBillingCatalog
             <section class="billing-manager-panel">
                 <div class="billing-manager-panel__head">
                     <div>
-                        <span class="billing-manager-eyebrow">Class Billing</span>
-                        <h2><?php echo $priceEditRow ? "Update Class Billing Price" : "Assign Class Billing Price"; ?></h2>
+                        <span class="billing-manager-eyebrow">Billing Price</span>
+                        <h2><?php echo $priceEditRow ? "Update Billing Price" : "Set a Billing Price"; ?></h2>
                     </div>
                 </div>
                 <form method="post" class="billing-manager-form">
@@ -524,9 +524,10 @@ $inactivePriceCount = $cbCanManageBillingCatalog
                     </div>
                     <?php }else{ ?>
                     <label class="billing-manager-field">
-                        <span>Class</span>
+                        <span>Billing scope</span>
                         <select name="class_entryid" required>
-                            <option value="">Select Class</option>
+                            <option value="">Select a class or batch</option>
+                            <?php if($cbCanManageBillingCatalog){ ?><option value="__BATCH__">Entire Batch (all classes)</option><?php } ?>
                             <?php foreach($classOptions as $row){ ?>
                             <option value="<?php echo cb_safe($row["class_entryid"]); ?>"><?php echo cb_safe($row["class_name"]); ?></option>
                             <?php } ?>
@@ -563,7 +564,7 @@ $inactivePriceCount = $cbCanManageBillingCatalog
                         <input type="number" step="0.01" min="0" name="price" placeholder="Enter price" required>
                     </label>
                     <div class="billing-manager-form__actions">
-                        <button type="submit" name="save_price_item" class="billing-manager-primary-btn"><i class="fa fa-save"></i> Save Class Billing</button>
+                        <button type="submit" name="save_price_item" class="billing-manager-primary-btn"><i class="fa fa-save"></i> Save Billing Price</button>
                     </div>
                     <?php } ?>
                 </form>
@@ -624,17 +625,17 @@ $inactivePriceCount = $cbCanManageBillingCatalog
         <section class="billing-manager-panel">
             <div class="billing-manager-panel__head">
                 <div>
-                    <span class="billing-manager-eyebrow">Class Pricing</span>
-                    <h2>Class Billing Records</h2>
+                    <span class="billing-manager-eyebrow">Billing Prices</span>
+                    <h2>Class and Batch Billing Records</h2>
                 </div>
-                <div class="billing-manager-panel__note"><?php echo $cbCanManageBillingCatalog ? "Archived class-price rows stay out of future billing but remain available for old bill history." : "Only price rows within your assigned billing scope are shown here."; ?></div>
+                <div class="billing-manager-panel__note"><?php echo $cbCanManageBillingCatalog ? "Use ‘Entire Batch’ to set one price for every class in a batch. A class-specific item takes priority when both exist." : "Only price rows within your assigned billing scope are shown here."; ?></div>
             </div>
             <?php if(count($allPriceRows) > 0){ ?>
             <div class="billing-manager-table-wrap">
                 <table class="billing-manager-table">
                     <thead>
                         <tr>
-                            <th>Class</th>
+                            <th>Billing Scope</th>
                             <th>Batch</th>
                             <th>Semester</th>
                             <th>Item</th>
@@ -647,7 +648,7 @@ $inactivePriceCount = $cbCanManageBillingCatalog
                     <tbody>
                         <?php foreach($allPriceRows as $row){ ?>
                         <tr>
-                            <td data-label="Class"><?php echo cb_safe($row["class_name"]); ?></td>
+                            <td data-label="Billing Scope"><?php echo cb_safe($row["class_name"]); ?></td>
                             <td data-label="Batch"><?php echo cb_safe($row["batch_name"]); ?></td>
                             <td data-label="Semester"><?php echo cb_safe($row["term"]); ?></td>
                             <td data-label="Item"><?php echo cb_safe($row["itemname"]); ?></td>

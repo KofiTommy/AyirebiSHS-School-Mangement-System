@@ -2700,6 +2700,8 @@ include("links.php");
                             <div class="quick-actions" role="region" aria-label="Academic actions">
                                 <a class="quick-action-btn" href="promotion-center.php"><i class="fa fa-level-up"></i> Promote Students</a>
                                 <a class="quick-action-btn" href="student-history.php"><i class="fa fa-history"></i> Student Transcript</a>
+                                <a class="quick-action-btn" href="result-access-admin.php"><i class="fa fa-lock"></i> Result Access Control</a>
+                                <a class="quick-action-btn" href="result-access-payments.php"><i class="fa fa-money"></i> Result Payments</a>
                             </div>
                         </div>
 

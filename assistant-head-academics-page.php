@@ -253,6 +253,7 @@ $quickLinks = array(
     array('module' => 'student_attendance', 'href' => 'student-attendance-report.php', 'icon' => 'fa-bar-chart', 'label' => 'Attendance Summary'),
     array('module' => 'reports', 'href' => 'terminal-report.php', 'icon' => 'fa-file-text-o', 'label' => 'Examination Report'),
     array('module' => 'reports', 'href' => 'report-approval-board.php', 'icon' => 'fa-check-circle', 'label' => 'Report Approval'),
+    array('module' => 'reports', 'href' => 'department-result-approval.php', 'icon' => 'fa-sitemap', 'label' => 'Department Result Approval'),
     array('module' => 'reports', 'href' => 'internal-exam-analysis.php', 'icon' => 'fa-bar-chart', 'label' => 'Internal Exams Analysis'),
     array('module' => 'reports', 'href' => 'waec-analysis.php', 'icon' => 'fa-line-chart', 'label' => 'WAEC Analysis'),
     array('module' => 'lesson_timetable', 'href' => 'lesson-timetable-report.php', 'icon' => 'fa-calendar', 'label' => 'Lesson Timetable'),

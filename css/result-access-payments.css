@@ -1,0 +1,28 @@
+/* Keep result-payment dashboard filter selections readable on mobile browsers. */
+.rap .rap-filter select,
+.rap .rap-filter input {
+    background-color: #ffffff !important;
+    color: #102a43 !important;
+    -webkit-text-fill-color: #102a43 !important;
+    border: 1px solid #7893aa !important;
+    opacity: 1 !important;
+    color-scheme: light;
+}
+
+.rap .rap-filter select option {
+    background-color: #ffffff !important;
+    color: #102a43 !important;
+    -webkit-text-fill-color: #102a43 !important;
+}
+
+.rap .rap-filter select option:checked {
+    background-color: #dff4e8 !important;
+    color: #102a43 !important;
+    -webkit-text-fill-color: #102a43 !important;
+}
+
+.rap .rap-filter select:focus,
+.rap .rap-filter input:focus {
+    outline: 3px solid rgba(8, 116, 67, 0.22);
+    border-color: #087443 !important;
+}

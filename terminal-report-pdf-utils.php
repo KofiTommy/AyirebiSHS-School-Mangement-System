@@ -1,4 +1,5 @@
 <?php
+include_once(__DIR__.DIRECTORY_SEPARATOR.'department-result-workflow-utils.php');
 if (!function_exists('tr_terminal_report_pdf_text')) {
 function tr_terminal_report_pdf_text($value)
 {
@@ -545,6 +546,7 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
         $headmasterSignedAtLabel = $signedTimestamp ? date('d M Y H:i', $signedTimestamp) : $headmasterSignedAt;
     }
     $headmasterReference = trim((string)(isset($approvalMeta['headapproval_reference']) ? $approvalMeta['headapproval_reference'] : ''));
+    $departmentProof = function_exists('drw_scope_approval_proof') ? drw_scope_approval_proof($con, $batchId, $academicYear, $termId, $classId) : array();
 
     $assignmentRows = tr_terminal_report_fetch_assignment_rows($con, $userId, $batchId, $termId, $classId, $academicYear);
     $markMap = tr_terminal_report_fetch_assignment_mark_map($con, $assignmentRows, $userId);
@@ -727,6 +729,15 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
     $pdf->Ln(7);
     $pdf->Cell(0, 10, tr_terminal_report_pdf_text("Head Teacher's Remarks:  " . $headTeacherRemark), 0, 0, 'L', true);
     $pdf->Ln(7);
+    if(!empty($departmentProof['teacher']) || !empty($departmentProof['hod']) || !empty($departmentProof['academic'])){
+        $pdf->SetFont('Arial', 'B', 8);
+        $pdf->Cell(0, 5, tr_terminal_report_pdf_text('RESULT APPROVAL TRAIL'), 0, 1, 'L', true);
+        $pdf->SetFont('Arial', '', 7);
+        $pdf->Cell(0, 4, tr_terminal_report_pdf_text('Submitted by: '.(!empty($departmentProof['teacher']) ? $departmentProof['teacher'] : 'Not recorded')), 0, 1, 'L', true);
+        $pdf->Cell(0, 4, tr_terminal_report_pdf_text('HOD approved: '.(!empty($departmentProof['hod']) ? $departmentProof['hod'] : 'Not recorded').'   |   Academic approved: '.(!empty($departmentProof['academic']) ? $departmentProof['academic'] : 'Not recorded')), 0, 1, 'L', true);
+        $pdf->Cell(0, 4, tr_terminal_report_pdf_text('Administrator release: '.(isset($approvalMeta['approvedby']) && $approvalMeta['approvedby'] !== '' ? $approvalMeta['approvedby'] : 'Not recorded')), 0, 1, 'L', true);
+        $pdf->Ln(3);
+    }
     $signatureBlockWidth = 78;
     $signatureX = max(10, $pdf->GetPageWidth() - $signatureBlockWidth - 12);
     $signatureStartY = $pdf->GetY();

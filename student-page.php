@@ -8,6 +8,7 @@ include("company.php");
 include_once("semester-registry-utils.php");
 include_once("voting-utils.php");
 include_once("report-approval-utils.php");
+include_once("result-access-utils.php");
 include_once("counselling-utils.php");
 include_once("student-chat-utils.php");
 include_once("matron-utils.php");
@@ -282,6 +283,10 @@ if(isset($_POST['delete_message'])){
 }
 
 $flashMessage = isset($_SESSION['Message']) ? $_SESSION['Message'] : "";
+if(isset($_SESSION['RESULT_ACCESS_MESSAGE'])){
+    $flashMessage .= sd_alert('success', $_SESSION['RESULT_ACCESS_MESSAGE']);
+    unset($_SESSION['RESULT_ACCESS_MESSAGE']);
+}
 $_SESSION['Message'] = "";
 $portalTitle = trim((string)$_CompanyName) !== "" ? trim((string)$_CompanyName)." Student Portal" : "Student Portal";
 $studentName = isset($_SESSION['FULLNAME']) ? trim((string)$_SESSION['FULLNAME']) : "";
@@ -370,6 +375,10 @@ foreach($reportOptions as $reportIndex => $reportRow){
     $reportOptions[$reportIndex]['report_allowed'] = $approvalMeta['allowed'] ? '1' : '0';
     $reportOptions[$reportIndex]['report_status'] = $approvalMeta['status'];
     $reportOptions[$reportIndex]['report_status_label'] = $approvalMeta['status_label'];
+    $accessMeta = result_access_student_allowed($con, $studentId, $reportRow['batchid'], $reportRow['academic_year'], $reportRow['termname'], $reportRow['class_entryid']);
+    $reportOptions[$reportIndex]['result_access_allowed'] = !empty($accessMeta['allowed']) ? '1' : '0';
+    $reportOptions[$reportIndex]['result_access_reason'] = isset($accessMeta['reason']) ? $accessMeta['reason'] : '';
+    $reportOptions[$reportIndex]['result_access_amount'] = isset($accessMeta['scope']['amount']) ? (float)$accessMeta['scope']['amount'] : 0;
     if($approvalMeta['required'] && !$approvalMeta['allowed']){
         $reportApprovalPendingCount++;
     }
@@ -630,6 +639,15 @@ foreach($studentPerfRows as $studentPerfRow){
     );
 }
 
+$studentPerformanceLocked = false;
+foreach($reportOptions as $performanceReport){
+    if((string)$performanceReport['academic_year'] !== (string)$studentPerformanceYear){ continue; }
+    $performanceAccess = result_access_student_allowed($con, $studentId, $performanceReport['batchid'], $performanceReport['academic_year'], $performanceReport['termname'], $performanceReport['class_entryid']);
+    if(empty($performanceAccess['allowed'])){ $studentPerformanceLocked = true; break; }
+}
+if($studentPerformanceLocked){
+    $studentPerfRows=array(); $studentPerfLabels=array(); $studentPerfAvg=array(); $studentPerfPass=array(); $studentPerfTrendLabels=array(); $studentPerfTrendAvg=array(); $studentPerfTrendPass=array(); $studentPerfComparisonRows=array();
+}
 $reportPreview = array_slice($reportOptions, 0, 6);
 ?>
 <!DOCTYPE html>
@@ -777,7 +795,8 @@ $reportPreview = array_slice($reportOptions, 0, 6);
                     <input type="hidden" name="academicyear" value="<?php echo sd_esc((string)(isset($report['academic_year']) ? $report['academic_year'] : '')); ?>">
                     <input type="hidden" name="termid" value="<?php echo sd_esc((string)$report['termname']); ?>">
                     <input type="hidden" name="classid" value="<?php echo sd_esc((string)$report['class_entryid']); ?>">
-                    <button class="student-inline-btn<?php echo (!empty($report['report_allowed']) && $report['report_allowed'] === '1') ? '' : ' is-disabled'; ?>" type="submit" name="print_terminal_report" <?php echo (!empty($report['report_allowed']) && $report['report_allowed'] === '1') ? '' : 'disabled'; ?>><i class="fa fa-print"></i> <?php echo (!empty($report['report_allowed']) && $report['report_allowed'] === '1') ? 'Print Report' : 'Awaiting Approval'; ?></button>
+                    <?php $canPrint = !empty($report['report_allowed']) && $report['report_allowed'] === '1' && !empty($report['result_access_allowed']) && $report['result_access_allowed'] === '1'; ?>
+                    <button class="student-inline-btn<?php echo $canPrint ? '' : ' is-disabled'; ?>" type="submit" name="print_terminal_report"><i class="fa fa-print"></i> <?php echo $canPrint ? 'Print Report' : ((!empty($report['report_allowed']) && $report['report_allowed'] === '1' && isset($report['result_access_reason']) && $report['result_access_reason'] === 'payment') ? 'Payment Required' : 'Awaiting Approval'); ?></button>
                 </form>
             </article>
             <?php } ?>
@@ -813,7 +832,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
             <?php } ?>
         </div>
 
-        <div class="student-performance-kpis">
+        <?php if(!$studentPerformanceLocked){ ?><div class="student-performance-kpis">
             <article class="student-performance-kpi">
                 <span>Subjects With Scores</span>
                 <strong><?php echo number_format((int)$studentPerfSubjectCount); ?></strong>
@@ -836,9 +855,11 @@ $reportPreview = array_slice($reportOptions, 0, 6);
                 <strong><?php echo ($studentPerformancePreviousYear !== null ? sd_esc($studentPerformancePreviousYear) : "No prior year"); ?></strong>
                 <small class="<?php echo sd_esc(sd_perf_delta_class($studentPerfYearDelta)); ?>"><?php echo sd_esc(sd_perf_delta_text($studentPerfYearDelta)); ?></small>
             </article>
-        </div>
+        </div><?php } ?>
 
-        <?php if(count($studentPerfRows) > 0 || count($studentPerfTrendLabels) > 0){ ?>
+        <?php if($studentPerformanceLocked){ ?>
+        <div class="student-inline-note">Your subject performance will be available after the required semester result access has been completed. Open the relevant report and choose the payment option.</div>
+        <?php } elseif(count($studentPerfRows) > 0 || count($studentPerfTrendLabels) > 0){ ?>
         <div class="student-performance-grid">
             <article class="student-performance-card">
                 <div class="student-performance-card__head">

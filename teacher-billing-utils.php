@@ -464,18 +464,23 @@ function teacher_billing_scope_itemprice_rows($con, $classId, $batchId, $termNam
     if($classIdEsc === '' || $batchIdEsc === '' || $termName <= 0){
         return $rows;
     }
+    $batchScopeEsc = mysqli_real_escape_string($con, '__BATCH__');
     $sql = "SELECT ip.*, itm.itemname
         FROM tblitemprice ip
         INNER JOIN tblitem itm ON itm.itemid=ip.itemid
-        WHERE ip.class_entryid='$classIdEsc'
+        WHERE ip.class_entryid IN ('$classIdEsc','$batchScopeEsc')
           AND ip.batch='$batchIdEsc'
           AND ip.term='$termName'
           AND ip.status='active'
           AND itm.status='active'
-        ORDER BY itm.itemname ASC";
+        ORDER BY itm.itemname ASC, CASE WHEN ip.class_entryid='$classIdEsc' THEN 0 ELSE 1 END ASC, ip.datetimeprice DESC";
     $res = mysqli_query($con, $sql);
     if($res){
+        $itemSeen = array();
         while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+            $itemId = trim((string)(isset($row['itemid']) ? $row['itemid'] : ''));
+            if($itemId !== '' && isset($itemSeen[$itemId])){ continue; }
+            if($itemId !== ''){ $itemSeen[$itemId] = true; }
             $rows[] = $row;
         }
     }

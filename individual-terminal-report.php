@@ -6,6 +6,7 @@ include("class-position.php");
 include_once("dbstring.php");
 include_once("semester-registry-utils.php");
 include_once("report-approval-utils.php");
+include_once("result-access-utils.php");
 include_once("school-data-utils.php");
 include_once("terminal-report-pdf-utils.php");
 semester_registry_ensure_academic_year_column($con);
@@ -35,7 +36,14 @@ if(!function_exists('itr_esc')){
 if(isset($_POST["print_terminal_report"]))
 {
       $_ReportApprovalMeta = report_approval_scope_meta($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
-      if(report_approval_is_student_user() && $_ReportApprovalMeta['required'] && !$_ReportApprovalMeta['allowed']){
+      $_ResultAccessMeta = result_access_student_allowed($con, $_UserID, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
+      if(report_approval_is_student_user() && !$_ResultAccessMeta['allowed']){
+          $_scope=$_ResultAccessMeta['scope']; $_note=trim((string)(isset($_scope['note'])?$_scope['note']:''));
+          $_ReportApprovalMessage = "<div style='margin:12px 0;padding:12px 14px;border-radius:14px;background:#fff7ed;border:1px solid rgba(194,65,12,0.14);color:#c2410c;font-weight:600;'>Result viewing for this semester is controlled by the school.".($_note!==''?' '.itr_esc($_note):'')."</div>";
+          if(isset($_scope['mode']) && $_scope['mode']==='payment' && (float)$_scope['amount']>0){
+              $_ReportApprovalMessage.="<form method='post' action='result-access-paystack-init.php' style='margin:12px 0'><input type='hidden' name='batchid' value='".itr_esc($_BatchId)."'><input type='hidden' name='academicyear' value='".itr_esc($_AcademicYear)."'><input type='hidden' name='termid' value='".itr_esc($_TermId)."'><input type='hidden' name='classid' value='".itr_esc($_ClassId)."'><button type='submit' style='padding:11px 16px;border:0;border-radius:9px;background:#087443;color:#fff;font-weight:700;cursor:pointer'>Pay GHS ".number_format((float)$_scope['amount'],2)." to view this result</button></form>";
+          }
+      }elseif(report_approval_is_student_user() && $_ReportApprovalMeta['required'] && !$_ReportApprovalMeta['allowed']){
           $_ReportApprovalMessage = "<div style='margin:12px 0;padding:12px 14px;border-radius:14px;background:#fff7ed;border:1px solid rgba(194,65,12,0.14);color:#c2410c;font-weight:600;'>This report is not yet available. Please wait for approval.</div>";
       }else{
           $_PrintResult = tr_terminal_report_print_single_pdf($con, $_UserID, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
