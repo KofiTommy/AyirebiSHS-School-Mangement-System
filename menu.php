@@ -394,6 +394,7 @@ elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="AssistantHe
 <a href="report-approval-board.php"><button><i class="fa fa-check-circle" style="color:#0f766e"></i> Report Approval</button></a>
 <a href="department-management.php"><button><i class="fa fa-sitemap" style="color:#7c3aed"></i> Departments & HOD Setup</button></a>
 <a href="department-team-management.php"><button><i class="fa fa-users" style="color:#7c3aed"></i> Manage Department Teams</button></a>
+<a href="department-bulk-assignment.php"><button><i class="fa fa-list-check" style="color:#7c3aed"></i> Bulk Department Assignment</button></a>
 <a href="department-result-approval.php"><button><i class="fa fa-check-square-o" style="color:#0f766e"></i> Department Result Approval</button></a>
 <a href="internal-exam-analysis.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> Internal Exams Analysis</button></a>
 <a href="waec-analysis.php"><button><i class="fa fa-line-chart" style="color:#1d4ed8"></i> WAEC Analysis</button></a>
@@ -425,6 +426,7 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="no
 <a href="report-approval-board.php"><button><i class="fa fa-check-circle" style="color:#0f766e"></i> Report Approval</button></a>
 <a href="department-management.php"><button><i class="fa fa-sitemap" style="color:#7c3aed"></i> Departments & HOD Setup</button></a>
 <a href="department-team-management.php"><button><i class="fa fa-users" style="color:#7c3aed"></i> Manage Department Teams</button></a>
+<a href="department-bulk-assignment.php"><button><i class="fa fa-list-check" style="color:#7c3aed"></i> Bulk Department Assignment</button></a>
 <a href="department-result-approval.php"><button><i class="fa fa-check-square-o" style="color:#0f766e"></i> Department Result Approval</button></a>
 <a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
 <a href="online-voting-admin.php"><button><i class="fa fa-trophy" style="color:#d97706"></i> Online Voting</button></a>
