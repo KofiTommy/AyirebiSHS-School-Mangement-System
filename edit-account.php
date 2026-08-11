@@ -18,6 +18,8 @@ include("dbstring.php");
 @$_Relationship=$_POST['relationship'];
 @$_Nextofkin_fullname=$_POST['nextoffullname'];
 @$_Nextofcontact=$_POST['nextofkincontact'];
+@$_Email=trim((string)(isset($_POST['email']) ? $_POST['email'] : ''));
+@$_Mobile=trim((string)(isset($_POST['mobile']) ? $_POST['mobile'] : ''));
 @$_Username=$_POST['username'];
 @$_Password=$_POST['password'];
 @$_AccessLevel="user";
@@ -25,16 +27,22 @@ include("dbstring.php");
 @$_Filename=$_POST['filename'];
 //,birthday=STR_TO_DATE('$_Birthday'
 if(isset($_POST['update_user'])){
+if($_Email !== '' && !filter_var($_Email, FILTER_VALIDATE_EMAIL)){
+$_SESSION['Message']="<div style='color:red;text-align:center'>Enter a valid email address.</div>";
+}else{
+$_EmailEsc=mysqli_real_escape_string($con,$_Email);
+$_MobileEsc=mysqli_real_escape_string($con,$_Mobile);
 $_SQL_EXECUTE=mysqli_query($con,"UPDATE tblsystemuser SET firstname='$_Firstname',
 	surname='$_Surname',othernames='$_Othernames',gender='$_Gender',age='$_Age',postaladdress='$_PostalAddress',homeaddress='$_HomeAddress',hometown='$_HomeTown',
 	religion='$_Religion',relationship='$_Relationship',nextofkin_fullname='$_Nextofkin_fullname',
-	nextofkin_contact='$_Nextofcontact' WHERE userid='$_SESSION[USERID]'");
+	nextofkin_contact='$_Nextofcontact',email='$_EmailEsc',mobile='$_MobileEsc' WHERE userid='$_SESSION[USERID]'");
 if($_SQL_EXECUTE){
 $_SESSION['Message']="<div style='color:green;text-align:center'>User Information Successfully Updated</div>";
 }
 else{
 	$_Error=mysqli_error($con);
 	$_SESSION['Message']="<div style='color:red'>User Information Failed to update,Error:$_Error</div>";
+}
 }
 }
 ?>
@@ -167,6 +175,14 @@ include("links.php");
 			<div class="account-span-2">
 			<label>Home Address</label>
 			<textarea id="homeaddress" name="homeaddress" ><?php echo $row_a['homeaddress'];?></textarea>
+			</div>
+			<div>
+			<label>Email Address</label>
+			<input type="email" id="email" name="email" value="<?php echo htmlspecialchars($row_a['email'], ENT_QUOTES, 'UTF-8');?>" placeholder="parent@example.com" required>
+			</div>
+			<div>
+			<label>Mobile Number</label>
+			<input type="tel" id="mobile" name="mobile" value="<?php echo htmlspecialchars($row_a['mobile'], ENT_QUOTES, 'UTF-8');?>" maxlength="20" placeholder="e.g. 0240000000">
 			</div>
 			<div>
 			<label>Religion</label>

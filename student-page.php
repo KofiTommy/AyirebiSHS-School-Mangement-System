@@ -715,6 +715,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
     </div>
     <div class="student-quick-grid">
         <a class="student-action-card student-action-card--report" href="individual-terminal-report.php"><span class="student-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Report</h3></a>
+        <a class="student-action-card student-action-card--report" href="student-fee-payment.php"><span class="student-action-card__icon"><i class="fa fa-credit-card"></i></span><h3>Pay School Fees</h3></a>
         <a class="student-action-card student-action-card--finance" href="account-statements.php"><span class="student-action-card__icon"><i class="fa fa-money"></i></span><h3>Account Statement</h3></a>
         <a class="student-action-card student-action-card--exeat" href="student-exeat-request.php"><span class="student-action-card__icon"><i class="fa fa-file"></i></span><h3>Request Exeat</h3></a>
         <a class="student-action-card student-action-card--counselling" href="guidance-counselling.php"><span class="student-action-card__icon"><i class="fa fa-heartbeat"></i></span><h3>Guidance &amp; Counselling<?php if($studentCounsellingSoonCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$studentCounsellingSoonCount; ?> Soon</span><?php } ?></h3><p><?php echo $studentCounsellingSoonCount > 0 ? "Your counselling session starts soon. Open the case to review the meeting details." : "Book a private session with your dedicated counsellor and track the case here."; ?></p></a>
