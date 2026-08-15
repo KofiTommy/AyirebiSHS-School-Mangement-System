@@ -5,6 +5,7 @@ $_SESSION['Message']="";
 <?php
 include("dbstring.php");
 include("code.php");
+include_once("online-admission-utils.php");
 @$_MessageId=$code;
 @$_Message=$_POST['message'];
 $_UserId=(isset($_POST['userid']) && is_array($_POST['userid'])) ? $_POST['userid'] : array();
@@ -12,13 +13,24 @@ $_SelectedRecipient=isset($_POST["recipient"]) ? trim($_POST["recipient"]) : "";
 $_SelectedBatchId=isset($_POST["batchid"]) ? trim($_POST["batchid"]) : "";
 
 if(isset($_POST['send_message'])){
-		if(empty($_UserId))
+		$_Message=trim((string)$_Message);
+		if($_Message === ""){
+		$_SESSION['Message']="<div style='color:red'>Enter a message before sending.</div>";
+		}
+		elseif(empty($_UserId))
 		{
 		$_SESSION['Message']="<div style='color:red'>No user selected</div>";
 		}
 		else{
+			$_SentCount=0;
+			$_FailedCount=0;
+			$_MissingMobileCount=0;
+			$_SeenUsers=array();
 			foreach($_UserId as $selecteduser)
 			{	
+				$selecteduser=trim((string)$selecteduser);
+				if($selecteduser==="" || isset($_SeenUsers[$selecteduser])){ continue; }
+				$_SeenUsers[$selecteduser]=true;
 				$_Mobile="";
 				$_SelectedUserSafe=mysqli_real_escape_string($con,$selecteduser);
 				//Get mobile number from users	
@@ -26,13 +38,25 @@ if(isset($_POST['send_message'])){
 				if($rowm=mysqli_fetch_array($_SQL_H,MYSQLI_ASSOC)){
 				$_Mobile=$rowm["mobile"];
 				}
-				if($_Mobile!=""){
-					$message=$_Message;
-					$phone=$_Mobile;
-					include("bulksms/bulksms.php");
+				$_Phone=online_admission_normalize_sms_phone($_Mobile);
+				if($_Phone===""){
+					$_MissingMobileCount++;
+					continue;
+				}
+				$_GatewayStatus="";
+				if(online_admission_sms_gateway_send($_Phone,$_Message,$_GatewayStatus)){
+					$_SentCount++;
+				}else{
+					$_FailedCount++;
 				}
 			}
-	   }
+			$_Summary="Sent: ".$_SentCount.". Failed: ".$_FailedCount.". No valid mobile number: ".$_MissingMobileCount.".";
+			if($_SentCount>0){
+				$_SESSION['Message']="<div style='padding:8px;background-color:#efe;color:green;'>".htmlspecialchars($_Summary,ENT_QUOTES,'UTF-8')."</div>";
+			}else{
+				$_SESSION['Message']="<div style='padding:8px;background-color:#fee;color:red;'>".htmlspecialchars($_Summary." Check the SMS configuration or provider balance.",ENT_QUOTES,'UTF-8')."</div>";
+			}
+		   }
 }
 ?>
 
@@ -196,7 +220,11 @@ if(isset($_POST["showrecipient"])){
 	}
 	else{
 		$_RecipientSafe=mysqli_real_escape_string($con,$_SelectedRecipient);
-		$_SQL_2=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.staffstatus='$_RecipientSafe' ORDER BY su.userid ASC");
+		if($_SelectedRecipient==="Teaching Staff"){
+			$_SQL_2=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.status='active' AND (su.staffstatus='Teaching Staff' OR su.systemtype='Teacher') ORDER BY su.firstname ASC,su.surname ASC");
+		}else{
+			$_SQL_2=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.staffstatus='$_RecipientSafe' AND su.status='active' ORDER BY su.userid ASC");
+		}
 	}
 	if($_SQL_2){
 		echo "<div class='notify-table-wrap'>";

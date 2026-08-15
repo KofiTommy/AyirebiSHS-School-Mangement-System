@@ -3,6 +3,7 @@ include("check-login.php");
 include_once("student-chat-utils.php");
 $_ShowHouseMasterLinks = false;
 $_ShowSeniorHouseLinks = false;
+$_ShowHodDashboard = false;
 $_HomeLink = "index.php";
 $_StudentChatEnabledForMenu = student_chat_is_enabled($con);
 if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
@@ -11,14 +12,17 @@ if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
     include_once("house-master-utils.php");
     include_once("class-teacher-utils.php");
     include_once("user-management-utils.php");
+    include_once("department-result-workflow-utils.php");
     ensure_house_tables($con);
     ensure_class_teacher_table($con);
+    drw_ensure_tables($con);
     $_HouseMasterSummary = house_master_get_teacher_role_summary($con, $_SESSION['USERID']);
     $_ShowHouseMasterLinks = !empty($_HouseMasterSummary['has_house_assignment']);
     $_ShowSeniorHouseLinks = !empty($_HouseMasterSummary['has_senior_assignment']);
     $_HouseMasterDashboardLabel = isset($_HouseMasterSummary['dashboard_label']) ? $_HouseMasterSummary['dashboard_label'] : "House Master Dashboard";
     $_TeacherExtraAccessLinks = um_teacher_extra_nav_links($con, $_SESSION['USERID']);
     $_ShowTeacherAttendanceLinks = class_teacher_has_any_assignment($con, $_SESSION['USERID']);
+    $_ShowHodDashboard = !empty(drw_departments_for_hod($con, $_SESSION['USERID']));
 }
 if(!isset($_HouseMasterDashboardLabel)){
     $_HouseMasterDashboardLabel = "House Master Dashboard";
@@ -295,6 +299,7 @@ elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher"){
  ?>
 <div id="admin" align="left" style="margin-top:5px;">
 <a href="edit-account.php"><button><i class="fa fa-user" style="color:brown"></i> Edit Profile</button></a>
+<a href="department-result-approval.php"><button><i class="fa fa-check-square-o" style="color:#0f766e"></i> <?php echo $_ShowHodDashboard ? 'HOD Result Approval' : 'Submit Results to HOD'; ?></button></a>
 <?php
 if($_ShowHouseMasterLinks){
 ?>
@@ -395,6 +400,8 @@ elseif($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="AssistantHe
 <a href="department-management.php"><button><i class="fa fa-sitemap" style="color:#7c3aed"></i> Departments & HOD Setup</button></a>
 <a href="department-team-management.php"><button><i class="fa fa-users" style="color:#7c3aed"></i> Manage Department Teams</button></a>
 <a href="department-bulk-assignment.php"><button><i class="fa fa-list-check" style="color:#7c3aed"></i> Bulk Department Assignment</button></a>
+<a href="transport-management.php"><button><i class="fa fa-bus" style="color:#0f766e"></i> Transport Management</button></a>
+<a href="transport-student-assignment.php"><button><i class="fa fa-map-marker" style="color:#0f766e"></i> Student Transport Assignment</button></a>
 <a href="department-result-approval.php"><button><i class="fa fa-check-square-o" style="color:#0f766e"></i> Department Result Approval</button></a>
 <a href="internal-exam-analysis.php"><button><i class="fa fa-bar-chart" style="color:#0f766e"></i> Internal Exams Analysis</button></a>
 <a href="waec-analysis.php"><button><i class="fa fa-line-chart" style="color:#1d4ed8"></i> WAEC Analysis</button></a>
@@ -427,6 +434,8 @@ elseif($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="no
 <a href="department-management.php"><button><i class="fa fa-sitemap" style="color:#7c3aed"></i> Departments & HOD Setup</button></a>
 <a href="department-team-management.php"><button><i class="fa fa-users" style="color:#7c3aed"></i> Manage Department Teams</button></a>
 <a href="department-bulk-assignment.php"><button><i class="fa fa-list-check" style="color:#7c3aed"></i> Bulk Department Assignment</button></a>
+<a href="transport-management.php"><button><i class="fa fa-bus" style="color:#0f766e"></i> Transport Management</button></a>
+<a href="transport-student-assignment.php"><button><i class="fa fa-map-marker" style="color:#0f766e"></i> Student Transport Assignment</button></a>
 <a href="department-result-approval.php"><button><i class="fa fa-check-square-o" style="color:#0f766e"></i> Department Result Approval</button></a>
 <a href="online-admission-admin.php"><button><i class="fa fa-globe" style="color:#0ea5e9"></i> Online Admission</button></a>
 <a href="online-voting-admin.php"><button><i class="fa fa-trophy" style="color:#d97706"></i> Online Voting</button></a>

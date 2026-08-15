@@ -11,6 +11,7 @@ include_once("voting-utils.php");
 include_once("teacher-billing-utils.php");
 include_once("counselling-utils.php");
 include_once("matron-utils.php");
+include_once("department-result-workflow-utils.php");
 ensure_class_teacher_table($con);
 ensure_duty_roster_tables($con);
 ensure_student_attendance_tables($con);
@@ -19,6 +20,7 @@ ensure_voting_tables($con);
 ensure_teacher_billing_table($con);
 ensure_counselling_tables($con);
 ensure_matron_tables($con);
+drw_ensure_tables($con);
 counselling_process_due_reminders($con);
 if(!(isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==="user" && $_SESSION['SYSTEMTYPE']==="Teacher")){
     header("location:".class_teacher_landing_page());
@@ -133,6 +135,8 @@ function td_teacher_message_targets($con, $teacherId){
 }
 $teacherId = isset($_SESSION['USERID']) ? (string)$_SESSION['USERID'] : "";
 $teacherIdEsc = mysqli_real_escape_string($con, $teacherId);
+$teacherHodDepartments = drw_departments_for_hod($con, $teacherId);
+$teacherIsHod = !empty($teacherHodDepartments);
 $teacherMessageTargets = td_teacher_message_targets($con, $teacherId);
 $teacherDefaultMessageTarget = key($teacherMessageTargets);
 
@@ -532,6 +536,9 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
             <article class="teacher-stat-card"><span>Recent Groups</span><strong><?php echo (int)$recentTeachingGroupCount; ?></strong></article>
             <article class="teacher-stat-card"><span>Class Teacher Roles</span><strong><?php echo (int)$classTeacherRoleCount; ?></strong></article>
             <article class="teacher-stat-card"><span>My Messages</span><strong><?php echo (int)$myMessageCount; ?></strong></article>
+            <?php if($teacherIsHod){ ?>
+            <article class="teacher-stat-card"><span>HOD Departments</span><strong><?php echo count($teacherHodDepartments); ?></strong></article>
+            <?php } ?>
             <?php if($teacherCanTakeAttendance){ ?>
             <article class="teacher-stat-card"><span>Attendance Today</span><strong><?php echo (int)$attendanceSummary["today_session_count"]; ?></strong></article>
             <?php } ?>
@@ -565,6 +572,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
     </div>
     <div class="teacher-quick-grid">
         <a class="teacher-action-card" href="view-teacher-subject.php"><span class="teacher-action-card__icon"><i class="fa fa-search"></i></span><h3>Assigned Subjects</h3></a>
+        <a class="teacher-action-card" href="department-result-approval.php"><span class="teacher-action-card__icon"><i class="fa fa-check-square-o"></i></span><?php if($teacherIsHod){ ?><h3>HOD Result Approval</h3><p>Review and approve submitted results for <?php echo (int)count($teacherHodDepartments); ?> department<?php echo count($teacherHodDepartments) === 1 ? '' : 's'; ?>.</p><?php }else{ ?><h3>Submit Results to HOD</h3><p>Send your completed subject score sheets to the Head of Department for review.</p><?php } ?></a>
         <a class="teacher-action-card" href="teacher-course-registration.php"><span class="teacher-action-card__icon"><i class="fa fa-list-alt"></i></span><h3>Course Registration</h3><p>See the exact students who registered for each course you teach this semester.</p></a>
         <?php if($teacherCanTakeAttendance){ ?>
         <a class="teacher-action-card" href="student-attendance.php"><span class="teacher-action-card__icon"><i class="fa fa-check-square-o"></i></span><h3>Student Attendance</h3></a>

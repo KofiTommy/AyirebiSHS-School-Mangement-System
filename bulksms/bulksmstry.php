@@ -1,41 +1,14 @@
 <?php
 if(isset($_POST["send"])){
-$key="e7c782f1f1c83d0f373c"; //your unique API key;
+    include_once(dirname(__DIR__).DIRECTORY_SEPARATOR.'online-admission-utils.php');
+    $resultCode = '';
+    $sent = online_admission_sms_gateway_send(
+        online_admission_normalize_sms_phone(isset($_POST['to']) ? $_POST['to'] : ''),
+        isset($_POST['message']) ? trim($_POST['message']) : '',
+        $resultCode
+    );
 
-@$message=$_POST["message"];
-@$phone=$_POST["to"];
-$message=urlencode($message);
-$sender_id="AYISEC";
-
-$url="http://clientlogin.bulksmsgh.com/smsapi?key=$key&to=$phone&msg=$message&sender_id=$sender_id";
-                                                
-$result=file_get_contents($url); //call url and store result;
-                                           	                                                
-	/****************API URL TO CHECK BALANCE****************/
-	 //$url="http://clientlogin.bulksmsgh.com/api/smsapibalance?key=$key";                                                                                                                                          
-	 switch($result){                                           
-	 case "1000":
-	 echo "Message sent";
-	 break;
-	 case "1002":
-	 echo "Message not sent";
-	 break;
-	 case "1003":
-	 echo "You don't have enough balance";
-	 break;
-	 case "1004":
-	 echo "Invalid API Key";
-	 break;
-	 case "1005":
-	 echo "Phone number not valid";
-	 break;
-	 case "1006":
-	 echo "Invalid Sender ID";
-	 break;
-	 case "1008":
-	 echo "Empty message";
-	 break;
-	 }
+    echo $sent ? 'Message sent.' : 'Message was not sent. Check the phone number, SMS configuration, or provider balance.';
 }
 ?>
 
