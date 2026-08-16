@@ -655,10 +655,12 @@ $reportPreview = array_slice($reportOptions, 0, 6);
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" type="text/css" href="css/student-dashboard.css">
+<style>.student-notification-bell{position:fixed;top:76px;right:24px;z-index:999970}.student-notification-bell a{display:inline-flex;align-items:center;gap:8px;padding:10px 13px;border-radius:999px;background:#0f2f4a;color:#fff;text-decoration:none;font-weight:700;box-shadow:0 8px 20px rgba(15,47,74,.24)}.student-notification-bell .badge{display:inline-flex;min-width:19px;height:19px;align-items:center;justify-content:center;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;padding:0 4px}@media(max-width:680px){.student-notification-bell{top:70px;right:12px}.student-notification-bell a{padding:9px 11px;font-size:13px}}</style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="student-dashboard-page">
 <div class="header"><?php include("menu.php"); ?></div>
+<div class="student-notification-bell"><a href="messages.php" aria-label="Open notifications"><i class="fa fa-bell"></i><span>Notifications</span><?php if($messageUnreadCount > 0){ ?><span class="badge"><?php echo (int)$messageUnreadCount; ?></span><?php } ?></a></div>
 <main class="student-shell">
 <?php if($flashMessage !== ""){ ?><div class="student-flash"><?php echo $flashMessage; ?></div><?php } ?>
 <?php if($studentCounsellingSoonMessage !== ""){ ?><div class="student-flash"><?php echo sd_alert("warning", $studentCounsellingSoonMessage); ?></div><?php } ?>

@@ -20,6 +20,94 @@ function drw_departments_for_hod($con,$userId){ $e=mysqli_real_escape_string($co
 if(!function_exists('drw_assignment_department')){
 function drw_assignment_department($con,$assignmentId){ $e=mysqli_real_escape_string($con,(string)$assignmentId);$r=mysqli_query($con,"SELECT d.departmentid,d.departmentname FROM tblsubjectassignment sa INNER JOIN tbldepartmentsubject ds ON ds.classificationid=sa.classificationid INNER JOIN tbldepartment d ON d.departmentid=ds.departmentid AND d.status='active' WHERE sa.assignmentid='$e' LIMIT 1");return $r?mysqli_fetch_assoc($r):null; }
 }
+if(!function_exists('drw_assignment_notification_label')){
+function drw_assignment_notification_label($con,$assignmentId){
+    $e=mysqli_real_escape_string($con,(string)$assignmentId);
+    $sql="SELECT d.departmentname,sub.subject,ce.class_name,b.batch,sa.termname,YEAR(sa.datetimeentry) academicyear
+        FROM tblsubjectassignment sa
+        INNER JOIN tbldepartmentsubject ds ON ds.classificationid=sa.classificationid
+        INNER JOIN tbldepartment d ON d.departmentid=ds.departmentid
+        INNER JOIN tblsubjectclassification sc ON sc.classificationid=sa.classificationid
+        INNER JOIN tblsubject sub ON sub.subjectid=sc.subjectid
+        LEFT JOIN tblclassentry ce ON ce.class_entryid=sa.classid
+        LEFT JOIN tblbatch b ON b.batchid=sa.batchid
+        WHERE sa.assignmentid='$e' LIMIT 1";
+    $r=mysqli_query($con,$sql); $row=$r?mysqli_fetch_assoc($r):null;
+    if(!$row){ return 'a result score sheet'; }
+    $parts=array();
+    if(trim((string)$row['departmentname'])!=='')$parts[]=trim((string)$row['departmentname']);
+    if(trim((string)$row['subject'])!=='')$parts[]=trim((string)$row['subject']);
+    $scope=trim((string)$row['class_name']);
+    if(trim((string)$row['batch'])!=='')$scope.=($scope!==''?' · ':'').trim((string)$row['batch']);
+    if(trim((string)$row['termname'])!=='')$scope.=($scope!==''?' · ':'').'Semester '.trim((string)$row['termname']);
+    if(trim((string)$row['academicyear'])!=='')$scope.=($scope!==''?' · ':'').trim((string)$row['academicyear']);
+    if($scope!=='')$parts[]=$scope;
+    return !empty($parts)?implode(' — ',$parts):'a result score sheet';
+}
+}
+if(!function_exists('drw_send_portal_notification')){
+function drw_send_portal_notification($con,$recipientId,$message,$senderId){
+    $recipientId=trim((string)$recipientId); $message=trim((string)$message); $senderId=trim((string)$senderId);
+    if($recipientId===''||$message===''){ return false; }
+    $id=mysqli_real_escape_string($con,drw_id('MSG_'));
+    $recipientEsc=mysqli_real_escape_string($con,$recipientId);
+    $messageEsc=mysqli_real_escape_string($con,substr($message,0,4900));
+    $senderEsc=mysqli_real_escape_string($con,$senderId);
+    return (bool)@mysqli_query($con,"INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group,recipient_type,recipient_value,recipient_label) VALUES('$id','$messageEsc',NOW(),'active','$senderEsc','teachers','user','$recipientEsc','Result workflow notification')");
+}
+}
+if(!function_exists('drw_notify_hod_of_submission')){
+function drw_notify_hod_of_submission($con,$assignmentId,$senderId){
+    $department=drw_assignment_department($con,$assignmentId);
+    if(!$department){ return false; }
+    $departmentEsc=mysqli_real_escape_string($con,(string)$department['departmentid']);
+    $r=mysqli_query($con,"SELECT hodid FROM tbldepartment WHERE departmentid='$departmentEsc' AND status='active' LIMIT 1");
+    $row=$r?mysqli_fetch_assoc($r):null; $hodId=$row?trim((string)$row['hodid']):'';
+    $label=drw_assignment_notification_label($con,$assignmentId);
+    return drw_send_portal_notification($con,$hodId,'A teacher has submitted '.$label.' for your approval. Open HOD Result Approval to review the individual scores.',$senderId);
+}
+}
+if(!function_exists('drw_notify_academic_of_hod_approval')){
+function drw_notify_academic_of_hod_approval($con,$assignmentId,$senderId){
+    $label=drw_assignment_notification_label($con,$assignmentId);
+    $sent=false;
+    $r=mysqli_query($con,"SELECT userid FROM tblsystemuser WHERE systemtype='AssistantHeadAcademic' AND status='active'");
+    if($r){
+        while($row=mysqli_fetch_assoc($r)){
+            if(drw_send_portal_notification($con,$row['userid'],'The HOD has approved '.$label.' and sent it for your final academic approval. Open Department Result Approval to review it.',$senderId)){
+                $sent=true;
+            }
+        }
+    }
+    return $sent;
+}
+}
+if(!function_exists('drw_notify_admin_of_academic_approval')){
+function drw_notify_admin_of_academic_approval($con,$assignmentId,$senderId){
+    $label=drw_assignment_notification_label($con,$assignmentId);
+    $sent=false;
+    $r=mysqli_query($con,"SELECT userid FROM tblsystemuser WHERE status='active' AND (accesslevel='administrator' OR systemtype IN ('normal_user','super_user'))");
+    if($r){
+        while($row=mysqli_fetch_assoc($r)){
+            if(drw_send_portal_notification($con,$row['userid'],'Final academic approval has been granted for '.$label.'. The report is ready for administrator approval and Headmaster signing.',$senderId)){
+                $sent=true;
+            }
+        }
+    }
+    return $sent;
+}
+}
+if(!function_exists('drw_notify_teacher_of_return')){
+function drw_notify_teacher_of_return($con,$assignmentId,$senderId,$note=''){
+    $assignmentEsc=mysqli_real_escape_string($con,(string)$assignmentId);
+    $r=mysqli_query($con,"SELECT userid FROM tblsubjectassignment WHERE assignmentid='$assignmentEsc' LIMIT 1");
+    $row=$r?mysqli_fetch_assoc($r):null;
+    if(!$row||trim((string)$row['userid'])===''){ return false; }
+    $label=drw_assignment_notification_label($con,$assignmentId);
+    $extra=trim((string)$note)!==''?' Comment: '.trim((string)$note):'';
+    return drw_send_portal_notification($con,$row['userid'],$label.' was returned for correction. Please review the scores and submit it again. '.$extra,$senderId);
+}
+}
 if(!function_exists('drw_scope_ready_for_admin_release')){
 function drw_scope_ready_for_admin_release($con,$batchId,$academicYear,$termName,$classId){
     drw_ensure_tables($con);$b=mysqli_real_escape_string($con,(string)$batchId);$y=mysqli_real_escape_string($con,(string)$academicYear);$t=(int)$termName;$c=mysqli_real_escape_string($con,(string)$classId);

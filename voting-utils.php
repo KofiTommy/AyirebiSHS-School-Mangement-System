@@ -147,6 +147,23 @@ function voting_generate_id($prefix){
     return strtoupper(trim((string)$prefix)).date("YmdHis").mt_rand(1000, 999999);
 }
 }
+if(!function_exists('voting_notify_contest_open')){
+function voting_notify_contest_open($con, $contest, $senderId = ''){
+    if(!$con || !is_array($contest)){ return false; }
+    $title=trim((string)(isset($contest['title'])?$contest['title']:''));
+    $eligibility=trim((string)(isset($contest['votereligibility'])?$contest['votereligibility']:'both'));
+    if($title===''){ $title='Online voting'; }
+    $groups=$eligibility==='students'?array('students'):($eligibility==='teachers'?array('teachers'):array('students','teachers'));
+    $sent=false;
+    foreach($groups as $group){
+        $id=mysqli_real_escape_string($con,'MSG_'.strtoupper(substr(sha1(uniqid('',true)),0,18)));
+        $message=mysqli_real_escape_string($con,'Online voting is now open: '.$title.'. Open Online Voting to take part.');
+        $groupEsc=mysqli_real_escape_string($con,$group); $senderEsc=mysqli_real_escape_string($con,trim((string)$senderId));
+        if(@mysqli_query($con,"INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group,recipient_type,recipient_value,recipient_label) VALUES('$id','$message',NOW(),'active','$senderEsc','$groupEsc','group','','Voting notification')"))$sent=true;
+    }
+    return $sent;
+}
+}
 
 if(!function_exists('voting_default_branch_id')){
 function voting_default_branch_id($con){

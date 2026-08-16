@@ -432,7 +432,11 @@ if(isset($_POST['headmaster_requisition_action']) && matron_can_final_approve_re
                 WHERE requisitionid='$requisitionIdEsc'
                   AND status='awaiting_headmaster'
                 LIMIT 1");
-            $_SESSION['Message'] = mysqli_affected_rows($con) > 0
+            $requisitionUpdated = mysqli_affected_rows($con) > 0;
+            if($requisitionUpdated){
+                matron_notify_teacher_requisition($con, $requisitionRow, 'Your store requisition has received final approval from the Headmaster. The store will process it for issue.', $currentUserId);
+            }
+            $_SESSION['Message'] = $requisitionUpdated
                 ? hm_flash_html('success', 'Final approval saved and digitally signed successfully.')
                 : hm_flash_html('warning', 'That requisition could not be updated. Please refresh and try again.');
         }
@@ -454,7 +458,11 @@ if(isset($_POST['headmaster_requisition_action']) && matron_can_final_approve_re
             WHERE requisitionid='$requisitionIdEsc'
               AND status='awaiting_headmaster'
             LIMIT 1");
-        $_SESSION['Message'] = mysqli_affected_rows($con) > 0
+        $requisitionUpdated = mysqli_affected_rows($con) > 0;
+        if($requisitionUpdated){
+            matron_notify_teacher_requisition($con, $requisitionRow, 'Your store requisition was not approved by the Headmaster. Please open your requisition register for the decision details.', $currentUserId);
+        }
+        $_SESSION['Message'] = $requisitionUpdated
             ? hm_flash_html('warning', 'The requisition was rejected.')
             : hm_flash_html('warning', 'That requisition could not be updated. Please refresh and try again.');
     } else {

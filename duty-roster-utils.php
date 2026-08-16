@@ -524,6 +524,11 @@ function duty_roster_log_reminder($con, $dutyId, $userId, $mobile, $message, $sm
     mysqli_query($con, "INSERT INTO tbldutyreminderlog
         (logid,dutyid,userid,remindertype,runweekstart,targetweekstart,mobile,sms_message,sms_status,sms_code,datetimeentry,recordedby)
         VALUES('$logId','$dutyId','$userId','$reminderType','$runWeekStart','$targetWeekStart','$mobile','$message','$smsStatus','$smsCode',NOW(),'$recordedBy')");
+    if($userId !== '' && $message !== ''){
+        $notificationId=mysqli_real_escape_string($con,'MSG_'.strtoupper(substr(sha1(uniqid('',true)),0,18)));
+        $notificationMessage=mysqli_real_escape_string($con,substr($message,0,4900));
+        mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group,recipient_type,recipient_value,recipient_label) VALUES('$notificationId','$notificationMessage',NOW(),'active','$recordedBy','teachers','user','$userId','Duty reminder')");
+    }
 }
 }
 

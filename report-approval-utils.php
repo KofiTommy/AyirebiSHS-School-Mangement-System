@@ -395,6 +395,22 @@ function report_approval_set_scope_status($con, $batchId, $academicYear, $termNa
 }
 
 if(!function_exists('report_approval_set_headmaster_status')){
+if(!function_exists('report_approval_notify_students_of_release')){
+function report_approval_notify_students_of_release($con, $batchId, $academicYear, $termName, $classId, $senderId = ''){
+    if(!$con){ return false; }
+    $scopeValue=trim((string)$classId).'|'.trim((string)$batchId).'|'.(int)$termName;
+    if(trim((string)$classId)===''||trim((string)$batchId)===''||(int)$termName<1){ return false; }
+    $classEsc=mysqli_real_escape_string($con,trim((string)$classId));
+    $batchEsc=mysqli_real_escape_string($con,trim((string)$batchId));
+    $className='your class'; $batchName='';
+    $r=mysqli_query($con,"SELECT ce.class_name,b.batch FROM tblclassentry ce LEFT JOIN tblbatch b ON b.batchid='$batchEsc' WHERE ce.class_entryid='$classEsc' LIMIT 1");
+    if($r&&($row=mysqli_fetch_assoc($r))){ $className=trim((string)$row['class_name'])!==''?trim((string)$row['class_name']):$className; $batchName=trim((string)$row['batch']); }
+    $message='Your '.($className!==''?$className.' ':'').'Semester '.(int)$termName.' result for '.trim((string)$academicYear).($batchName!==''?' ('.$batchName.')':'').' has been released. Open Terminal Report to view it.';
+    $id=mysqli_real_escape_string($con,'MSG_'.strtoupper(substr(sha1(uniqid('',true)),0,18)));
+    $messageEsc=mysqli_real_escape_string($con,$message); $scopeEsc=mysqli_real_escape_string($con,$scopeValue); $senderEsc=mysqli_real_escape_string($con,trim((string)$senderId));
+    return (bool)@mysqli_query($con,"INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group,recipient_type,recipient_value,recipient_label) VALUES('$id','$messageEsc',NOW(),'active','$senderEsc','students','class_scope','$scopeEsc','Released result notification')");
+}
+}
 function report_approval_set_headmaster_status($con, $batchId, $academicYear, $termName, $classId, $status, $approvedBy, $approvedName, $approvalNote = '', $signatureFile = 'heads-signature.png'){
     if(!$con){
         return false;
@@ -450,6 +466,9 @@ function report_approval_set_headmaster_status($con, $batchId, $academicYear, $t
         LIMIT 1");
     if($result){
         report_approval_scope_cache_forget($batchId, $academicYear, $termName, $classId);
+    }
+    if($result && $status === 'approved'){
+        report_approval_notify_students_of_release($con, $batchId, $academicYear, $termName, $classId, $approvedBy);
     }
     return (bool)$result;
 }

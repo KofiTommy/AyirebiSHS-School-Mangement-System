@@ -148,6 +148,26 @@ function ensure_matron_tables($con)
 }
 }
 
+if (!function_exists('matron_notify_teacher_requisition')) {
+function matron_notify_teacher_requisition($con, $requisitionRow, $message, $senderId = '')
+{
+    if (!$con || !is_array($requisitionRow) || trim((string)(isset($requisitionRow['requestorigin']) ? $requisitionRow['requestorigin'] : '')) !== 'teacher') {
+        return false;
+    }
+    $recipientId = trim((string)(isset($requisitionRow['requestedby']) ? $requisitionRow['requestedby'] : ''));
+    $message = trim((string)$message);
+    if ($recipientId === '' || $message === '') {
+        return false;
+    }
+    $messageId = 'MSG_'.strtoupper(substr(sha1(uniqid('', true)), 0, 18));
+    $messageIdEsc = mysqli_real_escape_string($con, $messageId);
+    $recipientEsc = mysqli_real_escape_string($con, $recipientId);
+    $messageEsc = mysqli_real_escape_string($con, substr($message, 0, 4900));
+    $senderEsc = mysqli_real_escape_string($con, trim((string)$senderId));
+    return (bool)@mysqli_query($con, "INSERT INTO tblmessages(messageid,messages,datetimeentry,status,sentby,recipient_group,recipient_type,recipient_value,recipient_label) VALUES('$messageIdEsc','$messageEsc',NOW(),'active','$senderEsc','teachers','user','$recipientEsc','Requisition notification')");
+}
+}
+
 if (!function_exists('matron_can_manage_weekly_menu')) {
 function matron_can_manage_weekly_menu($con = null)
 {

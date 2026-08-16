@@ -39,7 +39,20 @@ if(isset($_POST['workflow_action'])){
             $allowed = true; $status = $action === 'academic_approve' ? 'academic_approved' : 'returned';
         }
     }
-    $message = ($allowed && drw_update_status($con, $assignmentId, $year, $status, $userId, $note)) ? 'Workflow updated successfully.' : 'This workflow action is not allowed.';
+    if($allowed && drw_update_status($con, $assignmentId, $year, $status, $userId, $note)){
+        if($status === 'submitted'){
+            drw_notify_hod_of_submission($con, $assignmentId, $userId);
+        }elseif($status === 'hod_approved'){
+            drw_notify_academic_of_hod_approval($con, $assignmentId, $userId);
+        }elseif($status === 'academic_approved'){
+            drw_notify_admin_of_academic_approval($con, $assignmentId, $userId);
+        }elseif($status === 'returned'){
+            drw_notify_teacher_of_return($con, $assignmentId, $userId, $note);
+        }
+        $message = 'Workflow updated successfully. The next approver has been notified.';
+    }else{
+        $message = 'This workflow action is not allowed.';
+    }
 }
 
 $rows = array();

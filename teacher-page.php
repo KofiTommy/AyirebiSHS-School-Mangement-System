@@ -507,9 +507,11 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
 <?php include("links.php"); ?>
 <link rel="stylesheet" type="text/css" href="css/teacher-dashboard.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>.teacher-notification-bell{position:fixed;top:76px;right:24px;z-index:999970}.teacher-notification-bell a{display:inline-flex;align-items:center;gap:8px;padding:10px 13px;border-radius:999px;background:#0f2f4a;color:#fff;text-decoration:none;font-weight:700;box-shadow:0 8px 20px rgba(15,47,74,.24)}.teacher-notification-bell .badge{display:inline-flex;min-width:19px;height:19px;align-items:center;justify-content:center;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;padding:0 4px}@media(max-width:680px){.teacher-notification-bell{top:70px;right:12px}.teacher-notification-bell a{padding:9px 11px;font-size:13px}}</style>
 </head>
 <body class="teacher-dashboard-page">
 <div class="header"><?php include("menu.php"); ?></div>
+<div class="teacher-notification-bell"><a href="messages.php" aria-label="Open notifications"><i class="fa fa-bell"></i><span>Notifications</span><?php if($messageUnreadCount > 0){ ?><span class="badge"><?php echo (int)$messageUnreadCount; ?></span><?php } ?></a></div>
 <main class="teacher-shell">
 <?php if($flashMessage !== ""){ ?><div class="teacher-flash"><?php echo $flashMessage; ?></div><?php } ?>
 <?php if($teacherCounsellingSoonMessage !== ""){ ?><div class="teacher-flash"><?php echo td_alert("warning", $teacherCounsellingSoonMessage); ?></div><?php } ?>

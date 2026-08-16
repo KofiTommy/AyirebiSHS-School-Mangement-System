@@ -213,6 +213,12 @@ if(isset($_POST["save_voting_contest"])){
                 WHERE contestid='$contestIdEsc' AND branchid='$branchIdEsc'
                 LIMIT 1");
             if($updated){
+                if($contestForm['status'] === 'open' && strtolower(trim((string)$exists['status'])) !== 'open'){
+                    $notificationContest = $exists;
+                    $notificationContest['title'] = $contestForm['title'];
+                    $notificationContest['votereligibility'] = $contestForm['votereligibility'];
+                    voting_notify_contest_open($con, $notificationContest, voting_current_user_id());
+                }
                 ova_flash_set(ova_alert("success", "Contest updated successfully."));
                 header("location:".ova_admin_url(array("contest" => $contestId), "#contest-form"));
                 exit();
@@ -227,6 +233,9 @@ if(isset($_POST["save_voting_contest"])){
                 '".number_format($pricePerVote, 2, '.', '')."', '".(int)$minVotes."', '".(int)$maxVotes."', $startSql, $endSql, '$statusEsc', '$recordedByEsc', NOW(), NOW()
             )");
             if($saved){
+                if($contestForm['status'] === 'open'){
+                    voting_notify_contest_open($con, array('title'=>$contestForm['title'],'votereligibility'=>$contestForm['votereligibility']), voting_current_user_id());
+                }
                 ova_flash_set(ova_alert("success", "Contest created successfully."));
                 header("location:".ova_admin_url(array("contest" => $contestId), "#contest-form"));
                 exit();
@@ -242,11 +251,15 @@ if(isset($_POST["set_voting_contest_status"])){
     $contestId = trim((string)(isset($_POST["contestid"]) ? $_POST["contestid"] : ""));
     $status = trim((string)(isset($_POST["status"]) ? $_POST["status"] : ""));
     if($contestId !== "" && in_array($status, array("draft", "open", "closed", "archived"), true)){
+        $existingContest = voting_fetch_contest_by_id($con, $contestId, $branchId);
         $contestIdEsc = mysqli_real_escape_string($con, $contestId);
         $statusEsc = mysqli_real_escape_string($con, $status);
         $updated = @mysqli_query($con, "UPDATE tblvotingcontest SET status='$statusEsc', updatedat=NOW()
             WHERE contestid='$contestIdEsc' AND branchid='$branchIdEsc'
             LIMIT 1");
+        if($updated && $status === 'open' && $existingContest && strtolower(trim((string)$existingContest['status'])) !== 'open'){
+            voting_notify_contest_open($con, $existingContest, voting_current_user_id());
+        }
         ova_flash_set($updated ? ova_alert("success", "Contest status updated successfully.") : ova_alert("error", "Contest status could not be updated."));
     }
     header("location:".ova_admin_url(array("contest" => $contestId), "#contest-list"));

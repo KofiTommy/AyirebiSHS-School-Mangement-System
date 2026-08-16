@@ -729,15 +729,6 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
     $pdf->Ln(7);
     $pdf->Cell(0, 10, tr_terminal_report_pdf_text("Head Teacher's Remarks:  " . $headTeacherRemark), 0, 0, 'L', true);
     $pdf->Ln(7);
-    if(!empty($departmentProof['teacher']) || !empty($departmentProof['hod']) || !empty($departmentProof['academic'])){
-        $pdf->SetFont('Arial', 'B', 8);
-        $pdf->Cell(0, 5, tr_terminal_report_pdf_text('RESULT APPROVAL TRAIL'), 0, 1, 'L', true);
-        $pdf->SetFont('Arial', '', 7);
-        $pdf->Cell(0, 4, tr_terminal_report_pdf_text('Submitted by: '.(!empty($departmentProof['teacher']) ? $departmentProof['teacher'] : 'Not recorded')), 0, 1, 'L', true);
-        $pdf->Cell(0, 4, tr_terminal_report_pdf_text('HOD approved: '.(!empty($departmentProof['hod']) ? $departmentProof['hod'] : 'Not recorded').'   |   Academic approved: '.(!empty($departmentProof['academic']) ? $departmentProof['academic'] : 'Not recorded')), 0, 1, 'L', true);
-        $pdf->Cell(0, 4, tr_terminal_report_pdf_text('Administrator release: '.(isset($approvalMeta['approvedby']) && $approvalMeta['approvedby'] !== '' ? $approvalMeta['approvedby'] : 'Not recorded')), 0, 1, 'L', true);
-        $pdf->Ln(3);
-    }
     $signatureBlockWidth = 78;
     $signatureX = max(10, $pdf->GetPageWidth() - $signatureBlockWidth - 12);
     $signatureStartY = $pdf->GetY();
