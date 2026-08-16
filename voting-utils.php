@@ -702,15 +702,12 @@ function voting_featured_contest($con, $branchId, $systemType){
     }
     $live = array();
     $upcoming = array();
-    $other = array();
     foreach($items as $item){
         $state = isset($item['resolved_status']) ? $item['resolved_status'] : voting_resolved_contest_state($item);
         if($state === 'live'){
             $live[] = $item;
         }elseif($state === 'upcoming'){
             $upcoming[] = $item;
-        }else{
-            $other[] = $item;
         }
     }
     if(!empty($live)){
@@ -719,7 +716,9 @@ function voting_featured_contest($con, $branchId, $systemType){
     if(!empty($upcoming)){
         return $upcoming[0];
     }
-    return $other[0];
+    // Closed, archived and otherwise inactive contests must not appear on
+    // teacher or student dashboards.
+    return null;
 }
 }
 
