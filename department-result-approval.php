@@ -44,6 +44,7 @@ if(isset($_POST['workflow_action'])){
             drw_notify_hod_of_submission($con, $assignmentId, $userId);
         }elseif($status === 'hod_approved'){
             drw_notify_academic_of_hod_approval($con, $assignmentId, $userId);
+            drw_notify_teacher_of_hod_approval($con, $assignmentId, $userId);
         }elseif($status === 'academic_approved'){
             drw_notify_admin_of_academic_approval($con, $assignmentId, $userId);
         }elseif($status === 'returned'){

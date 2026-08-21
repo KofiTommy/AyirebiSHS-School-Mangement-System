@@ -7,6 +7,7 @@ function drw_ensure_tables($con){
     @mysqli_query($con,"CREATE TABLE IF NOT EXISTS tbldepartmentteacher (departmentid VARCHAR(50) NOT NULL, teacherid VARCHAR(100) NOT NULL, assignedat DATETIME NOT NULL, assignedby VARCHAR(100) NOT NULL DEFAULT '', PRIMARY KEY(departmentid,teacherid), KEY idx_teacher(teacherid)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     @mysqli_query($con,"CREATE TABLE IF NOT EXISTS tbldepartmentsubject (departmentid VARCHAR(50) NOT NULL, classificationid VARCHAR(100) NOT NULL, assignedat DATETIME NOT NULL, assignedby VARCHAR(100) NOT NULL DEFAULT '', PRIMARY KEY(departmentid,classificationid), KEY idx_classification(classificationid)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     @mysqli_query($con,"CREATE TABLE IF NOT EXISTS tbldepartmentresultworkflow (workflowid VARCHAR(50) PRIMARY KEY, assignmentid VARCHAR(100) NOT NULL, academicyear VARCHAR(20) NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'draft', teachersubmittedby VARCHAR(100) NOT NULL DEFAULT '', teachersubmittedat DATETIME NULL, hodapprovedby VARCHAR(100) NOT NULL DEFAULT '', hodapprovedat DATETIME NULL, academicapprovedby VARCHAR(100) NOT NULL DEFAULT '', academicapprovedat DATETIME NULL, lastnote VARCHAR(255) NOT NULL DEFAULT '', updatedat DATETIME NOT NULL, UNIQUE KEY uq_assignment_year(assignmentid,academicyear), KEY idx_status(status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    @mysqli_query($con,"CREATE TABLE IF NOT EXISTS tblresultcorrectionsmslog (smslogid VARCHAR(50) PRIMARY KEY, assignmentid VARCHAR(100) NOT NULL, academicyear VARCHAR(20) NOT NULL, workflowupdatedat DATETIME NOT NULL, teacherid VARCHAR(100) NOT NULL, mobile VARCHAR(40) NOT NULL DEFAULT '', message VARCHAR(255) NOT NULL, smsstatus VARCHAR(30) NOT NULL DEFAULT '', smscode VARCHAR(255) NOT NULL DEFAULT '', createdat DATETIME NOT NULL, UNIQUE KEY uq_result_correction_sms(assignmentid,academicyear,workflowupdatedat,teacherid), KEY idx_teacher(teacherid)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 }
 if(!function_exists('drw_is_admin')){ function drw_is_admin(){ return isset($_SESSION['ACCESSLEVEL']) && $_SESSION['ACCESSLEVEL']==='administrator'; } }
@@ -82,6 +83,16 @@ function drw_notify_academic_of_hod_approval($con,$assignmentId,$senderId){
     return $sent;
 }
 }
+if(!function_exists('drw_notify_teacher_of_hod_approval')){
+function drw_notify_teacher_of_hod_approval($con,$assignmentId,$senderId){
+    $assignmentEsc=mysqli_real_escape_string($con,(string)$assignmentId);
+    $r=mysqli_query($con,"SELECT userid FROM tblsubjectassignment WHERE assignmentid='$assignmentEsc' LIMIT 1");
+    $row=$r?mysqli_fetch_assoc($r):null;
+    if(!$row||trim((string)$row['userid'])===''){ return false; }
+    $label=drw_assignment_notification_label($con,$assignmentId);
+    return drw_send_portal_notification($con,$row['userid'],'Your result sheet for '.$label.' has been approved by the HOD and forwarded for final academic approval.',$senderId);
+}
+}
 if(!function_exists('drw_notify_admin_of_academic_approval')){
 function drw_notify_admin_of_academic_approval($con,$assignmentId,$senderId){
     $label=drw_assignment_notification_label($con,$assignmentId);
@@ -105,7 +116,52 @@ function drw_notify_teacher_of_return($con,$assignmentId,$senderId,$note=''){
     if(!$row||trim((string)$row['userid'])===''){ return false; }
     $label=drw_assignment_notification_label($con,$assignmentId);
     $extra=trim((string)$note)!==''?' Comment: '.trim((string)$note):'';
-    return drw_send_portal_notification($con,$row['userid'],$label.' was returned for correction. Please review the scores and submit it again. '.$extra,$senderId);
+    $portalSent=drw_send_portal_notification($con,$row['userid'],$label.' was returned for correction. Please review the scores and submit it again. '.$extra,$senderId);
+    drw_send_teacher_correction_sms($con,$assignmentId,$row['userid'],$label);
+    return $portalSent;
+}
+}
+if(!function_exists('drw_send_teacher_correction_sms')){
+function drw_send_teacher_correction_sms($con,$assignmentId,$teacherId,$label){
+    drw_ensure_tables($con);
+    $assignmentEsc=mysqli_real_escape_string($con,(string)$assignmentId);
+    $teacherEsc=mysqli_real_escape_string($con,(string)$teacherId);
+    $workflow=mysqli_query($con,"SELECT academicyear,updatedat FROM tbldepartmentresultworkflow WHERE assignmentid='$assignmentEsc' AND status='returned' ORDER BY updatedat DESC LIMIT 1");
+    $workflowRow=$workflow?mysqli_fetch_assoc($workflow):null;
+    if(!$workflowRow){ return false; }
+    $yearEsc=mysqli_real_escape_string($con,(string)$workflowRow['academicyear']);
+    $updatedEsc=mysqli_real_escape_string($con,(string)$workflowRow['updatedat']);
+    $teacher=mysqli_query($con,"SELECT mobile FROM tblsystemuser WHERE userid='$teacherEsc' AND status='active' LIMIT 1");
+    $teacherRow=$teacher?mysqli_fetch_assoc($teacher):null;
+    $mobile=$teacherRow?trim((string)$teacherRow['mobile']):'';
+    $shortLabel=trim(preg_replace('/\s+/', ' ', (string)$label));
+    if(strlen($shortLabel)>80){ $shortLabel=substr($shortLabel,0,77).'...'; }
+    $message='Ayirebi SHS: Your marks need correction for '.$shortLabel.'. Log in to the portal to review comments and resubmit.';
+    if(strlen($message)>250){ $message=substr($message,0,250); }
+    /* Claim this specific return event before calling the SMS provider. The unique key
+       makes repeated clicks, page refreshes, and parallel requests send only once. */
+    $logId=mysqli_real_escape_string($con,drw_id('DRSMS_'));
+    $mobileEsc=mysqli_real_escape_string($con,$mobile);
+    $messageEsc=mysqli_real_escape_string($con,$message);
+    $claimed=@mysqli_query($con,"INSERT IGNORE INTO tblresultcorrectionsmslog(smslogid,assignmentid,academicyear,workflowupdatedat,teacherid,mobile,message,smsstatus,smscode,createdat) VALUES('$logId','$assignmentEsc','$yearEsc','$updatedEsc','$teacherEsc','$mobileEsc','$messageEsc','PENDING','',NOW())");
+    if(!$claimed || mysqli_affected_rows($con)!==1){ return false; }
+
+    $status='NO_PHONE'; $code='NO_PHONE'; $sent=false;
+    if($mobile!==''){
+        if(!function_exists('send_bulk_sms_message')){ @include_once(__DIR__.DIRECTORY_SEPARATOR.'house-master-utils.php'); }
+        if(function_exists('send_bulk_sms_message')){
+            $code='';
+            $sent=send_bulk_sms_message($mobile,$message,$code);
+            $status=$sent?'SENT':'FAILED';
+            if(trim((string)$code)===''){ $code=$sent?'1000':'SMS_FAILED'; }
+        }else{
+            $status='SMS_UNAVAILABLE'; $code='SMS_UNAVAILABLE';
+        }
+    }
+    $statusEsc=mysqli_real_escape_string($con,$status);
+    $codeEsc=mysqli_real_escape_string($con,substr((string)$code,0,255));
+    @mysqli_query($con,"UPDATE tblresultcorrectionsmslog SET smsstatus='$statusEsc',smscode='$codeEsc' WHERE smslogid='$logId'");
+    return $sent;
 }
 }
 if(!function_exists('drw_scope_ready_for_admin_release')){

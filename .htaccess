@@ -1,0 +1,3 @@
+# Serve the public Ayirebi SHS website at the domain root.
+# The existing management-system portal remains available at /index.php.
+DirectoryIndex website.php index.php

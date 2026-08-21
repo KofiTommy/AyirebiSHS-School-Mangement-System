@@ -243,6 +243,7 @@ include("title.php");
 include("links.php");
 ?>
 <link rel="stylesheet" type="text/css" href="css/index-landing.css">
+<link rel="stylesheet" type="text/css" href="css/ayisec-shared-palette.css">
 <?php
 include("validation/header.php");
 ?>
@@ -289,6 +290,9 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
 }
 ?>
 <body class="landing-page" style="--landing-photo:url('images/logo/<?php echo $_LandingBackgroundPhoto; ?>');">
+    <style>.school-website-shortcut{position:fixed;z-index:9999;right:20px;bottom:20px;display:inline-flex;gap:10px;align-items:center;padding:12px 17px;border-radius:3px;background:#164239;color:#fff!important;font:700 13px Arial,sans-serif;text-decoration:none;box-shadow:0 8px 22px rgba(0,0,0,.22)}.school-website-shortcut span{color:#e3b650;font-size:18px;line-height:1}.school-website-shortcut:hover{background:#0e3029;color:#fff!important}@media(max-width:600px){.school-website-shortcut{right:12px;bottom:12px;font-size:12px;padding:10px 13px}}</style>
+    <a href="website.php" class="school-website-shortcut" aria-label="Open Ayirebi Senior High School public website">Visit school website <span>↗</span></a>
+    <style>.school-website-shortcut{bottom:86px}@media(max-width:600px){.school-website-shortcut{bottom:74px}}</style>
 <div class="landing-shell">
     <div class="landing-currents" aria-hidden="true">
         <span class="landing-current landing-current--one"></span>

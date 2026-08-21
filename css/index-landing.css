@@ -1664,3 +1664,8 @@ body.landing-help-open {
         font-size: 0.72rem;
     }
 }
+
+/* AYISEC public-website palette: forest green, warm cream and gold */
+:root { --landing-ink:#153b36; --landing-ink-soft:#5d7068; --landing-surface:rgba(255,253,249,.91); --landing-surface-strong:rgba(255,253,249,.97); --landing-border:rgba(255,255,255,.25); --landing-shadow:0 28px 56px rgba(8,38,33,.24); --landing-accent:#d6a849; --landing-accent-soft:rgba(214,168,73,.17); --landing-highlight:#cd7c36; --landing-highlight-soft:rgba(205,124,54,.14); --landing-navy:#0d2c28; --landing-navy-soft:rgba(13,44,40,.88); }
+body.landing-page{color:var(--landing-ink);background:radial-gradient(circle at top left,rgba(226,190,104,.34),transparent 34%),radial-gradient(circle at 86% 14%,rgba(21,59,54,.2),transparent 24%),linear-gradient(135deg,#fbf7ee 0%,#f3f0e5 46%,#e7eee7 100%)}
+body.landing-page::before{background:linear-gradient(135deg,rgba(13,44,40,.78),rgba(13,44,40,.26)),var(--landing-photo) center/cover no-repeat}.landing-current--one{background:radial-gradient(circle,rgba(214,168,73,.48),rgba(214,168,73,.06) 68%,transparent 74%)}.landing-current--two{background:radial-gradient(circle,rgba(28,109,89,.4),rgba(28,109,89,.06) 70%,transparent 76%)}.landing-current--three{background:radial-gradient(circle,rgba(205,124,54,.24),rgba(205,124,54,.04) 68%,transparent 76%)}.landing-topbar{background:rgba(13,44,40,.73)}.landing-product-mark{background:rgba(7,35,30,.35);box-shadow:0 10px 22px rgba(5,27,23,.16)}
