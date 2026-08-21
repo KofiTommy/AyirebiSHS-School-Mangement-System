@@ -29,7 +29,7 @@
       <h1>A place to learn,<br><em>lead and belong.</em></h1>
       <p class="hero-copy">At Ayirebi Senior High School, every learner is challenged, supported and prepared to make a meaningful contribution to Ghana and the world.</p>
       <div class="hero-actions"><a class="button button-gold" href="index.php#portal-login">Portal login <span>→</span></a><a class="text-link" href="#about">Discover our story <span>↓</span></a></div>
-    </div><img class="hero-3d-logo" src="logo/logo-transparent.png" alt="" aria-hidden="true"><div class="hero-note"><span class="note-line"></span><span>Character · Scholarship · Service</span></div></section>
+    </div><img class="hero-3d-logo" src="logo/logo-transparent.png" alt="" aria-hidden="true"><div class="hero-note"><span class="note-line"></span><span>Our motto · Brighten the Corner</span></div></section>
 
     <section class="welcome" id="about"><div class="shell split-grid">
       <div><p class="eyebrow">Welcome to Ayirebi SHS</p><h2>Education with a<br><em>larger purpose.</em></h2></div>

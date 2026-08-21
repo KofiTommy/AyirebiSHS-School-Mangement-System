@@ -318,7 +318,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
             </div>
         </div>
         <div class="landing-product-mark" aria-label="LiveCampus">
-            <img src="images/LiveCampus.png" alt="LiveCampus">
+            <img src="images/LiveCampus-white.png" alt="LiveCampus">
             <span>LiveCampus</span>
         </div>
         <div class="landing-topbar__meta">
@@ -476,7 +476,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
 
     <footer class="landing-footer">
         <p class="landing-footer__product">
-            <img src="images/LiveCampus.png" alt="LiveCampus" class="landing-footer__product-logo">
+            <img src="images/LiveCampus-white.png" alt="LiveCampus" class="landing-footer__product-logo">
             <span>&copy; 2026 LiveCampus V2.20.2.2</span>
         </p>
         <a class="landing-footer__developer" href="https://tokaatechconsult.com/" target="_blank" rel="noopener noreferrer" aria-label="Visit Tokaa Tech Consult">

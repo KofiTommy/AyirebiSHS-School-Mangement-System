@@ -159,7 +159,7 @@ document.getElementById("staff-id").value=rnd;
         <div class="branch-hero__copy">
             <div class="branch-brand">
                 <div class="branch-brand__mark">
-                    <img src="images/nexgen-logo.png" alt="NexGen">
+                    <img src="images/LiveCampus-white.png" alt="LiveCampus">
                 </div>
                 <div>
                     <span class="branch-kicker">Branch Workspace</span>
