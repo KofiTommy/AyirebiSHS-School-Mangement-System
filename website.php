@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Ayirebi Senior High School — inspiring character, scholarship and service in the Eastern Region of Ghana.">
   <title>Ayirebi Senior High School | Eastern Region, Ghana</title>
-  <link rel="icon" type="image/png" href="logo/logo.png">
-  <link rel="apple-touch-icon" href="logo/logo.png">
+  <link rel="icon" type="image/png" href="logo/logo-transparent.png">
+  <link rel="apple-touch-icon" href="logo/logo-transparent.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
 <body>
   <div class="topbar"><div class="shell topbar-inner"><span>Eastern Region, Ghana</span><span class="top-links"><a href="#contact">Contact us</a><a href="https://wa.me/233245065954?text=Hello%2C%20I%20need%20help%20with%20Ayirebi%20Senior%20High%20School." target="_blank" rel="noopener noreferrer">Need help?</a><a href="#admissions">Admissions</a></span></div></div>
   <header class="header" id="home"><div class="shell nav-wrap">
-    <a class="brand" href="#home" aria-label="Ayirebi Senior High School home"><span class="crest"><img src="logo/logo.png" alt="Ayirebi Senior High School logo"></span><span><strong>Ayirebi</strong><small>Senior High School</small></span></a>
+    <a class="brand" href="#home" aria-label="Ayirebi Senior High School home"><span class="crest"><img src="logo/logo-transparent.png" alt="Ayirebi Senior High School logo"></span><span><strong>Ayirebi</strong><small>Senior High School</small></span></a>
     <button class="menu-toggle" aria-label="Open navigation" aria-expanded="false"><span></span><span></span></button>
     <nav class="nav" aria-label="Main navigation"><a href="#about">About</a><a href="#academics">Academics</a><a href="#life">Student life</a><a href="#news">News</a><a href="#contact">Contact</a><a class="nav-cta" href="index.php#portal-login">Portal login</a></nav>
   </div></header>
@@ -28,7 +28,7 @@
       <h1>A place to learn,<br><em>lead and belong.</em></h1>
       <p class="hero-copy">At Ayirebi Senior High School, every learner is challenged, supported and prepared to make a meaningful contribution to Ghana and the world.</p>
       <div class="hero-actions"><a class="button button-gold" href="index.php#portal-login">Portal login <span>→</span></a><a class="text-link" href="#about">Discover our story <span>↓</span></a></div>
-    </div><div class="hero-note"><span class="note-line"></span><span>Character · Scholarship · Service</span></div></section>
+    </div><img class="hero-3d-logo" src="logo/logo-transparent.png" alt="" aria-hidden="true"><div class="hero-note"><span class="note-line"></span><span>Character · Scholarship · Service</span></div></section>
 
     <section class="welcome" id="about"><div class="shell split-grid">
       <div><p class="eyebrow">Welcome to Ayirebi SHS</p><h2>Education with a<br><em>larger purpose.</em></h2></div>
