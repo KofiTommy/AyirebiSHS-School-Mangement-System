@@ -348,6 +348,10 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
                 </div>
                 <?php } ?>
                 <p><?php echo $_PublicAdmissionOpen ? "New students should use start admission. Existing users should use portal login." : "Sign in to continue."; ?></p>
+                <a class="landing-report-guide" href="images/websiteimages/How%20to%20Print%20your%20Report%20Online.jpeg" target="_blank" rel="noopener noreferrer" aria-label="Open the student terminal report printing guide">
+                    <img src="images/websiteimages/How%20to%20Print%20your%20Report%20Online.jpeg" alt="Preview of the AYISEC student report printing guide">
+                    <span><strong>Student report printing guide</strong><small>Learn how to check and print your terminal report online.</small><b>View the five steps <i class="fa fa-external-link"></i></b></span>
+                </a>
             </div>
 
             <div class="landing-route-grid">
