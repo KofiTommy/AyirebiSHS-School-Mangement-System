@@ -1,6 +1,9 @@
 <?php
-$galleryImages = glob('images/websiteimages/*.{jpg,jpeg,png,JPG,JPEG,PNG}', GLOB_BRACE);
-sort($galleryImages, SORT_NATURAL | SORT_FLAG_CASE);
+require_once('dbstring.php');
+require_once('website-content-utils.php');
+$galleryItems = website_gallery_items($con);
+$galleryImages = array();
+foreach($galleryItems as $galleryItem){ $galleryImages[] = $galleryItem['path']; }
 ?>
 <!doctype html>
 <html lang="en">

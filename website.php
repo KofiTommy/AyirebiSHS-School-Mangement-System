@@ -1,4 +1,12 @@
-<?php /* Ayirebi Senior High School public website */ ?>
+<?php /* Ayirebi Senior High School public website */
+require_once('dbstring.php');
+require_once('website-content-utils.php');
+$websiteContent = website_content_all($con);
+$reportGuideImage = str_replace('%2F', '/', rawurlencode($websiteContent['report_image']));
+$websiteAddress = nl2br(website_content_escape(str_replace('|', "\n", $websiteContent['address'])));
+$websitePhoneLink = preg_replace('/[^0-9+]/', '', $websiteContent['phone']);
+ob_start();
+?>
 <!doctype html>
 <html lang="en">
 <head>
@@ -20,7 +28,7 @@
   <header class="header" id="home"><div class="shell nav-wrap">
     <a class="brand" href="#home" aria-label="Ayirebi Senior High School home"><span class="crest"><img src="logo/logo-transparent.png" alt="Ayirebi Senior High School logo"></span><span><strong>Ayirebi</strong><small>Senior High School</small></span></a>
     <button class="menu-toggle" aria-label="Open navigation" aria-expanded="false"><span></span><span></span></button>
-    <nav class="nav" aria-label="Main navigation"><a href="#about">About</a><a href="#academics">Academics</a><a href="#life">Student life</a><a href="#news">News</a><a href="#contact">Contact</a><a class="nav-cta" href="index.php#portal-login">Portal login</a></nav>
+    <nav class="nav" aria-label="Main navigation"><a href="#about">About</a><a href="#academics">Academics</a><a href="#life">Student life</a><a href="announcements.php">Announcements</a><a href="#news">News</a><a href="#contact">Contact</a><a class="nav-cta" href="index.php#portal-login">Portal login</a></nav>
   </div></header>
 
   <main>
@@ -57,7 +65,7 @@
     <section class="admissions" id="admissions"><div class="shell admissions-inner"><div><p class="eyebrow light">Joining our community</p><h2>Your next chapter<br>starts <em>here.</em></h2></div><div><p>We welcome families seeking a school where high expectations meet genuine care. Start your Ayirebi journey today.</p><a class="button button-gold" href="online-admission.php">Apply for admission <span>→</span></a><a class="admission-link" href="#contact">Speak with admissions <span>→</span></a></div></div></section>
 
     <section class="news" id="news"><div class="shell"><div class="news-header"><div><p class="eyebrow">AYISEC in focus</p><h2>Our moments. Our pride.</h2></div><a class="arrow-link" href="#gallery">View photo gallery <span>↓</span></a></div><div class="news-grid"><article><div class="news-image news-one"></div><p class="date">ACHIEVEMENT · AYISEC</p><h3>Celebrating the students who represent our school with pride.</h3><a href="#gallery">View gallery <span>→</span></a></article><article><div class="news-image news-two"></div><p class="date">SPORT · AYISEC</p><h3>Teamwork, discipline and the joy of competing together.</h3><a href="#gallery">View gallery <span>→</span></a></article><article><div class="news-image news-three"></div><p class="date">SCHOOL LIFE · AYISEC</p><h3>Creating memories that bring our school family together.</h3><a href="#gallery">View gallery <span>→</span></a></article></div></div></section>
-    <?php $galleryImages = glob('images/websiteimages/*.{jpg,jpeg,png,JPG,JPEG,PNG}', GLOB_BRACE); sort($galleryImages, SORT_NATURAL | SORT_FLAG_CASE); $galleryImages = array_slice($galleryImages, 0, 6); ?>
+    <?php $galleryItems = website_gallery_items($con, 6); $galleryImages = array(); foreach($galleryItems as $galleryItem){ $galleryImages[] = $galleryItem['path']; } ?>
     <section class="full-gallery" id="gallery" aria-labelledby="gallery-title"><div class="shell"><div class="gallery-title"><div><p class="eyebrow">The AYISEC gallery</p><h2 id="gallery-title">See our school<br><em>come alive.</em></h2></div><p>Explore our people, achievements, traditions, events and everyday life at Ayirebi Senior High School.</p></div><div class="gallery-wall"><?php foreach ($galleryImages as $image): $name = pathinfo($image, PATHINFO_FILENAME); $label = ucwords(str_replace(array('-', '_'), ' ', $name)); ?><button class="gallery-item" type="button" data-image="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" data-label="<?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>"><img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="Ayirebi Senior High School — <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>"><span><?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?></span></button><?php endforeach; ?></div></div></section>
     <div class="gallery-preview-action"><a class="button button-gold" href="gallery.php">View the full photo gallery <span>→</span></a></div>
     <section class="admission-guide" aria-labelledby="admission-guide-title"><div class="shell"><div class="admission-guide-heading"><div><p class="eyebrow">Admissions guide</p><h2 id="admission-guide-title">A clear start to<br><em>your AYISEC journey.</em></h2></div><p>Everything prospective students and parents need to begin with confidence.</p></div><div class="admission-guide-grid"><div class="admission-steps"><article><span>01</span><div><h3>Confirm your details</h3><p>Keep your placement and personal information ready before starting your application.</p></div></article><article><span>02</span><div><h3>Start your application</h3><p>Use the online admission portal to enter your details and complete each required step.</p></div></article><article><span>03</span><div><h3>Need support?</h3><p>Our team can help if you have a question or need guidance during the process.</p></div></article><div class="admission-guide-actions"><a class="button button-gold" href="online-admission.php">Start online admission <span>→</span></a><a class="arrow-link" href="https://wa.me/233245065954?text=Hello%2C%20I%20need%20help%20with%20admission%20to%20Ayirebi%20Senior%20High%20School." target="_blank" rel="noopener noreferrer">Ask admissions <span>↗</span></a></div></div><div class="admission-faq"><p class="eyebrow">Frequently asked questions</p><details open><summary>How do I begin my application?</summary><p>Select “Start online admission” and follow the steps shown in the portal.</p></details><details><summary>Can I get help with my application?</summary><p>Yes. Use the WhatsApp help link to contact the school for guidance.</p></details><details><summary>What should I do after submitting?</summary><p>Keep your application details safely and follow any further instructions provided by the school.</p></details><details><summary>Where can I log in as a current student or staff member?</summary><p>Use the Portal Login button at the top of this website to access the school management system.</p></details></div></div></div></section>
@@ -72,3 +80,42 @@
   <script src="school-site.js"></script>
 </body>
 </html>
+<?php
+$websiteOutput = ob_get_clean();
+$websiteOutput = str_replace(
+    array(
+        'images/websiteimages/How%20to%20Print%20your%20Report%20Online.jpeg',
+        'Student notice',
+        'Need to print your',
+        'terminal report?',
+        'Our ICT Centre has prepared a simple five-step guide to help students log in, find their terminal report and print it online.',
+        'View the report guide',
+        'Ayirebi, Eastern Region<br>Ghana Post GPS: EM-0916-5753<br>P.O. Box 541, Akim Oda',
+        'tel:+233000000000',
+        '+233 (0) 24 560 5120',
+        'mailto:info@ayirebishs.edu.gh',
+        'ayirebishs@ges.gov.gh',
+        'https://www.facebook.com/Ayirebiseniorhighschool/',
+        'https://www.tiktok.com/search?q=Official%20Ayisec%20Tv',
+        'https://wa.me/233245065954?text=Hello%2C%20I%20need%20help%20with%20Ayirebi%20Senior%20High%20School.'
+    ),
+    array(
+        website_content_escape($reportGuideImage),
+        website_content_escape($websiteContent['report_eyebrow']),
+        website_content_escape($websiteContent['report_title']),
+        website_content_escape($websiteContent['report_title_emphasis']),
+        website_content_escape($websiteContent['report_description']),
+        website_content_escape($websiteContent['report_button_label']),
+        $websiteAddress,
+        'tel:'.website_content_escape($websitePhoneLink),
+        website_content_escape($websiteContent['phone']),
+        'mailto:'.rawurlencode($websiteContent['email']),
+        website_content_escape($websiteContent['email']),
+        website_content_escape($websiteContent['facebook_url']),
+        website_content_escape($websiteContent['tiktok_url']),
+        website_content_escape($websiteContent['whatsapp_url'])
+    ),
+    $websiteOutput
+);
+echo $websiteOutput;
+?>

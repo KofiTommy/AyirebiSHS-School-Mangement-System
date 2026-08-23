@@ -319,6 +319,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student"){
 
 <?php menuboard_section_start('Communication', 'fa-comments'); ?>
 <a href="messages.php"><i class="fa fa-comments"></i> Message Box</a>
+<a href="clubs.php"><i class="fa fa-users"></i> Clubs &amp; Societies</a>
 <?php if($_StudentChatEnabledForMenu){ ?>
 <a href="student-chat.php"><i class="fa fa-user-plus"></i> Student Chat</a>
 <?php } ?>
@@ -416,9 +417,13 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 <?php menuboard_section_start('Admissions & Communication', 'fa-bullhorn'); ?>
 <a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
 <a href="online-voting-admin.php"><i class="fa fa-trophy"></i> Online Voting</a>
+<a href="website-editor.php"><i class="fa fa-pencil-square-o"></i> Manage Website</a>
+<a href="website-gallery-editor.php"><i class="fa fa-picture-o"></i> Manage Gallery</a>
+<a href="website-announcement-editor.php"><i class="fa fa-bullhorn"></i> Manage Announcements</a>
 <a href="notification.php"><i class="fa fa-plus"></i> Send Notification</a>
 <a href="student-chat-monitor.php"><i class="fa fa-eye"></i> Student Chat Monitor</a>
 <a href="student-chat-settings.php"><i class="fa fa-sliders"></i> Student Chat Control</a>
+<a href="club-admin.php"><i class="fa fa-users"></i> Manage Clubs &amp; Societies</a>
 <a href="enablesmsalert.php"><i class="fa fa-phone"></i> Enable SMS Alert</a>
 <a href="smsreport.php"><i class="fa fa-phone"></i> SMS Reporting</a>
 <a href="smsreportdata.php"><i class="fa fa-database"></i> SMS Data</a>
@@ -507,9 +512,13 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="n
 <?php menuboard_section_start('Admissions & Communication', 'fa-bullhorn'); ?>
 <a href="online-admission-admin.php"><i class="fa fa-globe"></i> Online Admission</a>
 <a href="online-voting-admin.php"><i class="fa fa-trophy"></i> Online Voting</a>
+<a href="website-editor.php"><i class="fa fa-pencil-square-o"></i> Manage Website</a>
+<a href="website-gallery-editor.php"><i class="fa fa-picture-o"></i> Manage Gallery</a>
+<a href="website-announcement-editor.php"><i class="fa fa-bullhorn"></i> Manage Announcements</a>
 <a href="notification.php"><i class="fa fa-plus"></i> Send Notification</a>
 <a href="student-chat-monitor.php"><i class="fa fa-eye"></i> Student Chat Monitor</a>
 <a href="student-chat-settings.php"><i class="fa fa-sliders"></i> Student Chat Control</a>
+<a href="club-admin.php"><i class="fa fa-users"></i> Manage Clubs &amp; Societies</a>
 <a href="enablesmsalert.php"><i class="fa fa-phone"></i> Enable SMS Alert</a>
 <a href="smsreport.php"><i class="fa fa-phone"></i> SMS Reporting</a>
 <a href="smsreportdata.php"><i class="fa fa-database"></i> SMS Data</a>

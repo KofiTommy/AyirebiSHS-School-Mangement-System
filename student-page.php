@@ -430,6 +430,8 @@ if($paidRes && $row = mysqli_fetch_array($paidRes, MYSQLI_ASSOC)){
 }
 $financeBalance = $financeBilled - $financePaid;
 $messageUnreadCount = um_message_unread_count($con, $studentId, 'Student');
+$studentChatUnreadCount = student_chat_unread_message_count($con, $studentId);
+$notificationUnreadCount = $messageUnreadCount + $studentChatUnreadCount;
 $studentPrivateChatEnabled = student_chat_is_enabled($con);
 $studentPrivateChatPendingCount = $studentPrivateChatEnabled ? student_chat_pending_inbound_count($con, $studentId) : 0;
 $studentVotingSnapshot = voting_dashboard_snapshot($con, voting_default_branch_id($con), 'Student');
@@ -660,7 +662,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
 </head>
 <body class="student-dashboard-page">
 <div class="header"><?php include("menu.php"); ?></div>
-<div class="student-notification-bell"><a href="messages.php" aria-label="Open notifications"><i class="fa fa-bell"></i><span>Notifications</span><?php if($messageUnreadCount > 0){ ?><span class="badge"><?php echo (int)$messageUnreadCount; ?></span><?php } ?></a></div>
+<div class="student-notification-bell"><a href="student-chat.php" aria-label="Open notifications"><i class="fa fa-bell"></i><span>Notifications</span><?php if($notificationUnreadCount > 0){ ?><span class="badge"><?php echo (int)$notificationUnreadCount; ?></span><?php } ?></a></div>
 <main class="student-shell">
 <?php if($flashMessage !== ""){ ?><div class="student-flash"><?php echo $flashMessage; ?></div><?php } ?>
 <?php if($studentCounsellingSoonMessage !== ""){ ?><div class="student-flash"><?php echo sd_alert("warning", $studentCounsellingSoonMessage); ?></div><?php } ?>
@@ -716,6 +718,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <div><span class="student-section__eyebrow">Student Tools</span><h2>Open your student tools</h2></div>
     </div>
     <div class="student-quick-grid">
+        <a class="student-action-card student-action-card--exeat" href="student-permission-request.php"><span class="student-action-card__icon"><i class="fa fa-calendar-plus-o"></i></span><h3>Request Permission</h3><p>Ask your class teacher for absence, medical, or late-arrival permission.</p></a>
         <a class="student-action-card student-action-card--report" href="individual-terminal-report.php"><span class="student-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Report</h3></a>
         <a class="student-action-card student-action-card--report" href="student-fee-payment.php"><span class="student-action-card__icon"><i class="fa fa-credit-card"></i></span><h3>Pay School Fees</h3></a>
         <a class="student-action-card student-action-card--finance" href="account-statements.php"><span class="student-action-card__icon"><i class="fa fa-money"></i></span><h3>Account Statement</h3></a>
@@ -731,9 +734,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <?php if($studentPrivateChatEnabled){ ?>
         <a class="student-action-card student-action-card--private-chat" href="student-chat.php"><span class="student-action-card__icon"><i class="fa fa-user-plus"></i></span><h3>Student Chat<?php if($studentPrivateChatPendingCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$studentPrivateChatPendingCount; ?> Request<?php echo (int)$studentPrivateChatPendingCount === 1 ? "" : "s"; ?></span><?php } ?></h3><p><?php echo $studentPrivateChatPendingCount > 0 ? "You have private chat request".((int)$studentPrivateChatPendingCount === 1 ? "" : "s")." waiting for your approval." : "Find fellow students and chat privately after approval."; ?></p></a>
         <?php } ?>
-        <a class="student-action-card student-action-card--profile" href="edit-account.php"><span class="student-action-card__icon"><i class="fa fa-id-card"></i></span><h3>Profile Settings</h3></a>
-        <a class="student-action-card student-action-card--profile-image" href="uploaduser-image.php"><span class="student-action-card__icon"><i class="fa fa-image"></i></span><h3>Profile Image</h3></a>
-        <a class="student-action-card student-action-card--logout" href="logout.php"><span class="student-action-card__icon"><i class="fa fa-power-off"></i></span><h3>Sign Out</h3></a>
+        <a class="student-action-card student-action-card--voting" href="clubs.php"><span class="student-action-card__icon"><i class="fa fa-users"></i></span><h3>Clubs &amp; Societies</h3><p>Join your crew, follow your interests, and chat only with approved club members.</p></a>
     </div>
 </section>
 
@@ -1077,6 +1078,8 @@ $reportPreview = array_slice($reportOptions, 0, 6);
     </div>
 </div>
 
+<!-- Student dashboard message center moved to the dedicated Message Board page. -->
+<!--
 <div class="student-layout student-layout--messages">
     <section class="student-panel student-panel--accent student-panel--messages" id="student-messages">
         <div class="student-panel__header">
@@ -1123,6 +1126,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         </div>
     </section>
 </div>
+-->
 </main>
 <script>
 (function(){

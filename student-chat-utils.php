@@ -90,6 +90,7 @@ function student_chat_ensure_tables($con){
         senderid VARCHAR(30) NOT NULL,
         messagetext TEXT NOT NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'active',
+        readat DATETIME NULL,
         datetimeentry DATETIME NOT NULL,
         deletedat DATETIME NULL,
         reportedat DATETIME NULL,
@@ -99,6 +100,11 @@ function student_chat_ensure_tables($con){
         KEY idx_studentchatmessage_sender (senderid),
         KEY idx_studentchatmessage_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $readColumn = mysqli_query($con, "SHOW COLUMNS FROM tblstudentchatmessage LIKE 'readat'");
+    if(!$readColumn || mysqli_num_rows($readColumn) === 0){
+        mysqli_query($con, "ALTER TABLE tblstudentchatmessage ADD COLUMN readat DATETIME NULL AFTER status");
+    }
 
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblstudentchatblock (
         blockid VARCHAR(40) NOT NULL PRIMARY KEY,
@@ -159,6 +165,26 @@ function student_chat_ensure_tables($con){
     if(function_exists('xschool_schema_cache_mark')){
         xschool_schema_cache_mark('schema_student_private_chat_v3');
     }
+}
+}
+
+if(!function_exists('student_chat_unread_message_count')){
+function student_chat_unread_message_count($con, $studentId){
+    student_chat_ensure_tables($con);
+    $studentEsc = mysqli_real_escape_string($con, trim((string)$studentId));
+    if($studentEsc === ''){ return 0; }
+    $res = mysqli_query($con, "SELECT COUNT(*) AS total FROM tblstudentchatmessage m INNER JOIN tblstudentchatconversation c ON c.conversationid=m.conversationid WHERE c.status='accepted' AND (c.requesterid='$studentEsc' OR c.recipientid='$studentEsc') AND m.senderid<>'$studentEsc' AND m.status='active' AND m.readat IS NULL");
+    $row = $res ? mysqli_fetch_assoc($res) : null;
+    return $row ? (int)$row['total'] : 0;
+}
+}
+
+if(!function_exists('student_chat_mark_messages_read')){
+function student_chat_mark_messages_read($con, $conversationId, $studentId){
+    $conversationEsc = mysqli_real_escape_string($con, trim((string)$conversationId));
+    $studentEsc = mysqli_real_escape_string($con, trim((string)$studentId));
+    if($conversationEsc === '' || $studentEsc === ''){ return false; }
+    return mysqli_query($con, "UPDATE tblstudentchatmessage SET readat=NOW() WHERE conversationid='$conversationEsc' AND senderid<>'$studentEsc' AND status='active' AND readat IS NULL");
 }
 }
 

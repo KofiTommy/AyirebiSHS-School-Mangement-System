@@ -183,6 +183,7 @@ $pendingInboundCount = student_chat_pending_inbound_count($con, $studentId);
 
 $activeConversationId = isset($_GET['conversation']) ? trim((string)$_GET['conversation']) : '';
 $activeConversation = $activeConversationId !== '' ? student_chat_get_conversation_for_student($con, $activeConversationId, $studentId) : null;
+if($activeConversation){ student_chat_mark_messages_read($con, $activeConversationId, $studentId); }
 $activeMessages = $activeConversation ? student_chat_list_messages($con, $activeConversationId, $studentId, 160) : array();
 $activeOther = ($activeConversation && isset($activeConversation['other_profile']) && is_array($activeConversation['other_profile'])) ? $activeConversation['other_profile'] : null;
 ?>

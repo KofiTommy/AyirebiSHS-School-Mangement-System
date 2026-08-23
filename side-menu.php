@@ -41,6 +41,9 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher")
     <li>
       <a class="active" href="teacher-page.php"><i class="fa fa-home" ></i> Home</a>
     </li>
+    <li>
+      <a href="staff-permission-request.php"><i class="fa fa-calendar-plus-o" ></i> Request Permission</a>
+    </li>
 
     <li class="dropdown">
       <a href="#" class="dropbtn"><i class="fa fa-users" ></i> My Classes</a>
@@ -156,6 +159,7 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Student")
       <a href="#" class="dropbtn"><i class="fa fa-life-ring" ></i> Welfare</a>
       <div class="dropdown-content">
         <a href="student-exeat-request.php"><i class="fa fa-file" ></i> Request Exeat</a>
+        <a href="student-permission-request.php"><i class="fa fa-calendar-plus-o" ></i> Request Permission</a>
         <a href="guidance-counselling.php"><i class="fa fa-heartbeat" ></i> Guidance &amp; Counselling</a>
         <a href="student-store-records.php"><i class="fa fa-book" ></i> My Store Items</a>
       </div>
@@ -436,6 +440,8 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Headmaster
       <a href="duty-roster.php"><i class="fa fa-calendar-check-o" ></i> Teacher On Duty</a>
       <a href="senior-house-dashboard.php"><i class="fa fa-shield" ></i> Senior House Overview</a>
       <a href="view-class-registry.php"><i class="fa fa-folder-open" ></i> View Class Registry</a>
+      <a href="staff-permission-request.php"><i class="fa fa-calendar-plus-o" ></i> Request Permission</a>
+      <a href="staff-permission-review.php"><i class="fa fa-check-square-o" ></i> Review Staff Permissions</a>
     </div>
   </li>
 
@@ -488,6 +494,8 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="AssistantH
       <a href="promotion-center.php"><i class="fa fa-level-up" ></i> Promotion Center</a>
       <a href="view-class-registry.php"><i class="fa fa-folder-open" ></i> View Class Registry</a>
       <a href="term-registry.php"><i class="fa fa-plus" ></i> Semester Registry</a>
+      <a href="staff-permission-request.php"><i class="fa fa-calendar-plus-o" ></i> Request Permission</a>
+      <a href="staff-permission-review.php"><i class="fa fa-check-square-o" ></i> Review Staff Permissions</a>
     </div>
   </li>
 

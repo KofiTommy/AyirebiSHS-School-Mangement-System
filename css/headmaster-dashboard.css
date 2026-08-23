@@ -1784,6 +1784,28 @@ body.hm-page .card.total .student-batch-toggle__empty {
 }
 
 @media (max-width: 640px) {
+    .hm-hero__utility {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .hm-live-clock-wrap {
+        width: 100%;
+        justify-content: stretch;
+        margin: 0;
+    }
+
+    .hm-live-clock {
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+    }
+
+    .hm-live-clock .xschool-live-clock__top {
+        justify-content: center;
+    }
+
     .hm-shell {
         padding: 12px 12px 22px;
     }
