@@ -573,7 +573,9 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <div><span class="teacher-section__eyebrow">Teacher Tools</span><h2>Open today's tools</h2></div>
     </div>
     <div class="teacher-quick-grid">
-        <a class="teacher-action-card" href="student-permission-review.php"><span class="teacher-action-card__icon"><i class="fa fa-check-square-o"></i></span><h3>Student Permission Requests</h3><p>Review and decide student permission requests.</p></a>
+        <?php if($teacherCanTakeAttendance){ ?>
+        <a class="teacher-action-card" href="student-permission-review.php"><span class="teacher-action-card__icon"><i class="fa fa-check-square-o"></i></span><h3>Student Permission Requests</h3><p>Review and decide requests from students in your assigned class.</p></a>
+        <?php } ?>
         <a class="teacher-action-card" href="staff-permission-request.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar-plus-o"></i></span><h3>Request Permission</h3><p>Submit an absence, medical, official-duty, or late-arrival request for approval.</p></a>
         <a class="teacher-action-card" href="view-teacher-subject.php"><span class="teacher-action-card__icon"><i class="fa fa-search"></i></span><h3>Assigned Subjects</h3></a>
         <a class="teacher-action-card" href="department-result-approval.php"><span class="teacher-action-card__icon"><i class="fa fa-check-square-o"></i></span><?php if($teacherIsHod){ ?><h3>HOD Result Approval</h3><p>Review and approve submitted results for <?php echo (int)count($teacherHodDepartments); ?> department<?php echo count($teacherHodDepartments) === 1 ? '' : 's'; ?>.</p><?php }else{ ?><h3>Submit Results to HOD</h3><p>Send your completed subject score sheets to the Head of Department for review.</p><?php } ?></a>

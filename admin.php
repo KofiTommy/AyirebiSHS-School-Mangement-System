@@ -1193,6 +1193,33 @@ include("links.php");
     }
 }
 
+@media (max-width: 640px) {
+    .dashboard-status-strip {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .dashboard-live-clock {
+        position: static;
+        width: 100%;
+        max-width: none;
+        transform: none;
+    }
+
+    .dashboard-live-clock .xschool-live-clock {
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+    }
+
+    .dashboard-live-clock .xschool-live-clock__top {
+        justify-content: center;
+    }
+}
+
 .quick-action-btn:hover {
     border-color: rgba(15, 118, 110, 0.35);
     background: linear-gradient(135deg, #ecfeff 0%, #fff7ed 100%);
@@ -2131,6 +2158,9 @@ include("links.php");
         min-width: 760px;
     }
 }
+/* New-semester executive refresh: calmer surfaces, sharper hierarchy, restrained accents. */
+:root{--bg-1:#f4f7fb;--bg-2:#f8fafc;--ink:#172b4d;--muted:#64748b;--panel:#fff;--line:#dfe7f0;--brand:#0f766e;--accent:#b7791f;--executive-navy:#102a43;--executive-gold:#c78c20;--executive-teal:#147d76;--executive-sky:#2f80b9}
+.body-style{background:#f4f7fb}.body-style::before,.body-style::after{display:none}.header{background:rgba(255,255,255,.98);border-bottom-color:#dfe7f0;box-shadow:0 1px 0 rgba(16,42,67,.06)}.main-platform{max-width:1560px;padding-top:18px}.main-platform>h2{padding:22px 24px;border:0;border-radius:12px;background:linear-gradient(105deg,#102a43,#173f60);box-shadow:0 12px 26px rgba(16,42,67,.16);letter-spacing:-.02em}.admin-sidebar-scroll,.admin-dashboard-panel,.form-entry,.dashboard-side-menu,.dashboard-top-menu,.chart-container,.recent-activity-panel,.recent-activity-aside,.perf-panel,.table-wrap{border-color:#dfe7f0;background:#fff;box-shadow:0 5px 16px rgba(16,42,67,.055)}.admin-sidebar-scroll{border-radius:12px;padding:12px}.admin-dashboard-panel{border-radius:12px;background:#fff}.dashboard-status-strip{border-color:#dfe7f0;background:#fff;box-shadow:0 4px 14px rgba(16,42,67,.045)}.card{border-color:#dfe7f0;border-radius:10px;background:#fff;box-shadow:none}.card:hover{border-color:#b9cadd;box-shadow:0 9px 22px rgba(16,42,67,.09);transform:translateY(-2px)}.card.total{background:linear-gradient(135deg,#102a43,#1d4d6e);box-shadow:0 10px 22px rgba(16,42,67,.18)}.dash-side-btn,.dash-top-btn{border-color:transparent;border-radius:8px;color:#334e68}.dash-side-btn:hover,.dash-top-btn:hover{background:#eef4f8;border-color:#d7e3ed;transform:none}.dash-side-btn.active{background:#e8f4f2;border-color:#b8ded9;color:#0d5c56;box-shadow:inset 3px 0 0 var(--executive-teal)}.dash-top-btn.active{background:#fff7e4;border-color:#e8cb8e;color:#805b16}.dashboard-global-search-input{border-color:#cddae6;background:#fbfdff}.dashboard-global-search-input:focus{border-color:var(--executive-teal);box-shadow:0 0 0 3px rgba(20,125,118,.13);outline:0}.table thead th{background:#173f60}.table tbody tr:nth-child(even){background:#f8fafc}.table tbody tr:hover{background:#eef6f7}@media(max-width:620px){.main-platform>h2{padding:18px;font-size:1.25rem}.admin-sidebar-scroll,.admin-dashboard-panel,.form-entry{border-radius:10px}}
 </style>
 </head>
 
@@ -2899,8 +2929,8 @@ include("links.php");
                         <div class="dashboard-flex" role="region" aria-label="Student Distribution Dashboard">
                             <div class="chart-side">
                                 <div class="chart-container">
-                                    <canvas id="studentChart" width="280" height="280" aria-label="Student distribution by gender and residence"></canvas>
-                                    <p class="chart-note">Chart and summary tiles below show students with recognized Day or Boarding residence. Missing residence records are shown separately.</p>
+                                    <canvas id="studentChart" width="280" height="280" aria-label="Student population comparison by gender and residence"></canvas>
+                                    <p class="chart-note">Compare student groups at a glance. The figures use active student records; missing residence details remain visible for follow-up.</p>
                                 </div>
                             </div>
                             <div class="cards-side">
@@ -3369,34 +3399,30 @@ include("links.php");
                             if (studentCanvas) {
                                 const ctx = studentCanvas.getContext('2d');
                                 new Chart(ctx, {
-                                    type: 'doughnut',
+                                    type: 'bar',
                                     data: {
                                         labels: ['Boys Day', 'Boys Boarding', 'Girls Day', 'Girls Boarding', 'No Residence Status'],
                                         datasets: [{
                                             label: 'Student Count',
                                             data: [<?php echo $boys_day; ?>, <?php echo $boys_boarding; ?>, <?php echo $girls_day; ?>, <?php echo $girls_boarding; ?>, <?php echo $students_no_status; ?>],
-                                            backgroundColor: ['#2563eb', '#38bdf8', '#db2777', '#f472b6', '#d59b2d'],
-                                            borderColor: '#fff',
-                                            borderWidth: 2,
-                                            hoverOffset: 16
+                                            backgroundColor: ['#2f80b9', '#5aa7d6', '#147d76', '#55a99f', '#c78c20'],
+                                            borderColor: ['#256b99', '#438cb9', '#10665f', '#438a82', '#a57117'],
+                                            borderWidth: 1,
+                                            borderRadius: 6,
+                                            barThickness: 22
                                         }]
                                     },
                                     options: {
                                         responsive: true, maintainAspectRatio: false,
+                                        indexAxis: 'y',
                                         animation: false,
                                         plugins: {
                                             legend: {
-                                                position: 'bottom',
-                                                labels: {
-                                                    font: { size: 14 },
-                                                    color: '#374151',
-                                                    padding: 20,
-                                                    boxWidth: 20
-                                                }
+                                                display: false
                                             },
                                             title: {
                                                 display: true,
-                                                text: 'Student Distribution by Gender & Residence Status',
+                                                text: 'Active Student Population',
                                                 font: { size: 16, weight: '600' },
                                                 color: '#111827',
                                                 padding: { top: 10, bottom: 20 }
@@ -3405,12 +3431,23 @@ include("links.php");
                                                 callbacks: {
                                                     label: function(context) {
                                                         let label = context.label || '';
-                                                        let value = context.parsed || 0;
+                                                        let value = context.parsed.x || 0;
                                                         let total = <?php echo $grand_total; ?>;
                                                         let percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                                                         return `${label}: ${value.toLocaleString()} (${percentage}%)`;
                                                     }
                                                 }
+                                            }
+                                        },
+                                        scales: {
+                                            x: {
+                                                beginAtZero: true,
+                                                grid: { color: '#e7edf3' },
+                                                ticks: { color: '#64748b', precision: 0 }
+                                            },
+                                            y: {
+                                                grid: { display: false },
+                                                ticks: { color: '#334e68', font: { weight: '600' } }
                                             }
                                         }
                                     }
