@@ -39,12 +39,16 @@ function score_report_safe($value){
 }
 @$_FilterBatch = isset($_GET["filter_batch"]) ? trim($_GET["filter_batch"]) : "";
 @$_FilterClass = isset($_GET["filter_class"]) ? trim($_GET["filter_class"]) : "";
+@$_FilterYear  = isset($_GET["filter_year"]) ? trim($_GET["filter_year"]) : "";
 @$_FilterTerm  = isset($_GET["filter_term"]) ? trim($_GET["filter_term"]) : "";
 @$_FilterSubject  = isset($_GET["filter_subject"]) ? trim($_GET["filter_subject"]) : "";
+@$_FilterStudent = isset($_GET["filter_student"]) ? trim($_GET["filter_student"]) : "";
 @$_FilterBatchSafe = mysqli_real_escape_string($con, $_FilterBatch);
 @$_FilterClassSafe = mysqli_real_escape_string($con, $_FilterClass);
+@$_FilterYearSafe  = mysqli_real_escape_string($con, $_FilterYear);
 @$_FilterTermSafe  = mysqli_real_escape_string($con, $_FilterTerm);
 @$_FilterSubjectSafe  = mysqli_real_escape_string($con, $_FilterSubject);
+@$_FilterStudentSafe = mysqli_real_escape_string($con, $_FilterStudent);
 @$_ReportClassId = isset($_GET["class_id"]) ? trim($_GET["class_id"]) : $_FilterClass;
 @$_ReportSubjectId = isset($_GET["subject_id"]) ? trim($_GET["subject_id"]) : $_FilterSubject;
 @$_ReportBatchId = isset($_GET["batchid"]) ? trim($_GET["batchid"]) : $_FilterBatch;
@@ -170,7 +174,7 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblmark WHERE markid='$_GET[delete_
 }
 
 if(isset($_GET["delete_mark"]) && isset($_GET["class_id"]) && isset($_GET["subject_id"]) && isset($_GET["batchid"])){
-    header("Location: scores-report-all.php?class_id=".urlencode($_GET["class_id"])."&subject_id=".urlencode($_GET["subject_id"])."&batchid=".urlencode($_GET["batchid"])."&filter_batch=".urlencode($_FilterBatch)."&filter_class=".urlencode($_FilterClass)."&filter_term=".urlencode($_FilterTerm)."&filter_subject=".urlencode($_FilterSubject));
+    header("Location: scores-report-all.php?class_id=".urlencode($_GET["class_id"])."&subject_id=".urlencode($_GET["subject_id"])."&batchid=".urlencode($_GET["batchid"])."&filter_batch=".urlencode($_FilterBatch)."&filter_class=".urlencode($_FilterClass)."&filter_year=".urlencode($_FilterYear)."&filter_term=".urlencode($_FilterTerm)."&filter_subject=".urlencode($_FilterSubject)."&filter_student=".urlencode($_FilterStudent));
     exit();
 }
 ?>
@@ -191,6 +195,7 @@ include("menu.php");
 
 <?php
 $_AdminSelectionReady = ($_ReportClassId!="" && $_ReportSubjectId!="" && $_ReportBatchId!="");
+$_AdminYearLabel = $_FilterYear !== "" ? "Academic Year ".$_FilterYear : "All Years";
 $_AdminSemesterLabel = $_FilterTerm !== "" ? "Semester ".$_FilterTerm : "All Semesters";
 ?>
 
@@ -199,7 +204,7 @@ $_AdminSemesterLabel = $_FilterTerm !== "" ? "Semester ".$_FilterTerm : "All Sem
     <div class="scores-report-hero__copy">
         <span class="scores-report-kicker">Admin Score Reports</span>
         <h1>Filter, review, and confirm student scores.</h1>
-        <p>Use the left filters to narrow the exact batch, class, subject, and semester you want, then review the score breakdown in the report area.</p>
+        <p>Use the left filters to narrow the academic year, batch, class, subject, and semester you want, then review the score breakdown in the report area.</p>
         <div class="scores-report-hero__stats">
             <article class="scores-report-stat-card">
                 <span>Viewer</span>
@@ -208,6 +213,10 @@ $_AdminSemesterLabel = $_FilterTerm !== "" ? "Semester ".$_FilterTerm : "All Sem
             <article class="scores-report-stat-card">
                 <span>Batch</span>
                 <strong><?php echo score_report_safe($_FilterBatch !== "" ? $_FilterBatch : "All"); ?></strong>
+            </article>
+            <article class="scores-report-stat-card">
+                <span>Year</span>
+                <strong><?php echo score_report_safe($_AdminYearLabel); ?></strong>
             </article>
             <article class="scores-report-stat-card">
                 <span>Semester</span>
@@ -224,7 +233,7 @@ $_AdminSemesterLabel = $_FilterTerm !== "" ? "Semester ".$_FilterTerm : "All Sem
             <span class="scores-report-tip-card__eyebrow">Admin flow</span>
             <h2>Stay on one clear report scope</h2>
             <ul>
-                <li>Filter the batch, class, subject, and semester first.</li>
+                <li>Filter the year, batch, class, subject, and semester first.</li>
                 <li>Review totals, positions, and grades in one table.</li>
                 <li>Delete only the exact score row you intend to remove.</li>
             </ul>
@@ -243,13 +252,27 @@ $_AdminSemesterLabel = $_FilterTerm !== "" ? "Semester ".$_FilterTerm : "All Sem
 </div>
 <?php	
 echo "<div class='scores-report-field-group'>";
-echo "<label for='filter_batch'>Academic Year (Batch)</label>";
+echo "<label for='filter_batch'>Student Batch</label>";
 echo "<select id='filter_batch' name='filter_batch'>";
 echo "<option value=''>All Batches</option>";
 $_SQL_F_B=mysqli_query($con,"SELECT batchid,batch FROM tblbatch ORDER BY datetimeentry DESC");
 while($rowfb=mysqli_fetch_array($_SQL_F_B,MYSQLI_ASSOC)){
     $_Sel = ($_FilterBatch==$rowfb['batchid']) ? "selected" : "";
     echo "<option value='$rowfb[batchid]' $_Sel>".score_report_safe($rowfb['batch'])."</option>";
+}
+echo "</select>";
+echo "</div>";
+
+echo "<div class='scores-report-field-group'>";
+echo "<label for='filter_year'>Academic Year</label>";
+echo "<select id='filter_year' name='filter_year'>";
+echo "<option value=''>All Years</option>";
+$_SQL_F_Y=mysqli_query($con,"SELECT DISTINCT YEAR(datetimeentry) AS academicyear FROM tblsubjectassignment WHERE datetimeentry IS NOT NULL AND datetimeentry<>'' ORDER BY academicyear DESC");
+while($rowfy=mysqli_fetch_array($_SQL_F_Y,MYSQLI_ASSOC)){
+    $_YearValue = trim((string)$rowfy['academicyear']);
+    if($_YearValue === "") { continue; }
+    $_Sel = ($_FilterYear==$_YearValue) ? "selected" : "";
+    echo "<option value='".score_report_safe($_YearValue)."' $_Sel>".score_report_safe($_YearValue)."</option>";
 }
 echo "</select>";
 echo "</div>";
@@ -292,7 +315,7 @@ echo "<button class='scores-report-button scores-report-button--save' type='subm
 echo "<a href='scores-report-all.php' class='scores-report-button scores-report-button--ghost'><i class='fa fa-undo'></i> Reset</a>";
 echo "</div>";
 
-echo "<div class='scores-report-empty-block' style='margin-top:12px;text-align:left;'><strong>Tip</strong><span>Select batch, class, subject, and semester to focus the correct session before opening the report.</span></div>";
+echo "<div class='scores-report-empty-block' style='margin-top:12px;text-align:left;'><strong>Tip</strong><span>Select year, batch, class, subject, and semester to focus the correct session before opening the report.</span></div>";
 ?>
 
 </form>
@@ -300,10 +323,27 @@ echo "<div class='scores-report-empty-block' style='margin-top:12px;text-align:l
  </div>
 <div class="scores-report-column scores-report-column--main">
 <div class="form-entry scores-report-panel scores-report-panel--main">
+<form class="scores-report-report-search" method="get" action="scores-report-all.php">
+    <input type="hidden" name="filter_batch" value="<?php echo score_report_safe($_FilterBatch); ?>">
+    <input type="hidden" name="filter_year" value="<?php echo score_report_safe($_FilterYear); ?>">
+    <input type="hidden" name="filter_class" value="<?php echo score_report_safe($_FilterClass); ?>">
+    <input type="hidden" name="filter_subject" value="<?php echo score_report_safe($_FilterSubject); ?>">
+    <input type="hidden" name="filter_term" value="<?php echo score_report_safe($_FilterTerm); ?>">
+    <div class="scores-report-report-search__intro">
+        <span>Student Finder</span>
+        <strong>Find a student in this report</strong>
+    </div>
+    <label class="sr-only" for="filter_student">Search by student name or ID</label>
+    <div class="scores-report-report-search__control">
+        <i class="fa fa-search" aria-hidden="true"></i>
+        <input id="filter_student" name="filter_student" type="search" value="<?php echo score_report_safe($_FilterStudent); ?>" placeholder="Search by student name or ID">
+        <button class="scores-report-button scores-report-button--search" type="submit">Search</button>
+    </div>
+</form>
 <div class="scores-report-panel__header">
 <span class="scores-report-panel__eyebrow">Report</span>
 <h4>Scores Report</h4>
-<p><?php echo $_AdminSelectionReady ? score_report_safe("Batch ".$_ReportBatchId." | ".$_AdminSemesterLabel) : "Apply the filters on the left to load the report details here."; ?></p>
+<p><?php echo $_AdminSelectionReady ? score_report_safe($_AdminYearLabel." | Batch ".$_ReportBatchId." | ".$_AdminSemesterLabel) : "Apply the filters on the left to load the report details here."; ?></p>
 </div>
 <form id="formID2" name="formID2" method="post" action="scores-report-all.php">
 <?php
@@ -328,7 +368,7 @@ $_SQL_2=mysqli_query($con,"SELECT sa.*, sa.termname AS assignment_termname, sa.d
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
-	WHERE  sc.subjectid='".mysqli_real_escape_string($con,$_ReportSubjectId)."' AND sa.batchid='".mysqli_real_escape_string($con,$_ReportBatchId)."' ".($_FilterClassSafe!="" ? " AND sa.classid='$_FilterClassSafe'" : "")." ".($_FilterTermSafe!="" ? " AND sa.termname='$_FilterTermSafe'" : "")." ORDER BY ce.class_name,sa.termname ASC");
+	WHERE  sc.subjectid='".mysqli_real_escape_string($con,$_ReportSubjectId)."' AND sa.batchid='".mysqli_real_escape_string($con,$_ReportBatchId)."' ".($_FilterClassSafe!="" ? " AND sa.classid='$_FilterClassSafe'" : "")." ".($_FilterYearSafe!="" ? " AND YEAR(sa.datetimeentry)='$_FilterYearSafe'" : "")." ".($_FilterTermSafe!="" ? " AND sa.termname='$_FilterTermSafe'" : "")." ORDER BY ce.class_name,sa.termname ASC");
 
 
 //$_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.systemtype='Student'  ORDER BY su.userid");
@@ -363,7 +403,8 @@ $_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tblterm
 if(mysqli_num_rows($_SQL_CLASS)==0){
 }else{
 while($row_ce=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
-$_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$row_ce[userid]' AND su.systemtype='Student'  ORDER BY su.userid");
+$_StudentSearchClause = $_FilterStudentSafe !== "" ? " AND (CONCAT_WS(' ', su.firstname, su.othernames, su.surname) LIKE '%$_FilterStudentSafe%' OR su.userid LIKE '%$_FilterStudentSafe%')" : "";
+$_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$row_ce[userid]' AND su.systemtype='Student' $_StudentSearchClause ORDER BY su.userid");
 
 while($row_rsu=mysqli_fetch_array($_SQL_USER,MYSQLI_ASSOC)){
 echo "<tr class='scores-report-row scores-report-row--student'>";
@@ -404,7 +445,7 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 		$_getAssignment_Id=$row['assignmentid'];
 	echo "<tr class='scores-report-row scores-report-row--mark'>";
 	echo "<td colspan='4' align='right'>";
-	echo "<a class='scores-report-action scores-report-action--delete' onclick=\"javascript:return confirm('Do you to delete mark?')\" title='Delete score: $row[mark]' href='scores-report-all.php?delete_mark=$row[markid]&class_id=".urlencode($_ReportClassId)."&subject_id=".urlencode($_ReportSubjectId)."&batchid=".urlencode($_ReportBatchId)."&filter_batch=".urlencode($_FilterBatch)."&filter_class=".urlencode($_FilterClass)."&filter_term=".urlencode($_FilterTerm)."&filter_subject=".urlencode($_FilterSubject)."'><i class='fa fa-trash-o'></i></a>";
+	echo "<a class='scores-report-action scores-report-action--delete' onclick=\"javascript:return confirm('Do you to delete mark?')\" title='Delete score: $row[mark]' href='scores-report-all.php?delete_mark=$row[markid]&class_id=".urlencode($_ReportClassId)."&subject_id=".urlencode($_ReportSubjectId)."&batchid=".urlencode($_ReportBatchId)."&filter_batch=".urlencode($_FilterBatch)."&filter_class=".urlencode($_FilterClass)."&filter_year=".urlencode($_FilterYear)."&filter_term=".urlencode($_FilterTerm)."&filter_subject=".urlencode($_FilterSubject)."&filter_student=".urlencode($_FilterStudent)."'><i class='fa fa-trash-o'></i></a>";
 	echo "</td>";
 
 	echo "<td align='center' width='5%' colspan='1'>";
@@ -470,7 +511,7 @@ echo "</table>";
 echo "</div>";
 }
 else{
-echo "<div class='scores-report-empty-state'><h3>Select filters to load the admin score report.</h3><p>Choose the batch, class, subject, and semester from the left panel, then apply the filter.</p></div>";
+echo "<div class='scores-report-empty-state'><h3>Select filters to load the admin score report.</h3><p>Choose the year, batch, class, subject, and semester from the left panel, then apply the filter.</p></div>";
 }
 ?>
 </form>

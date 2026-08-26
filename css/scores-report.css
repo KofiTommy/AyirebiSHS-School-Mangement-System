@@ -340,6 +340,72 @@ body.scores-report-page {
     color: #fff;
 }
 
+.scores-report-report-search {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin: -4px -4px 24px;
+    padding: 15px 16px 15px 18px;
+    border: 1px solid rgba(15, 118, 110, 0.18);
+    border-radius: 22px;
+    background: linear-gradient(120deg, #effaf8 0%, #f8fbff 58%, #fff8e8 100%);
+}
+
+.scores-report-report-search__intro {
+    flex: 0 0 auto;
+}
+
+.scores-report-report-search__intro span {
+    display: block;
+    margin-bottom: 4px;
+    color: #0f766e;
+    font-size: 0.69rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.scores-report-report-search__intro strong {
+    display: block;
+    color: #17324d;
+    font-size: 0.96rem;
+}
+
+.scores-report-report-search__control {
+    display: flex;
+    flex: 1 1 360px;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 5px 6px 5px 14px;
+    border: 1px solid rgba(160, 176, 195, 0.7);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 8px 18px rgba(25, 70, 105, 0.06);
+}
+
+.scores-report-report-search__control > i {
+    color: #0f766e;
+}
+
+.scores-report-report-search__control input[type="search"] {
+    flex: 1 1 auto;
+    min-width: 80px;
+    min-height: 40px;
+    padding: 8px 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #17324d;
+    font: inherit;
+}
+
+.scores-report-report-search__control:focus-within {
+    border-color: #0f766e;
+    box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+}
+
 .sr-only {
     position: absolute;
     width: 1px;
@@ -567,9 +633,16 @@ body.scores-report-page {
     }
 
     .scores-report-toolbar,
-    .scores-report-edit-form {
+    .scores-report-edit-form,
+    .scores-report-report-search {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .scores-report-report-search {
+        gap: 12px;
+        margin: -2px -2px 20px;
+        padding: 15px;
     }
 
     .scores-report-button,
