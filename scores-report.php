@@ -101,7 +101,31 @@ function score_report_assignment_student_ids($con, $assignmentRow){
         }
     }
 
-    if(empty($studentIds) && isset($assignmentRow['assignmentid'])){
+    /* A score report must show the complete enrolled class.  Course registration
+       can be incomplete on the live server (especially at the start of a new
+       semester), so it must not hide registered class students from the report. */
+    if(function_exists('score_entry_term_registry_student_ids')){
+        $registeredClassStudents = score_entry_term_registry_student_ids(
+            $con,
+            isset($assignmentRow['class_entryid']) ? $assignmentRow['class_entryid'] : '',
+            isset($assignmentRow['batchid']) ? $assignmentRow['batchid'] : '',
+            isset($assignmentRow['assignment_year']) ? $assignmentRow['assignment_year'] : '',
+            isset($assignmentRow['termname']) ? $assignmentRow['termname'] : ''
+        );
+        if(is_array($registeredClassStudents)){
+            foreach($registeredClassStudents as $userId){
+                $userId = trim((string)$userId);
+                if($userId !== ''){
+                    $studentIds[$userId] = $userId;
+                }
+            }
+        }
+    }
+
+    /* Also retain every student who already has an active score under this
+       assignment. This protects historical/partially registered classes from
+       disappearing when live registration data is incomplete. */
+    if(isset($assignmentRow['assignmentid'])){
         $assignmentIdEsc = mysqli_real_escape_string($con, trim((string)$assignmentRow['assignmentid']));
         $fallbackSql = mysqli_query($con, "SELECT DISTINCT userid FROM tblmark WHERE assignmentid='$assignmentIdEsc' AND status='active' ORDER BY userid ASC");
         if($fallbackSql){
@@ -157,6 +181,10 @@ if($_TermFilter !== "1" && $_TermFilter !== "2"){
 @$_CurrentTermId = isset($_GET["term_id"]) ? trim($_GET["term_id"]) : "";
 @$_CurrentSubjectId = isset($_GET["subject_id"]) ? trim($_GET["subject_id"]) : "";
 @$_CurrentBatchId = isset($_GET["batchid"]) ? trim($_GET["batchid"]) : "";
+@$_StudentSearch = isset($_GET["student_search"]) ? trim((string)$_GET["student_search"]) : "";
+if(strlen($_StudentSearch) > 120){
+    $_StudentSearch = substr($_StudentSearch, 0, 120);
+}
 @$_CurrentClassIdSafe = mysqli_real_escape_string($con, $_CurrentClassId);
 @$_CurrentTermIdSafe = mysqli_real_escape_string($con, $_CurrentTermId);
 @$_CurrentSubjectIdSafe = mysqli_real_escape_string($con, $_CurrentSubjectId);
@@ -754,6 +782,13 @@ include("dbstring.php");
 if(isset($_GET['class_id']))
 {
 echo "<div class='scores-report-toolbar'>";
+$_StudentSearchUrl = 'scores-report.php?class_id='.urlencode($_CurrentClassId).'&term_id='.urlencode($_CurrentTermId).'&subject_id='.urlencode($_CurrentSubjectId).'&batchid='.urlencode($_CurrentBatchId).'&year_batch='.urlencode($_YearBatchFilter).'&term_filter='.urlencode($_TermFilter).'&student_search=';
+echo "<div class='scores-report-student-search'>";
+echo "<label for='student_search' class='scores-report-search-label'><i class='fa fa-search'></i><span class='sr-only'>Search student</span></label>";
+echo "<input id='student_search' type='search' name='student_search' value='".score_report_safe($_StudentSearch)."' placeholder='Search student name or ID' onkeydown=\"if(event.key==='Enter'){event.preventDefault();this.nextElementSibling.click();}\">";
+echo "<button type='button' class='scores-report-button scores-report-button--search' onclick=\"window.location='".score_report_safe($_StudentSearchUrl)."'+encodeURIComponent(document.getElementById('student_search').value)\">Search</button>";
+if($_StudentSearch !== ''){ echo "<a class='scores-report-button scores-report-button--ghost' href='scores-report.php?class_id=".urlencode($_CurrentClassId)."&term_id=".urlencode($_CurrentTermId)."&subject_id=".urlencode($_CurrentSubjectId)."&batchid=".urlencode($_CurrentBatchId)."&year_batch=".urlencode($_YearBatchFilter)."&term_filter=".urlencode($_TermFilter)."'>Clear</a>"; }
+echo "</div>";
 echo "<label class='scores-report-select-all'><input type='checkbox' id='bulk_select_students' onclick='toggleBulkStudents(this)' /> <span>Select all visible students</span></label>";
 $_BulkDeleteDisabled = ($_CurrentScopeApprovalMeta && !empty($_CurrentScopeApprovalMeta['score_edit_locked'])) ? " disabled" : "";
 echo "<button type='submit' name='bulk_delete_students_scores' onclick='return confirmBulkDeleteStudents();' class='scores-report-button scores-report-button--danger'$_BulkDeleteDisabled><i class='fa fa-trash-o'></i> Delete Selected Class + Exam Scores</button>";
@@ -834,6 +869,10 @@ if($_SQL_CLASS && mysqli_num_rows($_SQL_CLASS)>0){
 while($row_ce=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
 $_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$row_ce[userid]' AND su.systemtype='Student' ORDER BY su.userid");
 if(!$_SQL_USER || !($row_rsu=mysqli_fetch_array($_SQL_USER,MYSQLI_ASSOC))){
+    continue;
+}
+$_StudentSearchText = trim($row_rsu['firstname']." ".$row_rsu['othernames']." ".$row_rsu['surname']." ".$row_rsu['userid']);
+if($_StudentSearch !== '' && stripos($_StudentSearchText, $_StudentSearch) === false){
     continue;
 }
 $_RenderedStudentRows = true;
@@ -954,7 +993,7 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 if(!$_ReportHasRows){
 echo "<tr class='scores-report-row'><td colspan='10'><div class='scores-report-empty-state'><h3>No scores found for this scope</h3><p>The selected class, subject, batch, academic year, and semester did not return a teacher score report.</p></div></td></tr>";
 }elseif(!$_RenderedStudentRows){
-echo "<tr class='scores-report-row'><td colspan='10'><div class='scores-report-empty-state'><h3>No student records found</h3><p>The teacher report did not find class students for this selected score scope.</p></div></td></tr>";
+echo "<tr class='scores-report-row'><td colspan='10'><div class='scores-report-empty-state'><h3>".($_StudentSearch !== '' ? "No matching student found" : "No student records found")."</h3><p>".($_StudentSearch !== '' ? "Try another student name or ID, or clear the search." : "The teacher report did not find class students for this selected score scope.")."</p></div></td></tr>";
 }
 echo "</tbody>";
 echo "</table>";
