@@ -501,6 +501,12 @@ body.scores-report-page {
     font-weight: 700;
 }
 
+.scores-report-student-number {
+    color: #0f766e !important;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
 .scores-report-row--section td {
     background: #eef7ff;
     color: #17324d;

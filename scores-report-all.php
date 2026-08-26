@@ -267,7 +267,7 @@ echo "<div class='scores-report-field-group'>";
 echo "<label for='filter_year'>Academic Year</label>";
 echo "<select id='filter_year' name='filter_year'>";
 echo "<option value=''>All Years</option>";
-$_SQL_F_Y=mysqli_query($con,"SELECT DISTINCT YEAR(datetimeentry) AS academicyear FROM tblsubjectassignment WHERE datetimeentry IS NOT NULL AND datetimeentry<>'' ORDER BY academicyear DESC");
+$_SQL_F_Y=mysqli_query($con,"SELECT DISTINCT academicyear FROM tbltermregistry WHERE academicyear IS NOT NULL AND academicyear<>'' ORDER BY academicyear DESC");
 while($rowfy=mysqli_fetch_array($_SQL_F_Y,MYSQLI_ASSOC)){
     $_YearValue = trim((string)$rowfy['academicyear']);
     if($_YearValue === "") { continue; }
@@ -368,7 +368,7 @@ $_SQL_2=mysqli_query($con,"SELECT sa.*, sa.termname AS assignment_termname, sa.d
 	INNER JOIN tblsubjectclassification sc ON sa.classificationid=sc.classificationid 
 	INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 	INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
-	WHERE  sc.subjectid='".mysqli_real_escape_string($con,$_ReportSubjectId)."' AND sa.batchid='".mysqli_real_escape_string($con,$_ReportBatchId)."' ".($_FilterClassSafe!="" ? " AND sa.classid='$_FilterClassSafe'" : "")." ".($_FilterYearSafe!="" ? " AND YEAR(sa.datetimeentry)='$_FilterYearSafe'" : "")." ".($_FilterTermSafe!="" ? " AND sa.termname='$_FilterTermSafe'" : "")." ORDER BY ce.class_name,sa.termname ASC");
+	WHERE  sc.subjectid='".mysqli_real_escape_string($con,$_ReportSubjectId)."' AND sa.batchid='".mysqli_real_escape_string($con,$_ReportBatchId)."' ".($_FilterClassSafe!="" ? " AND sa.classid='$_FilterClassSafe'" : "")." ".($_FilterYearSafe!="" ? " AND EXISTS (SELECT 1 FROM tbltermregistry tr_year WHERE tr_year.class_entryid=sa.classid AND tr_year.batchid=sa.batchid AND tr_year.termname=sa.termname AND tr_year.academicyear='$_FilterYearSafe')" : "")." ".($_FilterTermSafe!="" ? " AND sa.termname='$_FilterTermSafe'" : "")." ORDER BY ce.class_name,sa.termname ASC");
 
 
 //$_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.systemtype='Student'  ORDER BY su.userid");
@@ -378,6 +378,8 @@ echo "<table width='100%' class='scores-report-table'>";
 echo "<caption>Scores Report</caption>";
 echo "<thead><th>SUBJECT</th><th>STUDENT</th><th>CLASS</th><th>SESSION</th><th>*</th><th>TYPE</th><th>MARK</th><th>TOTAL</th><th>POSITION</th><th>GRADE</th></thead>";
 echo "<tbody>";
+$_StudentNumber = 0;
+$_DisplayedStudentIds = array();
 while($row_sub=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC))
 {
 @$_BatchName="";
@@ -398,8 +400,9 @@ echo "<td align='left' colspan='7'>";
 echo strtoupper($row_rsu['subject']);
 echo "</td></tr>";
 */
-$_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
-	ON ce.class_entryid=tr.class_entryid WHERE tr.batchid='$row_sub[batchid]' ".($_FilterClassSafe!="" ? " AND tr.class_entryid='$_FilterClassSafe'" : ""));
+$_AssignmentTermSafe = mysqli_real_escape_string($con, (string)$row_sub['assignment_termname']);
+$_SQL_CLASS=mysqli_query($con,"SELECT DISTINCT ce.*, tr.userid FROM tblclassentry ce INNER JOIN tbltermregistry tr 
+	ON ce.class_entryid=tr.class_entryid WHERE tr.batchid='$row_sub[batchid]' AND tr.termname='$_AssignmentTermSafe' ".($_FilterClassSafe!="" ? " AND tr.class_entryid='$_FilterClassSafe'" : "")." ".($_FilterYearSafe!="" ? " AND tr.academicyear='$_FilterYearSafe'" : ""));
 if(mysqli_num_rows($_SQL_CLASS)==0){
 }else{
 while($row_ce=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
@@ -407,8 +410,14 @@ $_StudentSearchClause = $_FilterStudentSafe !== "" ? " AND (CONCAT_WS(' ', su.fi
 $_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$row_ce[userid]' AND su.systemtype='Student' $_StudentSearchClause ORDER BY su.userid");
 
 while($row_rsu=mysqli_fetch_array($_SQL_USER,MYSQLI_ASSOC)){
+$_RenderedStudentId = trim((string)$row_rsu['userid']);
+if($_RenderedStudentId === "" || isset($_DisplayedStudentIds[$_RenderedStudentId])){
+    continue;
+}
+$_DisplayedStudentIds[$_RenderedStudentId] = true;
 echo "<tr class='scores-report-row scores-report-row--student'>";
-echo "<td colspan='1'></td>";
+$_StudentNumber++;
+echo "<td class='scores-report-student-number' align='center'>".$_StudentNumber."</td>";
 echo "<td align='left' colspan='9'>";
 echo strtoupper($row_rsu['firstname']." ".$row_rsu['othernames']." ".$row_rsu['surname']);
 echo "(".$row_rsu['userid'].")";
@@ -424,7 +433,7 @@ $_SQL_EXECUTE=mysqli_query($con,"SELECT *,su.userid FROM tblmark mk
 		INNER JOIN tblclassentry ce ON sc.classid=ce.class_entryid
 		INNER JOIN tblsubject sub ON sc.subjectid=sub.subjectid 
 		WHERE su.userid='$row_rsu[userid]' AND sa.batchid='$row_sub[batchid]'
-		AND ce.class_entryid='$row_ce[class_entryid]' AND sa.termname='$k' 
+		AND sa.assignmentid='$row_sub[assignmentid]' AND ce.class_entryid='$row_ce[class_entryid]' AND sa.termname='$k' 
 		AND sub.subjectid='".mysqli_real_escape_string($con,$_ReportSubjectId)."'
 		ORDER BY su.userid ASC");
 
