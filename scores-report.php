@@ -799,12 +799,37 @@ echo "<tr class='scores-report-row scores-report-row--session'><td colspan='10' 
 echo "<tr class='scores-report-row scores-report-row--session'><td colspan='10' style='color:#1d4ed8;'>This approved result is temporarily open for score correction.</td></tr>";
 }
 
-$_SQL_CLASS=mysqli_query($con,"SELECT DISTINCT tr.userid, ce.class_name, ce.class_entryid
-    FROM tblclassentry ce
-    INNER JOIN tbltermregistry tr ON ce.class_entryid=tr.class_entryid
-    WHERE tr.batchid='$row_sub[batchid]'
-      AND tr.class_entryid='$row_sub[class_entryid]'
-    ORDER BY tr.userid ASC");
+/* Use the same current academic-year and semester student context as score entry.
+   The previous query only checked class + batch, which can return no students after
+   registrations are rolled into a new semester. */
+$_AssignmentStudentIds = score_report_assignment_student_ids($con, $row_sub);
+$_SQL_CLASS = false;
+if(!empty($_AssignmentStudentIds)){
+    $_StudentIdParts = array();
+    foreach($_AssignmentStudentIds as $_AssignmentStudentId){
+        $_AssignmentStudentId = trim((string)$_AssignmentStudentId);
+        if($_AssignmentStudentId !== ''){
+            $_StudentIdParts[] = "'".mysqli_real_escape_string($con, $_AssignmentStudentId)."'";
+        }
+    }
+    if(!empty($_StudentIdParts)){
+        $_ReportClassNameSafe = mysqli_real_escape_string($con, (string)$row_sub['class_name']);
+        $_ReportClassIdSafe = mysqli_real_escape_string($con, (string)$row_sub['class_entryid']);
+        $_SQL_CLASS = mysqli_query($con, "SELECT userid, '$_ReportClassNameSafe' AS class_name, '$_ReportClassIdSafe' AS class_entryid
+            FROM tblsystemuser
+            WHERE userid IN (".implode(',', $_StudentIdParts).")
+              AND systemtype='Student'
+            ORDER BY userid ASC");
+    }
+}
+if(!$_SQL_CLASS){
+    $_SQL_CLASS=mysqli_query($con,"SELECT DISTINCT tr.userid, ce.class_name, ce.class_entryid
+        FROM tblclassentry ce
+        INNER JOIN tbltermregistry tr ON ce.class_entryid=tr.class_entryid
+        WHERE tr.batchid='$row_sub[batchid]'
+          AND tr.class_entryid='$row_sub[class_entryid]'
+        ORDER BY tr.userid ASC");
+}
 if($_SQL_CLASS && mysqli_num_rows($_SQL_CLASS)>0){
 while($row_ce=mysqli_fetch_array($_SQL_CLASS,MYSQLI_ASSOC)){
 $_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$row_ce[userid]' AND su.systemtype='Student' ORDER BY su.userid");
