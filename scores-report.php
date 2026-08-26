@@ -82,6 +82,12 @@ function score_report_link_is_active($row, $classId, $termId, $subjectId, $batch
 if(!function_exists('score_report_assignment_student_ids')){
 function score_report_assignment_student_ids($con, $assignmentRow){
     $studentIds = array();
+    /* The report query joins several tables that all have a termname column.
+       Always use the explicitly aliased assignment semester, otherwise the
+       joined classification term (often blank) can replace it. */
+    $assignmentTerm = isset($assignmentRow['assignment_termname'])
+        ? trim((string)$assignmentRow['assignment_termname'])
+        : (isset($assignmentRow['termname']) ? trim((string)$assignmentRow['termname']) : '');
     if(function_exists('score_entry_assignment_student_context')){
         $context = score_entry_assignment_student_context(
             $con,
@@ -89,7 +95,7 @@ function score_report_assignment_student_ids($con, $assignmentRow){
             isset($assignmentRow['class_entryid']) ? $assignmentRow['class_entryid'] : '',
             isset($assignmentRow['batchid']) ? $assignmentRow['batchid'] : '',
             isset($assignmentRow['assignment_year']) ? $assignmentRow['assignment_year'] : '',
-            isset($assignmentRow['termname']) ? $assignmentRow['termname'] : ''
+            $assignmentTerm
         );
         if(isset($context['userids']) && is_array($context['userids'])){
             foreach($context['userids'] as $userId){
@@ -110,7 +116,7 @@ function score_report_assignment_student_ids($con, $assignmentRow){
             isset($assignmentRow['class_entryid']) ? $assignmentRow['class_entryid'] : '',
             isset($assignmentRow['batchid']) ? $assignmentRow['batchid'] : '',
             isset($assignmentRow['assignment_year']) ? $assignmentRow['assignment_year'] : '',
-            isset($assignmentRow['termname']) ? $assignmentRow['termname'] : ''
+            $assignmentTerm
         );
         if(is_array($registeredClassStudents)){
             foreach($registeredClassStudents as $userId){
