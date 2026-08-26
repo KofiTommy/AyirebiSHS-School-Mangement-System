@@ -686,6 +686,7 @@ if(isset($_POST["show_terminal_report"]))
 @$_Class_ID=$_POST["classid"];
 $_AcademicYearSql = $_Academic_Year!=="" ? " AND ".semester_registry_resolved_year_sql("tr")."='".mysqli_real_escape_string($con,$_Academic_Year)."'" : "";
 @$_Term_ID=$_POST["termid"];
+$_SelectedTerm = intval($_Term_ID);
 
 include("dbstring.php");
 $_SQL_USER=mysqli_query($con,"SELECT * FROM tblsubject su WHERE su.subjectid='$_Subject_ID' ORDER BY su.subjectid");
@@ -711,7 +712,7 @@ while($row_us=mysqli_fetch_array($_SQL_USER,MYSQLI_ASSOC))
 {
 $_SQL_SU=mysqli_query($con,"SELECT su.* FROM tblsystemuser su
 INNER JOIN tbltermregistry tr ON su.userid=tr.userid
-WHERE su.systemtype='Student' AND tr.batchid='$_Batch_ID' AND tr.class_entryid='$_Class_ID' $_AcademicYearSql
+WHERE su.systemtype='Student' AND tr.batchid='$_Batch_ID' AND tr.class_entryid='$_Class_ID' AND tr.termname='$_SelectedTerm' $_AcademicYearSql
 GROUP BY su.userid");
 while($row_rsu=mysqli_fetch_array($_SQL_SU,MYSQLI_ASSOC)){
 
@@ -725,8 +726,8 @@ echo "</td></tr>";
 //$_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
 //	ON ce.class_entryid=tr.class_entryid GROUP BY tr.class_entryid");
 
-$_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
-ON ce.class_entryid=tr.class_entryid WHERE tr.userid='$row_rsu[userid]' AND tr.batchid='$_Batch_ID' AND tr.class_entryid='$_Class_ID' $_AcademicYearSql");
+$_SQL_CLASS=mysqli_query($con,"SELECT DISTINCT ce.class_entryid, ce.class_name FROM tblclassentry ce INNER JOIN tbltermregistry tr 
+ON ce.class_entryid=tr.class_entryid WHERE tr.userid='$row_rsu[userid]' AND tr.batchid='$_Batch_ID' AND tr.class_entryid='$_Class_ID' AND tr.termname='$_SelectedTerm' $_AcademicYearSql");
 
 if(mysqli_num_rows($_SQL_CLASS)==0){
 

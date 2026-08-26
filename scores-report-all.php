@@ -52,6 +52,8 @@ function score_report_safe($value){
 @$_ReportClassId = isset($_GET["class_id"]) ? trim($_GET["class_id"]) : $_FilterClass;
 @$_ReportSubjectId = isset($_GET["subject_id"]) ? trim($_GET["subject_id"]) : $_FilterSubject;
 @$_ReportBatchId = isset($_GET["batchid"]) ? trim($_GET["batchid"]) : $_FilterBatch;
+@$_EditMarkId = isset($_GET["edit_mark"]) ? trim($_GET["edit_mark"]) : "";
+$_ReportFiltersUrl = "scores-report-all.php?class_id=".urlencode($_ReportClassId)."&subject_id=".urlencode($_ReportSubjectId)."&batchid=".urlencode($_ReportBatchId)."&filter_batch=".urlencode($_FilterBatch)."&filter_class=".urlencode($_FilterClass)."&filter_year=".urlencode($_FilterYear)."&filter_term=".urlencode($_FilterTerm)."&filter_subject=".urlencode($_FilterSubject)."&filter_student=".urlencode($_FilterStudent);
 @$_Mark=$_POST['marks'];
 @$_AssignmentId=$_POST['assignmentid'];
 @$_UserId=$_POST['userid'];
@@ -144,6 +146,26 @@ $_Selected_Mark=$_Mark[$k];
 
 <?php
 include("dbstring.php");
+if(isset($_POST['update_mark'])){
+    $_EditMarkIdPost = isset($_POST['edit_markid']) ? trim($_POST['edit_markid']) : "";
+    $_EditMarkValue = isset($_POST['edit_mark_value']) ? trim($_POST['edit_mark_value']) : "";
+    $_EditMarkIdSafe = mysqli_real_escape_string($con, $_EditMarkIdPost);
+    $_CheckEditableMark = mysqli_query($con, "SELECT markid, totalmark FROM tblmark WHERE markid='$_EditMarkIdSafe' LIMIT 1");
+
+    if($_EditMarkIdPost === "" || !is_numeric($_EditMarkValue) || !($_EditableMarkRow = mysqli_fetch_array($_CheckEditableMark, MYSQLI_ASSOC))){
+        $_SESSION['Message'] = "<div style='color:red'>The selected score could not be updated.</div>";
+    }elseif(floatval($_EditMarkValue) < 0 || floatval($_EditMarkValue) > floatval($_EditableMarkRow['totalmark'])){
+        $_SESSION['Message'] = "<div style='color:red'>Enter a score from 0 to ".score_report_safe($_EditableMarkRow['totalmark']).".</div>";
+    }else{
+        $_NewMarkSafe = mysqli_real_escape_string($con, $_EditMarkValue);
+        $_UpdateMark = mysqli_query($con, "UPDATE tblmark SET mark='$_NewMarkSafe' WHERE markid='$_EditMarkIdSafe'");
+        $_SESSION['Message'] = $_UpdateMark
+            ? "<div style='color:green'>Score updated successfully.</div>"
+            : "<div style='color:red'>The score could not be updated.</div>";
+    }
+    header("Location: ".$_ReportFiltersUrl);
+    exit();
+}
 @$_Update_subject=$_POST['update_item'];
 @$_Update_subjectid=$_POST['update_subjectid'];
 
@@ -345,7 +367,7 @@ echo "<div class='scores-report-empty-block' style='margin-top:12px;text-align:l
 <h4>Scores Report</h4>
 <p><?php echo $_AdminSelectionReady ? score_report_safe($_AdminYearLabel." | Batch ".$_ReportBatchId." | ".$_AdminSemesterLabel) : "Apply the filters on the left to load the report details here."; ?></p>
 </div>
-<form id="formID2" name="formID2" method="post" action="scores-report-all.php">
+<form id="formID2" name="formID2" method="post" action="<?php echo score_report_safe($_ReportFiltersUrl); ?>">
 <?php
 include("positions.php");
 include("class-position.php");
@@ -451,9 +473,10 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 	@$serial=0;
 	while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC))
 	{
-		$_getAssignment_Id=$row['assignmentid'];
+	$_getAssignment_Id=$row['assignmentid'];
 	echo "<tr class='scores-report-row scores-report-row--mark'>";
 	echo "<td colspan='4' align='right'>";
+	echo "<a class='scores-report-action scores-report-action--edit' title='Edit score: $row[mark]' href='".score_report_safe($_ReportFiltersUrl."&edit_mark=".urlencode($row['markid']))."'><i class='fa fa-pencil'></i></a>";
 	echo "<a class='scores-report-action scores-report-action--delete' onclick=\"javascript:return confirm('Do you to delete mark?')\" title='Delete score: $row[mark]' href='scores-report-all.php?delete_mark=$row[markid]&class_id=".urlencode($_ReportClassId)."&subject_id=".urlencode($_ReportSubjectId)."&batchid=".urlencode($_ReportBatchId)."&filter_batch=".urlencode($_FilterBatch)."&filter_class=".urlencode($_FilterClass)."&filter_year=".urlencode($_FilterYear)."&filter_term=".urlencode($_FilterTerm)."&filter_subject=".urlencode($_FilterSubject)."&filter_student=".urlencode($_FilterStudent)."'><i class='fa fa-trash-o'></i></a>";
 	echo "</td>";
 
@@ -478,7 +501,18 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 
 
 	echo "</tr>";
-	}	
+	if($_EditMarkId !== "" && $_EditMarkId === (string)$row['markid']){
+	    echo "<tr class='scores-report-row scores-report-row--edit'><td colspan='10'>";
+	    echo "<div class='scores-report-edit-form'>";
+	    echo "<strong>Edit ".score_report_safe($row['testtype'])."</strong>";
+	    echo "<label for='edit_mark_value_".score_report_safe($row['markid'])."'>Score (out of ".score_report_safe($row['totalmark']).")</label>";
+	    echo "<input id='edit_mark_value_".score_report_safe($row['markid'])."' name='edit_mark_value' type='number' min='0' max='".score_report_safe($row['totalmark'])."' step='0.01' value='".score_report_safe($row['mark'])."' required>";
+	    echo "<input name='edit_markid' type='hidden' value='".score_report_safe($row['markid'])."'>";
+	    echo "<button class='scores-report-button scores-report-button--save' name='update_mark' type='submit'><i class='fa fa-save'></i> Update Score</button>";
+	    echo "<a class='scores-report-button scores-report-button--ghost' href='".score_report_safe($_ReportFiltersUrl)."'>Cancel</a>";
+	    echo "</div></td></tr>";
+	}
+	} 	
 	echo "<tr class='scores-report-row scores-report-row--total'>";
 	echo "<td colspan='6'>";
 	echo "</td>";

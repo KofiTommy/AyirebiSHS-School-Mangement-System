@@ -128,6 +128,32 @@ function score_report_assignment_student_ids($con, $assignmentRow){
         }
     }
 
+    /* Reports are historical records.  Unlike the score-entry screen, they must
+       include every student registered in this exact session even if the live
+       account or registration has later been marked inactive or blocked. */
+    $reportClassEsc = mysqli_real_escape_string($con, isset($assignmentRow['class_entryid']) ? trim((string)$assignmentRow['class_entryid']) : '');
+    $reportBatchEsc = mysqli_real_escape_string($con, isset($assignmentRow['batchid']) ? trim((string)$assignmentRow['batchid']) : '');
+    $reportYearEsc = mysqli_real_escape_string($con, isset($assignmentRow['assignment_year']) ? trim((string)$assignmentRow['assignment_year']) : '');
+    $reportTermEsc = mysqli_real_escape_string($con, $assignmentTerm);
+    if($reportClassEsc !== '' && $reportBatchEsc !== '' && $reportYearEsc !== '' && $reportTermEsc !== ''){
+        $reportRegistrySql = mysqli_query($con, "SELECT DISTINCT tr.userid
+            FROM tbltermregistry tr
+            INNER JOIN tblsystemuser su ON su.userid=tr.userid AND su.systemtype='Student'
+            WHERE tr.class_entryid='$reportClassEsc'
+              AND tr.batchid='$reportBatchEsc'
+              AND ".semester_registry_resolved_year_sql('tr')."='$reportYearEsc'
+              AND tr.termname='$reportTermEsc'
+            ORDER BY tr.userid ASC");
+        if($reportRegistrySql){
+            while($reportRegistryRow = mysqli_fetch_array($reportRegistrySql, MYSQLI_ASSOC)){
+                $userId = trim((string)$reportRegistryRow['userid']);
+                if($userId !== ''){
+                    $studentIds[$userId] = $userId;
+                }
+            }
+        }
+    }
+
     /* Also retain every student who already has an active score under this
        assignment. This protects historical/partially registered classes from
        disappearing when live registration data is incomplete. */
