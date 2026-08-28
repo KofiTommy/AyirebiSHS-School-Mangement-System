@@ -827,6 +827,16 @@ body{
         break-inside:avoid;
     }
 }
+/* House staff dashboard refresh: clear, focused, and easy to scan. */
+body{background:linear-gradient(145deg,#eef3f8 0%,#f8fafc 48%,#edf7f4 100%)}
+.hm-shell{padding:16px;background:rgba(255,255,255,.78);border:0;border-radius:28px;box-shadow:0 20px 46px rgba(15,34,56,.10)}
+.hm-hero{padding:28px;border-radius:22px;background:linear-gradient(125deg,#10283f 0%,#164c66 58%,#0f766e 145%);color:#fff;margin-bottom:16px}
+.hm-kicker{background:rgba(255,255,255,.14);color:#d9fff7;margin-bottom:14px}.hm-title{color:#fff;font-size:clamp(28px,3.2vw,38px)}.hm-subtitle{color:rgba(238,248,252,.82);max-width:650px}.hm-chip{background:rgba(255,255,255,.12)!important;border-color:rgba(255,255,255,.18)!important;color:#fff!important}.hm-chip-danger{background:rgba(190,24,93,.38)!important}.hm-chip-success{background:rgba(5,150,105,.36)!important}
+.hm-actions{gap:8px}.hm-hero .hm-btn{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.18);color:#fff;box-shadow:none}.hm-hero .hm-btn-primary{background:#f7b955;border-color:#f7b955;color:#1d3143}.hm-hero .hm-btn:hover{background:rgba(255,255,255,.2)}.hm-hero .hm-btn-primary:hover{background:#ffd280}
+.hm-nav{margin:0 0 16px;gap:8px}.hm-nav-link{border-radius:12px;background:#fff;border:1px solid #dce6ef;color:#24435a;font-weight:700}.hm-nav-link:hover{background:#e8f6f2;color:#0f766e}
+.hm-stats{gap:12px}.hm-stat{border:1px solid #e1e9f0;border-radius:18px;background:#fff;box-shadow:0 8px 18px rgba(20,46,70,.05);padding:18px}.hm-stat strong{font-size:32px;color:#173a52}.hm-stat h4{letter-spacing:.04em}.hm-stat span{font-size:12px;line-height:1.45}
+.hm-section{border:1px solid #e1e9f0;border-radius:20px;box-shadow:0 10px 24px rgba(20,46,70,.05)}.hm-section h3{color:#173a52}.hm-table th{background:#edf5f8;color:#24435a}.hm-table tbody tr:hover{background:#f2faf8}
+@media(max-width:720px){.hm-shell{padding:10px;border-radius:20px}.hm-hero{padding:22px 18px;border-radius:18px}.hm-actions{justify-content:flex-start}.hm-hero .hm-btn{padding:9px 12px}.hm-stats{gap:10px}}
 </style>
 </head>
 <body>

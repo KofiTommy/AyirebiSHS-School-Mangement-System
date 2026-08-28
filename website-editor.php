@@ -4,7 +4,7 @@ require_once('check-login.php');
 require_once('website-content-utils.php');
 if(!isset($_SESSION['ACCESSLEVEL']) || $_SESSION['ACCESSLEVEL'] !== 'administrator'){ http_response_code(403); exit('Only system administrators can manage the public website.'); }
 if(empty($_SESSION['website_editor_csrf'])){ $_SESSION['website_editor_csrf'] = bin2hex(random_bytes(32)); }
-$message = ''; $messageClass = 'success'; $content = website_content_all($con);
+$message = ''; $messageClass = 'success'; $content = website_content_all($con); $previousContent = $content;
 if($_SERVER['REQUEST_METHOD'] === 'POST'){
     if(!hash_equals($_SESSION['website_editor_csrf'], isset($_POST['csrf']) ? $_POST['csrf'] : '')){ $message = 'Your form expired. Please try again.'; $messageClass = 'error'; }
     else {
@@ -18,7 +18,22 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
                 if($file['error'] !== UPLOAD_ERR_OK || $file['size'] > 5242880 || !isset($allowed[$mime]) || @getimagesize($file['tmp_name']) === false){ $message = 'The guide image must be a JPG, PNG, or WebP image no larger than 5 MB.'; $messageClass = 'error'; }
                 else { $folder = __DIR__.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'website'; if(!is_dir($folder) && !mkdir($folder,0755,true)){ $message='The website image folder could not be created.'; $messageClass='error'; } else { $filename='report-guide-'.date('Ymd-His').'-'.bin2hex(random_bytes(4)).'.'.$allowed[$mime]; if(move_uploaded_file($file['tmp_name'],$folder.DIRECTORY_SEPARATOR.$filename)){ $content['report_image']='uploads/website/'.$filename; } else { $message='The guide image could not be uploaded.'; $messageClass='error'; } } }
             }
-            if($message === '' && website_content_save($con,$content,$_SESSION['USERID'])){ $message='Website changes published successfully.'; }
+            if($message === '' && website_content_save($con,$content,$_SESSION['USERID'])){
+                $noticeKeys = array('report_eyebrow','report_title','report_title_emphasis','report_description','report_button_label','report_image');
+                $noticeChanged = false;
+                foreach($noticeKeys as $noticeKey){ if((string)$previousContent[$noticeKey] !== (string)$content[$noticeKey]){ $noticeChanged = true; break; } }
+                if($noticeChanged){
+                    website_announcements_ensure_table($con);
+                    $archiveTitle = trim($previousContent['report_title'].' '.$previousContent['report_title_emphasis']);
+                    $archiveText = trim($previousContent['report_description']);
+                    if($archiveTitle !== '' && $archiveText !== ''){
+                        $archiveTitle = substr($archiveTitle, 0, 180);
+                        $archive = mysqli_prepare($con, 'INSERT INTO tblwebsiteannouncements (title, announcement_text, published_by) VALUES (?, ?, ?)');
+                        if($archive){ $archiveUser = $_SESSION['USERID']; mysqli_stmt_bind_param($archive, 'sss', $archiveTitle, $archiveText, $archiveUser); mysqli_stmt_execute($archive); mysqli_stmt_close($archive); }
+                    }
+                }
+                $message='Website changes published successfully.';
+            }
             elseif($message === ''){ $message='The changes could not be saved. Please try again.'; $messageClass='error'; }
         }
     }

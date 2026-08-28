@@ -12,12 +12,14 @@ include_once("result-access-utils.php");
 include_once("counselling-utils.php");
 include_once("student-chat-utils.php");
 include_once("matron-utils.php");
+include_once("task-scheduler-utils.php");
 ensure_class_teacher_table($con);
 ensure_house_tables($con);
 ensure_voting_tables($con);
 ensure_counselling_tables($con);
 student_chat_ensure_tables($con);
 ensure_matron_tables($con);
+task_scheduler_ensure_tables($con);
 counselling_process_due_reminders($con);
 
 if(!house_master_is_student()){
@@ -431,6 +433,7 @@ if($paidRes && $row = mysqli_fetch_array($paidRes, MYSQLI_ASSOC)){
 $financeBalance = $financeBilled - $financePaid;
 $messageUnreadCount = um_message_unread_count($con, $studentId, 'Student');
 $studentChatUnreadCount = student_chat_unread_message_count($con, $studentId);
+$studentOpenTaskCount = task_scheduler_student_open_count($con, $studentId);
 $notificationUnreadCount = $messageUnreadCount + $studentChatUnreadCount;
 $studentPrivateChatEnabled = student_chat_is_enabled($con);
 $studentPrivateChatPendingCount = $studentPrivateChatEnabled ? student_chat_pending_inbound_count($con, $studentId) : 0;
@@ -727,6 +730,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <a class="student-action-card student-action-card--exam" href="examinationtimetablereport.php"><span class="student-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Exam Timetable</h3></a>
         <a class="student-action-card student-action-card--timetable" href="lesson-timetable-report.php"><span class="student-action-card__icon"><i class="fa fa-clock-o"></i></span><h3>Lesson Timetable</h3></a>
         <a class="student-action-card student-action-card--online" href="online-class.php"><span class="student-action-card__icon"><i class="fa fa-video-camera"></i></span><h3>Join Class</h3><p>Open live class links shared by your teachers for your class.</p></a>
+        <a class="student-action-card student-action-card--tasks" href="student-tasks.php"><span class="student-action-card__icon"><i class="fa fa-calendar-check-o"></i></span><h3>My Tasks<?php if($studentOpenTaskCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$studentOpenTaskCount; ?> To Do</span><?php } ?></h3><p><?php echo $studentOpenTaskCount > 0 ? 'See your teacher deadlines and submit your work in one place.' : 'Your homework, projects, and teacher-set deadlines will appear here.'; ?></p></a>
         <a class="student-action-card student-action-card--course" href="student-course-registration.php"><span class="student-action-card__icon"><i class="fa fa-list-alt"></i></span><h3>Course Registration</h3><p>Choose your semester courses from the class list when the school opens registration.</p></a>
         <a class="student-action-card student-action-card--attendance" href="student-attendance-report.php"><span class="student-action-card__icon"><i class="fa fa-bar-chart"></i></span><h3>My Attendance</h3></a>
         <a class="student-action-card student-action-card--voting" href="online-voting.php"><?php if($studentVotingSnapshot && !empty($studentVotingSnapshot["contest"])){ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo sd_esc($studentVotingSnapshot["contest"]["title"]); ?> is <?php echo sd_esc(strtolower(voting_status_label($studentVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="student-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Voting details will appear when a contest is available.</p><?php } ?></a>

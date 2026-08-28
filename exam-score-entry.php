@@ -572,7 +572,7 @@ if($selectedAssignment){
                     <input type="hidden" name="year_ID" value="<?php echo score_entry_esc((string)$selectedAssignment['assignment_year']); ?>">
 
                     <div class="score-entry-sheet-toolbar">
-                        <div class="score-entry-sheet-toolbar__group">
+                        <div class="score-entry-sheet-toolbar__group score-entry-sheet-toolbar__group--controls">
                             <div class="score-entry-field">
                                 <label for="totalscore">Total Score</label>
                                 <input

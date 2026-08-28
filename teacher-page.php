@@ -12,6 +12,8 @@ include_once("teacher-billing-utils.php");
 include_once("counselling-utils.php");
 include_once("matron-utils.php");
 include_once("department-result-workflow-utils.php");
+include_once("student-permission-utils.php");
+include_once("task-scheduler-utils.php");
 ensure_class_teacher_table($con);
 ensure_duty_roster_tables($con);
 ensure_student_attendance_tables($con);
@@ -21,6 +23,8 @@ ensure_teacher_billing_table($con);
 ensure_counselling_tables($con);
 ensure_matron_tables($con);
 drw_ensure_tables($con);
+student_permission_ensure_table($con);
+task_scheduler_ensure_tables($con);
 counselling_process_due_reminders($con);
 if(!(isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==="user" && $_SESSION['SYSTEMTYPE']==="Teacher")){
     header("location:".class_teacher_landing_page());
@@ -293,6 +297,26 @@ $teacherCanTakeAttendance = ($classTeacherRoleCount > 0);
 $activeBatchCount = count($activeBatchIds);
 $myMessageCount = 0;
 $messageUnreadCount = um_message_unread_count($con, $teacherId, 'Teacher');
+$teacherActionItems = array();
+$teacherAttendanceDue = $teacherCanTakeAttendance ? max(0, (int)$attendanceSummary['assignment_count'] - (int)$attendanceSummary['today_session_count']) : 0;
+if($teacherAttendanceDue > 0){
+    $teacherActionItems[] = array('type'=>'urgent','icon'=>'fa-check-square-o','count'=>$teacherAttendanceDue,'title'=>'Attendance to take','text'=>'Class attendance still needs to be recorded today.','href'=>'student-attendance.php');
+}
+$teacherStudentPermissionPending = 0;
+$teacherPermissionRes = @mysqli_query($con, "SELECT COUNT(*) AS total FROM tblstudentpermissionrequest WHERE teacher_id='$teacherIdEsc' AND status='pending'");
+if($teacherPermissionRes && ($teacherPermissionRow = mysqli_fetch_array($teacherPermissionRes, MYSQLI_ASSOC))){ $teacherStudentPermissionPending = (int)$teacherPermissionRow['total']; }
+if($teacherStudentPermissionPending > 0){
+    $teacherActionItems[] = array('type'=>'warning','icon'=>'fa-calendar-check-o','count'=>$teacherStudentPermissionPending,'title'=>'Student permission request'.($teacherStudentPermissionPending === 1 ? '' : 's'),'text'=>'A student is waiting for your decision.','href'=>'student-permission-review.php');
+}
+if($messageUnreadCount > 0){
+    $teacherActionItems[] = array('type'=>'info','icon'=>'fa-comments','count'=>(int)$messageUnreadCount,'title'=>'Unread message'.($messageUnreadCount === 1 ? '' : 's'),'text'=>'Open your messages and reply where needed.','href'=>'messages.php');
+}
+$teacherScoreSheetsWaiting = 0;
+$teacherScoreWaitingRes = @mysqli_query($con, "SELECT COUNT(*) AS total FROM tblsubjectassignment sa WHERE sa.userid='$teacherIdEsc' AND sa.status='active' AND NOT EXISTS (SELECT 1 FROM tblmark mk WHERE mk.assignmentid=sa.assignmentid AND mk.status='active')");
+if($teacherScoreWaitingRes && ($teacherScoreWaitingRow = mysqli_fetch_array($teacherScoreWaitingRes, MYSQLI_ASSOC))){ $teacherScoreSheetsWaiting = (int)$teacherScoreWaitingRow['total']; }
+if($teacherScoreSheetsWaiting > 0){
+    $teacherActionItems[] = array('type'=>'score','icon'=>'fa-pencil','count'=>$teacherScoreSheetsWaiting,'title'=>'Score sheet'.($teacherScoreSheetsWaiting === 1 ? '' : 's').' to start','text'=>'No scores have been entered for these assigned subjects yet.','href'=>'class-score-entry.php');
+}
 $teacherVotingSnapshot = voting_dashboard_snapshot($con, voting_default_branch_id($con), 'Teacher');
 $teacherWeeklyMenu = matron_current_week_menu_context($con, date('Y-m-d'), 'teacher');
 $teacherStoreRequisitionRows = matron_fetch_requisition_rows($con, array(
@@ -568,6 +592,23 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
     </aside>
 </section>
 
+<section class="teacher-action-centre" aria-labelledby="teacher-action-centre-title">
+    <div class="teacher-action-centre__heading">
+        <div><span class="teacher-section__eyebrow">Today’s Teaching Desk</span><h2 id="teacher-action-centre-title">What needs your attention</h2></div>
+        <span class="teacher-action-centre__status"><i class="fa fa-bolt"></i> <?php echo count($teacherActionItems) > 0 ? count($teacherActionItems)." action".(count($teacherActionItems) === 1 ? "" : "s")." today" : "You are all caught up"; ?></span>
+    </div>
+    <?php if(count($teacherActionItems) > 0){ ?><div class="teacher-action-centre__grid">
+        <?php foreach($teacherActionItems as $teacherActionItem){ ?>
+        <a class="teacher-action-centre__item teacher-action-centre__item--<?php echo td_esc($teacherActionItem['type']); ?>" href="<?php echo td_esc($teacherActionItem['href']); ?>">
+            <span class="teacher-action-centre__count"><?php echo (int)$teacherActionItem['count']; ?></span>
+            <span class="teacher-action-centre__icon"><i class="fa <?php echo td_esc($teacherActionItem['icon']); ?>"></i></span>
+            <span class="teacher-action-centre__body"><strong><?php echo td_esc($teacherActionItem['title']); ?></strong><small><?php echo td_esc($teacherActionItem['text']); ?></small></span>
+            <i class="fa fa-arrow-right teacher-action-centre__arrow"></i>
+        </a>
+        <?php } ?>
+    </div><?php }else{ ?><div class="teacher-action-centre__clear"><span><i class="fa fa-check-circle"></i></span><div><strong>Everything important is clear for now.</strong><p>Attendance, messages, permissions, and score-entry reminders will appear here as soon as they need action.</p></div></div><?php } ?>
+</section>
+
 <section class="teacher-section">
     <div class="teacher-section__heading">
         <div><span class="teacher-section__eyebrow">Teacher Tools</span><h2>Open today's tools</h2></div>
@@ -597,6 +638,8 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <?php } ?>
         <a class="teacher-action-card" href="lesson-timetable-report.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Lesson Timetable</h3><p>Open your weekly lesson schedule and check today’s teaching periods quickly.</p></a>
         <a class="teacher-action-card" href="online-class.php"><span class="teacher-action-card__icon"><i class="fa fa-video-camera"></i></span><h3>Online Class</h3><p>Schedule a live class link for the right students and manage it from one page.</p></a>
+        <a class="teacher-action-card" href="teacher-tasks.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar-check-o"></i></span><h3>Task Scheduler</h3><p>Schedule homework, projects, and revision work with a clear date and time for your students.</p></a>
+        <a class="teacher-action-card" href="teacher-task-submissions.php"><span class="teacher-action-card__icon"><i class="fa fa-inbox"></i></span><h3>Task Submissions</h3><p>Review work your students have returned and see whether it was submitted on time.</p></a>
         <a class="teacher-action-card" href="scores-report.php"><span class="teacher-action-card__icon"><i class="fa fa-line-chart"></i></span><h3>Scores Report</h3><p>Check reporting summaries and score outputs for your classes.</p></a>
         <?php if($teacherHasBillingModule){ ?>
         <a class="teacher-action-card" href="payments.php"><span class="teacher-action-card__icon"><i class="fa fa-credit-card"></i></span><h3>Class Payments<?php if($teacherBillingScopeCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherBillingScopeCount; ?> Scope<?php echo ((int)$teacherBillingScopeCount === 1 ? "" : "s"); ?></span><?php } ?></h3><p><?php echo $teacherBillingScopeCount > 0 ? "Open the payment view for the class fee-collection scopes assigned to you." : "Open class payments. Admin still needs to assign your fee-collection class scope."; ?></p></a>

@@ -1273,6 +1273,14 @@ body{
         box-shadow:none !important;
     }
 }
+/* Senior house dashboard refresh: leadership view with a lighter, clearer rhythm. */
+body{background:linear-gradient(145deg,#eef3f8 0%,#f9fbfd 46%,#edf7f4 100%)}
+.senior-shell{padding:16px;background:rgba(255,255,255,.78);border:0;border-radius:28px;box-shadow:0 20px 46px rgba(15,34,56,.10)}
+.senior-top{padding:30px;border:0;border-radius:22px;background:linear-gradient(125deg,#10283f 0%,#164c66 58%,#0f766e 145%);box-shadow:none}.senior-top::after{background:radial-gradient(circle,rgba(255,196,89,.25),rgba(255,196,89,0));right:-45px;bottom:-75px}.senior-title{color:#fff;font-size:clamp(28px,3.2vw,40px)}.senior-subtitle{color:rgba(238,248,252,.82);max-width:650px}.senior-kicker{background:rgba(255,255,255,.14);color:#d9fff7}.senior-chip{background:rgba(255,255,255,.12)!important;border-color:rgba(255,255,255,.18)!important;color:#fff!important}.senior-chip-danger{background:rgba(190,24,93,.38)!important}.senior-chip-success{background:rgba(5,150,105,.36)!important}
+.senior-actions{gap:8px}.senior-top .senior-btn{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.18);color:#fff;box-shadow:none}.senior-top .senior-btn-primary{background:#f7b955;border-color:#f7b955;color:#1d3143}.senior-top .senior-btn:hover{background:rgba(255,255,255,.2)}.senior-top .senior-btn-primary:hover{background:#ffd280}
+.senior-glance{gap:10px}.senior-glance-card{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.17);box-shadow:none}.senior-glance-card strong{color:#fff}.senior-glance-card span,.senior-glance-card small{color:rgba(238,248,252,.78)}.senior-glance-card::before{background:#72e0ce}.senior-glance-card-warning::before{background:#f7c45a}.senior-glance-card-danger::before{background:#ff8d9d}.senior-glance-card-success::before{background:#8be1ab}
+.senior-nav{margin:0 0 16px;gap:8px}.senior-nav-link{border-radius:12px;background:#fff;border:1px solid #dce6ef;color:#24435a;font-weight:700}.senior-nav-link:hover{background:#e8f6f2;color:#0f766e}.senior-stats{gap:12px}.senior-stat{border:1px solid #e1e9f0;border-radius:18px;background:#fff;box-shadow:0 8px 18px rgba(20,46,70,.05);padding:18px}.senior-stat strong{font-size:31px;color:#173a52}.senior-panel{border:1px solid #e1e9f0;border-radius:20px;box-shadow:0 10px 24px rgba(20,46,70,.05)}.senior-panel h3{color:#173a52}.senior-table th{background:#edf5f8;color:#24435a}.senior-table tbody tr:hover{background:#f2faf8}
+@media(max-width:760px){.senior-shell{padding:10px;border-radius:20px}.senior-top{padding:22px 18px;border-radius:18px}.senior-actions{justify-content:flex-start}.senior-top .senior-btn{padding:9px 12px}.senior-glance{gap:8px}}
 </style>
 </head>
 <body>
@@ -1333,7 +1341,6 @@ body{
                     <?php if(house_master_is_teacher()){ ?>
                     <a class="senior-btn" href="house-master-exeat.php"><i class="fa fa-check-square-o"></i> Exeat Desk</a>
                     <?php } ?>
-                    <button type="button" class="senior-btn" onclick="window.print();"><i class="fa fa-print"></i> Print Dashboard</button>
                 </div>
             </div>
 

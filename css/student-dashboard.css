@@ -703,6 +703,11 @@ body.student-dashboard-page {
     --student-card-shadow: rgba(15, 142, 137, 0.18);
 }
 
+.student-action-card--tasks {
+    --student-card-accent: #087f82;
+    --student-card-glow: rgba(8, 127, 130, 0.16);
+}
+
 .student-action-card--course {
     --student-card-accent: #6d5bd0;
     --student-card-tint: rgba(109, 91, 208, 0.14);

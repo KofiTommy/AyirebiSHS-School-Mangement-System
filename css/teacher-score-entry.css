@@ -479,6 +479,29 @@ body.score-entry-page--exam {
     min-width: 0;
 }
 
+/* Keep the score limit and student finder together as one clear control row. */
+.score-entry-sheet-toolbar__group--controls {
+    display: flex;
+    flex-wrap: nowrap;
+    flex: 1 1 100%;
+    width: 100%;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.score-entry-sheet-toolbar__group--controls .score-entry-field {
+    flex: 0 0 auto;
+}
+
+.score-entry-sheet-toolbar__group--controls .score-entry-field:first-child {
+    width: 170px;
+}
+
+.score-entry-sheet-toolbar__group--controls .score-entry-field:last-child {
+    width: 280px;
+}
+
 .score-entry-field label {
     display: inline-block;
     margin-bottom: 8px;
@@ -817,6 +840,16 @@ body.score-entry-page--exam {
     .score-entry-empty-state__actions {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .score-entry-sheet-toolbar__group--controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .score-entry-sheet-toolbar__group--controls .score-entry-field:first-child,
+    .score-entry-sheet-toolbar__group--controls .score-entry-field:last-child {
+        width: auto;
     }
 
     .score-entry-button,
