@@ -116,7 +116,7 @@ function report_approval_ensure_table($con){
     if(!$con){
         return;
     }
-    if(function_exists('xschool_schema_cache_is_fresh') && xschool_schema_cache_is_fresh('schema_tblclassreportapproval_v3')){
+    if(function_exists('xschool_schema_cache_is_fresh') && xschool_schema_cache_is_fresh('schema_tblclassreportapproval_v4')){
         return;
     }
     @mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblclassreportapproval (
@@ -139,6 +139,22 @@ function report_approval_ensure_table($con){
         PRIMARY KEY (approvalid),
         UNIQUE KEY uq_report_scope (batchid, academicyear, termname, classid),
         KEY idx_report_scope_status (batchid, academicyear, termname, classid, status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    @mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblclassreportapprovalsmslog (
+        smslogid VARCHAR(50) PRIMARY KEY,
+        batchid VARCHAR(100) NOT NULL,
+        academicyear VARCHAR(20) NOT NULL,
+        termname INT NOT NULL,
+        classid VARCHAR(100) NOT NULL,
+        approveddatetime DATETIME NOT NULL,
+        recipientid VARCHAR(100) NOT NULL,
+        mobile VARCHAR(40) NOT NULL DEFAULT '',
+        message VARCHAR(255) NOT NULL,
+        smsstatus VARCHAR(30) NOT NULL DEFAULT '',
+        smscode VARCHAR(255) NOT NULL DEFAULT '',
+        createdat DATETIME NOT NULL,
+        UNIQUE KEY uq_class_report_head_sms (batchid,academicyear,termname,classid,approveddatetime,recipientid),
+        KEY idx_recipient (recipientid)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     if(!report_approval_column_exists($con, 'tblclassreportapproval', 'headapprovalstatus')){
         @mysqli_query($con, "ALTER TABLE tblclassreportapproval ADD COLUMN headapprovalstatus VARCHAR(20) NOT NULL DEFAULT '' AFTER approveddatetime");
@@ -168,8 +184,55 @@ function report_approval_ensure_table($con){
         @mysqli_query($con, "ALTER TABLE tblclassreportapproval ADD COLUMN scoreeditoverridedatetime DATETIME NULL AFTER scoreeditoverrideby");
     }
     if(function_exists('xschool_schema_cache_mark')){
-        xschool_schema_cache_mark('schema_tblclassreportapproval_v3');
+        xschool_schema_cache_mark('schema_tblclassreportapproval_v4');
     }
+}
+}
+
+if(!function_exists('report_approval_notify_headmaster_of_admin_approval')){
+function report_approval_notify_headmaster_of_admin_approval($con, $batchId, $academicYear, $termName, $classId, $adminId = ''){
+    if(!$con){ return false; }
+    report_approval_ensure_table($con);
+    $batchId=trim((string)$batchId); $academicYear=report_approval_normalize_year($academicYear);
+    $termName=(int)$termName; $classId=trim((string)$classId); $adminId=trim((string)$adminId);
+    if($batchId===''||$academicYear===''||$termName<1||$classId===''){ return false; }
+    $batchEsc=mysqli_real_escape_string($con,$batchId); $yearEsc=mysqli_real_escape_string($con,$academicYear); $classEsc=mysqli_real_escape_string($con,$classId);
+    $approval=@mysqli_query($con,"SELECT approveddatetime FROM tblclassreportapproval WHERE batchid='$batchEsc' AND academicyear='$yearEsc' AND termname=$termName AND classid='$classEsc' AND status='approved' LIMIT 1");
+    $approvalRow=$approval?mysqli_fetch_assoc($approval):null;
+    $approvedAt=$approvalRow?trim((string)$approvalRow['approveddatetime']):'';
+    if($approvedAt===''){ return false; }
+    $scope=@mysqli_query($con,"SELECT ce.class_name,b.batch FROM tblclassentry ce LEFT JOIN tblbatch b ON b.batchid='$batchEsc' WHERE ce.class_entryid='$classEsc' LIMIT 1");
+    $scopeRow=$scope?mysqli_fetch_assoc($scope):null;
+    $className=($scopeRow&&trim((string)$scopeRow['class_name'])!=='')?trim((string)$scopeRow['class_name']):'the selected class';
+    $batchName=$scopeRow?trim((string)$scopeRow['batch']):'';
+    $adminName='The administrator';
+    if($adminId!==''){
+        $adminEsc=mysqli_real_escape_string($con,$adminId);
+        $admin=@mysqli_query($con,"SELECT firstname,othernames,surname FROM tblsystemuser WHERE userid='$adminEsc' LIMIT 1");
+        if($admin&&($adminRow=mysqli_fetch_assoc($admin))){ $candidate=trim((string)$adminRow['firstname'].' '.(string)$adminRow['othernames'].' '.(string)$adminRow['surname']); if($candidate!==''){$adminName=$candidate;} }
+    }
+    $scopeLabel=$className.' · '.($batchName!==''?$batchName.' · ':'').'Semester '.$termName.' · '.$academicYear;
+    $message='Ayirebi SHS: '.$adminName.' has approved '.$scopeLabel.' for your final signature. Please log in to sign and release the results.';
+    if(strlen($message)>250){ $message=substr($message,0,250); }
+    $heads=@mysqli_query($con,"SELECT userid,mobile FROM tblsystemuser WHERE systemtype='Headmaster' AND status='active'");
+    $sent=false;
+    if($heads){ while($head=mysqli_fetch_assoc($heads)){
+        $headId=trim((string)$head['userid']); if($headId===''){ continue; }
+        $mobile=trim((string)$head['mobile']); $logId=mysqli_real_escape_string($con,'RHMSMS_'.strtoupper(substr(sha1(uniqid('',true)),0,18)));
+        $headEsc=mysqli_real_escape_string($con,$headId); $approvedEsc=mysqli_real_escape_string($con,$approvedAt); $mobileEsc=mysqli_real_escape_string($con,$mobile); $messageEsc=mysqli_real_escape_string($con,$message);
+        $claimed=@mysqli_query($con,"INSERT IGNORE INTO tblclassreportapprovalsmslog(smslogid,batchid,academicyear,termname,classid,approveddatetime,recipientid,mobile,message,smsstatus,smscode,createdat) VALUES('$logId','$batchEsc','$yearEsc',$termName,'$classEsc','$approvedEsc','$headEsc','$mobileEsc','$messageEsc','PENDING','',NOW())");
+        if(!$claimed||mysqli_affected_rows($con)!==1){ continue; }
+        $status='NO_PHONE'; $code='NO_PHONE'; $smsSent=false;
+        if($mobile!==''){
+            if(!function_exists('send_bulk_sms_message')){ @include_once(__DIR__.DIRECTORY_SEPARATOR.'house-master-utils.php'); }
+            if(function_exists('send_bulk_sms_message')){ $code=''; $smsSent=send_bulk_sms_message($mobile,$message,$code); $status=$smsSent?'SENT':'FAILED'; if(trim((string)$code)===''){$code=$smsSent?'1000':'SMS_FAILED';} }
+            else{ $status='SMS_UNAVAILABLE'; $code='SMS_UNAVAILABLE'; }
+        }
+        $statusEsc=mysqli_real_escape_string($con,$status); $codeEsc=mysqli_real_escape_string($con,substr((string)$code,0,255));
+        @mysqli_query($con,"UPDATE tblclassreportapprovalsmslog SET smsstatus='$statusEsc',smscode='$codeEsc' WHERE smslogid='$logId'");
+        if($smsSent){ $sent=true; }
+    }}
+    return $sent;
 }
 }
 
@@ -362,6 +425,9 @@ function report_approval_set_scope_status($con, $batchId, $academicYear, $termNa
     }
 
     report_approval_ensure_table($con);
+    $existingApproval=@mysqli_query($con, "SELECT status FROM tblclassreportapproval WHERE batchid='".mysqli_real_escape_string($con,$batchId)."' AND academicyear='".mysqli_real_escape_string($con,$academicYear)."' AND termname=$termName AND classid='".mysqli_real_escape_string($con,$classId)."' LIMIT 1");
+    $existingApprovalRow=$existingApproval?mysqli_fetch_assoc($existingApproval):null;
+    $wasAlreadyApproved=$existingApprovalRow && strtolower(trim((string)$existingApprovalRow['status']))==='approved';
     $batchIdEsc = mysqli_real_escape_string($con, $batchId);
     $academicYearEsc = mysqli_real_escape_string($con, $academicYear);
     $classIdEsc = mysqli_real_escape_string($con, $classId);
@@ -389,6 +455,9 @@ function report_approval_set_scope_status($con, $batchId, $academicYear, $termNa
             updateddatetime=NOW()");
     if($result){
         report_approval_scope_cache_forget($batchId, $academicYear, $termName, $classId);
+    }
+    if($result && $status === 'approved' && !$wasAlreadyApproved){
+        report_approval_notify_headmaster_of_admin_approval($con, $batchId, $academicYear, $termName, $classId, $approvedBy);
     }
     return (bool)$result;
 }
