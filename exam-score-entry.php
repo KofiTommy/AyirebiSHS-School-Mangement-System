@@ -72,6 +72,18 @@ $saveLabel = "Save Exam Scores";
 $uploadPage = "upload-exam-score-entry.php";
 $scoreLimit = 70;
 
+/* Mark IDs are generated locally.  Do not include code.php while saving each
+   student: it opens another dbstring.php connection for every selected row. */
+if(!function_exists('score_entry_new_mark_id')){
+    function score_entry_new_mark_id(){
+        try{
+            return 'MK'.date('YmdHis').bin2hex(random_bytes(4));
+        }catch(Exception $e){
+            return 'MK'.date('YmdHis').str_replace('.', '', uniqid('', true));
+        }
+    }
+}
+
 $teacherId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : "";
 $teacherIdSafe = mysqli_real_escape_string($con, $teacherId);
 
@@ -172,8 +184,7 @@ if(isset($_POST['save_all_mark'])){
                             continue;
                         }
 
-                        include("code.php");
-                        $markId = mysqli_real_escape_string($con, (string)$code);
+                        $markId = mysqli_real_escape_string($con, score_entry_new_mark_id());
                         $selectedUserSafe = mysqli_real_escape_string($con, $selectedUser);
                         $selectedMarkSafe = mysqli_real_escape_string($con, $selectedMark);
                         $totalMarkSafe = mysqli_real_escape_string($con, $totalMark);
