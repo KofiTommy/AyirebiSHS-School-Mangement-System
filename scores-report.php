@@ -5,6 +5,21 @@ $_SESSION['Message']="";
 }
 ?>
 <?php
+/* Added: does not change any report logic. This report runs several DB queries
+   per student (roster lookup, marks lookup, position lookup), so for ~120
+   students that's 250-400+ round trips. Localhost/XAMPP DB latency is near
+   zero, so it never hits a limit there. Shared hosting (Hostinger) commonly
+   defaults PHP's max_execution_time to 30s and has higher DB latency, so the
+   script can get killed mid-render with no visible error - which looks exactly
+   like "stops after N students". This raises the ceiling and logs (but does
+   not display) any real PHP error, so the true cause shows up in Hostinger's
+   error log instead of silently cutting the page short. */
+if(function_exists('ini_set')){
+    @ini_set('max_execution_time', 120);
+    @ini_set('log_errors', 1);
+}
+@set_time_limit(120);
+
 include("dbstring.php");
 include("audit_notifications.php");
 include_once("semester-registry-utils.php");
