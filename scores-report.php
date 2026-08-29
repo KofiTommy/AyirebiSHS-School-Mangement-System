@@ -1064,7 +1064,7 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
     echo "<td align='center' width='5%'>";
     $_Final_Position=0;
     if(trim((string)$_getAssignment_Id) !== ""){
-        $_position_obj_1->setPosition($_getAssignment_Id,$_TotalMark);
+        $_position_obj_1->setPosition($_getAssignment_Id,$_TotalMark,$con);
         $_Final_Position= $_position_obj_1->getPosition();
     }
     echo $_Final_Position;

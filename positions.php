@@ -7,9 +7,21 @@ class Position{
 	var $_position;
 	var $_Position_Ends;
 
-	public function setPosition($assignmentid,$totalscore){
+	public function setPosition($assignmentid,$totalscore,$con=null){
 
-		include("dbstring.php");
+		/* Fixed: this used to do include("dbstring.php") here, which opened a
+		   brand new MySQL connection every single call (once per mark row
+		   rendered - 100+ times for a full class). Local MySQL has no limit on
+		   that, but shared hosts like Hostinger cap connections/connection
+		   bursts, so the report would silently fail partway through once the
+		   cap was hit. Now it reuses the connection the report already has.
+		   If some other caller still calls setPosition() without a $con
+		   (old behavior), it falls back to opening one, so nothing else
+		   breaks. */
+		if($con===null){
+			include("dbstring.php");
+		}
+
 		$_SQL=mysqli_query($con,"SELECT  SUM(mk.mark) AS TotalMark FROM tblmark mk 
 		INNER JOIN tblsystemuser su ON mk.userid=su.userid
 		WHERE mk.assignmentid='$assignmentid' AND su.systemtype='Student' GROUP BY su.userid");
