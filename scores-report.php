@@ -97,6 +97,8 @@ function score_report_link_is_active($row, $classId, $termId, $subjectId, $batch
 if(!function_exists('score_report_assignment_student_ids')){
 function score_report_assignment_student_ids($con, $assignmentRow){
     $studentIds = array();
+    $_rosterDebug = isset($_GET['debug_roster']);
+    $_rosterDebugLines = array();
     /* The report query joins several tables that all have a termname column.
        Always use the explicitly aliased assignment semester, otherwise the
        joined classification term (often blank) can replace it. */
@@ -120,6 +122,11 @@ function score_report_assignment_student_ids($con, $assignmentRow){
                 }
             }
         }
+        if($_rosterDebug){
+            $_rosterDebugLines[] = "1) score_entry_assignment_student_context returned ".(isset($context['userids']) && is_array($context['userids']) ? count($context['userids']) : 0)." id(s); running total ".count($studentIds);
+        }
+    }elseif($_rosterDebug){
+        $_rosterDebugLines[] = "1) score_entry_assignment_student_context: function not found (not loaded)";
     }
 
     /* A score report must show the complete enrolled class. Course registration
@@ -144,6 +151,11 @@ function score_report_assignment_student_ids($con, $assignmentRow){
                 }
             }
         }
+        if($_rosterDebug){
+            $_rosterDebugLines[] = "2) score_entry_term_registry_student_ids returned ".(is_array($registeredClassStudents) ? count($registeredClassStudents) : 0)." id(s); running total ".count($studentIds);
+        }
+    }elseif($_rosterDebug){
+        $_rosterDebugLines[] = "2) score_entry_term_registry_student_ids: function not found (not loaded)";
     }
 
     /* Historical score reports must include every student in the exact session
@@ -173,13 +185,22 @@ function score_report_assignment_student_ids($con, $assignmentRow){
               $reportYearWhere
             ORDER BY tr.userid ASC");
         if($reportRegistrySql){
+            $_source3Count = 0;
             while($reportRegistryRow = mysqli_fetch_array($reportRegistrySql, MYSQLI_ASSOC)){
                 $userId = trim((string)$reportRegistryRow['userid']);
                 if($userId !== ''){
                     $studentIds[$userId] = $userId;
+                    $_source3Count++;
                 }
             }
+            if($_rosterDebug){
+                $_rosterDebugLines[] = "3) direct tbltermregistry query (class='$reportClassEsc', batch='$reportBatchEsc', term='$reportTermEsc', yearFilter=".($reportYearWhere!=='' ? "'$reportYearEsc'" : "none").") returned $_source3Count id(s); running total ".count($studentIds);
+            }
+        }elseif($_rosterDebug){
+            $_rosterDebugLines[] = "3) direct tbltermregistry query FAILED: ".mysqli_error($con);
         }
+    }elseif($_rosterDebug){
+        $_rosterDebugLines[] = "3) direct tbltermregistry query skipped: class/batch/term empty (class='$reportClassEsc', batch='$reportBatchEsc', term='$reportTermEsc')";
     }
 
     /* Also retain every student who already has an active score under this
@@ -189,13 +210,24 @@ function score_report_assignment_student_ids($con, $assignmentRow){
         $assignmentIdEsc = mysqli_real_escape_string($con, trim((string)$assignmentRow['assignmentid']));
         $fallbackSql = mysqli_query($con, "SELECT DISTINCT userid FROM tblmark WHERE assignmentid='$assignmentIdEsc' AND status='active' ORDER BY userid ASC");
         if($fallbackSql){
+            $_source4Count = 0;
             while($fallbackRow = mysqli_fetch_array($fallbackSql, MYSQLI_ASSOC)){
                 $userId = trim((string)$fallbackRow['userid']);
                 if($userId !== ''){
                     $studentIds[$userId] = $userId;
+                    $_source4Count++;
                 }
             }
+            if($_rosterDebug){
+                $_rosterDebugLines[] = "4) tblmark active-score fallback returned $_source4Count id(s); running total ".count($studentIds);
+            }
+        }elseif($_rosterDebug){
+            $_rosterDebugLines[] = "4) tblmark active-score fallback query FAILED: ".mysqli_error($con);
         }
+    }
+
+    if($_rosterDebug){
+        echo "<pre style='background:#111;color:#0f0;padding:10px;text-align:left;white-space:pre-wrap;'>ROSTER DEBUG for assignmentid=".score_report_safe(isset($assignmentRow['assignmentid'])?$assignmentRow['assignmentid']:'?')." class=".score_report_safe(isset($assignmentRow['class_entryid'])?$assignmentRow['class_entryid']:'?')."\n".score_report_safe(implode("\n", $_rosterDebugLines))."\nFINAL merged id count: ".count($studentIds)."</pre>";
     }
 
     return array_values($studentIds);
