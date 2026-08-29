@@ -107,9 +107,12 @@ function score_report_assignment_student_ids($con, $assignmentRow){
         }
     }
 
-    /* A score report must show the complete enrolled class.  Course registration
-       can be incomplete on the live server (especially at the start of a new
-       semester), so it must not hide registered class students from the report. */
+    /* A score report must show the complete enrolled class. Course registration
+       can be incomplete on the live server, especially at the start of a new
+       semester, so the report must not hide registered class students. We also
+       cannot rely on a single exact year/status match because host environments
+       often have partially populated academic-year data or inactive/legacy rows
+       that should still appear in a historical report. */
     if(function_exists('score_entry_term_registry_student_ids')){
         $registeredClassStudents = score_entry_term_registry_student_ids(
             $con,
@@ -128,21 +131,31 @@ function score_report_assignment_student_ids($con, $assignmentRow){
         }
     }
 
-    /* Reports are historical records.  Unlike the score-entry screen, they must
-       include every student registered in this exact session even if the live
-       account or registration has later been marked inactive or blocked. */
+    /* Historical score reports must include every student in the exact session
+       even when the live account or term rows have later been marked inactive or
+       the host database only has partial academic-year metadata. */
     $reportClassEsc = mysqli_real_escape_string($con, isset($assignmentRow['class_entryid']) ? trim((string)$assignmentRow['class_entryid']) : '');
     $reportBatchEsc = mysqli_real_escape_string($con, isset($assignmentRow['batchid']) ? trim((string)$assignmentRow['batchid']) : '');
-    $reportYearEsc = mysqli_real_escape_string($con, isset($assignmentRow['assignment_year']) ? trim((string)$assignmentRow['assignment_year']) : '');
+    $reportYearEsc = trim((string)(isset($assignmentRow['assignment_year']) ? $assignmentRow['assignment_year'] : ''));
     $reportTermEsc = mysqli_real_escape_string($con, $assignmentTerm);
-    if($reportClassEsc !== '' && $reportBatchEsc !== '' && $reportYearEsc !== '' && $reportTermEsc !== ''){
+    if($reportClassEsc !== '' && $reportBatchEsc !== '' && $reportTermEsc !== ''){
+        $reportYearWhere = "";
+        if($reportYearEsc !== ''){
+            $reportYearSafe = mysqli_real_escape_string($con, $reportYearEsc);
+            $reportYearWhere = " AND (
+                TRIM(COALESCE(tr.academicyear,''))='$reportYearSafe'
+                OR DATE_FORMAT(tr.datetimeentry, '%Y')='$reportYearSafe'
+                OR ".semester_registry_resolved_year_sql('tr')."='$reportYearSafe'
+            )";
+        }
+
         $reportRegistrySql = mysqli_query($con, "SELECT DISTINCT tr.userid
             FROM tbltermregistry tr
             INNER JOIN tblsystemuser su ON su.userid=tr.userid AND su.systemtype='Student'
             WHERE tr.class_entryid='$reportClassEsc'
               AND tr.batchid='$reportBatchEsc'
-              AND ".semester_registry_resolved_year_sql('tr')."='$reportYearEsc'
               AND tr.termname='$reportTermEsc'
+              $reportYearWhere
             ORDER BY tr.userid ASC");
         if($reportRegistrySql){
             while($reportRegistryRow = mysqli_fetch_array($reportRegistrySql, MYSQLI_ASSOC)){

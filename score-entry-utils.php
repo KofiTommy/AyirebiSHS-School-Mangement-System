@@ -97,19 +97,35 @@ function score_entry_term_registry_student_ids($con, $classId, $batchId, $assign
     $userIds = array();
     $classEsc = mysqli_real_escape_string($con, trim((string)$classId));
     $batchEsc = mysqli_real_escape_string($con, trim((string)$batchId));
-    $yearEsc = mysqli_real_escape_string($con, trim((string)$assignmentYear));
+    $yearEsc = trim((string)$assignmentYear);
     $termEsc = mysqli_real_escape_string($con, trim((string)$termName));
+
+    $yearClauses = array();
+    if($yearEsc !== ''){
+        $yearEscSafe = mysqli_real_escape_string($con, $yearEsc);
+        $yearClauses[] = "(
+            TRIM(COALESCE(tr.academicyear,'')) = '$yearEscSafe'
+            OR DATE_FORMAT(tr.datetimeentry, '%Y') = '$yearEscSafe'
+            OR ".semester_registry_resolved_year_sql("tr")." = '$yearEscSafe'
+        )";
+    }
+
+    $whereParts = array();
+    if($classEsc !== ''){ $whereParts[] = "tr.class_entryid='$classEsc'"; }
+    if($batchEsc !== ''){ $whereParts[] = "tr.batchid='$batchEsc'"; }
+    if($termEsc !== ''){ $whereParts[] = "tr.termname='$termEsc'"; }
+    if(!empty($yearClauses)){ $whereParts[] = implode(' OR ', $yearClauses); }
+
+    if(count($whereParts) === 0){
+        return $userIds;
+    }
+
     $sql = "SELECT DISTINCT tr.userid
         FROM tbltermregistry tr
         INNER JOIN tblsystemuser su
             ON su.userid=tr.userid
            AND su.systemtype='Student'
-           AND su.status='active'
-        WHERE tr.status='active'
-          AND tr.class_entryid='$classEsc'
-          AND tr.batchid='$batchEsc'
-          AND ".semester_registry_resolved_year_sql("tr")."='$yearEsc'
-          AND tr.termname='$termEsc'
+        WHERE ".implode(" AND ", $whereParts)."
         ORDER BY tr.userid ASC";
     $result = mysqli_query($con, $sql);
     if($result){
