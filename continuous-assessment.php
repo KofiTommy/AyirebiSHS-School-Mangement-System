@@ -237,7 +237,7 @@ $_ExamScore=$row_ex['mark'];
  //Get the positions
  @$_Final_Position=0;
 
-$_position_obj->setPosition($row['assignmentid'],$_TotalScore);
+$_position_obj->setPosition($row['assignmentid'],$_TotalScore,$con);
 $_Final_Position= $_position_obj->getPosition();
 
  $pdf->Cell($width_cell[4],10,$_Final_Position,1,0,'C',$fill);
@@ -828,7 +828,7 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 	
 	 @$_Final_Position=0;
 
-	$_position_obj_1->setPosition($_getAssignment_Id,$_TotalMark);
+	$_position_obj_1->setPosition($_getAssignment_Id,$_TotalMark,$con);
 	$_Final_Position= $_position_obj_1->getPosition();
 	echo $_Final_Position;
 	echo "</td>";

@@ -528,7 +528,7 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 	 //Get the positions
 	 @$_Final_Position=0;
 
-	$_position_obj_1->setPosition($_getAssignment_Id,$_TotalMark);
+	$_position_obj_1->setPosition($_getAssignment_Id,$_TotalMark,$con);
 	$_Final_Position= $_position_obj_1->getPosition();
 	echo $_Final_Position;
 	echo "</td>";
