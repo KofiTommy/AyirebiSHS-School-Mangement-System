@@ -600,8 +600,18 @@ echo "</td></tr>";
 //$_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
 //	ON ce.class_entryid=tr.class_entryid GROUP BY tr.class_entryid");
 
-$_SQL_CLASS=mysqli_query($con,"SELECT * FROM tblclassentry ce INNER JOIN tbltermregistry tr 
-ON ce.class_entryid=tr.class_entryid WHERE tr.userid='$_User_ID' AND tr.batchid='$_Batch_ID' AND tr.class_entryid='$_Class_ID' $_AcademicYearSql");
+/* A student can have several registry rows across semesters.  Restrict the
+   preview to the requested semester so the same subject marks are not rendered
+   once for every historical registry row. */
+$_SelectedTermSafe = (int)$_Term_ID;
+$_SQL_CLASS=mysqli_query($con,"SELECT DISTINCT ce.class_entryid,ce.class_name
+FROM tblclassentry ce
+INNER JOIN tbltermregistry tr ON ce.class_entryid=tr.class_entryid
+WHERE tr.userid='$_User_ID'
+  AND tr.batchid='$_Batch_ID'
+  AND tr.class_entryid='$_Class_ID'
+  AND tr.termname='$_SelectedTermSafe'
+  $_AcademicYearSql");
 
 if(mysqli_num_rows($_SQL_CLASS)==0){
 
@@ -637,6 +647,17 @@ for($k=$_StartTerm;$k<=$_EndTerm;$k++)
 		WHERE su.userid='$row_us[userid]' AND sub.subjectid='$row_rsu[subjectid]' 
 		AND ce.class_entryid='$row_ce[class_entryid]' AND sa.termname='$k' AND
 		sa.batchid='$_Batch_ID'".($_Academic_Year!=="" ? " AND ".semester_registry_assignment_year_sql("sa")."='".mysqli_real_escape_string($con,$_Academic_Year)."'" : "")."
+		AND mk.status='active'
+		/* If an identical score type was saved twice, keep the newest record in
+		   the report.  The original data stays untouched for administrator review. */
+		AND NOT EXISTS (
+			SELECT 1 FROM tblmark newer_mark
+			WHERE newer_mark.assignmentid=mk.assignmentid
+			  AND newer_mark.userid=mk.userid
+			  AND newer_mark.testtype=mk.testtype
+			  AND newer_mark.status='active'
+			  AND (newer_mark.datetimeentry>mk.datetimeentry OR (newer_mark.datetimeentry=mk.datetimeentry AND newer_mark.markid>mk.markid))
+		)
 		ORDER BY su.userid ASC");
 
 
