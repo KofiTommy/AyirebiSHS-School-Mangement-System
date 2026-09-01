@@ -1,0 +1,76 @@
+.teacher-exam-section__count,
+.student-exam-section__count {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 12px;
+    border-radius: 999px;
+    background: #e8f2ff;
+    color: #195b9c;
+    font-size: .82rem;
+    font-weight: 800;
+}
+
+.dashboard-exam-board {
+    display: grid;
+    gap: 11px;
+    padding: 14px;
+    border: 1px solid rgba(31, 79, 122, .13);
+    border-radius: 24px;
+    background: linear-gradient(135deg, #f7fbff, #eef6ff);
+}
+
+.dashboard-exam-paper {
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    border: 1px solid #dbe8f4;
+    border-radius: 18px;
+    background: rgba(255,255,255,.94);
+    box-shadow: 0 8px 20px rgba(21, 65, 105, .06);
+}
+
+.dashboard-exam-paper__date {
+    display: grid;
+    place-items: center;
+    min-height: 60px;
+    padding: 8px;
+    border-radius: 15px;
+    background: #123f70;
+    color: #fff;
+    text-align: center;
+}
+
+.dashboard-exam-paper__date span,
+.dashboard-exam-paper__date strong,
+.dashboard-exam-paper__main h3,
+.dashboard-exam-paper__main p,
+.dashboard-exam-paper__main small,
+.dashboard-exam-paper__time strong,
+.dashboard-exam-paper__time small { display: block; }
+.dashboard-exam-paper__date span { font-size: .68rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; opacity: .82; }
+.dashboard-exam-paper__date strong { margin-top: 3px; font-size: .88rem; }
+.dashboard-exam-paper__main h3 { margin: 0; color: #17314b; font-size: 1rem; }
+.dashboard-exam-type { display: inline-flex; margin-bottom: 6px; padding: 4px 8px; border-radius: 999px; background: #e5f0ff; color: #12599c; font-size: .68rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+.dashboard-exam-paper__main p { margin: 5px 0 0; color: #5c7185; font-size: .86rem; line-height: 1.4; }
+.dashboard-exam-paper__main small { margin-top: 5px; color: #29608f; font-size: .76rem; font-weight: 700; }
+.dashboard-exam-paper__time { min-width: 155px; color: #17314b; text-align: right; }
+.dashboard-exam-paper__time i { margin-right: 5px; color: #1573b7; }
+.dashboard-exam-paper__time strong { display: inline; font-size: .9rem; }
+.dashboard-exam-paper__time small { margin-top: 6px; color: #678096; font-size: .74rem; }
+
+.dashboard-exam-empty { display: flex; align-items: center; gap: 13px; padding: 17px; color: #537087; }
+.dashboard-exam-empty > i { display: inline-flex; width: 42px; height: 42px; align-items: center; justify-content: center; border-radius: 14px; background: #dceeff; color: #1264a3; font-size: 1.25rem; }
+.dashboard-exam-empty strong { color: #17314b; }
+.dashboard-exam-empty p { margin: 4px 0 0; font-size: .86rem; line-height: 1.45; }
+
+@media (max-width: 650px) {
+    .teacher-exam-section__count,
+    .student-exam-section__count { margin-top: 8px; }
+    .dashboard-exam-board { padding: 10px; border-radius: 20px; }
+    .dashboard-exam-paper { grid-template-columns: 58px minmax(0, 1fr); gap: 11px; padding: 12px; }
+    .dashboard-exam-paper__date { min-height: 56px; }
+    .dashboard-exam-paper__time { grid-column: 2; min-width: 0; text-align: left; }
+}

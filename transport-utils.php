@@ -1,5 +1,5 @@
 <?php
-if(!function_exists('transport_is_admin')){function transport_is_admin(){return isset($_SESSION['ACCESSLEVEL'])&&$_SESSION['ACCESSLEVEL']==='administrator';}}
+if(!function_exists('transport_is_admin')){function transport_is_admin(){ return (isset($_SESSION['ACCESSLEVEL']) && $_SESSION['ACCESSLEVEL'] === 'administrator') || (isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'AssistantHeadAdministration'); }}
 if(!function_exists('transport_id')){function transport_id($prefix){return $prefix.strtoupper(substr(sha1(uniqid('',true)),0,18));}}
 if(!function_exists('transport_ensure_tables')){function transport_ensure_tables($con){
 @mysqli_query($con,"CREATE TABLE IF NOT EXISTS tbltransportvehicle(vehicleid VARCHAR(50) PRIMARY KEY,vehiclename VARCHAR(120) NOT NULL,registrationno VARCHAR(80) NOT NULL,capacity INT NOT NULL DEFAULT 0,driverid VARCHAR(100) NOT NULL DEFAULT '',assistantid VARCHAR(100) NOT NULL DEFAULT '',status VARCHAR(20) NOT NULL DEFAULT 'active',createdby VARCHAR(100) NOT NULL DEFAULT '',createdat DATETIME NOT NULL,UNIQUE KEY uq_registrationno(registrationno)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");

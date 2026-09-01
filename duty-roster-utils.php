@@ -66,6 +66,13 @@ function duty_roster_is_headmaster(){
 }
 }
 
+if(!function_exists('duty_roster_is_assistant_head_administration')){
+function duty_roster_is_assistant_head_administration(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === "user" &&
+        $_SESSION['SYSTEMTYPE'] === "AssistantHeadAdministration";
+}
+}
 if(!function_exists('duty_roster_landing_page')){
 function duty_roster_landing_page(){
     if(duty_roster_is_admin()){
@@ -73,6 +80,9 @@ function duty_roster_landing_page(){
     }
     if(duty_roster_is_headmaster()){
         return "headmaster-page.php";
+    }
+    if(duty_roster_is_assistant_head_administration()){
+        return "assistant-head-administration-page.php";
     }
     if(duty_roster_is_teacher()){
         return "teacher-page.php";
@@ -86,7 +96,7 @@ function duty_roster_landing_page(){
 
 if(!function_exists('duty_roster_can_manage_module')){
 function duty_roster_can_manage_module($con = null){
-    if(duty_roster_is_admin()){
+    if(duty_roster_is_admin() || duty_roster_is_assistant_head_administration()){
         return true;
     }
     if(!$con || !function_exists('um_current_user_can_access_module')){

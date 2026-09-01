@@ -13,7 +13,9 @@ include_once("counselling-utils.php");
 include_once("matron-utils.php");
 include_once("department-result-workflow-utils.php");
 include_once("student-permission-utils.php");
+include_once("administration-ops-utils.php");
 include_once("task-scheduler-utils.php");
+include_once("exam-timetable-utils.php");
 ensure_class_teacher_table($con);
 ensure_duty_roster_tables($con);
 ensure_student_attendance_tables($con);
@@ -24,7 +26,9 @@ ensure_counselling_tables($con);
 ensure_matron_tables($con);
 drw_ensure_tables($con);
 student_permission_ensure_table($con);
+administration_ops_ensure_tables($con);
 task_scheduler_ensure_tables($con);
+exam_timetable_ensure_tables($con);
 counselling_process_due_reminders($con);
 if(!(isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==="user" && $_SESSION['SYSTEMTYPE']==="Teacher")){
     header("location:".class_teacher_landing_page());
@@ -207,6 +211,7 @@ if($teacherFilename !== "" && file_exists(__DIR__.DIRECTORY_SEPARATOR."uploads".
     $teacherImage = "uploads/".rawurlencode($teacherFilename);
 }
 $dutyDashboard = duty_roster_get_teacher_dashboard_context($con, $teacherId);
+$teacherExamTimetableRows = exam_timetable_teacher_dashboard_rows($con, $teacherId, 8);
 $attendanceSummary = student_attendance_teacher_dashboard_summary($con, $teacherId);
 $teacherHasBillingModule = teacher_billing_teacher_has_module($con, $teacherId);
 $teacherBillingAssignments = $teacherHasBillingModule ? teacher_billing_fetch_assignments($con, $teacherId) : array();
@@ -530,6 +535,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" type="text/css" href="css/teacher-dashboard.css">
+<link rel="stylesheet" type="text/css" href="css/exam-dashboard.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>.teacher-notification-bell{position:fixed;top:76px;right:24px;z-index:999970}.teacher-notification-bell a{display:inline-flex;align-items:center;gap:8px;padding:10px 13px;border-radius:999px;background:#0f2f4a;color:#fff;text-decoration:none;font-weight:700;box-shadow:0 8px 20px rgba(15,47,74,.24)}.teacher-notification-bell .badge{display:inline-flex;min-width:19px;height:19px;align-items:center;justify-content:center;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;padding:0 4px}@media(max-width:680px){.teacher-notification-bell{top:70px;right:12px}.teacher-notification-bell a{padding:9px 11px;font-size:13px}}</style>
 </head>
@@ -615,6 +621,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
     </div>
     <div class="teacher-quick-grid">
         <?php if($teacherCanTakeAttendance){ ?>
+        <a class="teacher-action-card" href="teacher-welfare-report.php"><span class="teacher-action-card__icon"><i class="fa fa-heart"></i></span><h3>Report Welfare Concern</h3><p>Send a student welfare, discipline, safety, health, or attendance concern to Administration.</p></a>
         <a class="teacher-action-card" href="student-permission-review.php"><span class="teacher-action-card__icon"><i class="fa fa-check-square-o"></i></span><h3>Student Permission Requests</h3><p>Review and decide requests from students in your assigned class.</p></a>
         <?php } ?>
         <a class="teacher-action-card" href="staff-permission-request.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar-plus-o"></i></span><h3>Request Permission</h3><p>Submit an absence, medical, official-duty, or late-arrival request for approval.</p></a>
@@ -637,6 +644,7 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <a class="teacher-action-card" href="guidance-counselling.php"><span class="teacher-action-card__icon"><i class="fa fa-heartbeat"></i></span><h3>Counselling Cases<?php if($teacherCounsellingSoonCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherCounsellingSoonCount; ?> Soon</span><?php } ?><?php if((int)$teacherCounsellingSummary['pending_count'] > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherCounsellingSummary['pending_count']; ?> Pending</span><?php } ?></h3><p><?php echo $teacherCounsellingSoonCount > 0 ? "A counselling meeting starts soon. Open the case now and prepare for the session." : "Review student counselling requests, reply privately, and confirm the next session."; ?></p></a>
         <?php } ?>
         <a class="teacher-action-card" href="lesson-timetable-report.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Lesson Timetable</h3><p>Open your weekly lesson schedule and check today’s teaching periods quickly.</p></a>
+        <a class="teacher-action-card" href="academic-plan-view.php"><span class="teacher-action-card__icon"><i class="fa fa-map-signs"></i></span><h3>Academic Plan</h3><p>See the semester itinerary, key academic activities, assessments, examinations, and school breaks.</p></a>
         <a class="teacher-action-card" href="online-class.php"><span class="teacher-action-card__icon"><i class="fa fa-video-camera"></i></span><h3>Online Class</h3><p>Schedule a live class link for the right students and manage it from one page.</p></a>
         <a class="teacher-action-card" href="teacher-tasks.php"><span class="teacher-action-card__icon"><i class="fa fa-calendar-check-o"></i></span><h3>Task Scheduler</h3><p>Schedule homework, projects, and revision work with a clear date and time for your students.</p></a>
         <a class="teacher-action-card" href="teacher-task-submissions.php"><span class="teacher-action-card__icon"><i class="fa fa-inbox"></i></span><h3>Task Submissions</h3><p>Review work your students have returned and see whether it was submitted on time.</p></a>
@@ -647,6 +655,26 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <a class="teacher-action-card" href="online-voting.php"><?php if($teacherVotingSnapshot && !empty($teacherVotingSnapshot["contest"])){ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p><?php echo td_esc($teacherVotingSnapshot["contest"]["title"]); ?> is <?php echo td_esc(strtolower(voting_status_label($teacherVotingSnapshot["contest"]["resolved_status"]))); ?>.</p><?php }else{ ?><span class="teacher-action-card__icon"><i class="fa fa-trophy"></i></span><h3>Online Voting</h3><p>Voting details will appear when a contest is available.</p><?php } ?></a>
         <a class="teacher-action-card" href="teacher-store-requisition.php"><span class="teacher-action-card__icon"><i class="fa fa-archive"></i></span><h3>Store Requisition<?php if((int)$teacherStoreRequisitionSummary["pending"] > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherStoreRequisitionSummary["pending"]; ?> Store</span><?php } ?><?php if((int)$teacherStoreRequisitionSummary["awaiting_headmaster"] > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherStoreRequisitionSummary["awaiting_headmaster"]; ?> Head</span><?php } ?></h3><p><?php echo ((int)$teacherStoreRequisitionSummary["pending"] + (int)$teacherStoreRequisitionSummary["awaiting_headmaster"]) > 0 ? "You still have active store requests waiting for review or final approval." : "Request teaching items, office supplies, and other active store items from one place."; ?></p></a>
         <a class="teacher-action-card" href="messages.php"><span class="teacher-action-card__icon"><i class="fa fa-comments"></i></span><h3>Message Board<?php if($messageUnreadCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$messageUnreadCount; ?> New</span><?php } ?></h3><p><?php echo $messageUnreadCount > 0 ? number_format((int)$messageUnreadCount)." unread message".((int)$messageUnreadCount === 1 ? "" : "s")." waiting for you." : "Open the wider message board when you need more than the dashboard preview."; ?></p></a>
+    </div>
+</section>
+
+<section class="teacher-section teacher-exam-section">
+    <div class="teacher-section__heading">
+        <div><span class="teacher-section__eyebrow">Examinations</span><h2>My Invigilation Timetable</h2></div>
+        <span class="teacher-exam-section__count"><i class="fa fa-calendar-check-o"></i> <?php echo (int)count($teacherExamTimetableRows); ?> scheduled</span>
+    </div>
+    <div class="dashboard-exam-board dashboard-exam-board--teacher">
+        <?php if(count($teacherExamTimetableRows) > 0){ ?>
+            <?php foreach($teacherExamTimetableRows as $examPaper){ ?>
+            <article class="dashboard-exam-paper">
+                <div class="dashboard-exam-paper__date"><span><?php echo td_esc(date('D',strtotime((string)$examPaper['tabledate']))); ?></span><strong><?php echo td_esc(date('d M',strtotime((string)$examPaper['tabledate']))); ?></strong></div>
+                <div class="dashboard-exam-paper__main"><span class="dashboard-exam-type"><?php echo td_esc(exam_timetable_normalize_exam_type($examPaper['examtype'] ?? '')); ?></span><h3><?php echo td_esc($examPaper['subject']); ?></h3><p><i class="fa fa-users"></i> <?php echo td_esc($examPaper['class_name']); ?> &middot; <?php echo td_esc($examPaper['batch']); ?> &middot; Semester <?php echo td_esc($examPaper['termname']); ?></p></div>
+                <div class="dashboard-exam-paper__time"><i class="fa fa-clock-o"></i><strong><?php echo td_esc($examPaper['tablestarttime']); ?> – <?php echo td_esc($examPaper['tableendtime']); ?></strong><small>Your invigilation duty</small></div>
+            </article>
+            <?php } ?>
+        <?php }else{ ?>
+        <div class="dashboard-exam-empty"><i class="fa fa-calendar-o"></i><div><strong>No invigilation duty assigned yet.</strong><p>When the administrator selects your name for an examination paper, it will appear here automatically.</p></div></div>
+        <?php } ?>
     </div>
 </section>
 

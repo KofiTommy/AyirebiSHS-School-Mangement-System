@@ -50,6 +50,25 @@
     color: #5a6f87;
 }
 
+.exam-timetable-report-page-actions { margin-top: 16px; }
+
+.exam-timetable-report-print-page {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 999px;
+    background: #123f70;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.exam-timetable-report-print-page:hover { background: #176fb8; }
+
 .exam-timetable-report-hero-card {
     min-width: 220px;
     display: flex;
@@ -188,7 +207,7 @@
 
 .exam-timetable-report-table {
     width: 100%;
-    min-width: 920px;
+    min-width: 1060px;
     border-collapse: separate;
     border-spacing: 0;
     background: #ffffff;

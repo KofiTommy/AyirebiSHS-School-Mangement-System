@@ -1,0 +1,21 @@
+/* Keep the Academic Plan dropdown text clear against the form background. */
+.academic-plan-form-card select {
+    min-height: 46px;
+    background-color: #ffffff !important;
+    color: #17314b !important;
+    font-weight: 700;
+    line-height: 1.3;
+    appearance: auto;
+}
+
+.academic-plan-form-card select option {
+    background: #ffffff;
+    color: #17314b;
+    font-weight: 600;
+}
+
+.academic-plan-form-card select:focus {
+    outline: 0;
+    border-color: #176fb8;
+    box-shadow: 0 0 0 4px rgba(23, 111, 184, .13);
+}

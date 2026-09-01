@@ -13,6 +13,7 @@ include_once("counselling-utils.php");
 include_once("student-chat-utils.php");
 include_once("matron-utils.php");
 include_once("task-scheduler-utils.php");
+include_once("exam-timetable-utils.php");
 ensure_class_teacher_table($con);
 ensure_house_tables($con);
 ensure_voting_tables($con);
@@ -20,6 +21,7 @@ ensure_counselling_tables($con);
 student_chat_ensure_tables($con);
 ensure_matron_tables($con);
 task_scheduler_ensure_tables($con);
+exam_timetable_ensure_tables($con);
 counselling_process_due_reminders($con);
 
 if(!house_master_is_student()){
@@ -439,6 +441,7 @@ $studentPrivateChatEnabled = student_chat_is_enabled($con);
 $studentPrivateChatPendingCount = $studentPrivateChatEnabled ? student_chat_pending_inbound_count($con, $studentId) : 0;
 $studentVotingSnapshot = voting_dashboard_snapshot($con, voting_default_branch_id($con), 'Student');
 $studentWeeklyMenu = matron_current_week_menu_context($con, date('Y-m-d'), 'student');
+$studentExamTimetableRows = exam_timetable_student_dashboard_rows($con, $studentId, 8);
 
 $exeatTotal = 0;
 $exeatPending = 0;
@@ -660,6 +663,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" type="text/css" href="css/student-dashboard.css">
+<link rel="stylesheet" type="text/css" href="css/exam-dashboard.css">
 <style>.student-notification-bell{position:fixed;top:76px;right:24px;z-index:999970}.student-notification-bell a{display:inline-flex;align-items:center;gap:8px;padding:10px 13px;border-radius:999px;background:#0f2f4a;color:#fff;text-decoration:none;font-weight:700;box-shadow:0 8px 20px rgba(15,47,74,.24)}.student-notification-bell .badge{display:inline-flex;min-width:19px;height:19px;align-items:center;justify-content:center;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;padding:0 4px}@media(max-width:680px){.student-notification-bell{top:70px;right:12px}.student-notification-bell a{padding:9px 11px;font-size:13px}}</style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -729,6 +733,7 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <a class="student-action-card student-action-card--counselling" href="guidance-counselling.php"><span class="student-action-card__icon"><i class="fa fa-heartbeat"></i></span><h3>Guidance &amp; Counselling<?php if($studentCounsellingSoonCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$studentCounsellingSoonCount; ?> Soon</span><?php } ?></h3><p><?php echo $studentCounsellingSoonCount > 0 ? "Your counselling session starts soon. Open the case to review the meeting details." : "Book a private session with your dedicated counsellor and track the case here."; ?></p></a>
         <a class="student-action-card student-action-card--exam" href="examinationtimetablereport.php"><span class="student-action-card__icon"><i class="fa fa-calendar"></i></span><h3>Exam Timetable</h3></a>
         <a class="student-action-card student-action-card--timetable" href="lesson-timetable-report.php"><span class="student-action-card__icon"><i class="fa fa-clock-o"></i></span><h3>Lesson Timetable</h3></a>
+        <a class="student-action-card student-action-card--tasks" href="academic-plan-view.php"><span class="student-action-card__icon"><i class="fa fa-map-signs"></i></span><h3>Academic Plan</h3><p>See your semester itinerary, key learning dates, examinations, and breaks.</p></a>
         <a class="student-action-card student-action-card--online" href="online-class.php"><span class="student-action-card__icon"><i class="fa fa-video-camera"></i></span><h3>Join Class</h3><p>Open live class links shared by your teachers for your class.</p></a>
         <a class="student-action-card student-action-card--tasks" href="student-tasks.php"><span class="student-action-card__icon"><i class="fa fa-calendar-check-o"></i></span><h3>My Tasks<?php if($studentOpenTaskCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$studentOpenTaskCount; ?> To Do</span><?php } ?></h3><p><?php echo $studentOpenTaskCount > 0 ? 'See your teacher deadlines and submit your work in one place.' : 'Your homework, projects, and teacher-set deadlines will appear here.'; ?></p></a>
         <a class="student-action-card student-action-card--course" href="student-course-registration.php"><span class="student-action-card__icon"><i class="fa fa-list-alt"></i></span><h3>Course Registration</h3><p>Choose your semester courses from the class list when the school opens registration.</p></a>
@@ -739,6 +744,26 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <a class="student-action-card student-action-card--private-chat" href="student-chat.php"><span class="student-action-card__icon"><i class="fa fa-user-plus"></i></span><h3>Student Chat<?php if($studentPrivateChatPendingCount > 0){ ?><span class="student-action-card__badge"><?php echo (int)$studentPrivateChatPendingCount; ?> Request<?php echo (int)$studentPrivateChatPendingCount === 1 ? "" : "s"; ?></span><?php } ?></h3><p><?php echo $studentPrivateChatPendingCount > 0 ? "You have private chat request".((int)$studentPrivateChatPendingCount === 1 ? "" : "s")." waiting for your approval." : "Find fellow students and chat privately after approval."; ?></p></a>
         <?php } ?>
         <a class="student-action-card student-action-card--voting" href="clubs.php"><span class="student-action-card__icon"><i class="fa fa-users"></i></span><h3>Clubs &amp; Societies</h3><p>Join your crew, follow your interests, and chat only with approved club members.</p></a>
+    </div>
+</section>
+
+<section class="student-section student-exam-section">
+    <div class="student-section__heading">
+        <div><span class="student-section__eyebrow">Examinations</span><h2>My Examination Timetable</h2></div>
+        <span class="student-exam-section__count"><i class="fa fa-calendar-check-o"></i> <?php echo (int)count($studentExamTimetableRows); ?> paper<?php echo count($studentExamTimetableRows) === 1 ? '' : 's'; ?></span>
+    </div>
+    <div class="dashboard-exam-board dashboard-exam-board--student">
+        <?php if(count($studentExamTimetableRows) > 0){ ?>
+            <?php foreach($studentExamTimetableRows as $examPaper){ ?>
+            <article class="dashboard-exam-paper">
+                <div class="dashboard-exam-paper__date"><span><?php echo sd_esc(date('D',strtotime((string)$examPaper['tabledate']))); ?></span><strong><?php echo sd_esc(date('d M',strtotime((string)$examPaper['tabledate']))); ?></strong></div>
+                <div class="dashboard-exam-paper__main"><span class="dashboard-exam-type"><?php echo sd_esc(exam_timetable_normalize_exam_type($examPaper['examtype'] ?? '')); ?></span><h3><?php echo sd_esc($examPaper['subject']); ?></h3><p><i class="fa fa-graduation-cap"></i> <?php echo sd_esc($examPaper['class_name']); ?> &middot; <?php echo sd_esc($examPaper['batch']); ?> &middot; Semester <?php echo sd_esc($examPaper['termname']); ?></p><?php if(exam_timetable_display_invigilators($examPaper) !== ''){ ?><small>Invigilator: <?php echo sd_esc(exam_timetable_display_invigilators($examPaper)); ?></small><?php } ?></div>
+                <div class="dashboard-exam-paper__time"><i class="fa fa-clock-o"></i><strong><?php echo sd_esc($examPaper['tablestarttime']); ?> – <?php echo sd_esc($examPaper['tableendtime']); ?></strong><small>Be ready early</small></div>
+            </article>
+            <?php } ?>
+        <?php }else{ ?>
+        <div class="dashboard-exam-empty"><i class="fa fa-calendar-o"></i><div><strong>Your examination timetable is not available yet.</strong><p>Only papers for your registered class, semester, and academic year will appear here.</p></div></div>
+        <?php } ?>
     </div>
 </section>
 

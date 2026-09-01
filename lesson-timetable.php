@@ -46,11 +46,31 @@ $form = array(
     'weekday' => 'Monday',
     'subjectid' => '',
     'teacherid' => '',
+    'periodid' => '',
     'starttime' => '',
     'endtime' => '',
     'location' => '',
     'note' => ''
 );
+
+if(isset($_POST['save_timetable_period'])){
+    $periodName=trim((string)($_POST['periodname'] ?? ''));
+    $periodStart=trim((string)($_POST['periodstarttime'] ?? ''));
+    $periodEnd=trim((string)($_POST['periodendtime'] ?? ''));
+    $periodOrder=(int)($_POST['periodsortorder'] ?? 0);
+    if($periodName==='' || !lesson_timetable_valid_time($periodStart) || !lesson_timetable_valid_time($periodEnd) || $periodEnd <= $periodStart){
+        $_SESSION['LESSON_TIMETABLE_MESSAGE']=lt_flash('warning','Enter a period name and valid start and end times.');
+    }else{
+        $periodIdEsc=mysqli_real_escape_string($con,lesson_timetable_make_id('PERIOD'));
+        $periodNameEsc=mysqli_real_escape_string($con,substr($periodName,0,80));
+        $periodStartEsc=mysqli_real_escape_string($con,$periodStart);
+        $periodEndEsc=mysqli_real_escape_string($con,$periodEnd);
+        $recordedByEsc=mysqli_real_escape_string($con,(string)$_SESSION['USERID']);
+        $saved=@mysqli_query($con,"INSERT INTO tbllessonperiod(periodid,periodname,starttime,endtime,sortorder,status,datetimeentry,updatedat,recordedby) VALUES('$periodIdEsc','$periodNameEsc','$periodStartEsc','$periodEndEsc',$periodOrder,'active',NOW(),NOW(),'$recordedByEsc')");
+        $_SESSION['LESSON_TIMETABLE_MESSAGE']=$saved ? lt_flash('success','School period added. It is now available when scheduling lessons.') : lt_flash('error','That school period could not be saved. Period names must be unique.');
+    }
+    lt_redirect_with_filters($filterBatchId,$filterAcademicYear,$filterTermName,$filterClassId);
+}
 
 if(isset($_GET['delete_lesson']) && trim((string)$_GET['delete_lesson']) !== ''){
     $deleteId = mysqli_real_escape_string($con, trim((string)$_GET['delete_lesson']));
@@ -70,6 +90,7 @@ if(isset($_POST['save_lesson_timetable'])){
     $form['weekday'] = lesson_timetable_normalize_weekday(isset($_POST['weekday']) ? $_POST['weekday'] : '');
     $form['subjectid'] = trim((string)(isset($_POST['subjectid']) ? $_POST['subjectid'] : ''));
     $form['teacherid'] = trim((string)(isset($_POST['teacherid']) ? $_POST['teacherid'] : ''));
+    $form['periodid'] = trim((string)(isset($_POST['periodid']) ? $_POST['periodid'] : ''));
     $form['starttime'] = trim((string)(isset($_POST['starttime']) ? $_POST['starttime'] : ''));
     $form['endtime'] = trim((string)(isset($_POST['endtime']) ? $_POST['endtime'] : ''));
     $form['location'] = trim((string)(isset($_POST['location']) ? $_POST['location'] : ''));
@@ -79,6 +100,16 @@ if(isset($_POST['save_lesson_timetable'])){
     $filterAcademicYear = lesson_timetable_normalize_year(isset($_POST['filter_academicyear']) ? $_POST['filter_academicyear'] : $form['academicyear']);
     $filterTermName = trim((string)(isset($_POST['filter_termname']) ? $_POST['filter_termname'] : $form['termname']));
     $filterClassId = trim((string)(isset($_POST['filter_classid']) ? $_POST['filter_classid'] : $form['classid']));
+
+    if($form['periodid'] !== ''){
+        $periodRes=@mysqli_query($con,"SELECT starttime,endtime FROM tbllessonperiod WHERE periodid='".mysqli_real_escape_string($con,$form['periodid'])."' AND status='active' LIMIT 1");
+        if($periodRes && ($periodRow=mysqli_fetch_array($periodRes,MYSQLI_ASSOC))){
+            $form['starttime']=substr((string)$periodRow['starttime'],0,5);
+            $form['endtime']=substr((string)$periodRow['endtime'],0,5);
+        }else{
+            $form['periodid']='';
+        }
+    }
 
     if($form['batchid'] === '' || $form['academicyear'] === '' || $form['termname'] === '' || $form['classid'] === '' || $form['weekday'] === '' ||
        $form['subjectid'] === '' || $form['teacherid'] === '' || $form['starttime'] === '' || $form['endtime'] === ''){
@@ -93,6 +124,8 @@ if(isset($_POST['save_lesson_timetable'])){
         $flashMessage = lt_flash('error', 'That class already has another lesson scheduled during the selected time.');
     } elseif(lesson_timetable_has_teacher_overlap($con, $form['teacherid'], $form['academicyear'], $form['weekday'], $form['starttime'], $form['endtime'], $form['lessonid'])){
         $flashMessage = lt_flash('error', 'That teacher already has another lesson at the selected time.');
+    } elseif(lesson_timetable_has_location_overlap($con, $form['location'], $form['academicyear'], $form['weekday'], $form['starttime'], $form['endtime'], $form['lessonid'])){
+        $flashMessage = lt_flash('error', 'That room or location is already booked for another lesson at the selected time.');
     } else {
         $lessonId = $form['lessonid'] !== '' ? $form['lessonid'] : lesson_timetable_make_id('LESSON');
         $lessonIdEsc = mysqli_real_escape_string($con, $lessonId);
@@ -188,6 +221,7 @@ if($classResult){
 }
 
 $assignmentOptions = lesson_timetable_fetch_assignment_options($con, $form['batchid'], $form['academicyear'], $form['termname'], $form['classid']);
+$periodRows = lesson_timetable_fetch_periods($con);
 $teacherOptions = array();
 $subjectOptions = array();
 foreach($assignmentOptions as $option){
@@ -348,6 +382,16 @@ if(count($timeSlots) > 0){
                             </select>
                         </div>
                         <div class="lesson-form-field">
+                            <label for="periodid">School Period</label>
+                            <select id="periodid" name="periodid">
+                                <option value="">Custom time</option>
+                                <?php foreach($periodRows as $periodRow){ ?>
+                                <option value="<?php echo lesson_timetable_escape($periodRow['periodid']); ?>" data-start="<?php echo lesson_timetable_escape(substr((string)$periodRow['starttime'],0,5)); ?>" data-end="<?php echo lesson_timetable_escape(substr((string)$periodRow['endtime'],0,5)); ?>"<?php echo $form['periodid'] === $periodRow['periodid'] ? ' selected' : ''; ?>><?php echo lesson_timetable_escape($periodRow['periodname'].' · '.lesson_timetable_format_time($periodRow['starttime']).' - '.lesson_timetable_format_time($periodRow['endtime'])); ?></option>
+                                <?php } ?>
+                            </select>
+                            <small>Choose a period to fill its bell times automatically.</small>
+                        </div>
+                        <div class="lesson-form-field">
                             <label for="teacherid">Teacher</label>
                             <select id="teacherid" name="teacherid" required>
                                 <option value="">Select Teacher</option>
@@ -376,6 +420,7 @@ if(count($timeSlots) > 0){
                         <div class="lesson-form-field lesson-form-field--full">
                             <label for="location">Location</label>
                             <input type="text" id="location" name="location" value="<?php echo lesson_timetable_escape($form['location']); ?>" placeholder="Optional room, lab, or block">
+                            <small>A room, lab, or block cannot be booked by two lessons at the same time.</small>
                         </div>
                         <div class="lesson-form-field lesson-form-field--full">
                             <label for="note">Note</label>
@@ -457,6 +502,31 @@ if(count($timeSlots) > 0){
             </div>
         </section>
     </div>
+
+    <section class="lesson-card lesson-print-hide" style="margin-top:16px;">
+        <div class="lesson-card__header">
+            <div>
+                <h2>School Bell Periods</h2>
+                <p>Create your standard lesson periods once. They keep times consistent across the whole timetable.</p>
+            </div>
+            <span class="lesson-pill"><?php echo count($periodRows); ?> period<?php echo count($periodRows) === 1 ? '' : 's'; ?></span>
+        </div>
+        <div class="lesson-card__body">
+            <form method="post" action="lesson-timetable.php" class="lesson-form">
+                <input type="hidden" name="filter_batchid" value="<?php echo lesson_timetable_escape($filterBatchId); ?>">
+                <input type="hidden" name="filter_academicyear" value="<?php echo lesson_timetable_escape($filterAcademicYear); ?>">
+                <input type="hidden" name="filter_termname" value="<?php echo lesson_timetable_escape($filterTermName); ?>">
+                <input type="hidden" name="filter_classid" value="<?php echo lesson_timetable_escape($filterClassId); ?>">
+                <div class="lesson-form-grid">
+                    <div class="lesson-form-field"><label for="periodname">Period name</label><input id="periodname" name="periodname" placeholder="e.g. Period 1" required></div>
+                    <div class="lesson-form-field"><label for="periodstarttime">Starts</label><input id="periodstarttime" name="periodstarttime" type="time" required></div>
+                    <div class="lesson-form-field"><label for="periodendtime">Ends</label><input id="periodendtime" name="periodendtime" type="time" required></div>
+                    <div class="lesson-form-field"><label for="periodsortorder">Display order</label><input id="periodsortorder" name="periodsortorder" type="number" min="0" value="<?php echo count($periodRows)+1; ?>" required></div>
+                </div>
+                <div class="lesson-form-actions"><button class="lesson-btn lesson-btn--secondary" name="save_timetable_period" value="1" type="submit"><i class="fa fa-clock-o"></i> Add School Period</button></div>
+            </form>
+        </div>
+    </section>
 
     <section class="lesson-card">
         <div class="lesson-card__header">
@@ -615,6 +685,19 @@ if(count($timeSlots) > 0){
         var selects = document.querySelectorAll('.lesson-form select');
         for(var i = 0; i < selects.length; i++){
             enhanceSelect(selects[i]);
+        }
+        var periodSelect = document.getElementById('periodid');
+        var startInput = document.getElementById('starttime');
+        var endInput = document.getElementById('endtime');
+        if(periodSelect && startInput && endInput){
+            periodSelect.addEventListener('change', function(){
+                var option = periodSelect.options[periodSelect.selectedIndex];
+                if(!option || !option.value){ return; }
+                var start = option.getAttribute('data-start') || '';
+                var end = option.getAttribute('data-end') || '';
+                if(start){ startInput.value = start; }
+                if(end){ endInput.value = end; }
+            });
         }
     });
 })();

@@ -90,7 +90,7 @@ if(isset($_POST['request_exeat'])){
 <div>
 <span class="student-exeat-kicker">Student exeat</span>
 <h1>Request Permission To Leave</h1>
-<p>Submit an internal or external exeat request and track the decision from your house master.</p>
+<p>Internal requests are decided by house staff. External requests are reviewed by house staff and then sent to the Senior House Master/Mistress for final approval.</p>
 </div>
 <div class="student-exeat-hero-card">
 <i class="fa fa-calendar-check-o"></i>
@@ -183,10 +183,12 @@ while($row=mysqli_fetch_array($_SQL,MYSQLI_ASSOC)){
     $_Status = strtolower(trim((string)($row['status'] ?? 'pending')));
     $_StatusClass = "student-exeat-status-pending";
     if($_Status === "approved"){ $_StatusClass = "student-exeat-status-approved"; }
+    if($_Status === "awaiting_senior"){ $_StatusClass = "student-exeat-status-pending"; }
     if($_Status === "declined" || $_Status === "rejected"){ $_StatusClass = "student-exeat-status-declined"; }
     echo "<tr>";
     echo "<td align='center'>".htmlspecialchars(ucfirst($_Type))."</td>";
-    echo "<td align='center'><span class='student-exeat-status $_StatusClass'>".htmlspecialchars(ucfirst((string)$row['status']))."</span></td>";
+    $_StatusDisplay = ucfirst(str_replace('_' , ' ', (string)$row['status']));
+    echo "<td align='center'><span class='student-exeat-status $_StatusClass'>".htmlspecialchars($_StatusDisplay)."</span></td>";
     echo "<td align='center'>".htmlspecialchars($row['housename'])."</td>";
     echo "<td>".htmlspecialchars($row['reason'])."</td>";
     echo "<td align='center'>".htmlspecialchars(trim($_Departure))."</td>";

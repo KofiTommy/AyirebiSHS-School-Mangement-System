@@ -635,6 +635,15 @@ function um_assignable_module_keys_for_role($roleKey){
             'course_registration'
         );
     }
+    if($roleKey === 'assistant_head_administration'){
+        return array(
+            'student_search',
+            'student_attendance',
+            'duty_roster',
+            'house_management',
+            'notice_communication'
+        );
+    }
     if($roleKey === 'student'){
         return array();
     }
@@ -875,6 +884,9 @@ function um_home_link_for_session(){
     if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'AssistantHeadAcademic'){
         return 'assistant-head-academics-page.php';
     }
+    if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'AssistantHeadAdministration'){
+        return 'assistant-head-administration-page.php';
+    }
     if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'User'){
         return 'user.php';
     }
@@ -960,6 +972,22 @@ function um_baseline_scripts_for_role($roleKey){
     if($roleKey === 'assistant_head_academics'){
         return array(
             'assistant-head-academics-page.php'
+        );
+    }
+    if($roleKey === 'assistant_head_administration'){
+        return array(
+            'assistant-head-administration-page.php',
+            'staff-permission-review.php',
+            'duty-roster.php',
+            'student-attendance-report.php',
+            'transport-management.php',
+            'transport-student-assignment.php',
+            'messages.php',
+            'internal-exam-analysis.php',
+            'academic-plan.php',
+            'academic-plan-view.php',
+            'viewstudents.php',
+            'viewusers.php'
         );
     }
     return array();
@@ -1111,6 +1139,13 @@ function um_is_assistant_head_academics_user(){
 }
 }
 
+if(!function_exists('um_is_assistant_head_administration_user')){
+function um_is_assistant_head_administration_user(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === 'user' &&
+        $_SESSION['SYSTEMTYPE'] === 'AssistantHeadAdministration';
+}
+}
 if(!function_exists('um_is_academic_lead_user')){
 function um_is_academic_lead_user(){
     return (function_exists('um_is_headmaster_user') && um_is_headmaster_user()) ||
@@ -1140,6 +1175,13 @@ function um_role_profiles(){
             'accesslevel' => 'user',
             'systemtype' => 'AssistantHeadAcademic',
             'description' => 'Academic leadership dashboard account.',
+            'super_only' => false
+        ),
+        'assistant_head_administration' => array(
+            'label' => 'Assistant Headmaster Administration',
+            'accesslevel' => 'user',
+            'systemtype' => 'AssistantHeadAdministration',
+            'description' => 'School operations, welfare, logistics, and administration dashboard account.',
             'super_only' => false
         ),
         'branch_admin' => array(
@@ -1197,6 +1239,9 @@ function um_role_key_from_user($row){
     if($accessLevel === 'user' && $systemType === 'AssistantHeadAcademic'){
         return 'assistant_head_academics';
     }
+    if($accessLevel === 'user' && $systemType === 'AssistantHeadAdministration'){
+        return 'assistant_head_administration';
+    }
     if($systemType === 'Teacher'){
         return 'teacher';
     }
@@ -1231,6 +1276,8 @@ function um_generate_userid($roleKey = 'office_user'){
         $prefix = 'HDM';
     }elseif($roleKey === 'assistant_head_academics'){
         $prefix = 'AHA';
+    }elseif($roleKey === 'assistant_head_administration'){
+        $prefix = 'AHD';
     }elseif($roleKey === 'branch_admin'){
         $prefix = 'ADM';
     }elseif($roleKey === 'system_admin'){

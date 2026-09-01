@@ -1,0 +1,34 @@
+.exam-timetable-page .invigilator-search { margin-bottom: 8px; }
+.exam-timetable-page .invigilator-checklist {
+    max-height: 210px;
+    overflow-y: auto;
+    padding: 7px;
+    border: 1px solid #d7e1ed;
+    border-radius: 12px;
+    background: #f8fbff;
+}
+.exam-timetable-page .invigilator-checklist label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 9px 8px;
+    border-radius: 8px;
+    color: #20364d;
+    font-weight: 600;
+    cursor: pointer;
+}
+.exam-timetable-page .invigilator-checklist label:hover { background: #e6f1ff; }
+.exam-timetable-page .invigilator-checklist input[type=checkbox] {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 auto;
+    accent-color: #176fb8;
+}
+.exam-timetable-page .form-entry small {
+    display: block;
+    margin-top: 7px;
+    color: #60758b;
+    font-size: .78rem;
+    line-height: 1.4;
+}

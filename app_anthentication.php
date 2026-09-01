@@ -54,7 +54,10 @@ $_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsystemuser su  WHERE su.userna
 				elseif($_AccessLevel=="user" && $_SystemType=="Teacher"){
 					header("location:teacher-page.php");
 				}
-				elseif($_AccessLevel=="user" && $_SystemType=="User"){
+				elseif($_AccessLevel=="user" && $_SystemType=="AssistantHeadAdministration"){
+				header("location:assistant-head-administration-page.php");
+			}
+			elseif($_AccessLevel=="user" && $_SystemType=="User"){
 					header("location:user.php");
 				}	
 			}

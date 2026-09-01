@@ -1,0 +1,58 @@
+/* Manager-specific details, using the same report-page visual system. */
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry,
+.exam-timetable-manager-page .exam-timetable-manager-list .exam-timetable-list-card {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry + .form-entry { margin-top: 24px; }
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry h3 {
+    margin: 0 0 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e1eaf4;
+    color: #12365d;
+    font-size: 1rem;
+}
+
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry select,
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry input[type=time],
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry input[type=text] {
+    width: 100%;
+    box-sizing: border-box;
+    display: block;
+    margin: 0 0 14px;
+}
+
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry form > br { display: none; }
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry label {
+    display: block;
+    margin: 0 0 7px;
+}
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry .invigilator-checklist label {
+    display: flex;
+    margin: 0;
+}
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry .invigilator-checklist {
+    margin: -6px 0 8px;
+}
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry small { margin: 0 0 14px; }
+.exam-timetable-manager-page .exam-timetable-manager-entry .form-entry form > div[align="center"] { margin-top: 6px; }
+
+.exam-timetable-manager-page .exam-timetable-manager-list .exam-timetable-list-card > table { margin-top: 0; }
+.exam-timetable-manager-page .exam-timetable-manager-list .exam-timetable-list-card > table caption {
+    padding: 0 0 16px;
+    text-align: left;
+    background: transparent;
+}
+
+@media print {
+    .exam-timetable-manager-page .exam-timetable-manager-entry,
+    .exam-timetable-manager-page .exam-timetable-report-page-actions,
+    .exam-timetable-manager-page #myBtn { display: none !important; }
+    .exam-timetable-manager-page { padding: 0; background: #fff; }
+    .exam-timetable-manager-page .exam-timetable-report-hero { border: 0; box-shadow: none; padding: 0 0 16px; }
+    .exam-timetable-manager-page .exam-timetable-manager-layout { display: block; }
+}

@@ -1,0 +1,79 @@
+/* Match the clean card layout used across the newer school portal pages. */
+.exam-timetable-page .exam-timetable-shell { max-width: 1380px; padding: 26px; }
+.exam-timetable-page .exam-timetable-hero { margin-bottom: 22px; }
+
+.exam-timetable-page .main-platform > table {
+    border-collapse: separate;
+    border-spacing: 18px;
+    background: transparent !important;
+}
+
+.exam-timetable-page .exam-timetable-form-column,
+.exam-timetable-page .exam-timetable-list-column { vertical-align: top; }
+
+.exam-timetable-page .exam-timetable-form-column > .form-entry,
+.exam-timetable-page .exam-timetable-list-card {
+    border: 1px solid rgba(19, 65, 116, .13);
+    box-shadow: 0 16px 36px rgba(21, 54, 91, .09);
+}
+
+.exam-timetable-page .exam-timetable-list-card { min-height: 100%; }
+.exam-timetable-page .exam-timetable-list-card > table { margin-top: 4px; }
+.exam-timetable-page .exam-timetable-list-card > table caption {
+    padding: 4px 0 16px;
+    background: transparent;
+    color: #12365d;
+    font-size: 1.08rem;
+    letter-spacing: .02em;
+}
+
+.exam-timetable-page .exam-timetable-list-card > table thead th {
+    padding: 13px 12px;
+    background: #123f70 !important;
+    color: #ffffff !important;
+    border-right: 1px solid rgba(255, 255, 255, .28);
+    font-weight: 800;
+    text-shadow: none;
+}
+
+.exam-timetable-page .exam-timetable-list-card > table thead th:last-child { border-right: 0; }
+
+.exam-timetable-page .exam-timetable-list-card > table tbody td { padding: 12px; }
+
+.exam-timetable-page .exam-timetable-hero-actions { margin-top: 17px; }
+.exam-timetable-page .exam-timetable-hero-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 999px;
+    background: #123f70;
+    color: #ffffff;
+    font-weight: 800;
+    cursor: pointer;
+}
+.exam-timetable-page .exam-timetable-hero-actions button:hover { background: #176fb8; }
+
+@media (max-width: 850px) {
+    .exam-timetable-page .exam-timetable-shell { padding: 14px; }
+    .exam-timetable-page .main-platform > table { border-spacing: 0; }
+    .exam-timetable-page .exam-timetable-form-column,
+    .exam-timetable-page .exam-timetable-list-column { padding-bottom: 16px; }
+}
+
+@media (max-width: 520px) {
+    .exam-timetable-page .exam-timetable-shell { padding: 10px; }
+    .exam-timetable-page .exam-timetable-list-card > table thead th,
+    .exam-timetable-page .exam-timetable-list-card > table tbody td { padding: 11px 10px; }
+}
+
+@media print {
+    .exam-timetable-page .header,
+    .exam-timetable-page .exam-timetable-hero-actions,
+    .exam-timetable-page .exam-timetable-form-column,
+    .exam-timetable-page #myBtn { display: none !important; }
+    .exam-timetable-page .exam-timetable-shell { max-width: none; padding: 0; }
+    .exam-timetable-page .exam-timetable-hero { box-shadow: none; border: 0; padding: 0 0 18px; }
+}

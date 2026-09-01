@@ -2,6 +2,15 @@
 session_start();
 $_SESSION['Message']="";
 include("check-login.php");
+include_once("exam-timetable-utils.php");
+
+function exam_timetable_report_ensure_invigilator_column($con)
+{
+    $column = @mysqli_query($con,"SHOW COLUMNS FROM tbltimetable LIKE 'invigilators'");
+    if(!$column || mysqli_num_rows($column) === 0){
+        @mysqli_query($con,"ALTER TABLE tbltimetable ADD COLUMN invigilators VARCHAR(255) NOT NULL DEFAULT '' AFTER subjectid");
+    }
+}
 
 class Days{
 var $_days;
@@ -56,8 +65,11 @@ if(isset($_POST["print_timetable"]))
 @$_ClassID=$_POST["class"];
 @$_Term=$_POST["termname"];
 @$_Batch=$_POST["batch"];
-
+$_ExamType=exam_timetable_normalize_exam_type(isset($_POST['examtype']) ? $_POST['examtype'] : '');
 include("dbstring.php");
+$_ExamTypeEsc=mysqli_real_escape_string($con,$_ExamType);
+exam_timetable_report_ensure_invigilator_column($con);
+exam_timetable_ensure_tables($con);
 include("config.php");
 include("company.php");             
 require('fpdf181/fpdf.php');
@@ -65,7 +77,7 @@ require('fpdf181/fpdf.php');
 $pdf = new FPDF();
 $pdf->AddPage();
 
-$width_cell=array(40,70,40,45,20);
+$width_cell=array(28,58,34,35,45);
 $pdf->SetFont('Arial','B',14);
 //Background color of header//
 //Heading of the pdf
@@ -98,7 +110,7 @@ if($row3=mysqli_fetch_array($_SQL3,MYSQLI_ASSOC)){
 $_Batch_ID=$row3["batch"];
 }
 
-$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4],10,'EXAMINATION TIME TABLE',0,0,'C',true);
+$pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4],10,strtoupper($_ExamType).' TIME TABLE',0,0,'C',true);
 $pdf->Ln($k);
 $pdf->Cell($width_cell[0]+$width_cell[1]+$width_cell[2]+$width_cell[3]+$width_cell[4],10,'CLASS :'.$_ClassName. '       Batch :'. $_Batch_ID. '     Semester: '.$_Term,0,0,'C',true);
 $pdf->Ln($k);
@@ -116,6 +128,7 @@ $pdf->Cell($width_cell[1],10,'SUBJECT',1,0,'C',true);
 $pdf->Cell($width_cell[2],10,'TIME',1,0,'C',true);
 //Fourth header column
 $pdf->Cell($width_cell[3],10,'DATE',1,0,'C',true);
+$pdf->Cell($width_cell[4],10,'INVIGILATOR(S)',1,0,'C',true);
 
 ///header ends///
 $pdf->SetFont('Arial','',10);
@@ -129,9 +142,9 @@ $pdf->Ln(10);
 
 //$sql1 = "SELECT * FROM tbltimetable WHERE class_entryid='$_ClassID' AND termname='$_Term' AND batchid='$_Batch'";
 
-$_SQL=mysqli_query($con,"SELECT * FROM tbltimetable tt INNER JOIN tblclassentry ce ON tt.class_entryid=ce.class_entryid
-INNER JOIN tblbatch bch  ON tt.batchid=bch.batchid INNER JOIN tblsubject sub ON tt.subjectid=sub.subjectid
-WHERE tt.class_entryid='$_ClassID' AND tt.termname='$_Term' AND tt.batchid='$_Batch' ORDER BY tt.tabledate ASC");
+$_SQL=mysqli_query($con,"SELECT tt.*,ce.class_name,bch.batch,sub.subject,exam_invigilators.selected_invigilators FROM tbltimetable tt INNER JOIN tblclassentry ce ON tt.class_entryid=ce.class_entryid
+INNER JOIN tblbatch bch ON tt.batchid=bch.batchid INNER JOIN tblsubject sub ON tt.subjectid=sub.subjectid ".exam_timetable_invigilator_subquery()."
+WHERE tt.class_entryid='$_ClassID' AND tt.termname='$_Term' AND tt.batchid='$_Batch' AND tt.examtype='$_ExamTypeEsc' ORDER BY tt.tabledate ASC");
 
 $count = mysqli_num_rows( $_SQL);
 @$serial =0;
@@ -148,6 +161,7 @@ if($count>0)
     $pdf->Cell($width_cell[1],10,$row['subject'],1,0,'L',$fill);
     $pdf->Cell($width_cell[2],10,$row['tablestarttime']."-".$row['tableendtime'],1,0,'C',$fill);
     $pdf->Cell($width_cell[3],10,$row['tabledate'],1,0,'C',$fill);
+    $pdf->Cell($width_cell[4],10,exam_timetable_display_invigilators($row) ?: '-',1,0,'L',$fill);
     
     $fill = !$fill;
     $pdf->Ln(10);                 
@@ -164,6 +178,8 @@ mysqli_close($con);
 
 <?php
 include("dbstring.php");
+exam_timetable_report_ensure_invigilator_column($con);
+exam_timetable_ensure_tables($con);
 //@$_ClassId=$_POST['classid'];
 @$_SubjectId=$_POST['subjectid'];
 @$_ClassId=$_POST['class'];
@@ -172,6 +188,7 @@ include("dbstring.php");
 @$_StartTime=$_POST['starttime'];
 @$_EndTime=$_POST['endtime'];
 @$_Tabledate=$_POST['timetabledate'];
+$_InvigilatorsSafe=mysqli_real_escape_string($con,trim((string)($_POST['invigilators'] ?? '')));
 @$_Recordedby=$_SESSION['USERID'];
 
 if(isset($_POST['save_timetable']))
@@ -182,8 +199,8 @@ include("code.php");
 @$_Transaction_Code=$transaction_id;
 @$_TransId=0;
 
-$_SQL_Time=mysqli_query($con,"INSERT INTO tbltimetable(timeid,subjectid,tablestarttime,tableendtime,tabledate,class_entryid,termname,batchid,recordedby,status)
-	VALUES('$_TimeId','$_SubjectId','$_StartTime','$_EndTime',STR_TO_DATE('$_Tabledate','%d-%m-%Y'),'$_ClassId','$_Term','$_Batch','$_SESSION[USERID]','active')");
+$_SQL_Time=mysqli_query($con,"INSERT INTO tbltimetable(timeid,subjectid,invigilators,tablestarttime,tableendtime,tabledate,class_entryid,termname,batchid,recordedby,status)
+	VALUES('$_TimeId','$_SubjectId','$_InvigilatorsSafe','$_StartTime','$_EndTime',STR_TO_DATE('$_Tabledate','%d-%m-%Y'),'$_ClassId','$_Term','$_Batch','$_SESSION[USERID]','active')");
 if($_SQL_Time){
 $_SESSION['Message']=$_SESSION['Message']."<div style='color:green;text-align:left;background-color:white;padding:5px;'><i class='fa fa-check' style='color:green'></i> Time Table Successfully Saved</div>";
 }
@@ -278,6 +295,7 @@ function getStudentBill(str)
 			<span class="exam-timetable-report-kicker">Examination timetable</span>
 			<h1>Examination Timetable Report</h1>
 			<p>Select the class, semester and batch to print the examination timetable, while reviewing all scheduled papers below.</p>
+			<div class="exam-timetable-report-page-actions"><button type="button" class="exam-timetable-report-print-page" onclick="window.print()"><i class="fa fa-print"></i> Print This Page</button></div>
 		</div>
 		<div class="exam-timetable-report-hero-card">
 			<i class="fa fa-calendar"></i>
@@ -324,19 +342,20 @@ if(
 elseif( $_SESSION['SYSTEMTYPE']=="Student")
 {
 
-$_SQL_C=mysqli_query($con,"SELECT * FROM tblclass cl WHERE cl.userid='$_SESSION[USERID]'");
+$_StudentIdEsc=mysqli_real_escape_string($con,$_SESSION['USERID']);
+$_SQL_C=mysqli_query($con,"SELECT DISTINCT ce.class_entryid,ce.class_name
+    FROM tblclass cl
+    INNER JOIN tblclassentry ce ON ce.class_entryid=cl.class_entryid
+    WHERE cl.userid='$_StudentIdEsc' AND cl.status='active'
+    ORDER BY ce.class_name ASC");
 
 		echo "<div class='exam-timetable-report-field'>";
 		echo "<label for='class'>Class</label>";
 		echo "<select id='class' name='class' class='validate[required]'>";
+		echo "<option value=''>Select Class</option>";
 		while($rows=mysqli_fetch_array($_SQL_C,MYSQLI_ASSOC))
-		{	
-		$_SQL_2=mysqli_query($con,"SELECT * FROM tblclassentry WHERE class_entryid='$rows[class_entryid]'");
-
-			echo "<option value=''>Select Class</option>";
-			while($row=mysqli_fetch_array($_SQL_2,MYSQLI_ASSOC)){
-			echo "<option value='$row[class_entryid]'>$row[class_name]</option>";
-			}
+		{
+			echo "<option value='$rows[class_entryid]'>$rows[class_name]</option>";
 		}
 		echo "</select>";
 		echo "</div>";
@@ -349,6 +368,13 @@ $_SQL_C=mysqli_query($con,"SELECT * FROM tblclass cl WHERE cl.userid='$_SESSION[
 				<option value="" >Select Semester</option>
 				<option value="1">1</option>
 				<option value="2">2</option>
+			</select>
+			</div>
+
+			<div class="exam-timetable-report-field">
+			<label for="examtype">Examination Type</label>
+			<select id="examtype" name="examtype" class="validate[required]">
+				<?php foreach(exam_timetable_exam_types() as $_ExamTypeOption){ ?><option value="<?php echo htmlspecialchars($_ExamTypeOption,ENT_QUOTES,'UTF-8'); ?>"><?php echo htmlspecialchars($_ExamTypeOption,ENT_QUOTES,'UTF-8'); ?></option><?php } ?>
 			</select>
 			</div>
 
@@ -380,16 +406,18 @@ $_SQL_C=mysqli_query($con,"SELECT * FROM tblclass cl WHERE cl.userid='$_SESSION[
 			</div>
 	<?php
 	include("dbstring.php");
-	$_SQL=mysqli_query($con,"SELECT * FROM tbltimetable tt INNER JOIN tblclassentry ce ON tt.class_entryid=ce.class_entryid
-	INNER JOIN tblbatch bch  ON tt.batchid=bch.batchid INNER JOIN tblsubject sub ON tt.subjectid=sub.subjectid");
+	exam_timetable_report_ensure_invigilator_column($con);
+	exam_timetable_ensure_tables($con);
+	$_SQL=mysqli_query($con,"SELECT tt.*,ce.class_name,bch.batch,sub.subject,exam_invigilators.selected_invigilators FROM tbltimetable tt INNER JOIN tblclassentry ce ON tt.class_entryid=ce.class_entryid
+	INNER JOIN tblbatch bch ON tt.batchid=bch.batchid INNER JOIN tblsubject sub ON tt.subjectid=sub.subjectid ".exam_timetable_invigilator_subquery());
 	echo "<div class='exam-timetable-report-table-wrap'>";
 	echo "<table class='exam-timetable-report-table'>";
 	echo "<caption>EXAMINATION TIME TABLE</caption>";
-	echo "<thead><tr><th>*</th><th>DAY</th><th>START TIME</th><th>END TIME</th><th>DATE</th><th>SUBJECT</th><th>CLASS</th><th>SEMESTER</th><th>BATCH</th></tr></thead>";
+	echo "<thead><tr><th>*</th><th>DAY</th><th>START TIME</th><th>END TIME</th><th>DATE</th><th>EXAM TYPE</th><th>SUBJECT</th><th>INVIGILATOR(S)</th><th>CLASS</th><th>SEMESTER</th><th>BATCH</th></tr></thead>";
 	echo "<tbody>";
 	@$serial=0;
 	if($_SQL && mysqli_num_rows($_SQL)<1){
-	echo "<tr><td colspan='9' class='exam-timetable-report-empty-row'>No examination timetable entries found.</td></tr>";
+	echo "<tr><td colspan='11' class='exam-timetable-report-empty-row'>No examination timetable entries found.</td></tr>";
 	}
 	while($row=mysqli_fetch_array($_SQL,MYSQLI_ASSOC)){
 	echo "<tr>";
@@ -418,10 +446,16 @@ $_SQL_C=mysqli_query($con,"SELECT * FROM tblclass cl WHERE cl.userid='$_SESSION[
 	echo "<td align='center'>";
 	echo $row['tabledate'];
 	echo "</td>";
+	echo "<td>";
+	echo htmlspecialchars(exam_timetable_normalize_exam_type($row['examtype'] ?? ''),ENT_QUOTES,'UTF-8');
+	echo "</td>";
 	
 
 	echo "<td>";
 	echo $row['subject'];
+	echo "</td>";
+	echo "<td>";
+	echo htmlspecialchars(exam_timetable_display_invigilators($row),ENT_QUOTES,'UTF-8');
 	echo "</td>";
 	echo "<td align='center'>";
 	echo $row['class_name'];

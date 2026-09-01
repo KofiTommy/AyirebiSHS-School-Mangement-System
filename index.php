@@ -219,7 +219,10 @@ else{
 				elseif($_AccessLevel=="user" && $_SystemType=="AssistantHeadAcademic"){
 					header("location:assistant-head-academics-page.php");
 				}
-				elseif($_AccessLevel=="user" && $_SystemType=="User"){
+				elseif($_AccessLevel=="user" && $_SystemType=="AssistantHeadAdministration"){
+				header("location:assistant-head-administration-page.php");
+			}
+			elseif($_AccessLevel=="user" && $_SystemType=="User"){
 					header("location:user.php");
 				}	
 			}

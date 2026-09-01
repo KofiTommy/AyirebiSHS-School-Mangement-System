@@ -290,6 +290,18 @@ function ensure_house_tables($con){
     if(!$returnedByCol || mysqli_num_rows($returnedByCol) === 0){
         mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN returnedby VARCHAR(30) NULL AFTER actualreturndatetime");
     }
+    $teacherForwardedByCol = mysqli_query($con, "SHOW COLUMNS FROM tblexeatrequest LIKE 'teacherforwardedby'");
+    if(!$teacherForwardedByCol || mysqli_num_rows($teacherForwardedByCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN teacherforwardedby VARCHAR(30) NULL AFTER decisiondatetime");
+    }
+    $teacherForwardedAtCol = mysqli_query($con, "SHOW COLUMNS FROM tblexeatrequest LIKE 'teacherforwardeddatetime'");
+    if(!$teacherForwardedAtCol || mysqli_num_rows($teacherForwardedAtCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN teacherforwardeddatetime DATETIME NULL AFTER teacherforwardedby");
+    }
+    $teacherForwardNoteCol = mysqli_query($con, "SHOW COLUMNS FROM tblexeatrequest LIKE 'teacherforwardnote'");
+    if(!$teacherForwardNoteCol || mysqli_num_rows($teacherForwardNoteCol) === 0){
+        mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN teacherforwardnote VARCHAR(255) NULL AFTER teacherforwardeddatetime");
+    }
     $returnNoteCol = mysqli_query($con, "SHOW COLUMNS FROM tblexeatrequest LIKE 'returnnote'");
     if(!$returnNoteCol || mysqli_num_rows($returnNoteCol) === 0){
         mysqli_query($con, "ALTER TABLE tblexeatrequest ADD COLUMN returnnote VARCHAR(255) NULL AFTER returnedby");
@@ -771,6 +783,21 @@ function notify_house_masters_new_exeat($con, $houseId, $studentName, $exeatType
         }else{
             $summary["failed"]++;
         }
+    }
+    return true;
+}
+}
+if(!function_exists('notify_senior_house_external_exeat')){
+function notify_senior_house_external_exeat($con, $studentName, $departureText, $returnText, &$summary = null){
+    $summary = array('sent'=>0,'failed'=>0,'no_phone'=>0,'total'=>0);
+    $res = mysqli_query($con, "SELECT DISTINCT su.mobile FROM tblseniorhouseauthority sha INNER JOIN tblsystemuser su ON su.userid=sha.userid WHERE sha.status='active' AND su.status='active'");
+    if(!$res){ return false; }
+    $message = 'External exeat awaiting your final approval: '.trim((string)$studentName).'. Out: '.trim((string)$departureText).'. Return: '.trim((string)$returnText).'.';
+    while($row = mysqli_fetch_array($res, MYSQLI_ASSOC)){
+        $summary['total']++; $phone = trim((string)$row['mobile']);
+        if($phone === ''){ $summary['no_phone']++; continue; }
+        $code = ''; $ok = send_bulk_sms_message($phone, $message, $code);
+        if($ok){ $summary['sent']++; }else{ $summary['failed']++; }
     }
     return true;
 }

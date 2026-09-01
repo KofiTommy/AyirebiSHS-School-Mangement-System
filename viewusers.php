@@ -34,9 +34,11 @@ function teacher_list_redirect()
 }
 
 $isHeadmasterViewer = function_exists('um_is_headmaster_user') && um_is_headmaster_user();
+$isAssistantAdminViewer = function_exists('um_is_assistant_head_administration_user') && um_is_assistant_head_administration_user();
+$isReadOnlyViewer = $isHeadmasterViewer || $isAssistantAdminViewer;
 $canManageTeachers = function_exists('um_is_admin_manager') && um_is_admin_manager();
 
-if (!$isHeadmasterViewer && !$canManageTeachers) {
+if (!$isReadOnlyViewer && !$canManageTeachers) {
     $_SESSION['Message'] = "<div class='teacher-directory-flash teacher-directory-flash--error'>You do not have access to the teachers list.</div>";
     header("Location: " . (function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php"));
     exit;
@@ -171,7 +173,7 @@ if ($_SQL_EXECUTE) {
             <div class="teacher-directory-hero__copy">
                 <span class="teacher-directory-eyebrow">Staff Directory</span>
                 <h1>Teachers List</h1>
-                <p><?php echo $isHeadmasterViewer ? "Review the teacher directory, open staff profiles, and print the list when needed." : "Review the full teacher directory, search quickly, and print a staff list when needed."; ?></p>
+                <p><?php echo $isReadOnlyViewer ? "Review the teacher directory, open staff profiles, and print the list when needed." : "Review the full teacher directory, search quickly, and print a staff list when needed."; ?></p>
             </div>
             <div class="teacher-directory-hero__actions">
                 <?php if ($canManageTeachers) { ?>

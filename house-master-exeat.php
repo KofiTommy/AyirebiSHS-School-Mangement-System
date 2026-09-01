@@ -112,7 +112,10 @@ function house_exeat_status_label($row){
     $hasReturned = trim((string)($row['actualreturndatetime'] ?? '')) !== "";
     $isOverdue = (int)($row['is_overdue'] ?? 0) === 1;
     if($status === 'pending'){
-        return 'Pending';
+        return 'Pending House Review';
+    }
+    if($status === 'awaiting_senior'){
+        return 'Awaiting Senior House Approval';
     }
     if($status === 'approved' && $hasReturned){
         return 'Returned';
@@ -135,7 +138,7 @@ function house_exeat_status_class($row){
     $status = strtolower(trim((string)($row['status'] ?? '')));
     $hasReturned = trim((string)($row['actualreturndatetime'] ?? '')) !== "";
     $isOverdue = (int)($row['is_overdue'] ?? 0) === 1;
-    if($status === 'pending'){
+    if($status === 'pending' || $status === 'awaiting_senior'){
         return 'he-badge he-badge--warning';
     }
     if($status === 'approved' && $hasReturned){
@@ -182,6 +185,8 @@ if(isset($_POST['grant_exeat'])){
             $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Invalid date/time provided.</div>";
         }elseif($_ReturnDateTime <= $_OutDateTime){
             $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Return date/time must be later than departure date/time.</div>";
+        }elseif($_ExeatType === 'external'){
+            $_SESSION['Message'] = "<div style='color:#b45309;text-align:center;background-color:white'>External exeats must be requested and forwarded through the Senior House approval queue. A direct external grant is not allowed.</div>";
         }else{
             $_StudentIdEsc = mysqli_real_escape_string($con, $_StudentId);
             $_SQLStudent = mysqli_query($con, "SELECT
@@ -248,57 +253,67 @@ if(isset($_POST['grant_exeat'])){
 }
 
 if(isset($_POST['decide_exeat'])){
-    @$_ExeatId = $_POST['exeatid'];
-    @$_Decision = $_POST['decision'];
-    @$_Note = trim($_POST['decisionnote']);
+    $_ExeatId = trim((string)($_POST['exeatid'] ?? ''));
+    $_Decision = trim((string)($_POST['decision'] ?? ''));
+    $_Note = trim((string)($_POST['decisionnote'] ?? ''));
     $_ExeatIdEsc = mysqli_real_escape_string($con, $_ExeatId);
-    $_DecisionEsc = mysqli_real_escape_string($con, $_Decision);
-    $_NoteEsc = mysqli_real_escape_string($con, $_Note);
-
-    $_Allowed = false;
-    $_CHK = mysqli_query($con, "SELECT er.userid
+    $_TeacherIdEsc = mysqli_real_escape_string($con, $_TeacherId);
+    $_MetaRes = mysqli_query($con, "SELECT er.*,h.housename,su.firstname,su.surname,su.othernames,su.nextofkin_contact
         FROM tblexeatrequest er
-        WHERE er.exeatid='$_ExeatIdEsc'
-          AND er.status='pending'
-          AND ".$_ExeatScopeSql."
-        LIMIT 1");
-    if($_CHK && mysqli_num_rows($_CHK) > 0){
-        $_Allowed = true;
-    }
+        INNER JOIN tblhouse h ON h.houseid=er.houseid
+        INNER JOIN tblsystemuser su ON su.userid=er.userid
+        WHERE er.exeatid='$_ExeatIdEsc' AND ".$_ExeatScopeSql." LIMIT 1");
+    $_ExeatMeta = ($_MetaRes && mysqli_num_rows($_MetaRes)>0) ? mysqli_fetch_array($_MetaRes,MYSQLI_ASSOC) : null;
+    $_Type = $_ExeatMeta ? house_exeat_normalize_type($_ExeatMeta['exeattype'] ?? '') : '';
+    $_CurrentStatus = $_ExeatMeta ? strtolower(trim((string)$_ExeatMeta['status'])) : '';
+    $_IsSenior = $_HasSeniorAssignment;
 
-    if(!$_Allowed){
+    if(!$_ExeatMeta){
         $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>You are not authorized to decide this request.</div>";
     }elseif($_Decision !== 'approved' && $_Decision !== 'rejected'){
         $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Invalid decision.</div>";
-    }else{
-        $_ExeatMeta = null;
-        $_SQL_META = mysqli_query($con, "SELECT er.*,h.housename,su.firstname,su.surname,su.othernames,su.nextofkin_contact
-            FROM tblexeatrequest er
-            INNER JOIN tblhouse h ON h.houseid=er.houseid
-            INNER JOIN tblsystemuser su ON su.userid=er.userid
-            WHERE er.exeatid='$_ExeatIdEsc'
-            LIMIT 1");
-        if($_SQL_META && $row_meta=mysqli_fetch_array($_SQL_META,MYSQLI_ASSOC)){
-            $_ExeatMeta = $row_meta;
-        }
-
-        $_SQL = mysqli_query($con, "UPDATE tblexeatrequest
-            SET status='$_DecisionEsc', decisionnote='$_NoteEsc', decisionby='$_TeacherIdEsc', decisiondatetime=NOW()
-            WHERE exeatid='$_ExeatIdEsc' AND status='pending'");
-        if($_SQL){
-            $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white'>Request updated successfully.</div>";
-
-            if($_Decision === 'approved' && $_ExeatMeta){
-                foreach(house_exeat_notify_approval($_ExeatMeta) as $_Notice){
-                    $_SESSION['Message'] .= $_Notice;
-                }
-            }
+    }elseif($_Type === 'external' && $_CurrentStatus === 'pending'){
+        if($_Decision === 'rejected'){
+            $_NoteEsc = mysqli_real_escape_string($con, $_Note);
+            $_SQL = mysqli_query($con, "UPDATE tblexeatrequest SET status='rejected',decisionnote='$_NoteEsc',decisionby='$_TeacherIdEsc',decisiondatetime=NOW() WHERE exeatid='$_ExeatIdEsc' AND status='pending'");
+            $_SESSION['Message'] = $_SQL ? "<div style='color:green;text-align:center;background-color:white'>External exeat request rejected.</div>" : "<div style='color:red;text-align:center;background-color:white'>Failed to update request.</div>";
         }else{
-            $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Failed to update request: ".mysqli_error($con)."</div>";
+            $_ForwardNote = $_Note !== '' ? $_Note : 'Reviewed by house staff and forwarded for final Senior House approval.';
+            $_ForwardNoteEsc = mysqli_real_escape_string($con, $_ForwardNote);
+            $_SQL = mysqli_query($con, "UPDATE tblexeatrequest SET status='awaiting_senior',teacherforwardedby='$_TeacherIdEsc',teacherforwardeddatetime=NOW(),teacherforwardnote='$_ForwardNoteEsc' WHERE exeatid='$_ExeatIdEsc' AND status='pending'");
+            if($_SQL){
+                $_StudentName = trim($_ExeatMeta['firstname']." ".$_ExeatMeta['othernames']." ".$_ExeatMeta['surname']);
+                $_NotifySummary = array();
+                notify_senior_house_external_exeat($con,$_StudentName,$_ExeatMeta['dateout']." ".$_ExeatMeta['timeout'],$_ExeatMeta['datereturn']." ".$_ExeatMeta['timereturn'],$_NotifySummary);
+                $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white'>External exeat has been forwarded to the Senior House Master/Mistress for final approval.</div>";
+            }else{
+                $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Failed to forward the external exeat request.</div>";
+            }
         }
+    }elseif($_Type === 'external' && $_CurrentStatus === 'awaiting_senior'){
+        if(!$_IsSenior){
+            $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Only the Senior House Master/Mistress can grant or reject an external exeat at this stage.</div>";
+        }else{
+            $_DecisionEsc = mysqli_real_escape_string($con, $_Decision);
+            $_NoteEsc = mysqli_real_escape_string($con, $_Note);
+            $_SQL = mysqli_query($con, "UPDATE tblexeatrequest SET status='$_DecisionEsc',decisionnote='$_NoteEsc',decisionby='$_TeacherIdEsc',decisiondatetime=NOW() WHERE exeatid='$_ExeatIdEsc' AND status='awaiting_senior'");
+            if($_SQL){
+                $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white'>Senior House decision saved.</div>";
+                if($_Decision === 'approved'){ foreach(house_exeat_notify_approval($_ExeatMeta) as $_Notice){ $_SESSION['Message'] .= $_Notice; } }
+            }else{ $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Failed to save the Senior House decision.</div>"; }
+        }
+    }elseif($_Type === 'internal' && $_CurrentStatus === 'pending'){
+        $_DecisionEsc = mysqli_real_escape_string($con, $_Decision);
+        $_NoteEsc = mysqli_real_escape_string($con, $_Note);
+        $_SQL = mysqli_query($con, "UPDATE tblexeatrequest SET status='$_DecisionEsc',decisionnote='$_NoteEsc',decisionby='$_TeacherIdEsc',decisiondatetime=NOW() WHERE exeatid='$_ExeatIdEsc' AND status='pending'");
+        if($_SQL){
+            $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white'>Internal exeat decision saved.</div>";
+            if($_Decision === 'approved'){ foreach(house_exeat_notify_approval($_ExeatMeta) as $_Notice){ $_SESSION['Message'] .= $_Notice; } }
+        }else{ $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Failed to update request.</div>"; }
+    }else{
+        $_SESSION['Message'] = "<div style='color:#b45309;text-align:center;background-color:white'>This request is no longer waiting for your current approval stage.</div>";
     }
 }
-
 if(isset($_POST['mark_returned'])){
     @$_ExeatId = trim((string)($_POST['exeatid'] ?? ''));
     @$_ReturnNote = trim((string)($_POST['returnnote'] ?? ''));
@@ -404,7 +419,11 @@ if($_SQL){
         $status = strtolower(trim((string)($row['status'] ?? '')));
         $hasReturned = trim((string)($row['actualreturndatetime'] ?? '')) !== "";
         $isOverdue = (int)($row['is_overdue'] ?? 0) === 1;
-        if($status === 'pending'){
+        $type = house_exeat_normalize_type(isset($row['exeattype']) ? $row['exeattype'] : '');
+        if($status === 'pending' && !($_HasSeniorAssignment && $type === 'external')){
+            $_PendingRows[] = $row;
+            $_Overview['pending']++;
+        }elseif($status === 'awaiting_senior' && $_HasSeniorAssignment){
             $_PendingRows[] = $row;
             $_Overview['pending']++;
         }elseif($status === 'approved' && !$hasReturned){
@@ -485,8 +504,8 @@ if($_SQL){
         <div class="he-layout">
             <aside class="he-panel he-panel--grant">
                 <div class="he-section-head">
-                    <h2>Grant Exeat Directly</h2>
-                    <p>Use this when you need to approve and issue exeat immediately for a student in your current scope. External exeat will still try to notify the parent right away.</p>
+                    <h2>Grant Internal Exeat Directly</h2>
+                    <p>Direct grants are for internal movement only. External exeats must be requested, reviewed by house staff, and finally granted by the Senior House Master/Mistress.</p>
                 </div>
 
                 <?php if(count($_StudentGrantOptions) > 0){ ?>
@@ -508,7 +527,6 @@ if($_SQL){
                             <select name="exeattype" id="exeattype" required>
                                 <option value="">Select Type</option>
                                 <option value="internal">Internal</option>
-                                <option value="external">External</option>
                             </select>
                         </div>
 
@@ -582,15 +600,16 @@ if($_SQL){
                                 <div><dt>Recorded By</dt><dd><?php echo house_exeat_esc($row['recordedby']); ?></dd></div>
                             </dl>
 
+                            <?php $_AwaitingSenior = strtolower(trim((string)($row['status'] ?? ''))) === 'awaiting_senior'; $_External = $_Type === 'external'; ?>
                             <form method="post" action="house-master-exeat.php" class="he-inline-form">
                                 <input type="hidden" name="exeatid" value="<?php echo house_exeat_esc($row['exeatid']); ?>">
                                 <select name="decision" required>
-                                    <option value="approved">Approve</option>
+                                    <option value="approved"><?php echo $_External && !$_AwaitingSenior ? 'Forward to Senior House' : ($_AwaitingSenior ? 'Grant External Exeat' : 'Approve Internal Exeat'); ?></option>
                                     <option value="rejected">Reject</option>
                                 </select>
-                                <input type="text" name="decisionnote" placeholder="Decision note">
+                                <input type="text" name="decisionnote" placeholder="<?php echo $_External && !$_AwaitingSenior ? 'Teacher / house review note' : 'Decision note'; ?>">
                                 <button type="submit" name="decide_exeat" class="he-btn he-btn--primary">
-                                    <i class="fa fa-save"></i> Save Decision
+                                    <i class="fa fa-save"></i> <?php echo $_External && !$_AwaitingSenior ? 'Forward Request' : 'Save Final Decision'; ?>
                                 </button>
                             </form>
                         </article>

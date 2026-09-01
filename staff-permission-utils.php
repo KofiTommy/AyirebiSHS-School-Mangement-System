@@ -7,13 +7,14 @@ function staff_permission_role(){
     $type = isset($_SESSION['SYSTEMTYPE']) ? $_SESSION['SYSTEMTYPE'] : '';
     if($type === 'Teacher'){ return 'teacher'; }
     if($type === 'AssistantHeadAcademic'){ return 'assistant_head_academic'; }
+    if($type === 'AssistantHeadAdministration'){ return 'assistant_head_administration'; }
     if($type === 'Headmaster'){ return 'headmaster'; }
     if(isset($_SESSION['ACCESSLEVEL']) && $_SESSION['ACCESSLEVEL'] === 'administrator' && $type === 'super_user'){ return 'super_admin'; }
     return '';
 }
 function staff_permission_approver_options(){
     $role = staff_permission_role();
-    if($role === 'teacher'){ return array('assistant_head_academic'=>'Headmaster Academics','headmaster'=>'Headmaster'); }
+    if($role === 'teacher'){ return array('assistant_head_academic'=>'Headmaster Academics','assistant_head_administration'=>'Headmaster Administration','headmaster'=>'Headmaster'); }
     if($role === 'assistant_head_academic'){ return array('headmaster'=>'Headmaster'); }
     if($role === 'headmaster'){ return array('super_admin'=>'Super Administrator'); }
     return array();
@@ -22,7 +23,7 @@ function staff_permission_can_review($approverRole){ return staff_permission_rol
 
 function staff_permission_notify_approvers($con, $approverRole, $requesterName, $permissionType, $startDateTime, &$summary = null){
     $summary = array('total'=>0,'sms_sent'=>0,'sms_failed'=>0,'no_phone'=>0);
-    $roleMap = array('assistant_head_academic'=>'AssistantHeadAcademic','headmaster'=>'Headmaster','super_admin'=>'super_user');
+    $roleMap = array('assistant_head_academic'=>'AssistantHeadAcademic','assistant_head_administration'=>'AssistantHeadAdministration','headmaster'=>'Headmaster','super_admin'=>'super_user');
     if(!isset($roleMap[$approverRole])){ return false; }
     $roleValue = mysqli_real_escape_string($con, $roleMap[$approverRole]);
     $where = $approverRole === 'super_admin' ? "su.accesslevel='administrator' AND su.systemtype='$roleValue'" : "su.systemtype='$roleValue'";

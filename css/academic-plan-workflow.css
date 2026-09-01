@@ -1,0 +1,12 @@
+.academic-plan-form-note { margin: -3px 0 16px; color: #60758b; font-size: 13px; line-height: 1.5; }
+.academic-plan-list-actions { display: flex; align-items: center; gap: 12px; }
+.academic-plan-list-actions form { margin: 0; }
+.academic-plan-publish-btn { min-height: 39px; padding: 9px 13px; border: 0; border-radius: 999px; background: #123f70; color: #fff; font-size: 12px; font-weight: 800; cursor: pointer; }
+.academic-plan-publish-btn:hover { background: #176fb8; }
+.academic-plan-status { display: inline-block; margin-left: 6px; padding: 4px 8px; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
+.academic-plan-status--draft { background: #fff3d8; color: #946200; }
+.academic-plan-status--published { background: #dcf5e9; color: #15704f; }
+.academic-plan-week-field { margin: 0 0 11px; }
+.academic-plan-week-field label { display: block; margin-bottom: 6px; }
+.academic-plan-week-field input { box-sizing: border-box; width: 100%; padding: 11px; border: 1px solid #d7e1ed; border-radius: 12px; font: inherit; }
+@media(max-width:650px){.academic-plan-list-actions{align-items:flex-start;flex-direction:column;gap:8px}}

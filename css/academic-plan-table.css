@@ -1,0 +1,13 @@
+.academic-plan-table-wrap { overflow-x: auto; border: 1px solid #e1eaf4; border-radius: 16px; }
+.academic-plan-table { width: 100%; min-width: 890px; border-collapse: collapse; background: #fff; }
+.academic-plan-table th { padding: 13px 12px; background: #123f70; color: #fff; font-size: 11px; letter-spacing: .05em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+.academic-plan-table td { padding: 14px 12px; border-bottom: 1px solid #edf2f7; color: #29435c; font-size: 13px; vertical-align: top; }
+.academic-plan-table tbody tr:hover td { background: #f7fbff; }
+.academic-plan-table tbody tr:last-child td { border-bottom: 0; }
+.academic-plan-table td strong { display: block; color: #17314b; }
+.academic-plan-table td small { display: block; max-width:260px; margin-top:5px; color:#667d91; line-height:1.45; }
+.academic-plan-table .academic-plan-type { white-space: nowrap; }
+.academic-plan-table .academic-plan-week-heading,.academic-plan-table .academic-plan-week-cell{white-space:nowrap;text-align:center}.academic-plan-table .academic-plan-week-cell{color:#12599c;font-weight:800;background:#f5f9fe}
+.academic-plan-admin-layout{grid-template-columns:minmax(300px,420px) minmax(0,1fr)}.academic-plan-admin-list{grid-column:1/-1}.academic-plan-table{min-width:0}.academic-plan-table-wrap{overflow-x:visible}.academic-plan-edit{display:inline-block;margin-right:10px;color:#12599c;font-size:12px;font-weight:800;text-decoration:none}
+@media(max-width:1000px){.academic-plan-table-wrap{overflow-x:auto}.academic-plan-table{min-width:890px}}
+@media(max-width:650px){.academic-plan-table-wrap{border-radius:12px}.academic-plan-table th,.academic-plan-table td{padding:12px 10px}}

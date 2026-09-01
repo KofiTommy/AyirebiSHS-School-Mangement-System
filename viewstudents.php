@@ -5,6 +5,14 @@ $_SESSION['Message']="";
 include_once("check-login.php");
 include_once("user-management-utils.php");
 
+if(!function_exists('student_directory_is_read_only_viewer')){
+function student_directory_is_read_only_viewer(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === 'user' &&
+        in_array($_SESSION['SYSTEMTYPE'], array('Headmaster', 'AssistantHeadAdministration'), true);
+}
+}
+
 if(!function_exists('student_directory_is_headmaster_viewer')){
 function student_directory_is_headmaster_viewer(){
     return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
@@ -23,7 +31,7 @@ function student_directory_can_access(){
         return true;
     }
 
-    if($_SESSION['ACCESSLEVEL'] === 'user' && in_array($_SESSION['SYSTEMTYPE'], array('User', 'Headmaster'), true)){
+    if($_SESSION['ACCESSLEVEL'] === 'user' && in_array($_SESSION['SYSTEMTYPE'], array('User', 'Headmaster', 'AssistantHeadAdministration'), true)){
         return true;
     }
 
@@ -33,13 +41,13 @@ function student_directory_can_access(){
 
 if(!function_exists('student_directory_can_manage_records')){
 function student_directory_can_manage_records(){
-    return !student_directory_is_headmaster_viewer();
+    return !student_directory_is_read_only_viewer();
 }
 }
 
 if(!function_exists('student_directory_branch_filter_sql')){
 function student_directory_branch_filter_sql($con, $alias = 'su'){
-    if(!student_directory_is_headmaster_viewer()){
+    if(!student_directory_is_read_only_viewer()){
         return '';
     }
 
@@ -794,10 +802,11 @@ $_BlockedStudentTotal = 0;
 $_BoardingStudentTotal = 0;
 $_DayStudentTotal = 0;
 $_IsHeadmasterViewer = student_directory_is_headmaster_viewer();
+$_IsReadOnlyViewer = student_directory_is_read_only_viewer();
 $_BranchStudentFilter = student_directory_branch_filter_sql($con, 'su');
 
 $_ClassOptionsSql = "SELECT * FROM tblclassentry ORDER BY class_name";
-if($_IsHeadmasterViewer && $_BranchStudentFilter !== ''){
+if($_IsReadOnlyViewer && $_BranchStudentFilter !== ''){
 	$_ClassOptionsSql = "SELECT DISTINCT ce.* FROM tblclassentry ce
 		INNER JOIN tblclass cl ON cl.class_entryid=ce.class_entryid AND cl.status='active'
 		INNER JOIN tblsystemuser su ON su.userid=cl.userid
@@ -814,7 +823,7 @@ if($_SQL_CLASS_OPTIONS){
 }
 
 $_BatchOptionsSql = "SELECT * FROM tblbatch ORDER BY batch ASC";
-if($_IsHeadmasterViewer && $_BranchStudentFilter !== ''){
+if($_IsReadOnlyViewer && $_BranchStudentFilter !== ''){
 	$_BatchOptionsSql = "SELECT DISTINCT b.* FROM tblbatch b
 		INNER JOIN tblclass cl ON cl.batchid=b.batchid AND cl.status='active'
 		INNER JOIN tblsystemuser su ON su.userid=cl.userid
@@ -1062,7 +1071,7 @@ include("menu.php");
 								<a class="student-directory-action student-directory-action--view" title="View <?php echo student_directory_safe($row["firstname"]); ?> (<?php echo student_directory_safe($row["userid"]); ?>)" href="user-profile.php?view_user=<?php echo urlencode((string)$row["userid"]); ?>">
 									<i class="fa fa-book"></i> View
 								</a>
-								<?php if($_IsHeadmasterViewer){ ?>
+								<?php if($_IsReadOnlyViewer){ ?>
 								<a class="student-directory-action student-directory-action--edit" title="Open transcript for <?php echo student_directory_safe($row["firstname"]); ?> (<?php echo student_directory_safe($row["userid"]); ?>)" href="student-history.php?userid=<?php echo urlencode((string)$row["userid"]); ?>">
 									<i class="fa fa-history"></i> Transcript
 								</a>

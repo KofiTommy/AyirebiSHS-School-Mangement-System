@@ -382,7 +382,7 @@ function lesson_timetable_today_name(){
 
 if(!function_exists('ensure_lesson_timetable_table')){
 function ensure_lesson_timetable_table($con){
-    if(xschool_schema_cache_is_fresh('schema_lesson_timetable_v2')){
+    if(xschool_schema_cache_is_fresh('schema_lesson_timetable_v3')){
         return;
     }
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbllessontimetable (
@@ -407,6 +407,19 @@ function ensure_lesson_timetable_table($con){
         INDEX idx_lessontimetable_day (weekday,starttime),
         INDEX idx_lessontimetable_status (status)
     )");
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tbllessonperiod (
+        periodid VARCHAR(40) NOT NULL PRIMARY KEY,
+        periodname VARCHAR(80) NOT NULL,
+        starttime TIME NOT NULL,
+        endtime TIME NOT NULL,
+        sortorder INT NOT NULL DEFAULT 0,
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        datetimeentry DATETIME NOT NULL,
+        updatedat DATETIME NULL,
+        recordedby VARCHAR(30) NOT NULL,
+        UNIQUE KEY uq_lesson_period_name (periodname),
+        KEY idx_lesson_period_status (status,sortorder,starttime)
+    )");
     if(!lesson_timetable_column_exists($con, 'tbllessontimetable', 'academicyear')){
         @mysqli_query($con, "ALTER TABLE tbllessontimetable ADD COLUMN academicyear VARCHAR(10) NOT NULL DEFAULT '' AFTER batchid");
     }
@@ -417,7 +430,17 @@ function ensure_lesson_timetable_table($con){
     }
     @mysqli_query($con, "UPDATE tbltermregistry SET academicyear=DATE_FORMAT(datetimeentry, '%Y') WHERE TRIM(COALESCE(academicyear,''))=''");
 
-    xschool_schema_cache_mark('schema_lesson_timetable_v2');
+    xschool_schema_cache_mark('schema_lesson_timetable_v3');
+}
+}
+
+if(!function_exists('lesson_timetable_fetch_periods')){
+function lesson_timetable_fetch_periods($con, $includeInactive = false){
+    $rows = array();
+    $where = $includeInactive ? '' : " WHERE status='active'";
+    $result = @mysqli_query($con, "SELECT * FROM tbllessonperiod".$where." ORDER BY sortorder ASC,starttime ASC,periodname ASC");
+    if($result){ while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)){ $rows[] = $row; } }
+    return $rows;
 }
 }
 
@@ -610,6 +633,26 @@ function lesson_timetable_has_teacher_overlap($con, $teacherId, $academicYear, $
           AND endtime>'$startTime'
           $excludeSql
         LIMIT 1";
+    $result = mysqli_query($con, $sql);
+    return ($result && mysqli_num_rows($result) > 0);
+}
+}
+
+if(!function_exists('lesson_timetable_has_location_overlap')){
+function lesson_timetable_has_location_overlap($con, $location, $academicYear, $weekday, $startTime, $endTime, $excludeLessonId = ''){
+    $location = trim((string)$location);
+    if($location === ''){ return false; }
+    $locationEsc = mysqli_real_escape_string($con, strtolower($location));
+    $academicYear = lesson_timetable_normalize_year($academicYear);
+    $weekday = mysqli_real_escape_string($con, lesson_timetable_normalize_weekday($weekday));
+    $startTime = mysqli_real_escape_string($con, trim((string)$startTime));
+    $endTime = mysqli_real_escape_string($con, trim((string)$endTime));
+    if($academicYear === ''){ return false; }
+    $excludeSql = trim((string)$excludeLessonId) !== '' ? " AND lessonid!='".mysqli_real_escape_string($con, trim((string)$excludeLessonId))."'" : '';
+    $sql = "SELECT lessonid FROM tbllessontimetable WHERE status='active'
+        AND LOWER(TRIM(location))='$locationEsc'
+        AND ".lesson_timetable_resolved_year_sql('tbllessontimetable')."='".mysqli_real_escape_string($con,$academicYear)."'
+        AND weekday='$weekday' AND starttime<'$endTime' AND endtime>'$startTime' $excludeSql LIMIT 1";
     $result = mysqli_query($con, $sql);
     return ($result && mysqli_num_rows($result) > 0);
 }

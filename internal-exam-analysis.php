@@ -14,7 +14,8 @@ $isAllowed = (
     isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
     (
         ($_SESSION['ACCESSLEVEL'] === "administrator" && in_array($_SESSION['SYSTEMTYPE'], array("normal_user", "super_user"), true)) ||
-        (function_exists('um_is_academic_lead_user') && um_is_academic_lead_user())
+        (function_exists('um_is_academic_lead_user') && um_is_academic_lead_user()) ||
+        (function_exists('um_is_assistant_head_administration_user') && um_is_assistant_head_administration_user())
     )
 );
 

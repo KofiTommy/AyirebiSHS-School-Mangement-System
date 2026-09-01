@@ -152,6 +152,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
 })();
 </script>
 <script type="text/javascript" src="scripts/xschool_script.js" defer></script>
+<script type="text/javascript" src="scripts/academic-plan-week.js" defer></script>
 <style>
 :root{
     --xschool-watermark-image: url('<?php echo htmlspecialchars($__faviconHref, ENT_QUOTES, "UTF-8"); ?>');
