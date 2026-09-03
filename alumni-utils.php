@@ -135,16 +135,16 @@ function alumni_ensure_tables($con){
         createdat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         KEY idx_event_date (eventdate), KEY idx_event_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    alumni_ensure_column($con,'profileimage','VARCHAR(255) DEFAULT NULL');
+    alumni_ensure_column($con,'directoryconsent','TINYINT(1) NOT NULL DEFAULT 0');
+    alumni_ensure_column($con,'photoconsent','TINYINT(1) NOT NULL DEFAULT 0');
+    alumni_ensure_column($con,'chatconsent','TINYINT(1) NOT NULL DEFAULT 0');
+    alumni_ensure_column($con,'passwordhash','VARCHAR(255) DEFAULT NULL');
+    alumni_ensure_column($con,'smsoptin','TINYINT(1) NOT NULL DEFAULT 0');
+    alumni_ensure_column($con,'chathidden','TINYINT(1) NOT NULL DEFAULT 0');
 }
 }
 if(!function_exists('alumni_ensure_column')){function alumni_ensure_column($con,$column,$definition){$result=mysqli_query($con,"SHOW COLUMNS FROM tblalumni LIKE '".mysqli_real_escape_string($con,$column)."'");if(!$result||mysqli_num_rows($result)===0)@mysqli_query($con,"ALTER TABLE tblalumni ADD COLUMN $column $definition");}}
-alumni_ensure_column($con,'profileimage','VARCHAR(255) DEFAULT NULL');
-alumni_ensure_column($con,'directoryconsent','TINYINT(1) NOT NULL DEFAULT 0');
-alumni_ensure_column($con,'photoconsent','TINYINT(1) NOT NULL DEFAULT 0');
-alumni_ensure_column($con,'chatconsent','TINYINT(1) NOT NULL DEFAULT 0');
-alumni_ensure_column($con,'passwordhash','VARCHAR(255) DEFAULT NULL');
-alumni_ensure_column($con,'smsoptin','TINYINT(1) NOT NULL DEFAULT 0');
-alumni_ensure_column($con,'chathidden','TINYINT(1) NOT NULL DEFAULT 0');
 if(!function_exists('alumni_new_id')){ function alumni_new_id($prefix='ALM'){ return $prefix.date('ymdHis').strtoupper(bin2hex(random_bytes(4))); } }
 if(!function_exists('alumni_safe')){ function alumni_safe($value){ return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); } }
 if(!function_exists('alumni_store_profile_image')){function alumni_store_profile_image($file){$allowed=array('image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp');$mime=($file&&($file['error']??UPLOAD_ERR_NO_FILE)===UPLOAD_ERR_OK&&function_exists('mime_content_type'))?mime_content_type($file['tmp_name']):'';if(!$file||($file['error']??UPLOAD_ERR_NO_FILE)===UPLOAD_ERR_NO_FILE)return array(true,'');if(($file['error']??0)!==UPLOAD_ERR_OK||$file['size']>3145728||!isset($allowed[$mime])||@getimagesize($file['tmp_name'])===false)return array(false,'');$folder=__DIR__.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'alumni'.DIRECTORY_SEPARATOR.'profiles';if(!is_dir($folder)&&!@mkdir($folder,0755,true))return array(false,'');$path='uploads/alumni/profiles/profile-'.date('YmdHis').'-'.bin2hex(random_bytes(4)).'.'.$allowed[$mime];return move_uploaded_file($file['tmp_name'],$folder.DIRECTORY_SEPARATOR.basename($path))?array(true,$path):array(false,'');}}
