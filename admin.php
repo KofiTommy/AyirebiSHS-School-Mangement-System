@@ -8,7 +8,7 @@ if(isset($_POST['mark_changes_read'])){
     include("dbstring.php");
     include("audit_notifications.php");
     ensureSystemChangeLogTable($con);
-    mysqli_query($con, "UPDATE tblsystemchangelog SET status='read' WHERE status='unread' AND actor_type IN ('Teacher','Student','Portal','Headmaster')");
+    mysqli_query($con, "UPDATE tblsystemchangelog SET status='read' WHERE status='unread' AND actor_type IN ('Teacher','Student','Portal','Headmaster','Alumni')");
     header("Location: admin.php#system-change-notifications");
     exit();
 }
@@ -75,7 +75,8 @@ function admin_dashboard_action_label($actionType){
         "ONLINE_ADMISSION_SUBMITTED" => "Online Admission Submitted",
         "ONLINE_ADMISSION_HEADMASTER_APPROVED" => "Headmaster Admission Approved",
         "ONLINE_ADMISSION_HELP_REQUEST" => "Online Admission Help Request",
-        "PORTAL_HELP_REQUEST" => "Portal Help Request"
+        "PORTAL_HELP_REQUEST" => "Portal Help Request",
+        "ALUMNI_REGISTRATION_SUBMITTED" => "Alumni Approval Requested"
     );
     if(isset($map[$actionType])){
         return $map[$actionType];
@@ -2551,7 +2552,7 @@ include("links.php");
                         $_SQL_UNREAD = mysqli_query($con, "SELECT COUNT(*) AS total_unread
                             FROM tblsystemchangelog
                             WHERE status='unread'
-                              AND actor_type IN ('Teacher','Student','Portal','Headmaster')");
+                              AND actor_type IN ('Teacher','Student','Portal','Headmaster','Alumni')");
                         if($_SQL_UNREAD && $row_unread = mysqli_fetch_array($_SQL_UNREAD, MYSQLI_ASSOC)){
                             $_UnreadChangeCount = (int)$row_unread['total_unread'];
                         }
@@ -2750,7 +2751,7 @@ include("links.php");
                         <?php
                         $_SQL_CHANGE_LOG = mysqli_query($con, "SELECT *
                             FROM tblsystemchangelog
-                            WHERE actor_type IN ('Teacher','Student','Portal','Headmaster')
+                            WHERE actor_type IN ('Teacher','Student','Portal','Headmaster','Alumni')
                             ORDER BY (CASE WHEN status='unread' THEN 0 ELSE 1 END), datetimeentry DESC
                             LIMIT 120");
                         ?>
@@ -2762,7 +2763,7 @@ include("links.php");
                                     <span class="system-change-icon"><i class="fa fa-bell"></i></span>
                                     <div>
                                         <h3>System Change Notifications</h3>
-                                        <p>Track teacher, student, headmaster, portal help, and online admission activity in the audit view.</p>
+                                        <p>Track teacher, student, headmaster, portal help, admissions, and Alumni approval requests.</p>
                                     </div>
                                 </div>
                                 <div class="system-change-actions">
@@ -2779,7 +2780,7 @@ include("links.php");
                             </div>
                             <div class="system-change-table-wrap">
                                 <table class="table system-change-table">
-                                    <caption>System Change Notifications (Teachers, Students, Portal Help, and Admissions)</caption>
+                                    <caption>System Change Notifications (Teachers, Students, Portal Help, Admissions, and Alumni)</caption>
                                     <thead>
                                         <tr>
                                             <th scope="col">Date/Time</th>
@@ -2808,6 +2809,8 @@ include("links.php");
                                                     $_NotificationAction = "<br><a class='system-change-action-link' href='online-admission-admin.php#help-requests'><i class='fa fa-arrow-right'></i> Open Help Requests</a>";
                                                 }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'PORTAL_HELP_REQUEST'){
                                                     $_NotificationAction = "<br><a class='system-change-action-link' href='admin.php#portal-help-requests'><i class='fa fa-arrow-right'></i> Open Portal Help</a>";
+                                                }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'ALUMNI_REGISTRATION_SUBMITTED'){
+                                                    $_NotificationAction = "<br><a class='system-change-action-link' href='alumni-hub.php#alumni-directory'><i class='fa fa-arrow-right'></i> Review Alumni Request</a>";
                                                 }
                                                 echo "<tr class='".$_RowClass."'>";
                                                 echo "<td>".htmlspecialchars($row_log['datetimeentry'])."</td>";
