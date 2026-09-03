@@ -29,6 +29,8 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
     }
 }
 ?>
+<link rel="icon" type="image/png" href="logo/logo-transparent.png">
+<link rel="apple-touch-icon" href="logo/logo-transparent.png">
 <script>
 (function () {
     var currentTitle = (document.title || "").trim();

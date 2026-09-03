@@ -2,6 +2,7 @@
 session_start();
 include("dbstring.php");
 include("check-login.php");
+include_once("password-utils.php");
 include("house-master-utils.php");
 include_once("company.php");
 if(!house_master_can_manage_module($con, 'student_teacher_registration')){ header("location:".house_master_landing_page()); exit(); }
@@ -136,7 +137,7 @@ if(isset($_POST["register_user"])){
     if($form["email"]!=="" && !filter_var($form["email"],FILTER_VALIDATE_EMAIL)){ $errors[]="Please enter a valid email address."; }
 
     if(empty($errors)){
-        $passwordHash=md5($password);
+        $passwordHash=portal_password_hash($password);
         $access="user"; $systemType="Teacher";
         $stmt=mysqli_prepare($con,"INSERT INTO tblsystemuser(
             userid,firstname,surname,othernames,gender,birthday,age,postaladdress,homeaddress,hometown,

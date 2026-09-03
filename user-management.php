@@ -4,6 +4,7 @@ include("dbstring.php");
 include("check-login.php");
 include_once("audit_notifications.php");
 include_once("user-management-utils.php");
+include_once("password-utils.php");
 
 ensure_user_management_columns($con);
 
@@ -231,7 +232,7 @@ if(isset($_POST["save_user_account"])){
         }
 
         if(empty($errors)){
-            $passwordHash = md5($tempPassword);
+            $passwordHash = portal_password_hash($tempPassword);
             $passwordResetRequired = 1;
             $resetAt = date("Y-m-d H:i:s");
             $insertStmt = @mysqli_prepare($con, "INSERT INTO tblsystemuser
@@ -393,7 +394,7 @@ if(isset($_POST["reset_user_password"])){
         $_SESSION["Message"] = um_flash("error", "You cannot reset that account.");
     }else{
         $tempPassword = um_generate_temp_password(8);
-        $passwordHash = md5($tempPassword);
+        $passwordHash = portal_password_hash($tempPassword);
         $passwordResetRequired = 1;
         $resetAt = date("Y-m-d H:i:s");
         $resetStmt = @mysqli_prepare($con, "UPDATE tblsystemuser SET password=?,password_reset_required=?,password_last_reset_at=? WHERE userid=? LIMIT 1");

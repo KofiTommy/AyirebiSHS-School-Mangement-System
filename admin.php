@@ -2732,6 +2732,7 @@ include("links.php");
                                 <a class="quick-action-btn" href="student-history.php"><i class="fa fa-history"></i> Student Transcript</a>
                                 <a class="quick-action-btn" href="result-access-admin.php"><i class="fa fa-lock"></i> Result Access Control</a>
                                 <a class="quick-action-btn" href="result-access-payments.php"><i class="fa fa-money"></i> Result Payments</a>
+                                <a class="quick-action-btn" href="alumni-hub.php"><i class="fa fa-graduation-cap"></i> Alumni Hub</a>
                             </div>
                         </div>
 

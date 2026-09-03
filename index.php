@@ -35,6 +35,7 @@ $obj_browser->setBrowser(1);
 
 <?php
 include("dbstring.php");
+include_once("password-utils.php");
 include_once("online-admission-utils.php");
 include_once("user-management-utils.php");
 include_once("portal-help-utils.php");
@@ -116,7 +117,7 @@ if($_LandingHelpForm["requestername"] === ""){
 
 if(isset($_POST["login"])){
 @$_Username=$_POST["username"];
-@$_Password=md5($_POST["password"]);
+@$_Password=(string)$_POST["password"];
 @$_User =strtolower($_POST["user"]);
 
 $_SQL_EXECUTE=false;
@@ -124,7 +125,6 @@ $stmt_login=mysqli_prepare($con,"SELECT *
 FROM tblsystemuser su
 INNER JOIN tblbranch br ON su.branchid=br.branchid
 WHERE (su.userid=? OR su.username=?)
-  AND su.password=?
 ORDER BY CASE
     WHEN su.userid=? THEN 0
     WHEN su.username=? THEN 1
@@ -133,14 +133,14 @@ END,
 su.registereddatetime DESC
 LIMIT 1");
 if($stmt_login){
-mysqli_stmt_bind_param($stmt_login,"sssss",$_Username,$_Username,$_Password,$_Username,$_Username);
+mysqli_stmt_bind_param($stmt_login,"ssss",$_Username,$_Username,$_Username,$_Username);
 mysqli_stmt_execute($stmt_login);
 $_SQL_EXECUTE=mysqli_stmt_get_result($stmt_login);
 }
 
 //$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsystemuser su  WHERE su.username='$_Username' AND su.password='$_Password'");
 	if($_SQL_EXECUTE && mysqli_num_rows($_SQL_EXECUTE)>0){
-		if($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
+		if(($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)) && portal_verify_password($con,$row,$_Password)){
 			@$_AccessLevel=$row['accesslevel'];
 			@$_SystemType=$row['systemtype'];
 			$_SESSION['USERID']=$row['userid'];
@@ -221,6 +221,12 @@ else{
 				}
 				elseif($_AccessLevel=="user" && $_SystemType=="AssistantHeadAdministration"){
 				header("location:assistant-head-administration-page.php");
+			}
+				elseif($_AccessLevel=="user" && $_SystemType=="Bursar"){
+				header("location:bursar-dashboard.php");
+			}
+				elseif($_AccessLevel=="user" && $_SystemType=="SafeguardingLead"){
+				header("location:safeguarding-dashboard.php");
 			}
 			elseif($_AccessLevel=="user" && $_SystemType=="User"){
 					header("location:user.php");

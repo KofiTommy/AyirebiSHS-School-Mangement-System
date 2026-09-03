@@ -508,6 +508,12 @@ function um_module_catalog(){
             'description' => 'Matron dashboard for boarders, house coverage, welfare, and food-store coordination.',
             'scripts' => array('matron-dashboard.php')
         ),
+        'alumni_management' => array(
+            'label' => 'Alumni And Graduate Tracking',
+            'group' => 'Community',
+            'description' => 'Manage old-student contacts, achievements, mentorship, donations, and events.',
+            'scripts' => array('alumni-hub.php')
+        ),
         'billing' => array(
             'label' => 'Billing',
             'group' => 'Finance',
@@ -642,6 +648,12 @@ function um_assignable_module_keys_for_role($roleKey){
             'duty_roster',
             'house_management',
             'notice_communication'
+        );
+    }
+    if($roleKey === 'bursar'){
+        return array(
+            'billing',
+            'accounts_finance'
         );
     }
     if($roleKey === 'student'){
@@ -887,6 +899,12 @@ function um_home_link_for_session(){
     if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'AssistantHeadAdministration'){
         return 'assistant-head-administration-page.php';
     }
+    if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'Bursar'){
+        return 'bursar-dashboard.php';
+    }
+    if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'SafeguardingLead'){
+        return 'safeguarding-dashboard.php';
+    }
     if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'User'){
         return 'user.php';
     }
@@ -988,6 +1006,19 @@ function um_baseline_scripts_for_role($roleKey){
             'academic-plan-view.php',
             'viewstudents.php',
             'viewusers.php'
+        );
+    }
+    if($roleKey === 'bursar'){
+        return array(
+            'bursar-dashboard.php',
+            'payments.php',
+            'account-statements.php',
+            'payment-analysis.php',
+            'bills-report.php',
+            'item-bill-report.php',
+            'bills.php',
+            'print-student-bills.php',
+            'display-class-bill.php'
         );
     }
     return array();
@@ -1146,6 +1177,15 @@ function um_is_assistant_head_administration_user(){
         $_SESSION['SYSTEMTYPE'] === 'AssistantHeadAdministration';
 }
 }
+
+if(!function_exists('um_is_bursar_user')){
+function um_is_bursar_user(){
+    return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
+        $_SESSION['ACCESSLEVEL'] === 'user' &&
+        $_SESSION['SYSTEMTYPE'] === 'Bursar';
+}
+}
+
 if(!function_exists('um_is_academic_lead_user')){
 function um_is_academic_lead_user(){
     return (function_exists('um_is_headmaster_user') && um_is_headmaster_user()) ||
@@ -1182,6 +1222,20 @@ function um_role_profiles(){
             'accesslevel' => 'user',
             'systemtype' => 'AssistantHeadAdministration',
             'description' => 'School operations, welfare, logistics, and administration dashboard account.',
+            'super_only' => false
+        ),
+        'bursar' => array(
+            'label' => 'Bursar / Accounts Officer',
+            'accesslevel' => 'user',
+            'systemtype' => 'Bursar',
+            'description' => 'Record payments, issue receipts, and review school fee records.',
+            'super_only' => false
+        ),
+        'safeguarding_lead' => array(
+            'label' => 'Safeguarding Lead',
+            'accesslevel' => 'user',
+            'systemtype' => 'SafeguardingLead',
+            'description' => 'Protected access to confidential student-support and safeguarding records.',
             'super_only' => false
         ),
         'branch_admin' => array(
@@ -1242,6 +1296,12 @@ function um_role_key_from_user($row){
     if($accessLevel === 'user' && $systemType === 'AssistantHeadAdministration'){
         return 'assistant_head_administration';
     }
+    if($accessLevel === 'user' && $systemType === 'Bursar'){
+        return 'bursar';
+    }
+    if($accessLevel === 'user' && $systemType === 'SafeguardingLead'){
+        return 'safeguarding_lead';
+    }
     if($systemType === 'Teacher'){
         return 'teacher';
     }
@@ -1278,6 +1338,10 @@ function um_generate_userid($roleKey = 'office_user'){
         $prefix = 'AHA';
     }elseif($roleKey === 'assistant_head_administration'){
         $prefix = 'AHD';
+    }elseif($roleKey === 'bursar'){
+        $prefix = 'BUR';
+    }elseif($roleKey === 'safeguarding_lead'){
+        $prefix = 'SGL';
     }elseif($roleKey === 'branch_admin'){
         $prefix = 'ADM';
     }elseif($roleKey === 'system_admin'){

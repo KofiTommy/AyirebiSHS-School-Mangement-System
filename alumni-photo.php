@@ -1,0 +1,6 @@
+<?php
+session_start(); require_once('dbstring.php'); require_once('alumni-utils.php'); alumni_ensure_tables($con);
+$viewer=trim((string)($_SESSION['ALUMNI_MEMBER']??'')); $owner=trim((string)($_GET['id']??''));
+if($viewer===''||$owner===''){http_response_code(403);exit();}
+$stmt=mysqli_prepare($con,"SELECT a.profileimage FROM tblalumni a JOIN tblalumni v ON v.alumniid=? WHERE a.alumniid=? AND a.status='active' AND a.directoryconsent=1 AND a.photoconsent=1 AND v.status='active' LIMIT 1");mysqli_stmt_bind_param($stmt,'ss',$viewer,$owner);mysqli_stmt_execute($stmt);$res=mysqli_stmt_get_result($stmt);$row=$res?mysqli_fetch_assoc($res):null;mysqli_stmt_close($stmt);
+$relative=(string)($row['profileimage']??'');if(!$row||strpos($relative,'uploads/alumni/profiles/')!==0){http_response_code(404);exit();}$path=__DIR__.DIRECTORY_SEPARATOR.str_replace('/',DIRECTORY_SEPARATOR,$relative);if(!is_file($path)){http_response_code(404);exit();}$mime=mime_content_type($path);if(!in_array($mime,array('image/jpeg','image/png','image/webp'),true)){http_response_code(404);exit();}header('Content-Type: '.$mime);header('X-Content-Type-Options: nosniff');header('Cache-Control: private, no-store');readfile($path);

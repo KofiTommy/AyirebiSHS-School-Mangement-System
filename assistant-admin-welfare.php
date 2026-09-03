@@ -1,6 +1,8 @@
 <?php
 session_start(); include('dbstring.php'); include('check-login.php'); include_once('administration-ops-utils.php'); administration_ops_ensure_tables($con);
-if(!administration_ops_is_lead()){ header('location:index.php'); exit(); }
+if(!administration_ops_can_access_welfare($con)){ header('location:index.php'); exit(); }
+$welfareDashboardLink='return-dashboard.php';
+register_shutdown_function(function() use($welfareDashboardLink){echo '<script>(function(){var b=document.createElement("a");b.href='.json_encode($welfareDashboardLink).';b.innerHTML="<i class=\"fa fa-arrow-left\"></i> Return to dashboard";b.setAttribute("aria-label","Return safely to dashboard");b.style.cssText="position:fixed;right:22px;bottom:22px;z-index:9999;background:#08766f;color:#fff;padding:13px 17px;border-radius:9px;text-decoration:none;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.22)";document.body.appendChild(b)})();</script>';});
 $message='';
 if(isset($_POST['save_case'])){
     $student=trim((string)($_POST['studentid']??'')); $category=trim((string)($_POST['category']??'')); $date=trim((string)($_POST['incidentdate']??'')); $summary=trim((string)($_POST['summary']??'')); $action=trim((string)($_POST['actiontaken']??'')); $follow=trim((string)($_POST['followupdate']??''));

@@ -1,4 +1,5 @@
 <?php
+include_once(__DIR__.DIRECTORY_SEPARATOR.'audit_notifications.php');
 include_once("class-teacher-utils.php");
 include_once("user-management-utils.php");
 
@@ -449,6 +450,9 @@ function student_attendance_save_register($con, $assignment, $attendanceDate, $s
                 recordedby=VALUES(recordedby)");
     }
 
+    if(function_exists('logSystemChange')){
+        logSystemChange($con, 'ATTENDANCE_REGISTER_SAVED', 'Attendance register saved for '.$attendanceDate.' ('.count($roster).' students).');
+    }
     return student_attendance_get_session($con, $assignment["classid"], $assignment["batchid"], $assignment["termname"], $attendanceDate);
 }
 }

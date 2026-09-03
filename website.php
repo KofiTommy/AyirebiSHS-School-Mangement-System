@@ -28,7 +28,7 @@ ob_start();
   <header class="header" id="home"><div class="shell nav-wrap">
     <a class="brand" href="#home" aria-label="Ayirebi Senior High School home"><span class="crest"><img src="logo/logo-transparent.png" alt="Ayirebi Senior High School logo"></span><span><strong>Ayirebi</strong><small>Senior High School</small></span></a>
     <button class="menu-toggle" aria-label="Open navigation" aria-expanded="false"><span></span><span></span></button>
-    <nav class="nav" aria-label="Main navigation"><a href="#about">About</a><a href="#academics">Academics</a><a href="#life">Student life</a><a href="announcements.php">Announcements</a><a href="#news">News</a><a href="#contact">Contact</a><a class="nav-cta" href="index.php#portal-login">Portal login</a></nav>
+    <nav class="nav" aria-label="Main navigation"><a href="#about">About</a><a href="#academics">Academics</a><a href="#life">Student life</a><a href="announcements.php">Announcements</a><a href="alumni.php">Alumni</a><a href="#news">News</a><a href="#contact">Contact</a><a class="nav-cta" href="index.php#portal-login">Portal login</a></nav>
   </div></header>
 
   <main>
@@ -77,7 +77,7 @@ ob_start();
   <div class="site-legal"><a href="privacy.php">Privacy, student images &amp; safeguarding</a></div>
   <div class="platform-powered"><span>Powered by</span><a class="tokaa-powered-link" href="https://tokaatechconsult.com/" target="_blank" rel="noopener noreferrer" aria-label="Visit Tokaa Tech Consult"><img src="images/Tokaa%20Logo.png" alt="Tokaa Tech Consult"><strong>Tokaa Tech Consult</strong></a><span class="platform-divider">|</span><img src="images/LiveCampus.png" alt="LiveCampus"></div>
   <a class="website-help-fab" href="https://wa.me/233245065954?text=Hello%2C%20I%20need%20help%20with%20Ayirebi%20Senior%20High%20School." target="_blank" rel="noopener noreferrer" aria-label="Get help on WhatsApp"><span>Need help?</span><b>WA</b></a>
-  <script src="school-site.js"></script>
+<script src="school-site.js"></script>
 </body>
 </html>
 <?php

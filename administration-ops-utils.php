@@ -38,6 +38,15 @@ function administration_ops_is_lead(){
     return isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'AssistantHeadAdministration';
 }
 }
+if(!function_exists('administration_ops_can_access_welfare')){
+function administration_ops_can_access_welfare($con = null){
+    if(administration_ops_is_lead() || (isset($_SESSION['ACCESSLEVEL'],$_SESSION['SYSTEMTYPE']) && $_SESSION['ACCESSLEVEL']==='user' && $_SESSION['SYSTEMTYPE']==='SafeguardingLead')){ return true; }
+    if(!$con || !isset($_SESSION['USERID'],$_SESSION['SYSTEMTYPE']) || $_SESSION['SYSTEMTYPE']!=='Teacher'){ return false; }
+    $id=mysqli_real_escape_string($con,(string)$_SESSION['USERID']);
+    $res=@mysqli_query($con,"SELECT assignmentid FROM tblcounsellorassignment WHERE counsellorid='$id' AND assignmenttype='school' AND status='active' LIMIT 1");
+    return $res && mysqli_num_rows($res)>0;
+}
+}
 if(!function_exists('administration_ops_escape')){
 function administration_ops_escape($value){ return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); }
 }

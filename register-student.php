@@ -2,6 +2,7 @@
 session_start();
 include("dbstring.php");
 include("check-login.php");
+include_once("password-utils.php");
 include("house-master-utils.php");
 include_once("online-admission-utils.php");
 include_once("company.php");
@@ -189,7 +190,7 @@ if(isset($_POST["register_user"])){
 
     if(empty($errors)){
         $verification = substr(strtoupper(md5(uniqid('', true))), 0, 8);
-        $hash = md5($password);
+        $hash = portal_password_hash($password);
         $access = "user";
         $systemType = "Student";
         $stmt = mysqli_prepare($con, "INSERT INTO tblsystemuser(
