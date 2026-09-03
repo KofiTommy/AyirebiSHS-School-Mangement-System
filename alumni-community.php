@@ -1,3 +1,7 @@
+<?php if($member){ ?>
+<style>.alumni-member-action{background:rgba(255,255,255,.12)!important;border:1px solid rgba(255,255,255,.4)!important}.alumni-member-action:hover{background:#e3ac36!important;color:#102b4b!important;border-color:#e3ac36!important}</style>
+<script>(function(){var actions=document.querySelector('.top>div:last-child');if(!actions)return;var donate=document.createElement('a');donate.className='btn alumni-member-action';donate.href='alumni-donate.php';donate.textContent='Support AYISEC';var concern=document.createElement('a');concern.className='btn alumni-member-action';concern.href='alumni-concern.php';concern.textContent='Share a concern';actions.insertBefore(concern,actions.lastElementChild);actions.insertBefore(donate,concern);})();</script>
+<?php } ?>
 <?php
 session_start();require_once('dbstring.php');require_once('alumni-utils.php');alumni_ensure_tables($con);$error='';
 if(isset($_GET['logout'])){unset($_SESSION['ALUMNI_MEMBER']);header('location:alumni-community.php');exit();}

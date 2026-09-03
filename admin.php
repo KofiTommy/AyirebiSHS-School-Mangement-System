@@ -76,7 +76,9 @@ function admin_dashboard_action_label($actionType){
         "ONLINE_ADMISSION_HEADMASTER_APPROVED" => "Headmaster Admission Approved",
         "ONLINE_ADMISSION_HELP_REQUEST" => "Online Admission Help Request",
         "PORTAL_HELP_REQUEST" => "Portal Help Request",
-        "ALUMNI_REGISTRATION_SUBMITTED" => "Alumni Approval Requested"
+        "ALUMNI_REGISTRATION_SUBMITTED" => "Alumni Approval Requested",
+        "ALUMNI_CONCERN_SUBMITTED" => "Alumni Concern Submitted",
+        "ALUMNI_DONATION_RECEIVED" => "Alumni Donation Received"
     );
     if(isset($map[$actionType])){
         return $map[$actionType];
@@ -2189,7 +2191,9 @@ include("links.php");
                         <?php
                         include("dbstring.php");
                         include("audit_notifications.php");
+                        include_once("alumni-utils.php");
                         ensureSystemChangeLogTable($con);
+                        alumni_ensure_tables($con);
                         mysqli_query($con, "DELETE FROM tblsystemchangelog WHERE status='read' AND datetimeentry < (NOW() - INTERVAL 48 HOUR)");
 
                         $normalizedResidenceSql = "
@@ -2552,9 +2556,15 @@ include("links.php");
                         $_SQL_UNREAD = mysqli_query($con, "SELECT COUNT(*) AS total_unread
                             FROM tblsystemchangelog
                             WHERE status='unread'
-                              AND actor_type IN ('Teacher','Student','Portal','Headmaster','Alumni')");
+                              AND (actor_type IN ('Teacher','Student','Portal','Headmaster') OR (actor_type='Alumni' AND action_type IN ('ALUMNI_CONCERN_SUBMITTED','ALUMNI_DONATION_RECEIVED'))) ");
                         if($_SQL_UNREAD && $row_unread = mysqli_fetch_array($_SQL_UNREAD, MYSQLI_ASSOC)){
                             $_UnreadChangeCount = (int)$row_unread['total_unread'];
+                        }
+                        $_PendingAlumniApprovalCount = 0;
+                        $_SQL_PENDING_ALUMNI = mysqli_query($con, "SELECT COUNT(*) AS total_pending FROM tblalumni WHERE status='pending'");
+                        if($_SQL_PENDING_ALUMNI && $row_pending_alumni = mysqli_fetch_array($_SQL_PENDING_ALUMNI, MYSQLI_ASSOC)){
+                            $_PendingAlumniApprovalCount = (int)$row_pending_alumni['total_pending'];
+                            $_UnreadChangeCount += $_PendingAlumniApprovalCount;
                         }
 
                         $_PortalHelpSummary = portal_help_request_summary($con);
@@ -2810,7 +2820,11 @@ include("links.php");
                                                 }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'PORTAL_HELP_REQUEST'){
                                                     $_NotificationAction = "<br><a class='system-change-action-link' href='admin.php#portal-help-requests'><i class='fa fa-arrow-right'></i> Open Portal Help</a>";
                                                 }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'ALUMNI_REGISTRATION_SUBMITTED'){
-                                                    $_NotificationAction = "<br><a class='system-change-action-link' href='alumni-hub.php#alumni-directory'><i class='fa fa-arrow-right'></i> Review Alumni Request</a>";
+                                                    $_NotificationAction = "<br><a class='system-change-action-link' href='alumni-hub.php#pending-approvals'><i class='fa fa-arrow-right'></i> Review Alumni Request</a>";
+                                                }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'ALUMNI_CONCERN_SUBMITTED'){
+                                                    $_NotificationAction = "<br><a class='system-change-action-link' href='alumni-concerns.php'><i class='fa fa-arrow-right'></i> Review Alumni Concern</a>";
+                                                }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'ALUMNI_DONATION_RECEIVED'){
+                                                    $_NotificationAction = "<br><a class='system-change-action-link' href='alumni-donation-report.php'><i class='fa fa-arrow-right'></i> View Donation Payment</a>";
                                                 }
                                                 echo "<tr class='".$_RowClass."'>";
                                                 echo "<td>".htmlspecialchars($row_log['datetimeentry'])."</td>";

@@ -135,6 +135,38 @@ function alumni_ensure_tables($con){
         createdat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         KEY idx_event_date (eventdate), KEY idx_event_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblalumnidonationpayment (
+        paymentid BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        referenceid VARCHAR(120) NOT NULL,
+        alumniid VARCHAR(60) NOT NULL,
+        amount DECIMAL(12,2) NOT NULL,
+        currency VARCHAR(12) NOT NULL DEFAULT 'GHS',
+        donationpurpose VARCHAR(160) DEFAULT NULL,
+        donorname VARCHAR(180) DEFAULT NULL,
+        email VARCHAR(160) DEFAULT NULL,
+        mobile VARCHAR(40) DEFAULT NULL,
+        gateway VARCHAR(30) NOT NULL DEFAULT 'paystack',
+        gatewaytransactionid VARCHAR(120) DEFAULT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'initialized',
+        gatewayresponse TEXT DEFAULT NULL,
+        createdat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        paidat DATETIME DEFAULT NULL,
+        UNIQUE KEY uniq_alumni_donation_reference (referenceid),
+        KEY idx_alumni_donation_member (alumniid, status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    mysqli_query($con, "CREATE TABLE IF NOT EXISTS tblalumniconcern (
+        concernid BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        alumniid VARCHAR(60) NOT NULL,
+        category VARCHAR(80) NOT NULL DEFAULT 'General feedback',
+        subject VARCHAR(180) NOT NULL,
+        messagebody TEXT NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'new',
+        adminnote TEXT DEFAULT NULL,
+        createdat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updatedat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        KEY idx_alumni_concern_status (status, createdat),
+        KEY idx_alumni_concern_member (alumniid, createdat)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     alumni_ensure_column($con,'profileimage','VARCHAR(255) DEFAULT NULL');
     alumni_ensure_column($con,'directoryconsent','TINYINT(1) NOT NULL DEFAULT 0');
     alumni_ensure_column($con,'photoconsent','TINYINT(1) NOT NULL DEFAULT 0');
