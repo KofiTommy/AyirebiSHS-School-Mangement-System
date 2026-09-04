@@ -444,6 +444,10 @@ if ($_SQL_LOG_COUNT && $_ROW_LOG_COUNT = mysqli_fetch_array($_SQL_LOG_COUNT, MYS
                         <div align="center" class="promotion-action-group promotion-action-group--danger">
                             <button class="button-delete" name="run_archive_batch" id="run_archive_batch" onclick="return confirm('Archive selected FROM BATCH? This sets the batch inactive and closes active class/term/subject/report records while keeping history.');"><i class="fa fa-archive"></i> ARCHIVE BATCH</button>
                         </div>
+                        <div class="promotion-alumni-next-step">
+                            <span><i class="fa fa-arrow-down"></i> Next step after archiving a graduating batch</span>
+                            <a href="alumni-batch-graduation-tool.php<?php echo $_FromBatch!=='' ? '?batchid='.rawurlencode($_FromBatch) : ''; ?>"><i class="fa fa-graduation-cap"></i> TRANSFER GRADUATED BATCH TO ALUMNI</a>
+                        </div>
                         </div>
                     </form>
                 </div>
