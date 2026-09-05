@@ -14,6 +14,7 @@ $_SESSION['BRANCHID']="";
 
 <?php
 include("dbstring.php");
+include_once("password-utils.php");
 $_SQL_Item_2=mysqli_query($con,"SELECT * FROM tblcurrency");
 if($row_item_2=mysqli_fetch_array($_SQL_Item_2,MYSQLI_ASSOC)){
 $_SESSION['CURRENCY']=$row_item_2['currencyname'];
@@ -21,14 +22,13 @@ $_SESSION['SYMBOL']=$row_item_2['symbol'];
 }
 
 if(isset($_POST["login"])){
-$_Username=$_POST["username"];
-$_Password=md5($_POST["password"]);
-
-//$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsystemuser su INNER JOIN tblbranch br ON su.branchid=br.branchid  WHERE su.username='$_Username' AND su.password='$_Password'");
-
-$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsystemuser su  WHERE su.username='$_Username' AND su.password='$_Password'");
-	if(mysqli_num_rows($_SQL_EXECUTE)>0){
-		if($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
+$_Username=trim((string)$_POST["username"]);
+$_Password=(string)$_POST["password"];
+$_LoginRow=null;
+$stmtLogin=mysqli_prepare($con,"SELECT * FROM tblsystemuser WHERE username=? LIMIT 1");
+if($stmtLogin){mysqli_stmt_bind_param($stmtLogin,'s',$_Username);mysqli_stmt_execute($stmtLogin);$loginResult=mysqli_stmt_get_result($stmtLogin);$_LoginRow=$loginResult?mysqli_fetch_array($loginResult,MYSQLI_ASSOC):null;mysqli_stmt_close($stmtLogin);}
+	if($_LoginRow && portal_verify_password($con,$_LoginRow,$_Password)){
+		if($row=$_LoginRow){
 			@$_AccessLevel=$row['accesslevel'];
 			@$_SystemType=$row['systemtype'];
 			$_SESSION['USERID']=$row['userid'];

@@ -6,6 +6,7 @@ include("dbstring.php");
 include("audit_notifications.php");
 include_once("house-master-utils.php");
 include_once("user-management-utils.php");
+include_once("password-utils.php");
 ensure_user_management_columns($con);
 
 if (!function_exists('ensureAdminPasswordResetSmsLogTable')) {
@@ -261,7 +262,7 @@ if (!function_exists('adminPasswordResetApplyCredentialReset')) {
             return $result;
         }
 
-        $newPassword = md5($newPasswordRaw);
+        $newPassword = portal_password_hash($newPasswordRaw);
         $stmtUpdate = mysqli_prepare($con, "UPDATE tblsystemuser
             SET username=?, password=?, password_reset_required=1, password_last_reset_at=NOW()
             WHERE userid=? AND systemtype=? LIMIT 1");

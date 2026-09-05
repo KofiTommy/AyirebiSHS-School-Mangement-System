@@ -7,6 +7,7 @@ $_SESSION['Message']="";
 include("dbstring.php");
 include("audit_notifications.php");
 include_once("user-management-utils.php");
+include_once("password-utils.php");
 ensure_user_management_columns($con);
 @$_ForceReset=(isset($_GET['force']) && $_GET['force']=="1");
 $_CurrentUserId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : "";
@@ -22,6 +23,7 @@ function cp_safe($value){
 if(isset($_POST['update_account'])){
     $_OldPasswordRaw = isset($_POST['oldpassword']) ? (string)$_POST['oldpassword'] : "";
     $_NewPasswordRaw = isset($_POST['newpassword']) ? (string)$_POST['newpassword'] : "";
+    $_RepeatPasswordRaw = isset($_POST['repeatpassword']) ? (string)$_POST['repeatpassword'] : "";
     $_NewUsername = isset($_POST['username']) ? um_normalize_username($_POST['username']) : "";
     if($_NewUsername === ""){
         $_NewUsername = $_CurrentUsername;
@@ -33,26 +35,30 @@ if(isset($_POST['update_account'])){
         $_SESSION['Message']="<div style='color:red'>Username is required.</div>";
     }elseif(strlen($_NewPasswordRaw) < 6){
         $_SESSION['Message']="<div style='color:red'>New password must be at least 6 characters.</div>";
+    }elseif($_NewPasswordRaw !== $_RepeatPasswordRaw){
+        $_SESSION['Message']="<div style='color:red'>The new password and repeated password do not match.</div>";
     }elseif(um_is_username_taken($con, $_NewUsername, $_CurrentUserId)){
         $_SESSION['Message']="<div style='color:red'>That username is already in use by another account.</div>";
     }else{
-        $_Oldpassword = md5($_OldPasswordRaw);
-        $_Newpassword = md5($_NewPasswordRaw);
+        $_OldPasswordValid = portal_verify_password($con, $_CurrentUserRow, $_OldPasswordRaw);
+        if(!$_OldPasswordValid){
+            $_SESSION['Message']="<div style='color:red'>The old password is not correct. Please try again.</div>";
+        }elseif(hash_equals($_OldPasswordRaw, $_NewPasswordRaw)){
+            $_SESSION['Message']="<div style='color:red'>Choose a new password that is different from your old password.</div>";
+        }else{
+        $_Newpassword = portal_password_hash($_NewPasswordRaw);
         $_SQL_EXECUTE = false;
-        $_AffectedRows = 0;
-
         $stmtUpdate = mysqli_prepare($con, "UPDATE tblsystemuser
             SET username=?, password=?, password_reset_required=0, password_last_reset_at=NOW()
-            WHERE userid=? AND password=?
+            WHERE userid=?
             LIMIT 1");
         if($stmtUpdate){
-            mysqli_stmt_bind_param($stmtUpdate, "ssss", $_NewUsername, $_Newpassword, $_CurrentUserId, $_Oldpassword);
+            mysqli_stmt_bind_param($stmtUpdate, "sss", $_NewUsername, $_Newpassword, $_CurrentUserId);
             $_SQL_EXECUTE = mysqli_stmt_execute($stmtUpdate);
-            $_AffectedRows = mysqli_stmt_affected_rows($stmtUpdate);
             mysqli_stmt_close($stmtUpdate);
         }
 
-        if($_SQL_EXECUTE && $_AffectedRows > 0){
+        if($_SQL_EXECUTE){
             $_SESSION['USERNAME'] = $_NewUsername;
             logSystemChange(
                 $con,
@@ -60,11 +66,10 @@ if(isset($_POST['update_account'])){
                 "Password was changed by ".$_SESSION['SYSTEMTYPE']." user."
             );
             $_SESSION['Message']="<div style='color:green;text-align:center;background-color:white'>Account Successfully Updated<br/><br/><a href='index.php' style='color:blue'>Login</a><br/><br/></div>";
-        }elseif($_SQL_EXECUTE){
-            $_SESSION['Message']="<div style='color:red'>Account failed to update. Please confirm your old password and try again.</div>";
         }else{
             $_Error=mysqli_error($con);
             $_SESSION['Message']="<div style='color:red'>Account failed to update,$_Error</div>";
+        }
         }
     }
 }
