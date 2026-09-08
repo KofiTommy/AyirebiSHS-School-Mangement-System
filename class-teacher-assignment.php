@@ -11,12 +11,25 @@ if(!class_teacher_can_manage_assignments($con)){
     exit();
 }
 
+$editAssignment = null;
+if(isset($_GET['edit_assignment']) && $_GET['edit_assignment'] !== ''){
+    $editAssignmentId = mysqli_real_escape_string($con, $_GET['edit_assignment']);
+    $editResult = mysqli_query($con, "SELECT * FROM tblclassteacher WHERE assignmentid='$editAssignmentId' LIMIT 1");
+    if($editResult){
+        $editAssignment = mysqli_fetch_array($editResult, MYSQLI_ASSOC);
+    }
+    if(!$editAssignment){
+        $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>The assignment you selected could not be found.</div>";
+    }
+}
+
 if(isset($_POST['save_class_teacher'])){
     @$_TeacherId = $_POST['userid'];
     @$_ClassId = $_POST['classid'];
     @$_BatchId = $_POST['batchid'];
     @$_Term = (int)$_POST['term'];
     @$_RecordedBy = $_SESSION['USERID'];
+    @$_EditAssignmentId = trim((string)($_POST['assignmentid'] ?? ''));
 
     if(!$_TeacherId || !$_ClassId || !$_BatchId || !$_Term){
         $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Please select teacher, class, batch and semester.</div>";
@@ -26,6 +39,20 @@ if(isset($_POST['save_class_teacher'])){
         $_BatchId = mysqli_real_escape_string($con, $_BatchId);
         $_RecordedBy = mysqli_real_escape_string($con, $_RecordedBy);
 
+        if($_EditAssignmentId !== ''){
+            $_EditAssignmentId = mysqli_real_escape_string($con, $_EditAssignmentId);
+            $_SQL_DUPLICATE = mysqli_query($con, "SELECT assignmentid FROM tblclassteacher WHERE classid='$_ClassId' AND batchid='$_BatchId' AND termname='$_Term' AND status='active' AND assignmentid<>'$_EditAssignmentId' LIMIT 1");
+            if($_SQL_DUPLICATE && mysqli_num_rows($_SQL_DUPLICATE)>0){
+                $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Another active class teacher assignment already exists for this class, batch, and semester.</div>";
+            }else{
+                $_SQL_UPDATE = mysqli_query($con, "UPDATE tblclassteacher SET userid='$_TeacherId', classid='$_ClassId', batchid='$_BatchId', termname='$_Term', recordedby='$_RecordedBy', datetimeentry=NOW() WHERE assignmentid='$_EditAssignmentId'");
+                if($_SQL_UPDATE){
+                    $_SESSION['Message'] = "<div style='color:green;text-align:center;background-color:white'>Class teacher assignment edited successfully.</div>";
+                }else{
+                    $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Failed to edit assignment: ".mysqli_error($con)."</div>";
+                }
+            }
+        }else{
         $_SQL_EXIST = mysqli_query($con, "SELECT assignmentid FROM tblclassteacher WHERE classid='$_ClassId' AND batchid='$_BatchId' AND termname='$_Term' AND status='active' LIMIT 1");
         if($_SQL_EXIST && $row_exist=mysqli_fetch_array($_SQL_EXIST,MYSQLI_ASSOC)){
             $_AssignmentId = $row_exist['assignmentid'];
@@ -45,6 +72,7 @@ if(isset($_POST['save_class_teacher'])){
             }else{
                 $_SESSION['Message'] = "<div style='color:red;text-align:center;background-color:white'>Failed to assign class teacher: ".mysqli_error($con)."</div>";
             }
+        }
         }
     }
 }
@@ -96,19 +124,27 @@ if(isset($_GET['delete_assignment'])){
 <div class="cta-panel-heading">
     <span class="cta-icon"><i class="fa fa-plus"></i></span>
     <div>
-        <h2>Assign Teacher</h2>
-        <p>Select the scope for the class teacher assignment.</p>
+        <h2><?php echo $editAssignment ? 'Edit Class Teacher' : 'Assign Teacher'; ?></h2>
+        <p><?php echo $editAssignment ? 'Update the teacher, class, batch, or semester, then save your changes.' : 'Select the scope for the class teacher assignment.'; ?></p>
     </div>
 </div>
 <?php echo $_SESSION['Message']; ?>
+<?php
+$selectedTeacher = $editAssignment ? (string)$editAssignment['userid'] : '';
+$selectedClass = $editAssignment ? (string)$editAssignment['classid'] : '';
+$selectedBatch = $editAssignment ? (string)$editAssignment['batchid'] : '';
+$selectedTerm = $editAssignment ? (string)$editAssignment['termname'] : '';
+?>
 <form method="post" action="class-teacher-assignment.php" id="formID" name="formID">
+<?php if($editAssignment){ ?><input type="hidden" name="assignmentid" value="<?php echo htmlspecialchars($editAssignment['assignmentid'], ENT_QUOTES, 'UTF-8'); ?>"><?php } ?>
 <?php
 $_SQL_T = mysqli_query($con,"SELECT userid,firstname,surname,othernames FROM tblsystemuser WHERE systemtype='Teacher' AND status='active' ORDER BY firstname ASC");
 echo "<label>Teacher</label>";
 echo "<select id='userid' name='userid' class='validate[required]'>";
 echo "<option value=''>Select Teacher</option>";
 while($row_t=mysqli_fetch_array($_SQL_T,MYSQLI_ASSOC)){
-    echo "<option value='$row_t[userid]'>$row_t[firstname] $row_t[othernames] $row_t[surname] ($row_t[userid])</option>";
+    $isSelected = ($selectedTeacher === (string)$row_t['userid']) ? ' selected' : '';
+    echo "<option value='$row_t[userid]'$isSelected>$row_t[firstname] $row_t[othernames] $row_t[surname] ($row_t[userid])</option>";
 }
 echo "</select>";
 
@@ -117,7 +153,8 @@ echo "<label>Class</label>";
 echo "<select id='classid' name='classid' class='validate[required]'>";
 echo "<option value=''>Select Class</option>";
 while($row_c=mysqli_fetch_array($_SQL_C,MYSQLI_ASSOC)){
-    echo "<option value='$row_c[class_entryid]'>$row_c[class_name]</option>";
+    $isSelected = ($selectedClass === (string)$row_c['class_entryid']) ? ' selected' : '';
+    echo "<option value='$row_c[class_entryid]'$isSelected>$row_c[class_name]</option>";
 }
 echo "</select>";
 
@@ -126,17 +163,18 @@ echo "<label>Batch</label>";
 echo "<select id='batchid' name='batchid' class='validate[required]'>";
 echo "<option value=''>Select Batch</option>";
 while($row_b=mysqli_fetch_array($_SQL_B,MYSQLI_ASSOC)){
-    echo "<option value='$row_b[batchid]'>$row_b[batch]</option>";
+    $isSelected = ($selectedBatch === (string)$row_b['batchid']) ? ' selected' : '';
+    echo "<option value='$row_b[batchid]'$isSelected>$row_b[batch]</option>";
 }
 echo "</select>";
 ?>
 <label>Semester</label>
 <select id="term" name="term" class="validate[required]">
 <option value="">Select Semester</option>
-<option value="1">1</option>
-<option value="2">2</option>
+<option value="1"<?php echo $selectedTerm === '1' ? ' selected' : ''; ?>>1</option>
+<option value="2"<?php echo $selectedTerm === '2' ? ' selected' : ''; ?>>2</option>
 </select>
-<div class="cta-actions"><button class="button-save cta-btn cta-btn-primary" id="save_class_teacher" name="save_class_teacher"><i class="fa fa-save"></i> Save Assignment</button></div>
+<div class="cta-actions"><button class="button-save cta-btn cta-btn-primary" id="save_class_teacher" name="save_class_teacher"><i class="fa fa-save"></i> <?php echo $editAssignment ? 'Save Changes' : 'Save Assignment'; ?></button><?php if($editAssignment){ ?><a class="cta-btn cta-btn-cancel" href="class-teacher-assignment.php">Cancel</a><?php } ?></div>
 </form>
 </aside>
 <main class="cta-panel cta-list-panel">
@@ -166,6 +204,7 @@ while($row_a=mysqli_fetch_array($_SQL_A,MYSQLI_ASSOC)){
     echo "<tr>";
     echo "<td align='center'>";
     if($row_a['status']==='active'){
+        echo "<span class='print-hide'><a class='cta-row-action cta-action-edit' title='Edit assignment' href='class-teacher-assignment.php?edit_assignment=$row_a[assignmentid]'><i class='fa fa-pencil'></i></a></span> ";
         echo "<span class='print-hide'><a class='cta-row-action cta-action-warning' title='Deactivate assignment' onclick=\"javascript:return confirm('Deactivate this assignment?');\" href='class-teacher-assignment.php?deactivate_assignment=$row_a[assignmentid]'><i class='fa fa-ban'></i></a></span> ";
         echo "<span class='print-hide'><a class='cta-row-action cta-action-danger' title='Delete assignment' onclick=\"javascript:return confirm('Delete this assignment permanently?');\" href='class-teacher-assignment.php?delete_assignment=$row_a[assignmentid]'><i class='fa fa-trash'></i></a></span>";
     }else{

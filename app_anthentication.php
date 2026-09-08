@@ -39,7 +39,11 @@ if($stmtLogin){mysqli_stmt_bind_param($stmtLogin,'s',$_Username);mysqli_stmt_exe
 			$_SESSION['SYSTEMTYPE']=$row['systemtype'];
 			$_SESSION['BRANCHID']=$row['branchid'];
 
-			if($row['status']=="block"){
+			if(strtolower(trim((string)$row['status']))==="alumni"){
+				header("location:alumni-activate.php");
+				exit();
+			}
+			elseif($row['status']=="block"){
 			$_SESSION['Message']="<div style='color:red;text-align:center;padding:8px;text-transform:blink'>Account is blocked!! Please contact administrator</div>";
 			}else{
 				if($_AccessLevel=="administrator" && $_SystemType=="super_user"){

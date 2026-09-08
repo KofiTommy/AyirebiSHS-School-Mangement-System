@@ -29,6 +29,27 @@ else{
 }
 
 $__CurrentScript = basename((string)(isset($_SERVER['PHP_SELF']) ? $_SERVER['PHP_SELF'] : ''));
+
+/*
+ * A graduate may still have a valid portal session or a saved Student-dashboard
+ * link.  Do not let that bypass the Alumni journey: their normal school login
+ * must always take them through the Alumni activation page first.
+ */
+if($__CurrentScript !== 'alumni-activate.php' && $__CurrentScript !== 'logout.php'){
+    $stmtAlumniStatus = @mysqli_prepare($con, "SELECT status FROM tblsystemuser WHERE userid=? LIMIT 1");
+    if($stmtAlumniStatus){
+        mysqli_stmt_bind_param($stmtAlumniStatus, 's', $_SESSION['USERID']);
+        mysqli_stmt_execute($stmtAlumniStatus);
+        $alumniStatusResult = mysqli_stmt_get_result($stmtAlumniStatus);
+        $alumniStatusRow = $alumniStatusResult ? mysqli_fetch_array($alumniStatusResult, MYSQLI_ASSOC) : null;
+        mysqli_stmt_close($stmtAlumniStatus);
+        if($alumniStatusRow && strtolower(trim((string)$alumniStatusRow['status'])) === 'alumni'){
+            header('location:alumni-activate.php');
+            exit();
+        }
+    }
+}
+
 if($__CurrentScript !== "change-password.php" && $__CurrentScript !== "logout.php"){
     $stmtUserReset = @mysqli_prepare($con, "SELECT password_reset_required FROM tblsystemuser WHERE userid=? LIMIT 1");
     if($stmtUserReset){

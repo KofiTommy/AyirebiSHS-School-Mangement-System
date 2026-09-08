@@ -189,6 +189,11 @@
     box-shadow: 0 10px 22px rgba(33, 140, 85, 0.22);
 }
 
+.cta-btn-cancel {
+    background: #edf2f7;
+    color: #12365d;
+}
+
 .cta-table-wrap {
     width: 100%;
     overflow-x: auto;
@@ -247,6 +252,11 @@
 .cta-action-warning {
     background: #fff7ed;
     color: #b45309;
+}
+
+.cta-action-edit {
+    background: #e8f1ff;
+    color: #12599c;
 }
 
 .cta-action-danger {

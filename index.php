@@ -193,7 +193,11 @@ else{
 		  }
 		 
 	}
-			if($row['status']=="block"){
+			if(strtolower(trim((string)$row['status'])) === 'alumni'){
+				header("location:alumni-activate.php");
+				exit();
+			}
+			elseif($row['status']=="block"){
 			$_SESSION['Message']="<div style='color:red;text-align:center;padding:8px;text-transform:blink'>Account is blocked!! Please contact administrator</div>";
 			}else{
 				if(isset($row['password_reset_required']) && (int)$row['password_reset_required'] === 1){
