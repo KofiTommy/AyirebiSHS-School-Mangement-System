@@ -371,7 +371,12 @@ echo "<fieldset class='tr-fieldset'><legend>Report Details</legend>";
 $_SelectedTermLabel = "";
 $_SelectedUserId = isset($_POST['userid']) ? $_POST['userid'] : '';
 
-$_SQL_2=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.systemtype='Student' ORDER BY su.firstname");
+// Alumni and archived accounts remain in the database for history, but must not
+// appear in the active-school report selector.
+$_SQL_2=mysqli_query($con,"SELECT * FROM tblsystemuser su
+    WHERE su.systemtype='Student'
+      AND LOWER(TRIM(COALESCE(su.status,''))) NOT IN ('alumni','archived','graduated')
+    ORDER BY su.firstname");
 echo "<label for='userid'>Student</label>";
 echo "<select id='userid' name='userid' class='validate[required]'>";
 echo "<option value=''>Select Student</option>";
@@ -589,7 +594,11 @@ if(isset($_POST["show_terminal_report"]))
 $_AcademicYearSql = $_Academic_Year!=="" ? " AND ".semester_registry_resolved_year_sql("tr")."='".mysqli_real_escape_string($con,$_Academic_Year)."'" : "";
 
 include("dbstring.php");
-$_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$_User_ID' AND su.systemtype='Student'  ORDER BY su.userid");
+$_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su
+    WHERE su.userid='$_User_ID'
+      AND su.systemtype='Student'
+      AND LOWER(TRIM(COALESCE(su.status,''))) NOT IN ('alumni','archived','graduated')
+    ORDER BY su.userid");
 if(mysqli_num_rows($_SQL_USER)>0){
 echo "<input type='hidden' name='userid' value='$_User_ID' />";
 echo "<input type='hidden' name='batchid' value='$_Batch_ID' />";
@@ -608,7 +617,10 @@ echo "</div>";
 echo "<div class='tr-table-wrap'>";
 echo "<table class='tr-table tr-results-table'>";
 echo "<caption>";
-$_SQL_USER_2=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$_User_ID' AND su.systemtype='Student'");
+$_SQL_USER_2=mysqli_query($con,"SELECT * FROM tblsystemuser su
+    WHERE su.userid='$_User_ID'
+      AND su.systemtype='Student'
+      AND LOWER(TRIM(COALESCE(su.status,''))) NOT IN ('alumni','archived','graduated')");
 if($rowst=mysqli_fetch_array($_SQL_USER_2,MYSQLI_ASSOC)){
 echo $rowst["firstname"]." ".$rowst["othernames"]." ".$rowst["surname"]." (".$rowst["userid"].")";
 }
