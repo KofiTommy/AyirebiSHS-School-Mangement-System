@@ -519,6 +519,7 @@ function tr_terminal_report_fetch_scope_students($con, $batchId, $academicYear, 
 if (!function_exists('tr_terminal_report_render_student_page')) {
 function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $academicYear, $termId, $classId, $options = array())
 {
+    $isPreview = !empty($options['preview']);
     $scopeMeta = isset($options['scope_meta']) && is_array($options['scope_meta'])
         ? $options['scope_meta']
         : tr_terminal_report_fetch_scope_meta($con, $batchId, $academicYear, $termId);
@@ -534,7 +535,8 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
         ? $options['company_meta']
         : tr_terminal_report_fetch_company_meta($con);
     $headmasterSignaturePath = tr_terminal_report_resolve_headmaster_signature_path(isset($approvalMeta['headsignaturefile']) ? $approvalMeta['headsignaturefile'] : '');
-    $headmasterApproved = !empty($approvalMeta['headmaster_approved']);
+    // Preview files must never display a final signature.
+    $headmasterApproved = !$isPreview && !empty($approvalMeta['headmaster_approved']);
     $headmasterSignedName = trim((string)(isset($approvalMeta['headapprovedname']) ? $approvalMeta['headapprovedname'] : ''));
     if ($headmasterSignedName === '') {
         $headmasterSignedName = 'Headmaster';
@@ -649,6 +651,13 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
     $pdf->Ln($lineGap);
     $pdf->Cell(array_sum($widthCell), 10, tr_terminal_report_pdf_text('Tel:' . (string)$companyMeta['telephone1'] . ' ' . (string)$companyMeta['telephone2']), 0, 0, 'C', true);
     $pdf->Ln($lineGap);
+    if ($isPreview) {
+        $pdf->SetFillColor(255, 243, 205);
+        $pdf->SetTextColor(140, 70, 0);
+        $pdf->SetFont('Arial', 'B', 10);
+        $pdf->Cell(array_sum($widthCell), 7, tr_terminal_report_pdf_text('ADMINISTRATIVE PREVIEW - NOT AN OFFICIAL REPORT'), 1, 1, 'C', true);
+        $pdf->SetTextColor(0, 0, 0);
+    }
 
     $pdf->SetFont('Arial', 'B', 12);
     $pdf->Cell(array_sum($widthCell), 10, tr_terminal_report_pdf_text('Group Year Position: ' . $groupYearPosition), 0, 0, 'R', true);
@@ -798,7 +807,7 @@ function tr_terminal_report_output_pdf($pdf, $fileName)
 }
 
 if (!function_exists('tr_terminal_report_print_single_pdf')) {
-function tr_terminal_report_print_single_pdf($con, $userId, $batchId, $academicYear, $termId, $classId)
+function tr_terminal_report_print_single_pdf($con, $userId, $batchId, $academicYear, $termId, $classId, $isPreview = false)
 {
     $prepared = tr_terminal_report_prepare_dependencies($con);
     if (empty($prepared['success'])) {
@@ -814,7 +823,10 @@ function tr_terminal_report_print_single_pdf($con, $userId, $batchId, $academicY
     $approvalMeta = function_exists('report_approval_scope_meta')
         ? report_approval_scope_meta($con, $batchId, $academicYear, $termId, $classId)
         : array('required' => false, 'headmaster_approved' => false);
-    if (!empty($approvalMeta['required']) && empty($approvalMeta['headmaster_approved'])) {
+    if ($isPreview && function_exists('report_approval_is_admin_user') && !report_approval_is_admin_user()) {
+        return array('success' => false, 'message' => 'Only an administrator can create an unsigned report preview.');
+    }
+    if (!$isPreview && !empty($approvalMeta['required']) && empty($approvalMeta['headmaster_approved'])) {
         return array(
             'success' => false,
             'message' => 'This class report is still waiting for the headmaster signature before final printing.'
@@ -828,17 +840,18 @@ function tr_terminal_report_print_single_pdf($con, $userId, $batchId, $academicY
         'scope_meta' => $scopeMeta,
         'approval_meta' => $approvalMeta,
         'company_meta' => $companyMeta,
+        'preview' => $isPreview,
         'position_obj' => new Position(),
         'class_position_obj' => new ClassPosition(),
         'grade_obj' => new GradingSystem()
     ));
-    tr_terminal_report_output_pdf($pdf, 'terminal-report.pdf');
+    tr_terminal_report_output_pdf($pdf, $isPreview ? 'admin-report-preview-not-official.pdf' : 'terminal-report.pdf');
     return array('success' => true);
 }
 }
 
 if (!function_exists('tr_terminal_report_print_scope_pack_pdf')) {
-function tr_terminal_report_print_scope_pack_pdf($con, $batchId, $academicYear, $termId, $classId)
+function tr_terminal_report_print_scope_pack_pdf($con, $batchId, $academicYear, $termId, $classId, $isPreview = false)
 {
     $prepared = tr_terminal_report_prepare_dependencies($con);
     if (empty($prepared['success'])) {
@@ -862,7 +875,10 @@ function tr_terminal_report_print_scope_pack_pdf($con, $batchId, $academicYear, 
     $approvalMeta = function_exists('report_approval_scope_meta')
         ? report_approval_scope_meta($con, $batchId, $academicYear, $termId, $classId)
         : array('required' => false, 'headmaster_approved' => false);
-    if (!empty($approvalMeta['required']) && empty($approvalMeta['headmaster_approved'])) {
+    if ($isPreview && function_exists('report_approval_is_admin_user') && !report_approval_is_admin_user()) {
+        return array('success' => false, 'message' => 'Only an administrator can create an unsigned report preview pack.');
+    }
+    if (!$isPreview && !empty($approvalMeta['required']) && empty($approvalMeta['headmaster_approved'])) {
         return array(
             'success' => false,
             'message' => 'This class report is still waiting for the headmaster signature before final printing.'
@@ -876,6 +892,7 @@ function tr_terminal_report_print_scope_pack_pdf($con, $batchId, $academicYear, 
         'scope_meta' => $scopeMeta,
         'approval_meta' => $approvalMeta,
         'company_meta' => $companyMeta,
+        'preview' => $isPreview,
         'position_obj' => new Position(),
         'class_position_obj' => new ClassPosition(),
         'grade_obj' => new GradingSystem()
@@ -909,7 +926,7 @@ function tr_terminal_report_print_scope_pack_pdf($con, $batchId, $academicYear, 
         . tr_terminal_report_filename_part($classLabel !== '' ? $classLabel : $classId, 'class')
         . '.pdf';
 
-    tr_terminal_report_output_pdf($pdf, $fileName);
+    tr_terminal_report_output_pdf($pdf, $isPreview ? 'admin-report-preview-pack-not-official.pdf' : $fileName);
     return array('success' => true);
 }
 }

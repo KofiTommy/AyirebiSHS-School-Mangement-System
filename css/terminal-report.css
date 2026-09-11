@@ -104,6 +104,12 @@
     margin-bottom: 16px;
 }
 
+.tr-report-actions {
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
 .tr-panel-heading h2 {
     font-size: 20px;
 }

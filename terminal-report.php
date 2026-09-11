@@ -135,6 +135,18 @@ if(isset($_POST["print_terminal_report"]))
       }
 }
 
+if(isset($_POST["preview_terminal_report"]))
+{
+      if(!report_approval_is_admin_user()){
+          $_ReportPrintMessage = "<div class='tr-status-card tr-status-pending'><i class='fa fa-exclamation-circle'></i> Only an administrator can create an unsigned report preview.</div>";
+      }else{
+          $_PreviewResult = tr_terminal_report_print_single_pdf($con, $_UserID, $_BatchId, $_AcademicYear, $_TermId, $_ClassId, true);
+          if(empty($_PreviewResult['success'])){
+              $_ReportPrintMessage = "<div class='tr-status-card tr-status-pending'><i class='fa fa-exclamation-circle'></i> ".htmlspecialchars((string)$_PreviewResult['message'], ENT_QUOTES, 'UTF-8')."</div>";
+          }
+      }
+}
+
 if(isset($_POST["print_class_report_pack"]))
 {
       $_PrintPackApprovalMeta = report_approval_scope_meta($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
@@ -144,6 +156,18 @@ if(isset($_POST["print_class_report_pack"]))
           $_PrintPackResult = tr_terminal_report_print_scope_pack_pdf($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId);
           if(empty($_PrintPackResult['success'])){
               $_ReportPrintMessage = "<div class='tr-status-card tr-status-pending'><i class='fa fa-exclamation-circle'></i> ".htmlspecialchars((string)$_PrintPackResult['message'], ENT_QUOTES, 'UTF-8')."</div>";
+          }
+      }
+}
+
+if(isset($_POST["preview_class_report_pack"]))
+{
+      if(!report_approval_is_admin_user()){
+          $_ReportPrintMessage = "<div class='tr-status-card tr-status-pending'><i class='fa fa-exclamation-circle'></i> Only an administrator can create an unsigned report preview pack.</div>";
+      }else{
+          $_PreviewPackResult = tr_terminal_report_print_scope_pack_pdf($con, $_BatchId, $_AcademicYear, $_TermId, $_ClassId, true);
+          if(empty($_PreviewPackResult['success'])){
+              $_ReportPrintMessage = "<div class='tr-status-card tr-status-pending'><i class='fa fa-exclamation-circle'></i> ".htmlspecialchars((string)$_PreviewPackResult['message'], ENT_QUOTES, 'UTF-8')."</div>";
           }
       }
 }
@@ -535,6 +559,11 @@ echo "</fieldset>";
         <button class="button-pay tr-btn tr-btn-print" type="submit" name="print_class_report_pack" <?php echo ($_SelectedScopeStudentCount > 0 && $_SelectedScopePrintReady) ? '' : 'disabled'; ?>>
             <i class="fa fa-print"></i> Print Class Report Pack
         </button>
+        <?php if($_SelectedScopeStudentCount > 0 && report_approval_is_admin_user()){ ?>
+        <button class="button-show tr-btn tr-btn-light" type="submit" name="preview_class_report_pack">
+            <i class="fa fa-eye"></i> Preview Class Pack (Not Official)
+        </button>
+        <?php } ?>
     </div>
 </form>
 <?php } ?>
@@ -567,11 +596,14 @@ echo "<input type='hidden' name='batchid' value='$_Batch_ID' />";
 echo "<input type='hidden' name='academicyear' value='$_Academic_Year' />";
 echo "<input type='hidden' name='termid' value='$_Term_ID' />";
 echo "<input type='hidden' name='classid' value='$_Class_ID' />";
+echo "<div class='tr-actions tr-report-actions'>";
 if($_SelectedScopePrintReady){
 echo "<button class='button-pay tr-btn tr-btn-print' id='print_terminal_report' name='print_terminal_report'><i class='fa fa-print'></i> Print Report</button>";
 }else{
 echo "<button class='button-pay tr-btn tr-btn-print' id='print_terminal_report' name='print_terminal_report' disabled><i class='fa fa-lock'></i> Headmaster Signature Pending</button>";
 }
+echo "<button class='button-show tr-btn tr-btn-light' id='preview_terminal_report' name='preview_terminal_report'><i class='fa fa-eye'></i> Preview Report (Not Official)</button>";
+echo "</div>";
 }
 echo "<div class='tr-table-wrap'>";
 echo "<table class='tr-table tr-results-table'>";
