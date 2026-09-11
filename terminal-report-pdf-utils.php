@@ -222,17 +222,21 @@ function tr_terminal_report_fetch_terminal_summary_row($con, $userId, $batchId, 
     $termFilter = trim((string)$termId);
     if ($termFilter !== '') {
         $termFilter = (string)((int)$termFilter);
-        $sql = "SELECT * FROM tblstudentterminalreport
+        $sql = "SELECT str.*, COALESCE(NULLIF(TRIM(next_class.class_name), ''), str.promotedto) AS promotedto_label
+            FROM tblstudentterminalreport str
+            LEFT JOIN tblclassentry next_class ON next_class.class_entryid=str.promotedto
             WHERE userid='$userIdEsc'
               AND batchid='$batchIdEsc'
               AND (termname='$termFilter' OR termname='0')
-            ORDER BY termname DESC, datetimeentry DESC
+            ORDER BY str.termname DESC, str.datetimeentry DESC
             LIMIT 1";
     } else {
-        $sql = "SELECT * FROM tblstudentterminalreport
+        $sql = "SELECT str.*, COALESCE(NULLIF(TRIM(next_class.class_name), ''), str.promotedto) AS promotedto_label
+            FROM tblstudentterminalreport str
+            LEFT JOIN tblclassentry next_class ON next_class.class_entryid=str.promotedto
             WHERE userid='$userIdEsc'
               AND batchid='$batchIdEsc'
-            ORDER BY datetimeentry DESC
+            ORDER BY str.datetimeentry DESC
             LIMIT 1";
     }
     $res = @mysqli_query($con, $sql);
@@ -589,7 +593,9 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
     $roll = is_array($terminalRow) && isset($terminalRow['roll']) ? $terminalRow['roll'] : 0;
     $attendance = is_array($terminalRow) && isset($terminalRow['attendance']) ? $terminalRow['attendance'] : 0;
     $totalAttendance = is_array($terminalRow) && isset($terminalRow['totalattendance']) ? $terminalRow['totalattendance'] : 0;
-    $promotedTo = is_array($terminalRow) && isset($terminalRow['promotedto']) ? $terminalRow['promotedto'] : '';
+    $promotedTo = is_array($terminalRow) && isset($terminalRow['promotedto_label'])
+        ? $terminalRow['promotedto_label']
+        : (is_array($terminalRow) && isset($terminalRow['promotedto']) ? $terminalRow['promotedto'] : '');
     $conduct = is_array($terminalRow) && isset($terminalRow['conduct']) ? $terminalRow['conduct'] : '';
     $interest = is_array($terminalRow) && isset($terminalRow['interest']) ? $terminalRow['interest'] : '';
     $classTeacherRemark = is_array($terminalRow) && isset($terminalRow['class_teacher_remark']) ? $terminalRow['class_teacher_remark'] : '';
