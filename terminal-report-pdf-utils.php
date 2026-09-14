@@ -58,6 +58,32 @@ function tr_terminal_report_resolve_headmaster_signature_path($signatureFile = '
 }
 }
 
+if (!function_exists('tr_terminal_report_resolve_student_photo_path')) {
+function tr_terminal_report_resolve_student_photo_path($con, $userId)
+{
+    $userId = trim((string)$userId);
+    if (!$con || $userId === '') {
+        return '';
+    }
+
+    $userIdEsc = mysqli_real_escape_string($con, $userId);
+    $result = @mysqli_query($con, "SELECT filename FROM tblsystemuser WHERE userid='$userIdEsc' LIMIT 1");
+    $row = $result ? mysqli_fetch_array($result, MYSQLI_ASSOC) : null;
+    $filename = is_array($row) ? trim((string)$row['filename']) : '';
+    $filename = basename(str_replace('\\', '/', $filename));
+    $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+    // FPDF supports JPEG and PNG reliably. Other accepted upload formats stay
+    // available on the profile but are skipped here instead of breaking a PDF.
+    if ($filename === '' || !in_array($extension, array('jpg', 'jpeg', 'png'), true)) {
+        return '';
+    }
+
+    $path = __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . $filename;
+    return is_file($path) ? $path : '';
+}
+}
+
 if (!function_exists('tr_terminal_report_fetch_batch_label')) {
 function tr_terminal_report_fetch_batch_label($con, $batchId)
 {
@@ -614,6 +640,7 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
     }
 
     $logoPath = '';
+    $studentPhotoPath = tr_terminal_report_resolve_student_photo_path($con, $userId);
     if (!empty($companyMeta['logo'])) {
         $candidatePaths = array(
             __DIR__ . DIRECTORY_SEPARATOR . 'logo' . DIRECTORY_SEPARATOR . $companyMeta['logo'],
@@ -646,6 +673,11 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
     $pdf->SetFont('Arial', 'B', 18);
     if ($logoPath !== '') {
         $pdf->Image($logoPath, $widthCell[0] + $widthCell[1] + $widthCell[2], 3, 22);
+    }
+    if ($studentPhotoPath !== '') {
+        // Passport photo: balanced in the upper-right corner, clear of the crest.
+        $pdf->Rect(172, 3, 26, 32);
+        $pdf->Image($studentPhotoPath, 174, 5, 22, 28);
     }
     $pdf->Ln(20);
 

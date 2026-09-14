@@ -678,6 +678,15 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
     if (modal.classList.contains('is-open')) {
         setModalState(true);
     }
+
+    var helpFab = document.querySelector('.landing-help-fab');
+    var landingFooter = document.querySelector('.landing-footer');
+    if (helpFab && landingFooter && 'IntersectionObserver' in window) {
+        var footerObserver = new IntersectionObserver(function (entries) {
+            helpFab.classList.toggle('landing-help-fab--footer-visible', !!entries[0].isIntersecting);
+        }, { threshold: 0.08 });
+        footerObserver.observe(landingFooter);
+    }
 })();
 </script>
 </body>

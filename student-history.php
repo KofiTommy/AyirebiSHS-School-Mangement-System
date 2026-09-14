@@ -285,6 +285,17 @@ function sh_resolve_school_logo($logoValue){
     return "";
 }
 
+function sh_student_photo_path($student){
+    $filename = is_array($student) && isset($student['filename']) ? trim((string)$student['filename']) : '';
+    $filename = basename(str_replace('\\', '/', $filename));
+    if($filename === ''){
+        return '';
+    }
+
+    $path = __DIR__.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.$filename;
+    return is_file($path) ? 'uploads/'.rawurlencode($filename) : '';
+}
+
 $_StudentId = trim((string)(isset($_GET["studentid"]) ? $_GET["studentid"] : ""));
 if($_StudentId === "" && isset($_GET["userid"])){
     $_StudentId = trim((string)$_GET["userid"]);
@@ -307,7 +318,7 @@ $_StudentIdSafe = mysqli_real_escape_string($con, $_StudentId);
 );
 
 if($_StudentId !== ""){
-    $studentRes = mysqli_query($con, "SELECT userid, firstname, surname, othernames FROM tblsystemuser WHERE userid='$_StudentIdSafe' LIMIT 1");
+    $studentRes = mysqli_query($con, "SELECT userid, firstname, surname, othernames, filename FROM tblsystemuser WHERE userid='$_StudentIdSafe' LIMIT 1");
     if($studentRes && ($studentRow = mysqli_fetch_array($studentRes, MYSQLI_ASSOC))){
         $selectedStudent = $studentRow;
     }
@@ -710,11 +721,12 @@ if($_StudentId !== ""){
 }
 
 $schoolLogoPath = sh_resolve_school_logo(isset($_Logo) ? $_Logo : "");
+$studentPhotoPath = sh_student_photo_path($selectedStudent);
 ?>
 <html>
 <head>
 <?php include("links.php"); ?>
-<link rel="stylesheet" type="text/css" href="css/student-history.css">
+<link rel="stylesheet" type="text/css" href="css/student-history.css?v=20260913-2">
 </head>
 <body class="student-history-page">
 <div class="header print-hide">
@@ -766,6 +778,11 @@ $schoolLogoPath = sh_resolve_school_logo(isset($_Logo) ? $_Logo : "");
     <?php if($_StudentId !== ""){ ?>
     <section class="student-history-report" align="left">
         <div class="student-history-report__hero student-transcript-hero">
+            <?php if($studentPhotoPath !== ''){ ?>
+            <div class="student-transcript-hero__student-photo">
+                <img src="<?php echo sh_esc($studentPhotoPath); ?>" alt="Student photograph">
+            </div>
+            <?php } ?>
             <div class="student-transcript-hero__identity">
                 <?php if($schoolLogoPath !== ""){ ?>
                 <div class="student-transcript-crest">
@@ -804,7 +821,9 @@ $schoolLogoPath = sh_resolve_school_logo(isset($_Logo) ? $_Logo : "");
                     <span class="student-history-kicker">Student Profile</span>
                     <h3><?php echo $selectedStudent ? sh_esc(trim($selectedStudent["firstname"]." ".$selectedStudent["othernames"]." ".$selectedStudent["surname"])) : "Student Record"; ?></h3>
                 </div>
-                <span class="student-history-chip"><?php echo sh_esc($_StudentId); ?></span>
+                <div class="student-transcript-profile__identity">
+                    <span class="student-history-chip"><?php echo sh_esc($_StudentId); ?></span>
+                </div>
             </div>
 
             <div class="student-transcript-profile">

@@ -1100,6 +1100,7 @@ body.landing-page::after {
     font-weight: 700;
     cursor: pointer;
     box-shadow: 0 24px 44px rgba(10, 22, 42, 0.3);
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .landing-help-fab i {
@@ -1571,6 +1572,13 @@ body.landing-help-open {
         right: 14px;
         bottom: 88px;
         padding-right: 16px;
+    }
+
+    /* Keep the footer's LiveCampus and developer marks unobstructed. */
+    .landing-help-fab.landing-help-fab--footer-visible {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(14px);
     }
 
     .landing-help-modal {
