@@ -26,21 +26,40 @@ function ensure_school_data_year_column($con){
 }
 }
 
+if(!function_exists('school_data_normalize_date')){
+function school_data_normalize_date($value){
+    $value = trim((string)$value);
+    if($value === ''){
+        return '';
+    }
+    /* The calendar widget uses day/month/year; accept older saved variants too. */
+    foreach(array('Y-m-d', 'd/m/Y', 'd-m-Y', 'd.m.Y', 'd M Y', 'dMY') as $format){
+        $date = DateTime::createFromFormat('!'.$format, $value);
+        $errors = DateTime::getLastErrors();
+        if($date && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))){
+            return $date->format('Y-m-d');
+        }
+    }
+    $timestamp = strtotime($value);
+    return $timestamp !== false ? date('Y-m-d', $timestamp) : '';
+}
+}
+
 ensure_school_data_year_column($con);
 
 @$_ClassId = $_POST['classid'];
 @$_Infoid = trim((string)$_POST['infoid']);
 @$_SchoolClosesInput = trim((string)$_POST['schoolcloses-date']);
 @$_SchoolResumesInput = trim((string)$_POST['schoolresumes']);
-@$_SchoolCloses = ($_SchoolClosesInput !== "" && strtotime($_SchoolClosesInput)) ? date("Y-m-d", strtotime($_SchoolClosesInput)) : "";
-@$_SchoolResumes = ($_SchoolResumesInput !== "" && strtotime($_SchoolResumesInput)) ? date("Y-m-d", strtotime($_SchoolResumesInput)) : "";
+@$_SchoolCloses = school_data_normalize_date($_SchoolClosesInput);
+@$_SchoolResumes = school_data_normalize_date($_SchoolResumesInput);
 @$_AcademicYear = trim((string)$_POST['academicyear']);
 @$_Term = trim((string)$_POST['term']);
 @$_BatchId = trim((string)$_POST['batchid']);
 @$_Recordedby = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : "";
 
 include("shortcode.php");
-$_FormInfoId = $shortcode;
+$_FormInfoId = ($_Infoid !== "" ? $_Infoid : $shortcode);
 $_FormAcademicYear = ($_AcademicYear !== "" ? $_AcademicYear : date("Y"));
 $_FormTerm = $_Term;
 $_FormBatchId = $_BatchId;
@@ -51,7 +70,13 @@ $_IsEditMode = false;
 
 if(isset($_POST['register_school_data'])){
     if($_Infoid === "" || $_SchoolCloses === "" || $_SchoolResumes === "" || $_AcademicYear === "" || $_Term === "" || $_BatchId === ""){
-        $_SESSION['Message'] = "<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>Please select the academic year, semester, batch, school closes date, and next semester begins date.</div>";
+        $_MissingFields = array();
+        if($_AcademicYear === ""){ $_MissingFields[] = "academic year"; }
+        if($_Term === ""){ $_MissingFields[] = "semester"; }
+        if($_BatchId === ""){ $_MissingFields[] = "batch"; }
+        if($_SchoolCloses === ""){ $_MissingFields[] = "a valid school closes date"; }
+        if($_SchoolResumes === ""){ $_MissingFields[] = "a valid next semester begins date"; }
+        $_SESSION['Message'] = "<div style='color:red;padding:5px;text-align:center;border:1px solid #eaa;background-color:#fee;'>Please complete: ".htmlspecialchars(implode(', ', $_MissingFields), ENT_QUOTES, 'UTF-8').".</div>";
     } else {
         $_InfoidEsc = mysqli_real_escape_string($con, $_Infoid);
         $_AcademicYearEsc = mysqli_real_escape_string($con, $_AcademicYear);
