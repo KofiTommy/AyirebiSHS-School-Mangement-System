@@ -13,6 +13,16 @@ function alumni_hub_send_welcome_sms_safely($con, $alumniId, $resend = false){
         return array(false, 'failed');
     }
 }
+function alumni_hub_welcome_sms_failure_detail($con, $alumniId){
+    $stmt = mysqli_prepare($con, 'SELECT welcomesmsresponse FROM tblalumni WHERE alumniid=? LIMIT 1');
+    if(!$stmt){ return ''; }
+    mysqli_stmt_bind_param($stmt, 's', $alumniId);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_result($stmt, $detail);
+    $found = mysqli_stmt_fetch($stmt);
+    mysqli_stmt_close($stmt);
+    return $found ? substr(trim((string)$detail), 0, 220) : '';
+}
 $actor = trim((string)($_SESSION['USERID'] ?? ''));
 if($_SERVER['REQUEST_METHOD']==='POST' && !alumni_csrf_valid($_POST['csrf']??'')){$_SESSION['alumni_flash']='Your form expired. Please try again.';alumni_redirect();}
 if(isset($_POST['save_alumnus'])){
@@ -32,7 +42,8 @@ if(isset($_POST['approve_all_pending'])){ $pendingIds=array();$pendingRows=mysql
 if(isset($_POST['resend_welcome_sms'])){
     $id=trim((string)($_POST['alumniid'] ?? ''));
     list($smsSent,$smsStatus)=alumni_hub_send_welcome_sms_safely($con,$id,true);
-    $_SESSION['alumni_flash']=$smsSent ? 'Welcome SMS resent successfully.' : ($smsStatus==='not_opted_in' ? 'This alumnus did not opt in to receive SMS updates.' : ($smsStatus==='no_valid_phone' ? 'This alumnus has no valid Ghana mobile number for SMS.' : 'The alumnus remains approved, but the welcome SMS could not be sent.'));
+    $failureDetail = alumni_hub_welcome_sms_failure_detail($con, $id);
+    $_SESSION['alumni_flash']=$smsSent ? 'Welcome SMS resent successfully.' : ($smsStatus==='not_opted_in' ? 'This alumnus did not opt in to receive SMS updates.' : ($smsStatus==='no_valid_phone' ? 'This alumnus has no valid Ghana mobile number for SMS.' : 'The alumnus remains approved, but the welcome SMS could not be sent.'.($failureDetail!=='' ? ' SMS service response: '.$failureDetail : '')));
     alumni_redirect();
 }
 if(isset($_POST['send_sms_campaign'])){
