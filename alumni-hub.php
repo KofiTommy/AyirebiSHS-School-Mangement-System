@@ -4,10 +4,10 @@ if(!um_is_admin_manager()){ header('location:index.php'); exit(); }
 alumni_ensure_tables($con);
 $automaticGraduateCount = alumni_sync_archived_graduates($con);
 function alumni_redirect(){ header('location:alumni-hub.php'); exit(); }
-function alumni_hub_send_welcome_sms_safely($con, $alumniId){
+function alumni_hub_send_welcome_sms_safely($con, $alumniId, $resend = false){
     /* SMS delivery is optional and must not prevent approval of an alumnus. */
     try{
-        return alumni_send_welcome_sms($con, $alumniId);
+        return $resend ? alumni_resend_welcome_sms($con, $alumniId) : alumni_send_welcome_sms($con, $alumniId);
     }catch(Throwable $error){
         error_log('Alumni welcome SMS failed for '.$alumniId.': '.$error->getMessage());
         return array(false, 'failed');
@@ -29,6 +29,12 @@ if(isset($_POST['save_donation'])){ $stmt=mysqli_prepare($con,'INSERT INTO tblal
 if(isset($_POST['save_event'])){ $eventid=alumni_new_id('EVT');$stmt=mysqli_prepare($con,'INSERT INTO tblalumnievent(eventid,title,eventdate,venue,description,status,recordedby) VALUES(?,?,?,?,?,?,?)');if($stmt){$title=trim((string)$_POST['title']);$date=trim((string)$_POST['eventdate']);$venue=trim((string)$_POST['venue']);$desc=trim((string)$_POST['description']);$status=trim((string)$_POST['status']);mysqli_stmt_bind_param($stmt,'sssssss',$eventid,$title,$date,$venue,$desc,$status,$actor);mysqli_stmt_execute($stmt);mysqli_stmt_close($stmt);$_SESSION['alumni_flash']='Old-student event created.';} alumni_redirect(); }
 if(isset($_POST['approve_alumnus'])){ $id=trim((string)$_POST['alumniid']);$stmt=mysqli_prepare($con,"UPDATE tblalumni SET status='active',updatedat=CURRENT_TIMESTAMP WHERE alumniid=? AND status='pending'");if($stmt){mysqli_stmt_bind_param($stmt,'s',$id);mysqli_stmt_execute($stmt);$approved=mysqli_stmt_affected_rows($stmt)>0;mysqli_stmt_close($stmt);if($approved){list($smsSent,$smsStatus)=alumni_hub_send_welcome_sms_safely($con,$id);$_SESSION['alumni_flash']='Alumni registration approved.'.($smsSent?' Welcome SMS sent.':($smsStatus==='not_opted_in'?' Welcome SMS was not sent because the alumnus did not opt in to SMS updates.':($smsStatus==='no_valid_phone'?' Welcome SMS was not sent because no valid mobile number was supplied.':' Welcome SMS could not be sent right now.')));}}alumni_redirect(); }
 if(isset($_POST['approve_all_pending'])){ $pendingIds=array();$pendingRows=mysqli_query($con,"SELECT alumniid FROM tblalumni WHERE status='pending'");while($pendingRows&&($pendingRow=mysqli_fetch_assoc($pendingRows)))$pendingIds[]=$pendingRow['alumniid'];$result=mysqli_query($con,"UPDATE tblalumni SET status='active',updatedat=CURRENT_TIMESTAMP WHERE status='pending'");$approved=$result?mysqli_affected_rows($con):0;$smsSent=0;foreach($pendingIds as $pendingId){list($sent)=alumni_hub_send_welcome_sms_safely($con,$pendingId);if($sent)$smsSent++;}$_SESSION['alumni_flash']=$approved>0?$approved.' Alumni registration(s) approved. Welcome SMS sent to '.$smsSent.' approved Alumni who opted in.':'There are no pending Alumni registrations to approve.';alumni_redirect(); }
+if(isset($_POST['resend_welcome_sms'])){
+    $id=trim((string)($_POST['alumniid'] ?? ''));
+    list($smsSent,$smsStatus)=alumni_hub_send_welcome_sms_safely($con,$id,true);
+    $_SESSION['alumni_flash']=$smsSent ? 'Welcome SMS resent successfully.' : ($smsStatus==='not_opted_in' ? 'This alumnus did not opt in to receive SMS updates.' : ($smsStatus==='no_valid_phone' ? 'This alumnus has no valid Ghana mobile number for SMS.' : 'The alumnus remains approved, but the welcome SMS could not be sent.'));
+    alumni_redirect();
+}
 if(isset($_POST['send_sms_campaign'])){
     $selectedYears=$_POST['targetyears']??array();
     if(empty($_POST['allyears']) && empty($selectedYears)){ $ok=false; $campaignMessage='Select at least one graduating year, or choose all approved alumni.'; $campaignId=null; }
@@ -74,6 +80,67 @@ $recentImpact=mysqli_query($con,"SELECT * FROM (SELECT 'Achievement' AS activity
 </section>
 <script>(function(){var panel=document.getElementById('pending-approvals'),directory=document.querySelector('.alumni-directory');if(panel&&directory)directory.parentNode.insertBefore(panel,directory);})();</script>
 <?php } ?>
+<?php
+$alumniRegistryActions = array();
+foreach($alumni as $registryPerson){
+    $alumniRegistryActions[] = array('alumniid' => (string)$registryPerson['alumniid'], 'active' => (string)$registryPerson['status'] === 'active');
+}
+?>
+<script>
+(function(){
+    var table = document.getElementById('alumniTable');
+    if(!table){ return; }
+    var records = <?php echo json_encode($alumniRegistryActions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+    var csrf = <?php echo json_encode(alumni_csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+    var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
+    var search = document.getElementById('alumniSearch');
+    var pageSize = 15, currentPage = 1;
+    var wrap = table.parentNode;
+    var pager = document.createElement('nav');
+    pager.className = 'alumni-registry-pagination';
+    pager.setAttribute('aria-label', 'Alumni register pages');
+    wrap.parentNode.insertBefore(pager, wrap.nextSibling);
+
+    var style = document.createElement('style');
+    style.textContent = '.alumni-resend-sms-form{margin-top:7px}.alumni-resend-sms-form button{border:0;border-radius:6px;background:#0b6f68;color:#fff;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer}.alumni-registry-pagination{display:flex;align-items:center;justify-content:flex-end;gap:9px;margin-top:14px}.alumni-registry-pagination button{border:0;border-radius:7px;background:#e7f3f1;color:#08766f;padding:8px 11px;font-weight:700;cursor:pointer}.alumni-registry-pagination button:disabled{opacity:.45;cursor:not-allowed}.alumni-registry-pagination span{font-size:13px;color:#526b80;font-weight:700}';
+    document.head.appendChild(style);
+
+    records.forEach(function(record, index){
+        if(!record.active || !rows[index]){ return; }
+        var contactCell = rows[index].cells[3];
+        if(!contactCell){ return; }
+        var form = document.createElement('form');
+        form.method = 'post'; form.className = 'alumni-resend-sms-form';
+        form.onsubmit = function(){ return window.confirm('Resend the welcome SMS to this alumnus?'); };
+        form.innerHTML = '<input type="hidden" name="csrf"><input type="hidden" name="alumniid"><button type="submit" name="resend_welcome_sms"><i class="fa fa-refresh"></i> Resend welcome SMS</button>';
+        form.querySelector('[name=csrf]').value = csrf;
+        form.querySelector('[name=alumniid]').value = record.alumniid;
+        contactCell.appendChild(form);
+    });
+
+    function matchingRows(){
+        var query = search ? search.value.toLowerCase().trim() : '';
+        return rows.filter(function(row){ return !query || (row.dataset.search || '').indexOf(query) > -1; });
+    }
+    function renderPage(){
+        var matches = matchingRows();
+        var pages = Math.max(1, Math.ceil(matches.length / pageSize));
+        if(currentPage > pages){ currentPage = pages; }
+        rows.forEach(function(row){ row.style.display = 'none'; });
+        matches.slice((currentPage - 1) * pageSize, currentPage * pageSize).forEach(function(row){ row.style.display = ''; });
+        pager.innerHTML = '';
+        if(matches.length <= pageSize){ return; }
+        var previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'Previous'; previous.disabled = currentPage === 1;
+        previous.onclick = function(){ currentPage--; renderPage(); };
+        var label = document.createElement('span'); label.textContent = 'Page ' + currentPage + ' of ' + pages + ' (' + matches.length + ' alumni)';
+        var next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next'; next.disabled = currentPage === pages;
+        next.onclick = function(){ currentPage++; renderPage(); };
+        pager.appendChild(previous); pager.appendChild(label); pager.appendChild(next);
+    }
+    if(search){ search.addEventListener('input', function(){ currentPage = 1; renderPage(); }); }
+    renderPage();
+})();
+</script>
 <?php
 function alumni_person_select($people){
     echo '<label class="alumni-select-field"><span>Select alumnus</span><select class="alumni-person-select" name="alumniid" required><option value="">Choose an alumnus…</option>';
