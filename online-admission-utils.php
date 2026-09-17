@@ -3440,7 +3440,17 @@ function online_admission_sms_gateway_send($phone, $message, &$resultCode = null
         $resultCode = $resultCode !== "" ? $resultCode : "SMS_GATEWAY_TIMEOUT";
         return false;
     }
-    $resultCode = trim((string)$response);
+    $response = trim((string)$response);
+    /* BulkSMS Ghana may return either the legacy plain code or a JSON payload. */
+    $decodedResponse = json_decode($response, true);
+    if(is_array($decodedResponse)){
+        $gatewayCode = isset($decodedResponse['code']) ? trim((string)$decodedResponse['code']) : '';
+        $gatewaySuccess = isset($decodedResponse['success']) ? $decodedResponse['success'] : null;
+        /* Store a short safe result only; the raw payload can contain the API key. */
+        $resultCode = $gatewayCode !== '' ? 'Gateway code '.$gatewayCode : ($gatewaySuccess === true ? 'Gateway accepted message' : 'Gateway did not confirm delivery');
+        return $gatewayCode === '1000' || ($gatewaySuccess === true && $gatewayCode === '1000');
+    }
+    $resultCode = $response;
     return $resultCode === "1000";
 }
 }
