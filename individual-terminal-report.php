@@ -32,6 +32,7 @@ if(!function_exists('itr_esc')){
 @$_TermId=$_POST['termid'];
 @$_ClassId=$_POST['classid'];
 @$_ReportApprovalMessage="";
+@$_ResultPaymentMeta=null;
 
 if(isset($_POST["print_terminal_report"]))
 {
@@ -41,7 +42,15 @@ if(isset($_POST["print_terminal_report"]))
           $_scope=$_ResultAccessMeta['scope']; $_note=trim((string)(isset($_scope['note'])?$_scope['note']:''));
           $_ReportApprovalMessage = "<div style='margin:12px 0;padding:12px 14px;border-radius:14px;background:#fff7ed;border:1px solid rgba(194,65,12,0.14);color:#c2410c;font-weight:600;'>Result viewing for this semester is controlled by the school.".($_note!==''?' '.itr_esc($_note):'')."</div>";
           if(isset($_scope['mode']) && $_scope['mode']==='payment' && (float)$_scope['amount']>0){
-              $_ReportApprovalMessage.="<form method='post' action='result-access-paystack-init.php' style='margin:12px 0'><input type='hidden' name='batchid' value='".itr_esc($_BatchId)."'><input type='hidden' name='academicyear' value='".itr_esc($_AcademicYear)."'><input type='hidden' name='termid' value='".itr_esc($_TermId)."'><input type='hidden' name='classid' value='".itr_esc($_ClassId)."'><button type='submit' style='padding:11px 16px;border:0;border-radius:9px;background:#087443;color:#fff;font-weight:700;cursor:pointer'>Pay GHS ".number_format((float)$_scope['amount'],2)." to view this result</button></form>";
+              /* The report selector is already a form. Keep the Paystack form separate
+                 so browsers submit the payment request to the correct endpoint. */
+              $_ResultPaymentMeta=array(
+                  'batchid'=>$_BatchId,
+                  'academicyear'=>$_AcademicYear,
+                  'termid'=>$_TermId,
+                  'classid'=>$_ClassId,
+                  'amount'=>(float)$_scope['amount']
+              );
           }
       }elseif(report_approval_is_student_user() && $_ReportApprovalMeta['required'] && !$_ReportApprovalMeta['allowed']){
           $_ReportApprovalMessage = "<div style='margin:12px 0;padding:12px 14px;border-radius:14px;background:#fff7ed;border:1px solid rgba(194,65,12,0.14);color:#c2410c;font-weight:600;'>This report is not yet available. Please wait for approval.</div>";
@@ -381,6 +390,16 @@ if($_SelectedClassId !== '' && $_SelectedTermId !== '' && $_SelectedAcademicYear
                         </button>
                     </div>
                 </form>
+
+                <?php if(is_array($_ResultPaymentMeta)){ ?>
+                <form method="post" action="result-access-paystack-init.php" class="itr-payment-form" style="margin:12px 0">
+                    <input type="hidden" name="batchid" value="<?php echo itr_esc($_ResultPaymentMeta['batchid']); ?>">
+                    <input type="hidden" name="academicyear" value="<?php echo itr_esc($_ResultPaymentMeta['academicyear']); ?>">
+                    <input type="hidden" name="termid" value="<?php echo itr_esc($_ResultPaymentMeta['termid']); ?>">
+                    <input type="hidden" name="classid" value="<?php echo itr_esc($_ResultPaymentMeta['classid']); ?>">
+                    <button type="submit" style="padding:11px 16px;border:0;border-radius:9px;background:#087443;color:#fff;font-weight:700;cursor:pointer">Pay GHS <?php echo number_format((float)$_ResultPaymentMeta['amount'],2); ?> to view this result</button>
+                </form>
+                <?php } ?>
             </section>
 
             <section class="itr-panel itr-panel--info">

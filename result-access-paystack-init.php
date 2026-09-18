@@ -8,7 +8,11 @@ $access=result_access_student_allowed($con,$user,$batch,$year,$term,$class); $sc
 if($access['allowed']){ header('Location: individual-terminal-report.php'); exit(); }
 if(empty($scope['enabled'])||$scope['mode']!=='payment'||(float)$scope['amount']<=0){ exit('Result viewing is not available for payment at this time. Please contact the school.'); }
 $ur=mysqli_query($con,"SELECT email FROM tblsystemuser WHERE userid='".mysqli_real_escape_string($con,$user)."' LIMIT 1"); $student=$ur?mysqli_fetch_assoc($ur):null; $email=trim((string)(isset($student['email'])?$student['email']:''));
-if(!filter_var($email,FILTER_VALIDATE_EMAIL)){ exit('Your student account does not have a valid email address. Please contact the school before paying.'); }
+if(!filter_var($email,FILTER_VALIDATE_EMAIL)){
+    $_SESSION['RESULT_ACCESS_EMAIL_REQUIRED']='Paystack requires a valid email address. Please update your profile before making this result payment.';
+    header('Location: edit-account.php?payment_email_required=1');
+    exit();
+}
 $config=online_admission_paystack_config(); $config['callback_path']='result-access-paystack-callback.php';
 if(!online_admission_paystack_is_ready($config)){ exit('Paystack is not configured. Please contact the school.'); }
 $reference=result_access_payment_reference(); $amount=(float)$scope['amount'];

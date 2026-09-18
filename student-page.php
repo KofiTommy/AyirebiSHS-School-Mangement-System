@@ -297,8 +297,9 @@ $studentName = isset($_SESSION['FULLNAME']) ? trim((string)$_SESSION['FULLNAME']
 $studentShortName = $studentName !== "" ? explode(" ", $studentName)[0] : "Student";
 $studentBranch = "";
 $studentFilename = "";
+$studentPaymentEmail = "";
 
-$profileRes = mysqli_query($con, "SELECT su.firstname,su.surname,su.othernames,su.filename,br.location
+$profileRes = mysqli_query($con, "SELECT su.firstname,su.surname,su.othernames,su.filename,su.email,br.location
     FROM tblsystemuser su
     LEFT JOIN tblbranch br ON su.branchid=br.branchid
     WHERE su.userid='$studentIdEsc' LIMIT 1");
@@ -310,7 +311,9 @@ if($profileRes && $row = mysqli_fetch_array($profileRes, MYSQLI_ASSOC)){
     }
     $studentBranch = trim((string)$row['location']);
     $studentFilename = trim((string)$row['filename']);
+    $studentPaymentEmail = trim((string)$row['email']);
 }
+$studentHasValidPaymentEmail = filter_var($studentPaymentEmail, FILTER_VALIDATE_EMAIL) !== false;
 
 $studentImage = "uploads/comm.gif";
 if($studentFilename !== "" && file_exists(__DIR__.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR.$studentFilename)){
@@ -349,6 +352,7 @@ $reportOptionLookup = array();
 $semesterLookup = array();
 $reportOptions = array();
 $reportApprovalPendingCount = 0;
+$studentHasPaymentRequiredReport = false;
 $termRes = mysqli_query($con, "SELECT tr.class_entryid,tr.batchid,tr.termname,ce.class_name,bh.batch,
     ".semester_registry_resolved_year_sql("tr")." AS academic_year
     FROM tbltermregistry tr
@@ -383,6 +387,9 @@ foreach($reportOptions as $reportIndex => $reportRow){
     $reportOptions[$reportIndex]['result_access_allowed'] = !empty($accessMeta['allowed']) ? '1' : '0';
     $reportOptions[$reportIndex]['result_access_reason'] = isset($accessMeta['reason']) ? $accessMeta['reason'] : '';
     $reportOptions[$reportIndex]['result_access_amount'] = isset($accessMeta['scope']['amount']) ? (float)$accessMeta['scope']['amount'] : 0;
+    if(empty($accessMeta['allowed']) && isset($accessMeta['reason']) && $accessMeta['reason'] === 'payment'){
+        $studentHasPaymentRequiredReport = true;
+    }
     if($approvalMeta['required'] && !$approvalMeta['allowed']){
         $reportApprovalPendingCount++;
     }
@@ -812,6 +819,9 @@ $reportPreview = array_slice($reportOptions, 0, 6);
         <?php if($reportApprovalPendingCount > 0){ ?>
         <div class="student-inline-note"><?php echo sd_esc($reportApprovalPendingCount); ?> semester report(s) are awaiting approval.</div>
         <?php } ?>
+        <?php if($studentHasPaymentRequiredReport && !$studentHasValidPaymentEmail){ ?>
+        <div class="student-inline-note">Paystack requires a valid email address before you can pay for a result. Please <a href="edit-account.php?payment_email_required=1">update your profile email</a>, then return here to make payment.</div>
+        <?php } ?>
 
         <?php if(count($reportPreview) > 0){ ?>
         <div class="student-report-grid">
@@ -823,14 +833,30 @@ $reportPreview = array_slice($reportOptions, 0, 6);
                 </div>
                 <h3><?php echo sd_esc($report['class_name']); ?></h3>
                 <p><?php echo sd_esc(sd_term($report['termname']).' · '.trim((string)$report['batch'])); ?></p>
+                <?php
+                    $canPrint = !empty($report['report_allowed']) && $report['report_allowed'] === '1' && !empty($report['result_access_allowed']) && $report['result_access_allowed'] === '1';
+                    $reportPaymentRequired = !empty($report['report_allowed']) && $report['report_allowed'] === '1'
+                        && isset($report['result_access_reason']) && $report['result_access_reason'] === 'payment';
+                ?>
+                <?php if($reportPaymentRequired && $studentHasValidPaymentEmail){ ?>
+                <form method="post" action="result-access-paystack-init.php" class="student-inline-form">
+                    <input type="hidden" name="batchid" value="<?php echo sd_esc((string)$report['batchid']); ?>">
+                    <input type="hidden" name="academicyear" value="<?php echo sd_esc((string)(isset($report['academic_year']) ? $report['academic_year'] : '')); ?>">
+                    <input type="hidden" name="termid" value="<?php echo sd_esc((string)$report['termname']); ?>">
+                    <input type="hidden" name="classid" value="<?php echo sd_esc((string)$report['class_entryid']); ?>">
+                    <button class="student-inline-btn" type="submit"><i class="fa fa-credit-card"></i> Pay GHS <?php echo number_format((float)$report['result_access_amount'], 2); ?> to View Result</button>
+                </form>
+                <?php }elseif($reportPaymentRequired){ ?>
+                <a class="student-inline-btn" href="edit-account.php?payment_email_required=1"><i class="fa fa-envelope"></i> Update Email to Make Payment</a>
+                <?php }else{ ?>
                 <form method="post" action="individual-terminal-report.php" class="student-inline-form">
                     <input type="hidden" name="batchid" value="<?php echo sd_esc((string)$report['batchid']); ?>">
                     <input type="hidden" name="academicyear" value="<?php echo sd_esc((string)(isset($report['academic_year']) ? $report['academic_year'] : '')); ?>">
                     <input type="hidden" name="termid" value="<?php echo sd_esc((string)$report['termname']); ?>">
                     <input type="hidden" name="classid" value="<?php echo sd_esc((string)$report['class_entryid']); ?>">
-                    <?php $canPrint = !empty($report['report_allowed']) && $report['report_allowed'] === '1' && !empty($report['result_access_allowed']) && $report['result_access_allowed'] === '1'; ?>
-                    <button class="student-inline-btn<?php echo $canPrint ? '' : ' is-disabled'; ?>" type="submit" name="print_terminal_report"><i class="fa fa-print"></i> <?php echo $canPrint ? 'Print Report' : ((!empty($report['report_allowed']) && $report['report_allowed'] === '1' && isset($report['result_access_reason']) && $report['result_access_reason'] === 'payment') ? 'Payment Required' : 'Awaiting Approval'); ?></button>
+                    <button class="student-inline-btn<?php echo $canPrint ? '' : ' is-disabled'; ?>" type="submit" name="print_terminal_report"><i class="fa fa-print"></i> <?php echo $canPrint ? 'Print Report' : 'Awaiting Approval'; ?></button>
                 </form>
+                <?php } ?>
             </article>
             <?php } ?>
         </div>

@@ -2,6 +2,10 @@
 session_start();
 $_SESSION['Message']="";
 
+$paymentEmailRequired = isset($_GET['payment_email_required']) && $_GET['payment_email_required'] === '1';
+$paymentEmailMessage = isset($_SESSION['RESULT_ACCESS_EMAIL_REQUIRED']) ? $_SESSION['RESULT_ACCESS_EMAIL_REQUIRED'] : '';
+unset($_SESSION['RESULT_ACCESS_EMAIL_REQUIRED']);
+
 include("dbstring.php");
 
 @$_UserID=$_POST['userid'];
@@ -27,7 +31,7 @@ include("dbstring.php");
 @$_Filename=$_POST['filename'];
 //,birthday=STR_TO_DATE('$_Birthday'
 if(isset($_POST['update_user'])){
-if($_Email !== '' && !filter_var($_Email, FILTER_VALIDATE_EMAIL)){
+if($_Email === '' || !filter_var($_Email, FILTER_VALIDATE_EMAIL)){
 $_SESSION['Message']="<div style='color:red;text-align:center'>Enter a valid email address.</div>";
 }else{
 $_EmailEsc=mysqli_real_escape_string($con,$_Email);
@@ -87,6 +91,9 @@ include("links.php");
 		</div>
 	</div>
 	<?php
+	if($paymentEmailRequired){
+		echo "<div style='margin:0 0 16px;padding:12px 14px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-weight:600'>".htmlspecialchars($paymentEmailMessage !== '' ? $paymentEmailMessage : 'Add a valid email address to your profile before making a result payment.', ENT_QUOTES, 'UTF-8')."</div>";
+	}
 	echo $_SESSION['Message'];
 	?>
 <form method="post" id="formID" name="formID" action="edit-account.php">
