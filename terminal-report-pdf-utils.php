@@ -667,80 +667,83 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
     }
 
     $widthCell = array(45, 30, 25, 30, 25, 35);
-    $lineGap = 7;
+    /* Compact A4 report layout: keeps the normal 8-10 subject report on one page. */
+    $lineGap = 5;
+    $subjectRowHeight = count($assignmentRows) > 10 ? 6 : 7;
+    $pdf->SetAutoPageBreak(true, 7);
 
     $pdf->AddPage();
-    $pdf->SetFont('Arial', 'B', 18);
+    $pdf->SetFont('Arial', 'B', 15);
     if ($logoPath !== '') {
-        $pdf->Image($logoPath, $widthCell[0] + $widthCell[1] + $widthCell[2], 3, 22);
+        $pdf->Image($logoPath, $widthCell[0] + $widthCell[1] + $widthCell[2], 3, 18);
     }
     if ($studentPhotoPath !== '') {
         // Passport photo: balanced in the upper-right corner, clear of the crest.
-        $pdf->Rect(172, 3, 26, 32);
-        $pdf->Image($studentPhotoPath, 174, 5, 22, 28);
+        $pdf->Rect(174, 3, 22, 27);
+        $pdf->Image($studentPhotoPath, 176, 5, 18, 23);
     }
-    $pdf->Ln(20);
+    $pdf->Ln(15);
 
     $pdf->SetFillColor(255, 255, 255);
-    $pdf->Cell(array_sum($widthCell), 10, tr_terminal_report_pdf_text(strtoupper((string)$companyMeta['company_name']) . ' - GES'), 0, 0, 'C', true);
+    $pdf->Cell(array_sum($widthCell), 7, tr_terminal_report_pdf_text(strtoupper((string)$companyMeta['company_name']) . ' - GES'), 0, 0, 'C', true);
     $pdf->Ln($lineGap);
     $pdf->SetFont('Arial', 'B', 10);
-    $pdf->Cell(array_sum($widthCell), 10, tr_terminal_report_pdf_text((string)$companyMeta['address'] . ', ' . (string)$companyMeta['location']), 0, 0, 'C', true);
+    $pdf->Cell(array_sum($widthCell), 6, tr_terminal_report_pdf_text((string)$companyMeta['address'] . ', ' . (string)$companyMeta['location']), 0, 0, 'C', true);
     $pdf->Ln($lineGap);
-    $pdf->Cell(array_sum($widthCell), 10, tr_terminal_report_pdf_text('Tel:' . (string)$companyMeta['telephone1'] . ' ' . (string)$companyMeta['telephone2']), 0, 0, 'C', true);
+    $pdf->Cell(array_sum($widthCell), 6, tr_terminal_report_pdf_text('Tel:' . (string)$companyMeta['telephone1'] . ' ' . (string)$companyMeta['telephone2']), 0, 0, 'C', true);
     $pdf->Ln($lineGap);
     if ($isPreview) {
         $pdf->SetFillColor(255, 243, 205);
         $pdf->SetTextColor(140, 70, 0);
         $pdf->SetFont('Arial', 'B', 10);
-        $pdf->Cell(array_sum($widthCell), 7, tr_terminal_report_pdf_text('ADMINISTRATIVE PREVIEW - NOT AN OFFICIAL REPORT'), 1, 1, 'C', true);
+        $pdf->Cell(array_sum($widthCell), 5, tr_terminal_report_pdf_text('ADMINISTRATIVE PREVIEW - NOT AN OFFICIAL REPORT'), 1, 1, 'C', true);
         $pdf->SetTextColor(0, 0, 0);
     }
 
     $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(array_sum($widthCell), 10, tr_terminal_report_pdf_text('Group Year Position: ' . $groupYearPosition), 0, 0, 'R', true);
+    $pdf->Cell(array_sum($widthCell), 6, tr_terminal_report_pdf_text('Group Year Position: ' . $groupYearPosition), 0, 0, 'R', true);
     $pdf->SetFont('Arial', 'B', 10);
     $pdf->Ln($lineGap);
     $classPositionText = $classPositionLabel;
     if ($classCount > 0 && $classPositionLabel !== 'Not Ready') {
         $classPositionText .= ' / ' . $classCount;
     }
-    $pdf->Cell(array_sum($widthCell), 10, tr_terminal_report_pdf_text('Class Position: ' . $classPositionText), 0, 0, 'R', true);
+    $pdf->Cell(array_sum($widthCell), 6, tr_terminal_report_pdf_text('Class Position: ' . $classPositionText), 0, 0, 'R', true);
     $pdf->Ln($lineGap);
 
     $pdf->Cell(70, 5, tr_terminal_report_pdf_text('Name: ' . $studentName), 0, 0, 'L', true);
     $pdf->Ln($lineGap);
-    $pdf->Cell($widthCell[0] + $widthCell[1] + $widthCell[2], 10, tr_terminal_report_pdf_text('Class/Form: ' . $className), 0, 0, 'L', true);
-    $pdf->Cell($widthCell[3] + $widthCell[4] + $widthCell[5], 10, tr_terminal_report_pdf_text('House: ' . $houseName), 0, 0, 'L', true);
+    $pdf->Cell($widthCell[0] + $widthCell[1] + $widthCell[2], 6, tr_terminal_report_pdf_text('Class/Form: ' . $className), 0, 0, 'L', true);
+    $pdf->Cell($widthCell[3] + $widthCell[4] + $widthCell[5], 6, tr_terminal_report_pdf_text('House: ' . $houseName), 0, 0, 'L', true);
     $pdf->Ln($lineGap);
 
-    $pdf->Cell($widthCell[0] + $widthCell[1] + $widthCell[2], 10, tr_terminal_report_pdf_text('No. On Roll: ' . $roll), 0, 0, 'L', true);
-    $pdf->Cell($widthCell[3] + $widthCell[4] + $widthCell[5], 10, tr_terminal_report_pdf_text('Batch: ' . $batchLabel), 0, 0, 'L', true);
+    $pdf->Cell($widthCell[0] + $widthCell[1] + $widthCell[2], 6, tr_terminal_report_pdf_text('No. On Roll: ' . $roll), 0, 0, 'L', true);
+    $pdf->Cell($widthCell[3] + $widthCell[4] + $widthCell[5], 6, tr_terminal_report_pdf_text('Batch: ' . $batchLabel), 0, 0, 'L', true);
     $pdf->Ln($lineGap);
 
-    $pdf->Cell($widthCell[0] + $widthCell[1] + $widthCell[2], 10, tr_terminal_report_pdf_text('School Closes: ' . (string)$scopeMeta['school_closes']), 0, 0, 'L', true);
+    $pdf->Cell($widthCell[0] + $widthCell[1] + $widthCell[2], 6, tr_terminal_report_pdf_text('School Closes: ' . (string)$scopeMeta['school_closes']), 0, 0, 'L', true);
     $academicYearLabel = trim((string)(isset($scopeMeta['academic_year_label']) ? $scopeMeta['academic_year_label'] : ''));
     $academicYearText = ($academicYearLabel !== '' ? $academicYearLabel : $batchLabel);
     $semesterText = ($semesterLabel !== '' ? $semesterLabel : 'N/A');
-    $pdf->Cell($widthCell[3] + $widthCell[4] + $widthCell[5], 10, tr_terminal_report_pdf_text('Academic Year: ' . $academicYearText . ' | Semester: ' . $semesterText), 0, 0, 'L', true);
+    $pdf->Cell($widthCell[3] + $widthCell[4] + $widthCell[5], 6, tr_terminal_report_pdf_text('Academic Year: ' . $academicYearText . ' | Semester: ' . $semesterText), 0, 0, 'L', true);
     $pdf->Ln($lineGap);
 
-    $pdf->Cell(array_sum($widthCell), 10, tr_terminal_report_pdf_text('Next Semester Begins: ' . (string)$scopeMeta['next_term_begins']), 0, 0, 'L', true);
+    $pdf->Cell(array_sum($widthCell), 6, tr_terminal_report_pdf_text('Next Semester Begins: ' . (string)$scopeMeta['next_term_begins']), 0, 0, 'L', true);
     $pdf->Ln($lineGap);
 
     $pdf->SetFont('Arial', 'B', 9);
-    $pdf->Cell($widthCell[0], 10, 'SUBJECT', 1, 0, 'C', true);
-    $pdf->Cell($widthCell[1], 10, 'CLASS SCORE', 1, 0, 'C', true);
-    $pdf->Cell($widthCell[2], 10, 'EXAM SCORE', 1, 0, 'C', true);
-    $pdf->Cell($widthCell[3], 10, 'TOTAL SCORE', 1, 0, 'C', true);
-    $pdf->Cell($widthCell[4], 10, 'POS IN SUB', 1, 0, 'C', true);
-    $pdf->Cell($widthCell[5], 10, 'GRADE', 1, 0, 'C', true);
+    $pdf->Cell($widthCell[0], $subjectRowHeight, 'SUBJECT', 1, 0, 'C', true);
+    $pdf->Cell($widthCell[1], $subjectRowHeight, 'CLASS SCORE', 1, 0, 'C', true);
+    $pdf->Cell($widthCell[2], $subjectRowHeight, 'EXAM SCORE', 1, 0, 'C', true);
+    $pdf->Cell($widthCell[3], $subjectRowHeight, 'TOTAL SCORE', 1, 0, 'C', true);
+    $pdf->Cell($widthCell[4], $subjectRowHeight, 'POS IN SUB', 1, 0, 'C', true);
+    $pdf->Cell($widthCell[5], $subjectRowHeight, 'GRADE', 1, 0, 'C', true);
     $pdf->SetFont('Arial', '', 9);
-    $pdf->Ln(10);
+    $pdf->Ln($subjectRowHeight);
 
     if (empty($assignmentRows)) {
-        $pdf->Cell(array_sum($widthCell), 10, tr_terminal_report_pdf_text('No marks entered for this student in the selected scope.'), 1, 0, 'C', true);
-        $pdf->Ln(10);
+        $pdf->Cell(array_sum($widthCell), $subjectRowHeight, tr_terminal_report_pdf_text('No marks entered for this student in the selected scope.'), 1, 0, 'C', true);
+        $pdf->Ln($subjectRowHeight);
     } else {
         foreach ($assignmentRows as $row) {
             $assignmentId = isset($row['assignmentid']) ? (string)$row['assignmentid'] : '';
@@ -755,27 +758,27 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
             $gradeObj->setMark($totalScore);
             $gradeLabel = $gradeObj->getMark($totalScore);
 
-            $pdf->Cell($widthCell[0], 10, tr_terminal_report_pdf_text((string)$row['subject']), 1, 0, 'L', true);
-            $pdf->Cell($widthCell[1], 10, tr_terminal_report_pdf_text(number_format($classScore, 0)), 1, 0, 'C', true);
-            $pdf->Cell($widthCell[2], 10, tr_terminal_report_pdf_text(number_format($examScore, 0)), 1, 0, 'C', true);
-            $pdf->Cell($widthCell[3], 10, tr_terminal_report_pdf_text(number_format($totalScore, 0)), 1, 0, 'C', true);
-            $pdf->Cell($widthCell[4], 10, tr_terminal_report_pdf_text($positionLabel), 1, 0, 'C', true);
-            $pdf->Cell($widthCell[5], 10, tr_terminal_report_pdf_text($gradeLabel), 1, 0, 'C', true);
-            $pdf->Ln(10);
+            $pdf->Cell($widthCell[0], $subjectRowHeight, tr_terminal_report_pdf_text((string)$row['subject']), 1, 0, 'L', true);
+            $pdf->Cell($widthCell[1], $subjectRowHeight, tr_terminal_report_pdf_text(number_format($classScore, 0)), 1, 0, 'C', true);
+            $pdf->Cell($widthCell[2], $subjectRowHeight, tr_terminal_report_pdf_text(number_format($examScore, 0)), 1, 0, 'C', true);
+            $pdf->Cell($widthCell[3], $subjectRowHeight, tr_terminal_report_pdf_text(number_format($totalScore, 0)), 1, 0, 'C', true);
+            $pdf->Cell($widthCell[4], $subjectRowHeight, tr_terminal_report_pdf_text($positionLabel), 1, 0, 'C', true);
+            $pdf->Cell($widthCell[5], $subjectRowHeight, tr_terminal_report_pdf_text($gradeLabel), 1, 0, 'C', true);
+            $pdf->Ln($subjectRowHeight);
         }
     }
 
     $pdf->Ln(1);
-    $pdf->Cell(0, 10, tr_terminal_report_pdf_text('Attendance:........................' . $attendance . '...........................Out of............................ ' . $totalAttendance . '.............................   Promoted to:..................' . $promotedTo), 0, 0, 'L', true);
-    $pdf->Ln(7);
-    $pdf->Cell(0, 10, tr_terminal_report_pdf_text('Conduct:  ' . $conduct), 0, 0, 'L', true);
-    $pdf->Ln(7);
-    $pdf->Cell(0, 10, tr_terminal_report_pdf_text('Interest(Special Aptitude):  ' . $interest), 0, 0, 'L', true);
-    $pdf->Ln(7);
-    $pdf->Cell(0, 10, tr_terminal_report_pdf_text("Class Teacher's Remarks:  " . $classTeacherRemark), 0, 0, 'L', true);
-    $pdf->Ln(7);
-    $pdf->Cell(0, 10, tr_terminal_report_pdf_text("Head Teacher's Remarks:  " . $headTeacherRemark), 0, 0, 'L', true);
-    $pdf->Ln(7);
+    $pdf->Cell(0, 6, tr_terminal_report_pdf_text('Attendance:........................' . $attendance . '...........................Out of............................ ' . $totalAttendance . '.............................   Promoted to:..................' . $promotedTo), 0, 0, 'L', true);
+    $pdf->Ln(5);
+    $pdf->Cell(0, 6, tr_terminal_report_pdf_text('Conduct:  ' . $conduct), 0, 0, 'L', true);
+    $pdf->Ln(5);
+    $pdf->Cell(0, 6, tr_terminal_report_pdf_text('Interest(Special Aptitude):  ' . $interest), 0, 0, 'L', true);
+    $pdf->Ln(5);
+    $pdf->Cell(0, 6, tr_terminal_report_pdf_text("Class Teacher's Remarks:  " . $classTeacherRemark), 0, 0, 'L', true);
+    $pdf->Ln(5);
+    $pdf->Cell(0, 6, tr_terminal_report_pdf_text("Head Teacher's Remarks:  " . $headTeacherRemark), 0, 0, 'L', true);
+    $pdf->Ln(5);
     $signatureBlockWidth = 78;
     $signatureX = max(10, $pdf->GetPageWidth() - $signatureBlockWidth - 12);
     $signatureStartY = $pdf->GetY();
@@ -807,23 +810,23 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
         $pdf->Ln(2);
     }
 
-    $pdf->Ln(7);
+    $pdf->Ln(4);
     $pdf->SetFont('Arial', 'U', 8);
-    $pdf->Cell(0, 10, 'GRADING(S):', 0, 0, 'L', true);
+    $pdf->Cell(0, 6, 'GRADING(S):', 0, 0, 'L', true);
     $pdf->SetFont('Arial', '', 8);
-    $pdf->Ln(6);
-    $pdf->Cell($widthCell[0], 10, '1. A1 (80%-100%)', 0, 0, 'L', true);
-    $pdf->Cell($widthCell[1], 10, '3. B3 (65%-69%) ', 0, 0, 'L', true);
-    $pdf->Cell($widthCell[2] + $widthCell[3], 10, '5. C5 (55%-59%)', 0, 0, 'C', true);
-    $pdf->Cell($widthCell[4] + $widthCell[5], 10, '7. D7 (45%-49%)', 0, 0, 'C', true);
-    $pdf->Ln(6);
-    $pdf->Cell($widthCell[0], 10, '2. B2 (70%-79%)', 0, 0, 'L', true);
-    $pdf->Cell($widthCell[1], 10, '4. C4 (60%-64%) ', 0, 0, 'L', true);
-    $pdf->Cell($widthCell[2] + $widthCell[3], 10, '6 C6 (50%-54%) ', 0, 0, 'C', true);
-    $pdf->Cell($widthCell[4] + $widthCell[5], 10, '8 E8 (40%-44%)', 0, 0, 'C', true);
-    $pdf->Ln(6);
-    $pdf->Cell($widthCell[1] + $widthCell[2] + $widthCell[3] + $widthCell[4] + $widthCell[5], 10, '9. F9 (0%-39%)', 0, 0, 'L', true);
-    $pdf->Ln(6);
+    $pdf->Ln(4);
+    $pdf->Cell($widthCell[0], 5, '1. A1 (80%-100%)', 0, 0, 'L', true);
+    $pdf->Cell($widthCell[1], 5, '3. B3 (65%-69%) ', 0, 0, 'L', true);
+    $pdf->Cell($widthCell[2] + $widthCell[3], 5, '5. C5 (55%-59%)', 0, 0, 'C', true);
+    $pdf->Cell($widthCell[4] + $widthCell[5], 5, '7. D7 (45%-49%)', 0, 0, 'C', true);
+    $pdf->Ln(4);
+    $pdf->Cell($widthCell[0], 5, '2. B2 (70%-79%)', 0, 0, 'L', true);
+    $pdf->Cell($widthCell[1], 5, '4. C4 (60%-64%) ', 0, 0, 'L', true);
+    $pdf->Cell($widthCell[2] + $widthCell[3], 5, '6 C6 (50%-54%) ', 0, 0, 'C', true);
+    $pdf->Cell($widthCell[4] + $widthCell[5], 5, '8 E8 (40%-44%)', 0, 0, 'C', true);
+    $pdf->Ln(4);
+    $pdf->Cell($widthCell[1] + $widthCell[2] + $widthCell[3] + $widthCell[4] + $widthCell[5], 5, '9. F9 (0%-39%)', 0, 0, 'L', true);
+    $pdf->Ln(4);
 }
 }
 

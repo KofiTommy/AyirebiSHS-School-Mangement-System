@@ -904,6 +904,7 @@ function waec_extract_listing_rows_from_rows($rows){
             $currentCandidate = preg_replace('/\s+/', '', $c0);
             $surname = "";
             $other = "";
+            $carriedResultPrefix = "";
             $currentGender = waec_normalize_gender($c2);
             if($currentGender === ""){
                 $currentGender = waec_normalize_gender($c3);
@@ -912,6 +913,15 @@ function waec_extract_listing_rows_from_rows($rows){
             if($i > 0){
                 $prev = $rows[$i - 1];
                 $surname = isset($prev[1]) ? trim((string)$prev[1]) : "";
+                /* The WAEC CSV can print the first subject one to three rows before its index number. */
+                for($lookBack = 1; $lookBack <= 3 && ($i - $lookBack) >= 0; $lookBack++){
+                    $prior = $rows[$i - $lookBack];
+                    $priorResult = isset($prior[4]) ? trim((string)$prior[4], " \t\n\r\0\x0B\"'") : "";
+                    if($priorResult !== "" && preg_match('/-\s*$/', $priorResult) && !preg_match('/-\s*(A1|B2|B3|C4|C5|C6|D7|E8|F9|X|W)\s*$/i', $priorResult)){
+                        $carriedResultPrefix = $priorResult;
+                        break;
+                    }
+                }
             }
 
             if($c1 !== ""){
@@ -936,7 +946,7 @@ function waec_extract_listing_rows_from_rows($rows){
 
             $currentName = trim($surname." ".$other);
             $currentName = preg_replace('/\s+/', ' ', $currentName);
-            $resultsBuffer = $c4;
+            $resultsBuffer = trim($carriedResultPrefix." ".$c4);
         } else {
             if($c4 !== "" && $currentCandidate !== ""){
                 $resultsBuffer .= " ".$c4;
@@ -1024,6 +1034,7 @@ function waec_extract_listing_rows_from_xlsx($tmpName){
                 $currentCandidate = preg_replace('/\s+/', '', $c0);
                 $surname = "";
                 $other = "";
+                $carriedResultPrefix = "";
                 $currentGender = waec_normalize_gender($c2);
                 if($currentGender === ""){
                     $currentGender = waec_normalize_gender($c3);
@@ -1032,6 +1043,12 @@ function waec_extract_listing_rows_from_xlsx($tmpName){
                 if($i > 0){
                     $prev = $rows[$i - 1];
                     $surname = isset($prev[1]) ? trim((string)$prev[1]) : "";
+                    /* Some WAEC CSV exports wrap the first subject before the index number.
+                       Carry only an unfinished "SUBJECT -" fragment into this candidate. */
+                    $prevResult = isset($prev[4]) ? trim((string)$prev[4], " \t\n\r\0\x0B\"'") : "";
+                    if($prevResult !== "" && preg_match('/-\s*$/', $prevResult) && !preg_match('/-\s*(A1|B2|B3|C4|C5|C6|D7|E8|F9|X|W)\s*$/i', $prevResult)){
+                        $carriedResultPrefix = $prevResult;
+                    }
                 }
 
                 if($c1 !== ""){
@@ -1056,7 +1073,7 @@ function waec_extract_listing_rows_from_xlsx($tmpName){
 
                 $currentName = trim($surname." ".$other);
                 $currentName = preg_replace('/\s+/', ' ', $currentName);
-                $resultsBuffer = $c4;
+                $resultsBuffer = trim($carriedResultPrefix." ".$c4);
             } else {
                 if($c4 !== "" && $currentCandidate !== ""){
                     $resultsBuffer .= " ".$c4;
@@ -2618,6 +2635,10 @@ if($currentUploadId !== ""){
         $queryNo = preg_replace('/\s+/', '', trim($studentQuery));
         $queryNameEsc = mysqli_real_escape_string($con, $queryName);
         $queryNoEsc = mysqli_real_escape_string($con, $queryNo);
+        /* Search both normal grades and X/W status records. */
+        $studentDirectoryFrom = "(SELECT candidate_no,student_name FROM tblwaecresult WHERE uploadid='$uploadIdEsc'
+            UNION
+            SELECT candidate_no,student_name FROM tblwaecwithheld WHERE uploadid='$uploadIdEsc') waec_student_directory";
 
         if($studentKeyInput !== ""){
             $selectedStudentKey = $studentKeyInput;
@@ -2625,9 +2646,8 @@ if($currentUploadId !== ""){
             $studentInfoByKey = mysqli_query($con, "SELECT
                 CASE WHEN candidate_no<>'' THEN candidate_no ELSE 'N/A' END AS candidate_no,
                 CASE WHEN student_name<>'' THEN student_name ELSE 'Unknown' END AS student_name
-                FROM tblwaecresult
-                WHERE uploadid='$uploadIdEsc'
-                  AND CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END='$selectedStudentKeyEsc'
+                FROM $studentDirectoryFrom
+                WHERE CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END='$selectedStudentKeyEsc'
                 LIMIT 1");
             if($studentInfoByKey && mysqli_num_rows($studentInfoByKey) > 0){
                 $infoKey = mysqli_fetch_array($studentInfoByKey, MYSQLI_ASSOC);
@@ -2639,9 +2659,8 @@ if($currentUploadId !== ""){
                 CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END AS student_key,
                 CASE WHEN candidate_no<>'' THEN candidate_no ELSE 'N/A' END AS candidate_no,
                 CASE WHEN student_name<>'' THEN student_name ELSE 'Unknown' END AS student_name
-                FROM tblwaecresult
-                WHERE uploadid='$uploadIdEsc'
-                  AND (candidate_no='$queryNoEsc' OR UPPER(TRIM(student_name))=UPPER('$queryNameEsc'))
+                FROM $studentDirectoryFrom
+                WHERE candidate_no='$queryNoEsc' OR UPPER(TRIM(student_name))=UPPER('$queryNameEsc')
                 GROUP BY student_key, candidate_no, student_name
                 ORDER BY CASE WHEN candidate_no='$queryNoEsc' THEN 0 ELSE 1 END, student_name ASC
                 LIMIT 1");
@@ -2658,9 +2677,8 @@ if($currentUploadId !== ""){
                     CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END AS student_key,
                     CASE WHEN candidate_no<>'' THEN candidate_no ELSE 'N/A' END AS candidate_no,
                     CASE WHEN student_name<>'' THEN student_name ELSE 'Unknown' END AS student_name
-                    FROM tblwaecresult
-                    WHERE uploadid='$uploadIdEsc'
-                      AND (candidate_no LIKE '%$likeNoEsc%' OR UPPER(student_name) LIKE UPPER('%$likeNameEsc%'))
+                    FROM $studentDirectoryFrom
+                    WHERE candidate_no LIKE '%$likeNoEsc%' OR UPPER(student_name) LIKE UPPER('%$likeNameEsc%')
                     GROUP BY student_key, candidate_no, student_name
                     ORDER BY student_name ASC
                     LIMIT 20");
@@ -2683,6 +2701,10 @@ if($currentUploadId !== ""){
 
             $studentRows = mysqli_query($con, "SELECT candidate_no,student_name,subject_name,grade,grade_point
                 FROM tblwaecresult
+                WHERE uploadid='$uploadIdEsc' AND $studentKeyFilter
+                UNION ALL
+                SELECT candidate_no,student_name,subject_name,grade,NULL AS grade_point
+                FROM tblwaecwithheld
                 WHERE uploadid='$uploadIdEsc' AND $studentKeyFilter
                 ORDER BY subject_name ASC");
 
@@ -3081,7 +3103,7 @@ include("menu.php");
                 <p>Select an upload from the left panel to view analysis.</p>
             <?php } else { ?>
                 <p class="waec-small">Current Upload: <span class="waec-badge"><?php echo waec_esc($currentUploadId); ?></span></p>
-                <form method="get" action="waec-analysis.php" class="waec-toolbar">
+                <form method="get" action="waec-analysis.php#student-result-analysis" class="waec-toolbar">
                     <input type="hidden" name="uploadid" value="<?php echo waec_esc($currentUploadId); ?>">
                     <input type="hidden" name="distribution_subject" value="<?php echo waec_esc($distributionSubject); ?>">
                     <select name="focus_subject">
@@ -3482,7 +3504,7 @@ include("menu.php");
     </div>
 
     <?php if($studentQuery !== "" || $selectedStudentKey !== "" || $studentKeyInput !== ""){ ?>
-    <div class="waec-card">
+    <div class="waec-card" id="student-result-analysis">
         <h3 style="margin-top:0">Student Result Analysis</h3>
         <?php
         if(count($studentMatches) > 1 && $selectedStudentKey === ""){
@@ -3495,7 +3517,7 @@ include("menu.php");
                 echo "<tr>";
                 echo "<td>".waec_esc($m["candidate_no"])."</td>";
                 echo "<td>".waec_esc($m["student_name"])."</td>";
-                echo "<td><a class='waec-btn-muted waec-btn-small waec-btn-search' href='waec-analysis.php?uploadid=".urlencode($currentUploadId)."&focus_subject=".urlencode($focusSubject)."&focus_grade=".urlencode($focusGrade)."&focus_gender=".urlencode($focusGender)."&distribution_subject=".urlencode($distributionSubject)."&student_query=".urlencode($studentQuery)."&student_key=".urlencode($m["student_key"])."'>Select</a></td>";
+                echo "<td><a class='waec-btn-muted waec-btn-small waec-btn-search' href='waec-analysis.php?uploadid=".urlencode($currentUploadId)."&focus_subject=".urlencode($focusSubject)."&focus_grade=".urlencode($focusGrade)."&focus_gender=".urlencode($focusGender)."&distribution_subject=".urlencode($distributionSubject)."&student_query=".urlencode($studentQuery)."&student_key=".urlencode($m["student_key"])."#student-result-analysis'>Select</a></td>";
                 echo "</tr>";
             }
             echo "</tbody></table>";
@@ -3691,10 +3713,10 @@ include("menu.php");
         <div class="waec-actions" style="margin-bottom:8px;">
             <button type="button" class="waec-btn-muted waec-btn-pdf" onclick="waecPrintCoverageAudit()"><i class="fa fa-print"></i> Print Coverage Audit</button>
         </div>
-        <p class="waec-small">This is calculated per subject cohort (not total school population): Students With Grade + Absent (X) + Withheld (W) = Total Registered for that subject.</p>
+        <p class="waec-small">Core subjects use the full uploaded candidate population. Any candidate with no grade, Absent (X), or Withheld (W) record is shown separately as <strong>No outcome recorded</strong>; no grade is invented.</p>
         <div id="waec-coverage-audit-print">
         <table class="waec-table">
-            <thead><tr><th>Subject</th><th>Students With Grade</th><th>Students Absent (X)</th><th>Student Results Withheld (W)</th><th>Total Registered</th><th>Students Who Sat</th><th>% Sat</th><th>% With Grade</th></tr></thead>
+            <thead><tr><th>Subject</th><th>Students With Grade</th><th>Students Absent (X)</th><th>Student Results Withheld (W)</th><th>No Outcome Recorded</th><th>Total Registered</th><th>Students Who Sat</th><th>% Sat</th><th>% With Grade</th></tr></thead>
             <tbody>
             <?php
             if(count($subjectCoverageRows) > 0 || count($subjectAbsentMap) > 0 || count($subjectWithheldMap) > 0){
@@ -3704,7 +3726,10 @@ include("menu.php");
                     $withCount = (int)$sc["students_with_subject"];
                     $absentCount = isset($subjectAbsentMap[$sc["subject_name"]]) ? (int)$subjectAbsentMap[$sc["subject_name"]] : 0;
                     $withheldCount = isset($subjectWithheldMap[$sc["subject_name"]]) ? (int)$subjectWithheldMap[$sc["subject_name"]] : 0;
-                    $registeredCount = $withCount + $absentCount + $withheldCount;
+                    $recordedCount = $withCount + $absentCount + $withheldCount;
+                    $isCoreSubject = in_array($sc["subject_name"], array("ENGLISH LANG","MATHEMATICS(CORE)","INTEGRATED SCIENCE","SOCIAL STUDIES"), true);
+                    $registeredCount = ($isCoreSubject && $allStudentsCount > $recordedCount) ? $allStudentsCount : $recordedCount;
+                    $noOutcomeCount = $registeredCount - $recordedCount;
                     $satCount = $withCount + $withheldCount;
                     $satPct = $registeredCount > 0 ? round(($satCount * 100) / $registeredCount, 2) : 0;
                     $withGradePct = $registeredCount > 0 ? round(($withCount * 100) / $registeredCount, 2) : 0;
@@ -3717,6 +3742,7 @@ include("menu.php");
                     echo "<td>".$withCount."</td>";
                     echo "<td>".$absentCount."</td>";
                     echo "<td>".$withheldCount."</td>";
+                    echo "<td>".$noOutcomeCount."</td>";
                     echo "<td>".$registeredCount."</td>";
                     echo "<td>".$satCount."</td>";
                     echo "<td>".$satPct."%</td>";
@@ -3742,6 +3768,7 @@ include("menu.php");
                     echo "<td>0</td>";
                     echo "<td>".$absentCount."</td>";
                     echo "<td>".$withheldCount."</td>";
+                    echo "<td>0</td>";
                     echo "<td>".$registeredCount."</td>";
                     echo "<td>".$satCount."</td>";
                     echo "<td>".$satPct."%</td>";
@@ -3767,6 +3794,7 @@ include("menu.php");
                     echo "<td>0</td>";
                     echo "<td>".$absentCount."</td>";
                     echo "<td>".(int)$wCount."</td>";
+                    echo "<td>0</td>";
                     echo "<td>".$registeredCount."</td>";
                     echo "<td>".$satCount."</td>";
                     echo "<td>".$satPct."%</td>";
@@ -3774,7 +3802,7 @@ include("menu.php");
                     echo "</tr>";
                 }
             } else {
-                echo "<tr><td colspan='8'>No coverage data available yet.</td></tr>";
+                echo "<tr><td colspan='9'>No coverage data available yet.</td></tr>";
             }
             ?>
             </tbody>
