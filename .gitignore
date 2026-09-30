@@ -1,3 +1,4 @@
 online-admission-paystack-config.local.php
 online-admission-sms-config.local.php
 online-admission-email-config.local.php
+smartmark-service-config.local.php

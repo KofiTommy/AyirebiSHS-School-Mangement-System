@@ -76,6 +76,7 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher")
     <li class="dropdown">
       <a href="#" class="dropbtn"><i class="fa fa-pencil" ></i> Scores</a>
       <div class="dropdown-content">
+        <a href="smartmark.php"><i class="fa fa-check-square-o" ></i> SmartMark Objective Tests</a>
         <a href="class-score-entry.php"><i class="fa fa-plus" ></i> Class Score Entry</a>
         <a href="exam-score-entry.php"><i class="fa fa-plus" ></i> Exam Score Entry</a>
         <a href="upload-class-score-entry.php"><i class="fa fa-upload" ></i> Upload Class Score Entry</a>
