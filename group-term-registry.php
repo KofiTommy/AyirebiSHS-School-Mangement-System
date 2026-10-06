@@ -57,6 +57,20 @@ function gtr_alert($tone, $title, $message)
 }
 }
 
+/* Generate IDs locally.  Do not include code.php in the save loop: that file
+   opens a fresh database connection for every selected student, which can be
+   rejected by shared hosting providers. */
+if (!function_exists("gtr_new_term_id")) {
+function gtr_new_term_id()
+{
+    try {
+        return "GTR" . date("YmdHis") . bin2hex(random_bytes(5));
+    } catch (Exception $exception) {
+        return "GTR" . date("YmdHis") . str_replace(".", "", uniqid("", true));
+    }
+}
+}
+
 $flashHtml = isset($_SESSION["Message"]) ? (string)$_SESSION["Message"] : "";
 $_SESSION["Message"] = "";
 
@@ -100,8 +114,7 @@ if ($registerRequested) {
         $resolvedYearSql = semester_registry_resolved_year_sql("tbltermregistry");
 
         foreach ($selectedUserIds as $studentId) {
-            include("code.php");
-            $termId = $code;
+            $termId = gtr_new_term_id();
             $studentIdEsc = mysqli_real_escape_string($con, $studentId);
 
             $studentName = $studentId;
