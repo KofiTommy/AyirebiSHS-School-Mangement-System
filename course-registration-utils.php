@@ -141,6 +141,10 @@ function course_registration_ensure_tables($con){
     if(!course_registration_column_exists($con, 'tblsubjectclassification', 'academicyear')){
         @mysqli_query($con, "ALTER TABLE tblsubjectclassification ADD COLUMN academicyear VARCHAR(10) NOT NULL DEFAULT '' AFTER termname");
     }
+    if(!course_registration_column_exists($con, 'tblsubjectassignment', 'academicyear')){
+        @mysqli_query($con, "ALTER TABLE tblsubjectassignment ADD COLUMN academicyear VARCHAR(10) NOT NULL DEFAULT '' AFTER batchid");
+        @mysqli_query($con, "UPDATE tblsubjectassignment SET academicyear=DATE_FORMAT(datetimeentry, '%Y') WHERE TRIM(COALESCE(academicyear,''))=''");
+    }
     @mysqli_query($con, "UPDATE tblsubjectclassification SET academicyear='' WHERE TRIM(COALESCE(termname,''))=''");
 }
 }
@@ -958,7 +962,7 @@ function course_registration_resolve_assignment_for_offering($con, $windowRow, $
     if(trim((string)$teacherIdFilter) !== ''){
         $teacherSql = " AND sa.userid='".mysqli_real_escape_string($con, trim((string)$teacherIdFilter))."'";
     }
-    $assignmentYearSql = function_exists('semester_registry_assignment_year_sql') ? semester_registry_assignment_year_sql('sa') : "DATE_FORMAT(sa.datetimeentry, '%Y')";
+    $assignmentYearSql = "COALESCE(NULLIF(TRIM(sa.academicyear),''), DATE_FORMAT(sa.datetimeentry, '%Y'))";
 
     $sql = "SELECT
             sa.assignmentid,

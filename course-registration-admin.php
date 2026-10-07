@@ -187,6 +187,7 @@ $adminCourseRows = array();
 $adminStudentRows = array();
 $windowHasSubmissions = false;
 $windowOfferingsLocked = false;
+$newClassifiedSubjects = array();
 $editStudentRow = null;
 $editStudentSelectionMap = array();
 $editSelectableOfferings = array();
@@ -202,6 +203,16 @@ if($selectedClassId !== "" && $selectedBatchId !== "" && $selectedAcademicYear !
         $adminStudentRows = course_registration_fetch_admin_student_rows($con, $existingWindow['windowid']);
         $windowHasSubmissions = course_registration_window_has_submissions($con, $existingWindow['windowid']);
         $windowOfferingsLocked = ($windowHasSubmissions || (count($assignmentRows) === 0 && count($windowOfferings) > 0));
+        $savedClassificationMap = array();
+        foreach($windowOfferings as $windowOffering){
+            $savedClassificationMap[trim((string)$windowOffering['classificationid'])] = true;
+        }
+        foreach($assignmentRows as $assignmentRow){
+            $classificationId = trim((string)$assignmentRow['classificationid']);
+            if($classificationId !== '' && !isset($savedClassificationMap[$classificationId])){
+                $newClassifiedSubjects[] = $assignmentRow;
+            }
+        }
         if($editStudentId !== ''){
             foreach($adminStudentRows as $studentRow){
                 if(trim((string)$studentRow['userid']) === $editStudentId){
@@ -351,6 +362,13 @@ if(isset($_SESSION['Message']) && trim((string)$_SESSION['Message']) !== ""){
                 <?php if(count($assignmentRows) === 0 && !$existingWindow){ ?>
                 <?php echo cra_flash("warning", "No classified subjects exist yet for this class, academic year, and semester."); ?>
                 <?php }else{ ?>
+                <?php if(count($newClassifiedSubjects) > 0){ ?>
+                <div class="cra-alert cra-alert--warning">
+                    <strong><?php echo count($newClassifiedSubjects); ?> new classified subject<?php echo count($newClassifiedSubjects) === 1 ? '' : 's'; ?> waiting to be added:</strong>
+                    <?php echo cra_safe(implode(', ', array_map(function($row){ return $row['subject']; }, $newClassifiedSubjects))); ?>.
+                    Click <strong>Sync New Classified Subjects</strong> below. Existing student registrations will be preserved.
+                </div>
+                <?php } ?>
                 <div class="cr-offering-list">
                     <?php
                     if($windowOfferingsLocked){
@@ -381,7 +399,7 @@ if(isset($_SESSION['Message']) && trim((string)$_SESSION['Message']) !== ""){
                     ?>
                 </div>
                 <div class="cr-window-form__actions">
-                    <button type="submit" name="save_course_window" class="button-save"><i class="fa fa-save"></i> Save Registration Window</button>
+                    <button type="submit" name="save_course_window" class="button-save"><i class="fa fa-refresh"></i> <?php echo count($newClassifiedSubjects) > 0 ? 'Sync New Classified Subjects' : 'Save Registration Window'; ?></button>
                 </div>
                 <?php } ?>
             </form>

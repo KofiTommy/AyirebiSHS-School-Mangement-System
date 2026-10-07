@@ -4,11 +4,34 @@ $_SESSION['Message']="";
 ?>
 <?php
 include("dbstring.php");
+include_once("semester-registry-utils.php");
 @$_ClassificationId=$_POST['classificationid'];
 @$_UserId=$_POST['userid'];
 @$_BatchId=$_POST['batchid'];
 @$_Term=$_POST['term'];
+@$_AcademicYear=semester_registry_normalize_year(isset($_POST['academicyear']) ? $_POST['academicyear'] : '');
 @$_Recordedby=$_SESSION['USERID'];
+
+if(!function_exists('sa_ensure_academic_year_column')){
+function sa_ensure_academic_year_column($con){
+	$result=@mysqli_query($con,"SHOW COLUMNS FROM tblsubjectassignment LIKE 'academicyear'");
+	if(!$result || mysqli_num_rows($result)===0){
+		@mysqli_query($con,"ALTER TABLE tblsubjectassignment ADD COLUMN academicyear VARCHAR(10) NOT NULL DEFAULT '' AFTER batchid");
+		@mysqli_query($con,"UPDATE tblsubjectassignment SET academicyear=DATE_FORMAT(datetimeentry,'%Y') WHERE TRIM(COALESCE(academicyear,''))=''");
+	}
+}
+}
+sa_ensure_academic_year_column($con);
+
+if(!function_exists('sa_new_assignment_id')){
+function sa_new_assignment_id(){
+	try{
+		return 'SA'.date('YmdHis').bin2hex(random_bytes(5));
+	}catch(Exception $exception){
+		return 'SA'.date('YmdHis').str_replace('.', '', uniqid('', true));
+	}
+}
+}
 
 if(!function_exists('sa_session_label')){
 function sa_session_label($yearValue, $batchLabel, $termValue){
@@ -24,12 +47,13 @@ function sa_session_label($yearValue, $batchLabel, $termValue){
 
 if(isset($_POST['register_subject_assignment']))
 {
-	if(!is_array($_ClassificationId) || count($_ClassificationId)===0 || !$_UserId || !$_BatchId || !$_Term){
-		$_SESSION['Message']=$_SESSION['Message']."<div style='color:red;text-align:left;background-color:white;padding:4px;'><i class='fa fa-check' style='color:red'></i> Select teacher, batch, semester and at least one subject.</div>";
+	if(!is_array($_ClassificationId) || count($_ClassificationId)===0 || !$_UserId || !$_BatchId || !$_Term || !$_AcademicYear){
+		$_SESSION['Message']=$_SESSION['Message']."<div style='color:red;text-align:left;background-color:white;padding:4px;'><i class='fa fa-check' style='color:red'></i> Select teacher, batch, academic year, semester and at least one subject.</div>";
 	}else{
 		$_UserId=mysqli_real_escape_string($con,$_UserId);
 		$_BatchId=mysqli_real_escape_string($con,$_BatchId);
 		$_Term=(int)$_Term;
+		$_AcademicYear=mysqli_real_escape_string($con,$_AcademicYear);
 		$_Recordedby=mysqli_real_escape_string($con,$_Recordedby);
 
 		@$_UserFullname=$_UserId;
@@ -43,13 +67,12 @@ if(isset($_POST['register_subject_assignment']))
 		if($row_batch=mysqli_fetch_array($_SQL_BATCH,MYSQLI_ASSOC)){
 			$_BatchName=$row_batch['batch'];
 		}
-		@$_SessionLabel=sa_session_label(date("Y"), $_BatchName, $_Term);
+		@$_SessionLabel=sa_session_label($_AcademicYear, $_BatchName, $_Term);
 
 		foreach ($_ClassificationId as $_Selected_ClassificationId) 
 		{
 			$_Selected_ClassificationId=mysqli_real_escape_string($con,$_Selected_ClassificationId);
-			include("code.php");
-			@$_AssignmentId=$code;
+			@$_AssignmentId=sa_new_assignment_id();
 			@$_Subject="";
 			@$_ClassId="";
 
@@ -71,7 +94,7 @@ if(isset($_POST['register_subject_assignment']))
 			$_SQL_EXIST=mysqli_query($con,"SELECT sa.assignmentid,sa.userid,su.firstname,su.othernames,su.surname
 				FROM tblsubjectassignment sa
 				LEFT JOIN tblsystemuser su ON su.userid=sa.userid
-				WHERE sa.classificationid='$_Selected_ClassificationId' AND sa.batchid='$_BatchId' AND sa.termname='$_Term' AND sa.status='active'
+				WHERE sa.classificationid='$_Selected_ClassificationId' AND sa.batchid='$_BatchId' AND sa.academicyear='$_AcademicYear' AND sa.termname='$_Term' AND sa.status='active'
 				LIMIT 1");
 
 			if($_SQL_EXIST && $row_exist=mysqli_fetch_array($_SQL_EXIST,MYSQLI_ASSOC)){
@@ -84,7 +107,7 @@ if(isset($_POST['register_subject_assignment']))
 					$_SESSION['Message']=$_SESSION['Message']."<div style='color:red;text-align:left;background-color:white;padding:4px;'><i class='fa fa-check' style='color:red'></i> $_CLassName : $_Subject already assigned to $_UserFullname for $_SessionLabel.</div>";
 				}else{
 					$_ExistingAssignmentId=mysqli_real_escape_string($con,$row_exist['assignmentid']);
-					$_SQL_UPDATE=mysqli_query($con,"UPDATE tblsubjectassignment SET userid='$_UserId',recordedby='$_Recordedby',datetimeentry=NOW(),status='active' WHERE assignmentid='$_ExistingAssignmentId'");
+					$_SQL_UPDATE=mysqli_query($con,"UPDATE tblsubjectassignment SET userid='$_UserId',academicyear='$_AcademicYear',recordedby='$_Recordedby',datetimeentry=NOW(),status='active' WHERE assignmentid='$_ExistingAssignmentId'");
 					if($_SQL_UPDATE){
 						$_SESSION['Message']=$_SESSION['Message']."<div style='color:green;text-align:left;background-color:white;padding:4px;'><i class='fa fa-check' style='color:green'></i> $_CLassName : $_Subject reassigned from $_ExistingName to $_UserFullname for $_SessionLabel.</div>";
 					}else{
@@ -93,8 +116,8 @@ if(isset($_POST['register_subject_assignment']))
 					}
 				}
 			}else{
-				$_SQL_EXECUTE=mysqli_query($con,"INSERT INTO tblsubjectassignment(assignmentid,userid,classid,classificationid,batchid,termname,datetimeentry,status,recordedby)
-				VALUES('$_AssignmentId','$_UserId','$_ClassId','$_Selected_ClassificationId','$_BatchId','$_Term',NOW(),'active','$_Recordedby')");
+				$_SQL_EXECUTE=mysqli_query($con,"INSERT INTO tblsubjectassignment(assignmentid,userid,classid,classificationid,batchid,academicyear,termname,datetimeentry,status,recordedby)
+				VALUES('$_AssignmentId','$_UserId','$_ClassId','$_Selected_ClassificationId','$_BatchId','$_AcademicYear','$_Term',NOW(),'active','$_Recordedby')");
 				if($_SQL_EXECUTE)
 				{
 					$_SESSION['Message']=$_SESSION['Message']."<div style='color:green;text-align:left;background-color:white;padding:4px;'><i class='fa fa-check' style='color:green'></i> $_CLassName : $_Subject successfully assigned to $_UserFullname for $_SessionLabel.</div>";
@@ -245,8 +268,13 @@ include("links.php");
 
 			<div class="assignment-grid">
 			<div>
-			<label>Assignment Year</label>
-			<input type="text" value="<?php echo date("Y"); ?>" readonly/>
+			<label>Academic Year</label>
+			<select id="academicyear" name="academicyear" class="validate[required]">
+				<option value="">Select Academic Year</option>
+				<?php foreach(semester_registry_year_options() as $yearOption){ ?>
+				<option value="<?php echo htmlspecialchars($yearOption, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($_AcademicYear === $yearOption || ($_AcademicYear === '' && $yearOption === date('Y'))) ? 'selected' : ''; ?>><?php echo htmlspecialchars($yearOption, ENT_QUOTES, 'UTF-8'); ?></option>
+				<?php } ?>
+			</select>
 			</div>
 
 			<div>
