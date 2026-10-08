@@ -16,6 +16,7 @@ include_once("student-permission-utils.php");
 include_once("administration-ops-utils.php");
 include_once("task-scheduler-utils.php");
 include_once("exam-timetable-utils.php");
+include_once("user-management-utils.php");
 ensure_class_teacher_table($con);
 ensure_duty_roster_tables($con);
 ensure_student_attendance_tables($con);
@@ -142,6 +143,7 @@ function td_teacher_message_targets($con, $teacherId){
     return $options;
 }
 $teacherId = isset($_SESSION['USERID']) ? (string)$_SESSION['USERID'] : "";
+$teacherCanAccessTerminalReports = um_teacher_can_access_terminal_reports($con, $teacherId);
 $teacherIdEsc = mysqli_real_escape_string($con, $teacherId);
 $teacherHodDepartments = drw_departments_for_hod($con, $teacherId);
 $teacherIsHod = !empty($teacherHodDepartments);
@@ -639,7 +641,9 @@ $engagementRecent = engagement_get_recent_activity($con, $teacherId, 5);
         <?php if($teacherCanTakeAttendance){ ?>
         <a class="teacher-action-card" href="student-terminal-data.php"><span class="teacher-action-card__icon"><i class="fa fa-commenting"></i></span><h3>Student Remarks</h3></a>
         <?php } ?>
+        <?php if($teacherCanAccessTerminalReports){ ?>
         <a class="teacher-action-card" href="terminal-report.php"><span class="teacher-action-card__icon"><i class="fa fa-book"></i></span><h3>Terminal Reports</h3></a>
+        <?php } ?>
         <?php if($teacherHasCounsellingAccess){ ?>
         <a class="teacher-action-card" href="guidance-counselling.php"><span class="teacher-action-card__icon"><i class="fa fa-heartbeat"></i></span><h3>Counselling Cases<?php if($teacherCounsellingSoonCount > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherCounsellingSoonCount; ?> Soon</span><?php } ?><?php if((int)$teacherCounsellingSummary['pending_count'] > 0){ ?><span class="teacher-action-card__badge"><?php echo (int)$teacherCounsellingSummary['pending_count']; ?> Pending</span><?php } ?></h3><p><?php echo $teacherCounsellingSoonCount > 0 ? "A counselling meeting starts soon. Open the case now and prepare for the session." : "Review student counselling requests, reply privately, and confirm the next session."; ?></p></a>
         <?php if(administration_ops_can_access_welfare($con)){ ?><a class="teacher-action-card" href="safeguarding-dashboard.php"><span class="teacher-action-card__icon"><i class="fa fa-shield"></i></span><h3>Safeguarding Lead</h3><p>Open the confidential student-support and safeguarding case register.</p></a><?php } ?>

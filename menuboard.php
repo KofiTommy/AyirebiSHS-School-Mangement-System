@@ -29,6 +29,7 @@ include_once("student-chat-utils.php");
 $_TeacherExtraAccessLinks = array();
 $_ShowTeacherAttendanceLinks = false;
 $_ShowTeacherCounsellingLink = false;
+$_ShowTeacherTerminalReportLink = false;
 $_StudentChatEnabledForMenu = student_chat_is_enabled($con);
 if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
    $_SESSION['ACCESSLEVEL'] === "user" &&
@@ -39,6 +40,7 @@ if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE']) &&
     $_TeacherExtraAccessLinks = um_teacher_extra_nav_links($con, $_SESSION['USERID']);
     $_ShowTeacherAttendanceLinks = class_teacher_has_any_assignment($con, $_SESSION['USERID']);
     $_ShowTeacherCounsellingLink = counselling_teacher_has_assignment($con, $_SESSION['USERID']);
+    $_ShowTeacherTerminalReportLink = um_teacher_can_access_terminal_reports($con, $_SESSION['USERID']);
 }
 ?>
 <style>
@@ -640,7 +642,9 @@ else if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="User"){
 <?php if($_ShowTeacherAttendanceLinks){ ?>
 <a href="student-terminal-data.php"><i class="fa fa-plus"></i> Student Terminal Data</a>
 <?php } ?>
+<?php if($_ShowTeacherTerminalReportLink){ ?>
 <a href="terminal-report.php"><i class="fa fa-book"></i> Examination Report</a>
+<?php } ?>
 <a href="scores-report.php"><i class="fa fa-book"></i> Scores Report</a>
 <?php menuboard_section_end(); ?>
 

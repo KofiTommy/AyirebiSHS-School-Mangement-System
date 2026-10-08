@@ -34,7 +34,6 @@ if($_SESSION['ACCESSLEVEL']=="user" && $_SESSION['SYSTEMTYPE']=="Teacher")
      <a href="upload-class-score-entry.php"><i class="fa fa-upload" ></i> Upload Class Score Entry</a>
      <a href="upload-exam-score-entry.php"><i class="fa fa-upload" ></i> Upload Exam Score Entry</a>
      <a href="scores-report.php"><i class="fa fa-book" ></i> Scores Report</a>
-     <a href="terminal-report.php"> <i class="fa fa-plus" ></i> Terminal Report</a>
      <a href="examinationtimetablereport.php"><i class="fa fa-book" ></i> Exam Time Table Report</a>
      
     </div>

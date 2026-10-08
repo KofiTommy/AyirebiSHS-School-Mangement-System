@@ -538,6 +538,14 @@ function um_module_catalog(){
             'description' => 'Result reports, terminal reports, and exam analysis.',
             'scripts' => array('scores-report.php','scores-report-all.php','terminal-report.php','individual-terminal-report.php','student-terminal-data.php','upload-student-remark-data.php','report-approval-board.php','waec-analysis.php','internal-exam-analysis.php','examanalysis-subject.php','examanalysis-rank.php')
         ),
+        'teacher_terminal_reports' => array(
+            'label' => 'Teacher Terminal Reports',
+            'group' => 'Examinations',
+            'description' => 'Special permission for a teacher to generate and print terminal reports.',
+            // Access is enforced directly by terminal-report.php so this permission
+            // remains separate from the broader Reports module.
+            'scripts' => array()
+        ),
         'examination_timetable' => array(
             'label' => 'Examination Timetable',
             'group' => 'Examinations',
@@ -638,7 +646,8 @@ function um_assignable_module_keys_for_role($roleKey){
             'student_teacher_registration',
             'examination_timetable',
             'lesson_timetable',
-            'course_registration'
+            'course_registration',
+            'teacher_terminal_reports'
         );
     }
     if($roleKey === 'assistant_head_administration'){
@@ -1097,6 +1106,27 @@ function um_current_user_can_access_module($con, $moduleKey){
         return false;
     }
     return um_user_has_module($con, $moduleKey, $userRow);
+}
+}
+
+if(!function_exists('um_teacher_can_access_terminal_reports')){
+function um_teacher_can_access_terminal_reports($con, $userId = ''){
+    $userId = trim((string)$userId);
+    if($userId === ''){
+        $userId = isset($_SESSION['USERID']) ? trim((string)$_SESSION['USERID']) : '';
+    }
+    if($userId === ''){
+        return false;
+    }
+
+    $userRow = um_fetch_user_row($con, $userId);
+    if(!$userRow || um_role_key_from_user($userRow) !== 'teacher'){
+        return false;
+    }
+
+    // This is deliberately not covered by the broad Reports permission. A teacher
+    // must be granted this exact permission by an administrator.
+    return in_array('teacher_terminal_reports', um_get_user_module_permissions($con, $userId), true);
 }
 }
 

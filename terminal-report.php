@@ -4,11 +4,24 @@ $_SESSION['Message']="";
 include("positions.php");
 include("class-position.php");
 include_once("dbstring.php");
+include_once("user-management-utils.php");
 include_once("semester-registry-utils.php");
 include_once("report-approval-utils.php");
 include_once("school-data-utils.php");
 include_once("terminal-report-pdf-utils.php");
 semester_registry_ensure_academic_year_column($con);
+
+// Terminal reports contain full student results. Teachers receive access only
+// when an administrator has explicitly granted the dedicated permission.
+if(isset($_SESSION['USERID'])){
+    $_TerminalReportUser = um_fetch_user_row($con, $_SESSION['USERID']);
+    if($_TerminalReportUser && um_role_key_from_user($_TerminalReportUser) === 'teacher'
+        && !um_teacher_can_access_terminal_reports($con, $_SESSION['USERID'])){
+        $_SESSION['Message'] = "<div style='color:red;text-align:center;padding:8px;'>Terminal-report access has not been granted to your teacher account.</div>";
+        header('location:teacher-page.php');
+        exit();
+    }
+}
 
 @$_position_obj=new Position;
 @$_position_obj_1=new Position;
