@@ -628,19 +628,20 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
     $headTeacherRemark = is_array($terminalRow) && isset($terminalRow['head_teacher_remark']) ? $terminalRow['head_teacher_remark'] : '';
 
     $groupYearPosition = 'Not Ready';
+    $groupYearCount = 0;
     $classPositionLabel = 'Not Ready';
     $classCount = 0;
     if (!empty($assignmentRows)) {
         $overallScore = tr_terminal_report_fetch_overall_score($con, $userId, $batchId, $termId, $classId, $academicYear);
         $classPositionObj->setClassPosition($batchId, $overallScore, $termId, '', $academicYear, $userId);
         $groupYearPosition = $classPositionObj->getClassPosition();
+        $groupYearCount = $classPositionObj->getClassCount();
         $classPositionObj->setClassPosition($batchId, $overallScore, $termId, $classId, $academicYear, $userId);
         $classPositionLabel = $classPositionObj->getClassPosition();
         $classCount = $classPositionObj->getClassCount();
     }
 
     $logoPath = '';
-    $studentPhotoPath = tr_terminal_report_resolve_student_photo_path($con, $userId);
     if (!empty($companyMeta['logo'])) {
         $candidatePaths = array(
             __DIR__ . DIRECTORY_SEPARATOR . 'logo' . DIRECTORY_SEPARATOR . $companyMeta['logo'],
@@ -677,11 +678,6 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
     if ($logoPath !== '') {
         $pdf->Image($logoPath, $widthCell[0] + $widthCell[1] + $widthCell[2], 3, 18);
     }
-    if ($studentPhotoPath !== '') {
-        // Passport photo: balanced in the upper-right corner, clear of the crest.
-        $pdf->Rect(174, 3, 22, 27);
-        $pdf->Image($studentPhotoPath, 176, 5, 18, 23);
-    }
     $pdf->Ln(15);
 
     $pdf->SetFillColor(255, 255, 255);
@@ -700,8 +696,12 @@ function tr_terminal_report_render_student_page($pdf, $con, $userId, $batchId, $
         $pdf->SetTextColor(0, 0, 0);
     }
 
+    $groupYearPositionText = $groupYearPosition;
+    if ($groupYearCount > 0 && $groupYearPosition !== 'Not Ready') {
+        $groupYearPositionText .= ' / ' . $groupYearCount;
+    }
     $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(array_sum($widthCell), 6, tr_terminal_report_pdf_text('Group Year Position: ' . $groupYearPosition), 0, 0, 'R', true);
+    $pdf->Cell(array_sum($widthCell), 6, tr_terminal_report_pdf_text('Group Year Position: ' . $groupYearPositionText), 0, 0, 'R', true);
     $pdf->SetFont('Arial', 'B', 10);
     $pdf->Ln($lineGap);
     $classPositionText = $classPositionLabel;
