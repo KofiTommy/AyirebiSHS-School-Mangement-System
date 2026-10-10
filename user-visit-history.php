@@ -155,7 +155,7 @@ $_AllowedRoles = array("", "administrator", "normal_user", "super_user", "Teache
 if(!in_array($_Role, $_AllowedRoles, true)){
     $_Role = "";
 }
-$_AllowedViews = array("overview", "users", "visits");
+$_AllowedViews = array("overview", "online", "users", "visits");
 if(!in_array($_View, $_AllowedViews, true)){
     $_View = "overview";
 }
@@ -317,6 +317,48 @@ $_RoleLabels = array(
     "AssistantHeadAcademic" => "Assistant Head Academics",
     "User" => "Office Users"
 );
+
+$_OnlineWindowMinutes = 5;
+$_OnlineRows = array();
+$_OnlineWhere = "su.lastactivityat IS NOT NULL
+    AND su.lastactivityat >= (NOW() - INTERVAL ".(int)$_OnlineWindowMinutes." MINUTE)
+    AND COALESCE(su.status, 'active') <> 'block'";
+if($_Role !== ""){
+    $_RoleEsc = mysqli_real_escape_string($con, $_Role);
+    if($_Role === "administrator"){
+        $_OnlineWhere .= " AND su.accesslevel='administrator'";
+    }else{
+        $_OnlineWhere .= " AND su.systemtype='$_RoleEsc'";
+    }
+}
+if($_Search !== ""){
+    $_SearchEsc = mysqli_real_escape_string($con, $_Search);
+    $_SearchLike = "%".$_SearchEsc."%";
+    $_OnlineWhere .= " AND (
+        su.userid LIKE '$_SearchLike'
+        OR su.firstname LIKE '$_SearchLike'
+        OR su.surname LIKE '$_SearchLike'
+        OR su.othernames LIKE '$_SearchLike'
+        OR su.systemtype LIKE '$_SearchLike'
+        OR su.lastactivityscript LIKE '$_SearchLike'
+    )";
+}
+$_OnlineRes = mysqli_query($con, "SELECT
+        su.userid,
+        TRIM(CONCAT_WS(' ', su.firstname, su.othernames, su.surname)) AS fullname,
+        su.accesslevel,
+        su.systemtype,
+        su.lastactivityat,
+        su.lastactivityscript
+    FROM tblsystemuser su
+    WHERE $_OnlineWhere
+    ORDER BY su.lastactivityat DESC, su.firstname ASC, su.surname ASC");
+if($_OnlineRes){
+    while($_OnlineRow = mysqli_fetch_array($_OnlineRes, MYSQLI_ASSOC)){
+        $_OnlineRows[] = $_OnlineRow;
+    }
+}
+$_OnlineTotal = count($_OnlineRows);
 ?>
 <!DOCTYPE html>
 <html>
@@ -355,6 +397,11 @@ $_RoleLabels = array(
             <strong><?php echo $_Summary["latest_visit"] !== "" ? uvh_esc(uvh_relative_time($_Summary["latest_visit"])) : "-"; ?></strong>
             <small><?php echo $_Summary["latest_visit"] !== "" ? uvh_esc($_Summary["latest_visit"]) : "No visit recorded yet."; ?></small>
         </article>
+        <article class="visit-stat visit-stat--online">
+            <span><i class="fa fa-circle"></i> Online Now</span>
+            <strong><?php echo number_format($_OnlineTotal); ?></strong>
+            <small>Active within the last <?php echo (int)$_OnlineWindowMinutes; ?> minutes.</small>
+        </article>
     </section>
 
     <section class="visit-panel">
@@ -384,6 +431,11 @@ $_RoleLabels = array(
             <i class="fa fa-th-large"></i>
             <span>Overview</span>
             <small>Summary and top pages</small>
+        </a>
+        <a href="<?php echo uvh_esc(uvh_view_url("online")); ?>" class="visit-view-tab visit-view-tab--online <?php echo $_View === "online" ? "is-active" : ""; ?>">
+            <i class="fa fa-circle"></i>
+            <span>Online Now</span>
+            <small><?php echo number_format($_OnlineTotal); ?> active in <?php echo (int)$_OnlineWindowMinutes; ?> minutes</small>
         </a>
         <a href="<?php echo uvh_esc(uvh_view_url("users")); ?>" class="visit-view-tab <?php echo $_View === "users" ? "is-active" : ""; ?>">
             <i class="fa fa-users"></i>
@@ -435,6 +487,47 @@ $_RoleLabels = array(
                 <p class="visit-empty">No page visits found for the selected filter.</p>
                 <?php } ?>
             </div>
+        </div>
+    </section>
+    <?php } ?>
+
+    <?php if($_View === "online"){ ?>
+    <section class="visit-panel" id="online-now">
+        <div class="visit-panel-head">
+            <div>
+                <h2><i class="fa fa-circle visit-online-dot"></i> Online Now</h2>
+                <p class="visit-panel-note">These accounts have used the portal within the last <?php echo (int)$_OnlineWindowMinutes; ?> minutes. This list refreshes automatically every minute.</p>
+            </div>
+            <span><?php echo number_format($_OnlineTotal); ?> active account(s)</span>
+        </div>
+        <div class="visit-table-wrap">
+            <table class="visit-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Current / Last Page</th>
+                        <th>Last Seen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if($_OnlineTotal > 0){ ?>
+                        <?php foreach($_OnlineRows as $_OnlineUser){ ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo uvh_esc($_OnlineUser["fullname"] !== "" ? $_OnlineUser["fullname"] : $_OnlineUser["userid"]); ?></strong>
+                                <span><?php echo uvh_esc($_OnlineUser["userid"]); ?></span>
+                            </td>
+                            <td><?php echo uvh_esc(uvh_role_label($_OnlineUser["accesslevel"], $_OnlineUser["systemtype"])); ?></td>
+                            <td><?php echo uvh_esc($_OnlineUser["lastactivityscript"] !== "" ? $_OnlineUser["lastactivityscript"] : "Portal activity"); ?></td>
+                            <td><strong><?php echo uvh_esc(uvh_relative_time($_OnlineUser["lastactivityat"])); ?></strong><span><?php echo uvh_esc($_OnlineUser["lastactivityat"]); ?></span></td>
+                        </tr>
+                        <?php } ?>
+                    <?php }else{ ?>
+                    <tr><td colspan="4" class="visit-empty">No accounts are currently active in the last <?php echo (int)$_OnlineWindowMinutes; ?> minutes.</td></tr>
+                    <?php } ?>
+                </tbody>
+            </table>
         </div>
     </section>
     <?php } ?>
@@ -525,5 +618,10 @@ $_RoleLabels = array(
     </section>
     <?php } ?>
 </main>
+<?php if($_View === "online"){ ?>
+<script>
+window.setTimeout(function(){ window.location.reload(); }, 60000);
+</script>
+<?php } ?>
 </body>
 </html>

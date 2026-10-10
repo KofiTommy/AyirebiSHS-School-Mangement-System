@@ -83,7 +83,7 @@ body.visit-history-page{
 
 .visit-stats{
     display:grid;
-    grid-template-columns:repeat(3, minmax(0, 1fr));
+    grid-template-columns:repeat(4, minmax(0, 1fr));
     gap:14px;
     margin:16px 0;
 }
@@ -115,6 +115,16 @@ body.visit-history-page{
     margin-top:8px;
     color:#64748b;
     line-height:1.45;
+}
+
+.visit-stat--online span,
+.visit-online-dot{
+    color:#15803d;
+}
+
+.visit-stat--online span i{
+    font-size:9px;
+    vertical-align:middle;
 }
 
 .visit-panel{
@@ -164,7 +174,7 @@ body.visit-history-page{
 
 .visit-view-tabs{
     display:grid;
-    grid-template-columns:repeat(3, minmax(0, 1fr));
+    grid-template-columns:repeat(4, minmax(0, 1fr));
     gap:12px;
     margin:0 0 16px;
 }
@@ -244,6 +254,13 @@ body.visit-history-page{
     margin:0;
     color:#0f172a;
     font-size:18px;
+}
+
+.visit-panel-note{
+    margin:6px 0 0;
+    color:#64748b;
+    font-size:13px;
+    line-height:1.45;
 }
 
 .visit-panel-head span{
