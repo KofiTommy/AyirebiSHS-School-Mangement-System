@@ -221,7 +221,6 @@ $signedInName=isset($_SESSION["FULLNAME"]) ? trim((string)$_SESSION["FULLNAME"])
         <div>
             <span class="rs-kicker"><i class="fa fa-id-badge"></i> Staff Onboarding</span>
             <h1>Register teachers</h1>
-            <p>The screen now follows the actual onboarding sequence better: photo and identity first, then personal details, support contacts, and login setup in one responsive page.</p>
             <div class="rs-pills">
                 <span>Mobile friendly</span>
                 <span>Photo upload in one save</span>
@@ -334,15 +333,6 @@ $signedInName=isset($_SESSION["FULLNAME"]) ? trim((string)$_SESSION["FULLNAME"])
         </section>
 
         <aside class="rs-side">
-            <section class="rs-panel">
-                <div class="rs-side-head"><span class="rs-kicker rs-kicker--dark">Quick Notes</span><h2>Why this layout works better</h2></div>
-                <ul class="rs-list">
-                    <li>The profile image, teacher details, and account setup now live in one screen.</li>
-                    <li>Date of birth uses a phone-friendly input and calculates age automatically.</li>
-                    <li>The recent-teacher panel makes same-day follow-up much easier.</li>
-                </ul>
-            </section>
-
             <section class="rs-panel">
                 <div class="rs-side-head"><span class="rs-kicker rs-kicker--dark">Today</span><h2>Recent Teacher Registrations</h2></div>
                 <div class="rs-search"><i class="fa fa-search"></i><input type="search" id="tr-search" placeholder="Search teacher name, ID, username or category"></div>

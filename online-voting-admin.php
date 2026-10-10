@@ -602,6 +602,7 @@ foreach($contestList as $contestRow){
 <html>
 <head>
 <?php include("links.php"); ?>
+<title>Online Voting Manager</title>
 <link rel="stylesheet" href="css/online-voting.css">
 </head>
 <body class="vote-admin-page">
@@ -624,6 +625,26 @@ foreach($contestList as $contestRow){
     </section>
 
     <?php if($flashMessage !== ""){ echo $flashMessage; } ?>
+
+    <section class="vote-command-bar" aria-label="Voting manager shortcuts">
+        <div class="vote-command-bar__context">
+            <span class="vote-command-bar__eyebrow">Currently managing</span>
+            <?php if($currentContest){ ?>
+            <strong><?php echo ova_esc($currentContest["title"]); ?></strong>
+            <span class="<?php echo voting_status_badge_class(isset($currentContest["resolved_status"]) ? $currentContest["resolved_status"] : voting_resolved_contest_state($currentContest)); ?>"><?php echo ova_esc(voting_status_label(isset($currentContest["resolved_status"]) ? $currentContest["resolved_status"] : voting_resolved_contest_state($currentContest))); ?></span>
+            <?php }else{ ?>
+            <strong>No contest selected</strong>
+            <span class="vote-status vote-status--neutral">Setup needed</span>
+            <?php } ?>
+        </div>
+        <nav class="vote-command-bar__actions" aria-label="Page shortcuts">
+            <a href="#contest-form" class="vote-btn vote-btn--primary"><i class="fa fa-plus"></i> New Contest</a>
+            <a href="#candidate-form" class="vote-btn vote-btn--ghost"><i class="fa fa-user-plus"></i> Add Candidate</a>
+            <?php if($currentContest){ ?>
+            <a href="online-voting.php?contest=<?php echo rawurlencode((string)$currentContest["contestid"]); ?>" class="vote-btn vote-btn--ghost"><i class="fa fa-external-link"></i> Voter View</a>
+            <?php } ?>
+        </nav>
+    </section>
 
     <div class="vote-admin-layout">
         <div class="vote-admin-column vote-admin-column--forms">
@@ -809,14 +830,14 @@ foreach($contestList as $contestRow){
                         <div class="vote-card-actions">
                             <a href="<?php echo ova_esc(ova_admin_url(array("contest" => $contestRow["contestid"]), "#contest-list")); ?>" class="vote-btn vote-btn--ghost">Manage</a>
                             <a href="<?php echo ova_esc(ova_admin_url(array("contest" => $contestRow["contestid"], "edit_contest" => $contestRow["contestid"]), "#contest-form")); ?>" class="vote-btn vote-btn--ghost">Edit</a>
-                            <a href="online-voting.php?contest=<?php echo rawurlencode((string)$contestRow["contestid"]); ?>" class="vote-btn vote-btn--ghost" target="_blank">Preview</a>
+                            <a href="online-voting.php?contest=<?php echo rawurlencode((string)$contestRow["contestid"]); ?>" class="vote-btn vote-btn--ghost">Preview</a>
                         </div>
                         <div class="vote-status-actions">
                             <?php foreach(array("draft" => "Set Draft", "open" => "Open", "closed" => "Close", "archived" => "Archive") as $statusKey => $statusLabel){ ?>
                             <form method="post" action="<?php echo ova_esc(ova_admin_url(array("contest" => $contestRow["contestid"]), "#contest-list")); ?>">
                                 <input type="hidden" name="contestid" value="<?php echo ova_esc($contestRow["contestid"]); ?>">
                                 <input type="hidden" name="status" value="<?php echo ova_esc($statusKey); ?>">
-                                <button type="submit" name="set_voting_contest_status" class="vote-btn vote-btn--micro"><?php echo ova_esc($statusLabel); ?></button>
+                                <button type="submit" name="set_voting_contest_status" class="vote-btn vote-btn--micro" onclick="return confirm('Change this contest status to <?php echo ova_esc($statusLabel); ?>?');"><?php echo ova_esc($statusLabel); ?></button>
                             </form>
                             <?php } ?>
                         </div>
@@ -838,7 +859,7 @@ foreach($contestList as $contestRow){
                         <h2><?php echo $currentContest ? ova_esc($currentContest["title"]) : "Select a contest"; ?></h2>
                     </div>
                     <?php if($currentContest){ ?>
-                    <a href="online-voting.php?contest=<?php echo rawurlencode((string)$currentContest["contestid"]); ?>" class="vote-btn vote-btn--ghost" target="_blank">Open Voter View</a>
+                    <a href="online-voting.php?contest=<?php echo rawurlencode((string)$currentContest["contestid"]); ?>" class="vote-btn vote-btn--ghost">Open Voter View</a>
                     <?php } ?>
                 </div>
                 <?php if($currentContest){ ?>
@@ -872,7 +893,7 @@ foreach($contestList as $contestRow){
                                     <input type="hidden" name="candidateid" value="<?php echo ova_esc($candidateRow["candidateid"]); ?>">
                                     <input type="hidden" name="contestid" value="<?php echo ova_esc($currentContest["contestid"]); ?>">
                                     <input type="hidden" name="status" value="<?php echo trim((string)$candidateRow["status"]) === "active" ? "inactive" : "active"; ?>">
-                                    <button type="submit" name="set_voting_candidate_status" class="vote-btn vote-btn--ghost"><?php echo trim((string)$candidateRow["status"]) === "active" ? "Deactivate" : "Activate"; ?></button>
+                                    <button type="submit" name="set_voting_candidate_status" class="vote-btn vote-btn--ghost" onclick="return confirm('Are you sure you want to <?php echo trim((string)$candidateRow["status"]) === "active" ? "deactivate" : "activate"; ?> this candidate?');"><?php echo trim((string)$candidateRow["status"]) === "active" ? "Deactivate" : "Activate"; ?></button>
                                 </form>
                             </div>
                         </div>

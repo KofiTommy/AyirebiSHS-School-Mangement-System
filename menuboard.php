@@ -226,6 +226,7 @@ echo "<b style='margin-bottom:10px;font-size:12px;'> Branch:". $_Branch ."</b><b
 ?>
 </div>
 <hr>
+<div class="menuboard-account-links">
 <a href="edit-account.php" ><i   class="fa fa-edit"> Edit Profile </i> </a><br/>
 <a href="change-password.php" ><i  class="fa fa-edit"> Change Password </i> </a><br/>
 <a href="messages.php" ><i  class="fa fa-book"> Messages </i></a><br/>
@@ -241,6 +242,7 @@ if(($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="norma
   echo "<a class='menuboard-inline-link' href='admin.php#system-change-notifications'><i class='fa fa-bell'></i><span>Notifications</span><span class='menuboard-badge'>".$_UnreadChangeCount."</span></a><br/>";
 }
 ?>
+</div>
 
 <hr>
 

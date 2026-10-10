@@ -317,6 +317,47 @@ include("links.php");
     border-radius: 8px;
 }
 
+/* Keep the original menu layout, with a soft muted-navy sidebar surface. */
+.admin-sidebar-scroll .menu-inner {
+    background-color: #34495e;
+}
+
+/* Account shortcuts: compact action boxes without changing the menu structure. */
+.admin-sidebar-scroll .menuboard-account-links {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    padding: 2px 0;
+}
+.admin-sidebar-scroll .menuboard-account-links br {
+    display: none;
+}
+.admin-sidebar-scroll .menuboard-account-links a {
+    display: flex;
+    align-items: center;
+    min-height: 34px;
+    margin: 0;
+    padding: 8px 9px;
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 9px;
+    background: rgba(255,255,255,0.07) !important;
+    box-sizing: border-box;
+    line-height: 1.2;
+}
+.admin-sidebar-scroll .menuboard-account-links a:hover {
+    background: rgba(255,255,255,0.15) !important;
+}
+.admin-sidebar-scroll .menuboard-account-links a:last-of-type {
+    grid-column: span 2;
+}
+.admin-sidebar-scroll .menuboard-account-links .menuboard-inline-link {
+    display: flex;
+    gap: 7px;
+}
+.admin-sidebar-scroll .menuboard-account-links .menuboard-badge {
+    margin-left: auto;
+}
+
 .admin-dashboard-col {
     width: auto;
 }
@@ -1220,6 +1261,28 @@ include("links.php");
 
     .dashboard-live-clock .xschool-live-clock__top {
         justify-content: center;
+    }
+
+    /* The desktop search uses a 430px flex basis. In the stacked phone layout
+       that becomes an empty vertical gap before the quick actions. */
+    .dashboard-global-search {
+        flex: 0 0 auto;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        justify-content: stretch;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .quick-action-btn {
+        min-width: 0;
+        padding: 9px 8px;
+        font-size: 0.78rem;
     }
 }
 

@@ -325,7 +325,6 @@ $signedInName = isset($_SESSION["FULLNAME"]) ? trim((string)$_SESSION["FULLNAME"
         <div>
             <span class="rs-kicker"><i class="fa fa-address-card-o"></i> Admissions Workspace</span>
             <h1>Register students with less clutter and better flow.</h1>
-            <p>Identity first, contact and guardian details next, then login details at the end. The form stays usable on mobile and keeps values when something needs fixing.</p>
             <div class="rs-pills">
                 <span>Mobile friendly</span>
                 <span>Auto age from birthday</span>
@@ -456,15 +455,6 @@ $signedInName = isset($_SESSION["FULLNAME"]) ? trim((string)$_SESSION["FULLNAME"
         </section>
 
         <aside class="rs-side">
-            <section class="rs-panel">
-                <div class="rs-side-head"><span class="rs-kicker rs-kicker--dark">Quick Notes</span><h2>Why this feels easier</h2></div>
-                <ul class="rs-list">
-                    <li>Birthday uses a phone-friendly date picker and fills age automatically.</li>
-                    <li>House assignment is available immediately, but it stays optional.</li>
-                    <li>Failed validation keeps the form values on the page.</li>
-                </ul>
-            </section>
-
             <section class="rs-panel">
                 <div class="rs-side-head"><span class="rs-kicker rs-kicker--dark">Today</span><h2>Recent Student Registrations</h2></div>
                 <div class="rs-search"><i class="fa fa-search"></i><input type="search" id="rs-search" placeholder="Search name, ID, username or house"></div>

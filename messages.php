@@ -502,6 +502,7 @@ if($__SystemType === 'Student'){
 <html lang="en">
 <head>
 <?php include("links.php"); ?>
+<title>School Messages</title>
 <link rel="stylesheet" type="text/css" href="css/messages.css">
 </head>
 <body class="body-style messages-page">

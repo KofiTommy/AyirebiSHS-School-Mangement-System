@@ -224,7 +224,7 @@ button{
   gap: 8px;
 }
 
-@media (max-width:640px) {
+@media (max-width:820px) {
   .top-actions {
     justify-content: flex-start;
     position: relative;
@@ -247,18 +247,58 @@ button{
   .dropdownNew.is-open .dropdownNew-content {
     position: fixed;
     top: 72px;
-    left: 10px;
-    right: 10px;
+    left: 8px;
+    right: 8px;
     width: auto;
     min-width: 0;
     max-width: none;
     max-height: calc(100vh - 88px);
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     z-index: 2147483000;
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    box-shadow: 0 22px 48px rgba(15, 23, 42, 0.28);
+    padding: 10px;
+    border: 1px solid rgba(125, 211, 252, 0.7);
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at top right, rgba(45, 212, 191, 0.20), transparent 36%),
+      radial-gradient(circle at bottom left, rgba(96, 165, 250, 0.16), transparent 42%),
+      linear-gradient(145deg, #ffffff 0%, #f0f9ff 100%);
+    box-shadow: 0 22px 48px rgba(15, 23, 42, 0.28), inset 0 1px 0 rgba(255,255,255,0.92);
+  }
+
+  .dropdownNew-content a,
+  .dropdownNew-content button {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .dropdownNew-content a {
+    margin: 2px 0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .dropdownNew-content a:hover {
+    background: rgba(255,255,255,0.7);
+  }
+
+  .dropdownNew-content a:nth-of-type(3n + 1) button {
+    background: rgba(224, 242, 254, 0.72);
+    border-left: 3px solid #38bdf8;
+  }
+
+  .dropdownNew-content a:nth-of-type(3n + 2) button {
+    background: rgba(209, 250, 229, 0.62);
+    border-left: 3px solid #34d399;
+  }
+
+  .dropdownNew-content a:nth-of-type(3n) button {
+    background: rgba(254, 243, 199, 0.58);
+    border-left: 3px solid #fbbf24;
   }
 }
 </style>

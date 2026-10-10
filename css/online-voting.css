@@ -100,6 +100,25 @@
 .vote-alert--error{ background:#fff0f0; color:#b42318; border:1px solid #efc5c5; }
 .vote-alert--info{ background:#edf5ff; color:#184b7a; border:1px solid #cadcf4; }
 
+.vote-command-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+    padding:18px 20px;
+    margin:0 0 18px;
+    border:1px solid #d7e2ef;
+    border-radius:20px;
+    background:rgba(255,255,255,.94);
+    box-shadow:0 12px 28px rgba(20,52,87,.06);
+}
+
+.vote-command-bar__context{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;}
+.vote-command-bar__context strong{color:#17324d;font-size:1.03rem;overflow-wrap:anywhere;}
+.vote-command-bar__eyebrow{display:block;width:100%;color:#637b94;font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;}
+.vote-command-bar__actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end;}
+
+
 .vote-admin-layout,
 .vote-public-layout{
     display:grid;
@@ -657,4 +676,99 @@
     .vote-candidate-grid{
         grid-template-columns:1fr;
     }
+
+    .vote-command-bar{
+        grid-template-columns:1fr;
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .vote-command-bar__actions{
+        justify-content:stretch;
+    }
+}
+
+/* Voting manager polish: a compact, premium admin workspace. */
+.vote-admin-page .vote-shell{
+    max-width:1540px;
+    margin:0 auto;
+    background-image:linear-gradient(rgba(35,82,141,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(35,82,141,.025) 1px,transparent 1px);
+    background-size:28px 28px;
+}
+
+.vote-admin-page .vote-hero--admin{
+    border:0;
+    background:linear-gradient(125deg,#102b55 0%,#1b4f8f 55%,#1b8a9b 130%);
+    position:relative;
+    overflow:hidden;
+}
+
+.vote-admin-page .vote-hero--admin:before{
+    content:"";
+    position:absolute;
+    width:340px;
+    height:340px;
+    right:-110px;
+    bottom:-210px;
+    border:48px solid rgba(169,238,224,.17);
+    border-radius:50%;
+}
+
+.vote-admin-page .vote-hero--admin:after{
+    content:"";
+    position:absolute;
+    width:130px;
+    height:130px;
+    top:-62px;
+    right:34%;
+    border-radius:50%;
+    background:rgba(255,255,255,.055);
+}
+
+.vote-admin-page .vote-hero__copy,
+.vote-admin-page .vote-hero__stats{position:relative;z-index:1;}
+.vote-admin-page .vote-hero__eyebrow{color:#a8f0e2;}
+.vote-admin-page .vote-hero h1{color:#fff;letter-spacing:-.04em;}
+.vote-admin-page .vote-hero p{color:rgba(237,248,255,.84);max-width:620px;}
+.vote-admin-page .vote-hero__stats article{border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.12);backdrop-filter:blur(8px);}
+.vote-admin-page .vote-hero__stats span{color:rgba(230,248,255,.72);}
+.vote-admin-page .vote-hero__stats strong{color:#fff;}
+
+.vote-admin-page .vote-card{
+    border-color:#dce7f1;
+    box-shadow:0 18px 42px rgba(17,49,88,.075);
+}
+
+.vote-admin-page .vote-card:hover{box-shadow:0 22px 48px rgba(17,49,88,.10);}
+.vote-admin-page .vote-card__head h2{letter-spacing:-.025em;}
+.vote-admin-page .vote-btn--primary{background:linear-gradient(135deg,#1957a6,#087d89);box-shadow:0 9px 20px rgba(20,93,148,.2);}
+.vote-admin-page .vote-btn--ghost:hover{border-color:#70a7d1;background:#f1f8fd;color:#104b80;}
+
+/* Compact candidate cards: photo is now a thumbnail, not the whole card. */
+.vote-admin-page .vote-candidate-grid--admin{grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:13px;}
+.vote-admin-page .vote-candidate-grid--admin .vote-candidate-card{
+    display:grid;
+    grid-template-columns:92px minmax(0,1fr);
+    gap:14px;
+    align-items:start;
+    padding:13px;
+    border-radius:17px;
+    background:linear-gradient(135deg,#fff 0%,#f8fbff 100%);
+    transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
+}
+
+.vote-admin-page .vote-candidate-grid--admin .vote-candidate-card:hover{transform:translateY(-2px);border-color:#9bc1df;box-shadow:0 13px 28px rgba(27,83,132,.12);}
+.vote-admin-page .vote-candidate-grid--admin .vote-candidate-card__media{width:92px;height:108px;aspect-ratio:auto;border-radius:13px;box-shadow:0 6px 16px rgba(19,60,94,.14);}
+.vote-admin-page .vote-candidate-grid--admin .vote-candidate-card__body{min-width:0;}
+.vote-admin-page .vote-candidate-grid--admin .vote-candidate-card h3{font-size:1.05rem;line-height:1.2;}
+.vote-admin-page .vote-candidate-grid--admin .vote-candidate-card__sub{margin:5px 0 0;font-size:.79rem;}
+.vote-admin-page .vote-candidate-grid--admin .vote-candidate-card__slogan{margin:6px 0 10px;font-size:.8rem;line-height:1.45;}
+.vote-admin-page .vote-candidate-grid--admin .vote-progress{margin-bottom:10px;}
+.vote-admin-page .vote-candidate-grid--admin .vote-card-actions{gap:7px;}
+.vote-admin-page .vote-candidate-grid--admin .vote-card-actions .vote-btn{min-height:35px;padding:7px 10px;border-radius:10px;font-size:.76rem;}
+
+@media (max-width:768px){
+    .vote-admin-page .vote-hero--admin{padding:22px 18px;}
+    .vote-admin-page .vote-candidate-grid--admin .vote-candidate-card{grid-template-columns:76px minmax(0,1fr);gap:11px;padding:11px;}
+    .vote-admin-page .vote-candidate-grid--admin .vote-candidate-card__media{width:76px;height:92px;}
 }

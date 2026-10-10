@@ -1,0 +1,143 @@
+/* Transport Management: keep every typed and selected value legible. */
+.tm .card input,
+.tm .card select,
+.tsa .form select {
+    min-height: 44px !important;
+    padding: 10px 12px !important;
+    background-color: #ffffff !important;
+    color: #102a43 !important;
+    -webkit-text-fill-color: #102a43 !important;
+    opacity: 1 !important;
+    font: 16px Arial, sans-serif !important;
+    line-height: 1.35 !important;
+    text-align: left !important;
+}
+
+.tm .card input::placeholder {
+    color: #64748b !important;
+    -webkit-text-fill-color: #64748b !important;
+    opacity: 1 !important;
+}
+
+.tm .card select,
+.tsa .form select {
+    cursor: pointer;
+}
+
+.tm .card select option,
+.tsa .form select option {
+    background-color: #ffffff !important;
+    color: #102a43 !important;
+    -webkit-text-fill-color: #102a43 !important;
+    font: 16px Arial, sans-serif !important;
+}
+
+.tm .card input:focus,
+.tm .card select:focus,
+.tsa .form select:focus {
+    outline: 0;
+    border-color: #087443 !important;
+    box-shadow: 0 0 0 3px rgba(8, 116, 67, .14) !important;
+}
+
+.tsa a[href="transport-management.php"] {
+    display: inline-flex;
+    align-items: center;
+    min-height: 42px;
+    box-sizing: border-box;
+    padding: 9px 14px;
+    border: 1px solid #087443;
+    border-radius: 8px;
+    background: #087443;
+    color: #ffffff !important;
+    font: 600 14px Arial, sans-serif;
+    line-height: 1.2;
+    text-decoration: none;
+    transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.tsa a[href="transport-management.php"]:hover,
+.tsa a[href="transport-management.php"]:focus {
+    background: #065d35;
+    border-color: #065d35;
+    color: #ffffff !important;
+    text-decoration: none;
+}
+
+.tsa a[href="transport-management.php"]:focus-visible {
+    outline: 3px solid rgba(8, 116, 67, .28);
+    outline-offset: 2px;
+}
+
+.tm a[href="transport-student-assignment.php"] {
+    display: inline-flex;
+    align-items: center;
+    min-height: 42px;
+    box-sizing: border-box;
+    padding: 9px 14px;
+    border: 1px solid #087443;
+    border-radius: 8px;
+    background: #087443;
+    color: #ffffff !important;
+    font: 600 14px Arial, sans-serif;
+    line-height: 1.2;
+    text-decoration: none;
+    transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.tm a[href="transport-student-assignment.php"]:hover,
+.tm a[href="transport-student-assignment.php"]:focus {
+    background: #065d35;
+    border-color: #065d35;
+    color: #ffffff !important;
+    text-decoration: none;
+}
+
+.tm a[href="transport-student-assignment.php"]:focus-visible {
+    outline: 3px solid rgba(8, 116, 67, .28);
+    outline-offset: 2px;
+}
+
+.transport-home-button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    box-sizing: border-box;
+    margin: 0 0 14px;
+    padding: 8px 13px;
+    border: 1px solid #7893aa;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #17314b !important;
+    font: 600 14px Arial, sans-serif;
+    line-height: 1.2;
+    text-decoration: none;
+}
+
+.transport-home-button::before {
+    content: '\2190';
+    margin-right: 7px;
+    font-size: 17px;
+    line-height: 1;
+}
+
+.transport-home-button:hover,
+.transport-home-button:focus {
+    border-color: #087443;
+    background: #edf9f2;
+    color: #065d35 !important;
+    text-decoration: none;
+}
+
+.transport-home-button:focus-visible {
+    outline: 3px solid rgba(8, 116, 67, .24);
+    outline-offset: 2px;
+}
+
+@media (max-width: 700px) {
+    .tm .card input,
+    .tm .card select,
+    .tsa .form select {
+        font-size: 16px !important;
+    }
+}

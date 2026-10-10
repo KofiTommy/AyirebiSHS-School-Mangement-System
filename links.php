@@ -7,6 +7,27 @@
 <link rel="stylesheet" type="text/css" href="css/formstyle.css"/>
 <link rel="stylesheet" type="text/css" href="css/buttonstyle.css">
 <link rel="stylesheet" type="text/css" href="css/result-access-payments.css">
+<?php if (in_array(basename((string)($_SERVER['PHP_SELF'] ?? '')), array('transport-management.php', 'transport-student-assignment.php'), true)) {
+    $__transportHomeLink = (!empty($_SESSION['SYSTEMTYPE']) && $_SESSION['SYSTEMTYPE'] === 'super_user') ? 'super.php' : 'admin.php';
+?>
+<link rel="stylesheet" type="text/css" href="css/transport-management.css">
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var page = document.querySelector('.tm, .tsa');
+    var title = page ? page.querySelector('h1') : null;
+    if (!page || !title || page.querySelector('.transport-home-button')) {
+        return;
+    }
+
+    var homeButton = document.createElement('a');
+    homeButton.className = 'transport-home-button';
+    homeButton.href = '<?php echo htmlspecialchars($__transportHomeLink, ENT_QUOTES, 'UTF-8'); ?>';
+    homeButton.textContent = 'Home';
+    homeButton.setAttribute('aria-label', 'Return to home page');
+    title.insertAdjacentElement('beforebegin', homeButton);
+});
+</script>
+<?php } ?>
 <!-- External Scripts -->
 
 <?php
