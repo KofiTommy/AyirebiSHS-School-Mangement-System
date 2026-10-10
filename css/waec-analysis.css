@@ -1,0 +1,74 @@
+/* Scoped presentation for the WAEC results workspace. */
+.waec-wrap {
+    max-width: 1480px;
+    color: #19324a;
+    font-family: Arial, sans-serif;
+    padding: 18px;
+}
+.waec-wrap *, .waec-wrap *::before, .waec-wrap *::after { box-sizing: border-box; }
+.waec-hero {
+    padding: 32px;
+    margin-bottom: 22px;
+    border-radius: 22px;
+    background: radial-gradient(circle at top right, #237980 0%, transparent 60%), #123552;
+    color: #fff;
+}
+.waec-eyebrow { color: #a8e6db; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.waec-hero h1 { color: #fff; font-size: clamp(26px, 3vw, 38px); margin: 12px 0; letter-spacing: -.035em; }
+.waec-hero p { color: #d7e8f4; max-width: 680px; line-height: 1.7; }
+.waec-hero nav { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.waec-hero nav a { color: #fff; border: 1px solid #6b99ab; background: #244b65; padding: 10px 14px; border-radius: 9px; text-decoration: none; font-size: 14px; }
+.waec-hero nav a:hover { background: #356782; }
+.waec-wrap .waec-card { padding: 22px; border-radius: 17px; border-color: #dde6ed; box-shadow: 0 8px 24px #12355208; min-width: 0; }
+.waec-wrap .waec-grid { grid-template-columns: minmax(290px, .65fr) minmax(0, 1.35fr); gap: 20px; }
+.waec-wrap .waec-card h3 { font-size: 19px; padding-bottom: 14px; }
+.waec-wrap .waec-small { color: #53677b; line-height: 1.6; }
+.waec-wrap .waec-stat { padding: 16px; border: 1px solid #dce8eb; background: #f4faf9; border-radius: 12px; min-width: 0; }
+.waec-wrap .waec-stat strong { color: #175a61; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.waec-wrap .waec-stat h4 { line-height: 1.45; }
+.waec-wrap .waec-stats { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.waec-wrap .waec-toolbar { display: flex; flex-wrap: wrap; gap: 10px; background: #f5f8fb; padding: 12px; border-radius: 12px; }
+.waec-wrap .waec-toolbar select, .waec-wrap .waec-toolbar input[type="text"] {
+    flex: 1 1 160px;
+    min-width: 0;
+    width: auto;
+    min-height: 44px;
+    padding: 10px;
+    background: #fff !important;
+    color: #19324a !important;
+    -webkit-text-fill-color: #19324a !important;
+    border: 1px solid #b9cad8;
+    border-radius: 8px;
+    font: 16px Arial, sans-serif;
+}
+.waec-wrap select option { color: #19324a; background: #fff; }
+.waec-wrap input[type="file"] { max-width: 100%; margin: 8px 0 14px; color: #19324a; }
+.waec-wrap .waec-btn, .waec-wrap .waec-btn-muted { min-height: 40px; border-radius: 8px; padding: 9px 12px; font-size: 13px; }
+.waec-wrap .waec-actions, .waec-wrap .waec-action-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.waec-wrap .waec-action-col { min-width: 100px; width: auto; }
+.waec-wrap .waec-table { display: block; width: 100%; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 13px; }
+.waec-wrap .waec-table th { background: #eaf1f6; color: #28435a; padding: 12px; white-space: normal; }
+.waec-wrap .waec-table td { padding: 11px 12px; line-height: 1.45; }
+.waec-wrap .waec-table tbody tr:nth-child(even) td { background: #f7f9fb; }
+.waec-wrap .waec-table tbody tr:hover td { background: #edf7f5; }
+.waec-wrap .waec-recent-card td:first-child { overflow-wrap: anywhere; min-width: 135px; }
+.waec-wrap :is(a, button, input, select):focus-visible { outline: 3px solid #4d9fa9; outline-offset: 3px; }
+.waec-wrap [id] { scroll-margin-top: 22px; }
+.waec-method { margin-top: 18px; border-top: 1px solid #dce6ee; padding-top: 14px; }
+.waec-method summary { cursor: pointer; font-weight: 700; color: #24516b; }
+.waec-method p { max-width: 900px; line-height: 1.7; color: #53677b; font-size: 14px; }
+.waec-method a { color: #185d9c; text-decoration: underline; }
+@media(max-width: 1080px) { .waec-wrap .waec-grid { grid-template-columns: 1fr; } }
+@media(max-width: 600px) {
+    .waec-wrap { padding: 10px; }
+    .waec-hero { padding: 24px 18px; }
+    .waec-wrap .waec-card { padding: 16px; }
+    .waec-wrap .waec-toolbar select, .waec-wrap .waec-toolbar input[type="text"] { flex-basis: 100%; }
+    .waec-wrap .waec-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media print {
+    .waec-hero nav, #waec-upload, .waec-recent-card, .waec-toolbar, .waec-actions { display: none; }
+    .waec-wrap .waec-grid { display: block; }
+    .waec-wrap .waec-table { display: table; font-size: 10px; }
+    .waec-wrap .waec-card { box-shadow: none; border: 0; }
+}

@@ -34,7 +34,7 @@ function waec_grade($value){
 function waec_grade_or_withheld($value){
     $g = strtoupper(trim((string)$value));
     $g = str_replace(" ", "", $g);
-    $allowed = array("A1","B2","B3","C4","C5","C6","D7","E8","F9","X","W");
+    $allowed = array("A1","B2","B3","C4","C5","C6","D7","E8","F9","X","W","*","P");
     return in_array($g, $allowed) ? $g : "";
 }
 
@@ -92,6 +92,17 @@ function waec_normalize_subject($subject){
     $k = preg_replace('/[^A-Z0-9]+/', '', $s);
 
     $map = array(
+        "ENGLISH" => "ENGLISH LANG",
+        "ENGLISHLANG" => "ENGLISH LANG",
+        "ENGLISHLANGUAGE" => "ENGLISH LANG",
+        "COREMATHEMATICS" => "MATHEMATICS(CORE)",
+        "COREMATHS" => "MATHEMATICS(CORE)",
+        "MATHEMATICSCORE" => "MATHEMATICS(CORE)",
+        "ELECTIVEMATHEMATICS" => "MATHEMATICS(ELECT)",
+        "MATHEMATICSELECTIVE" => "MATHEMATICS(ELECT)",
+        "MATHEMATICSELECT" => "MATHEMATICS(ELECT)",
+        "INTEGRATEDSCIENCE" => "INTEGRATED SCIENCE",
+        "SOCIALSTUDIES" => "SOCIAL STUDIES",
         "LITINENGLISH" => "LITERATURE IN ENGLISH",
         "GENKNOWINART" => "GENERAL KNOWLEDGE IN ART",
         "MGTINLIVING" => "MANAGEMENT IN LIVING",
@@ -116,7 +127,7 @@ function waec_candidate_col($headerMap){
 }
 
 function waec_name_col($headerMap){
-    $keys = array("studentname","fullname","name","candidate","student");
+    $keys = array("studentname","candidatename","fullname","name","candidate","student");
     foreach($keys as $k){
         if(isset($headerMap[$k])) return $headerMap[$k];
     }
@@ -280,16 +291,37 @@ function waec_build_filter_where($con, $uploadId, $focusSubject = "", $focusGend
             if(in_array($focusGrade, array("A1","B2","B3","C4","C5","C6","D7","E8","F9"))){
                 $gradeEsc = mysqli_real_escape_string($con, (string)$focusGrade);
                 $parts[] = "grade='$gradeEsc'";
-            } elseif(in_array($focusGrade, array("X","W"))){
+            } elseif(in_array($focusGrade, array("X","W","*","P"))){
                 $parts[] = "1=0";
             }
-        } elseif($tableType === "withheld" && in_array($focusGrade, array("X","W"))){
+        } elseif($tableType === "withheld" && in_array($focusGrade, array("X","W","*","P"))){
             $gradeEsc = mysqli_real_escape_string($con, (string)$focusGrade);
             $parts[] = "grade='$gradeEsc'";
+        } elseif($tableType === "withheld" && waec_grade($focusGrade) !== ""){
+            $parts[] = "1=0";
         }
     }
 
     return implode(" AND ", $parts);
+}
+
+function waec_filtered_student_count($con, $uploadId, $subject = "", $gender = "", $grade = ""){
+    $graded = waec_build_filter_where($con, $uploadId, $subject, $gender, $grade, "result", true);
+    $statuses = waec_build_filter_where($con, $uploadId, $subject, $gender, $grade, "withheld", true);
+    $identity = "CASE WHEN TRIM(COALESCE(candidate_no,''))<>'' THEN CONCAT('CAND:',TRIM(candidate_no)) ELSE CONCAT('NAME:',UPPER(TRIM(student_name))) END";
+    $res = mysqli_query($con, "SELECT COUNT(*) AS total FROM (
+        SELECT $identity AS candidate_key FROM tblwaecresult WHERE $graded
+        UNION
+        SELECT $identity AS candidate_key FROM tblwaecwithheld WHERE $statuses
+    ) candidates");
+    $row = $res ? mysqli_fetch_assoc($res) : null;
+    return $row ? (int)$row['total'] : 0;
+}
+
+function waec_csv_cell($value){
+    $value = (string)$value;
+    // Keep imported text from executing as a spreadsheet formula.
+    return preg_match('/^[\\s]*[=+@-]/u', $value) ? "'".$value : $value;
 }
 
 function waec_extract_saved_file_records_for_gender($filePath, $ext){
@@ -320,6 +352,7 @@ function waec_extract_saved_file_records_for_gender($filePath, $ext){
         $withheldRecords = isset($extracted["withheld_rows"]) ? $extracted["withheld_rows"] : array();
         if(count($records) === 0 && count($withheldRecords) === 0){
             $listing = waec_extract_listing_rows_from_rows($csvRows);
+                        $parseError = $listing["error"] ?? "";
             $records = isset($listing["rows"]) ? $listing["rows"] : array();
             $withheldRecords = isset($listing["withheld_rows"]) ? $listing["withheld_rows"] : array();
         }
@@ -331,6 +364,10 @@ function waec_extract_saved_file_records_for_gender($filePath, $ext){
 
     if(count($records) > 0 || count($withheldRecords) > 0){
         $ded = waec_deduplicate_records($records, $withheldRecords);
+                    if(!empty($ded["error"])){
+                        $insertUpload = false;
+                        $message = "<div style='color:red'>".waec_esc($ded["error"])."</div>";
+                    }
         $filled = waec_apply_candidate_gender($ded["rows"], $ded["withheld_rows"]);
         $records = $filled["rows"];
         $withheldRecords = $filled["withheld_rows"];
@@ -828,7 +865,7 @@ function waec_parse_subject_grades_from_text($rawText, &$withheldRows = null){
         if($subject === ""){
             continue;
         }
-        if(in_array($grade, array("X","W"))){
+        if(in_array($grade, array("X","W","*","P"))){
             $withheldRows[] = array(
                 "subject_name" => waec_normalize_subject($subject),
                 "grade" => $grade
@@ -845,248 +882,18 @@ function waec_parse_subject_grades_from_text($rawText, &$withheldRows = null){
 }
 
 function waec_extract_listing_rows_from_rows($rows){
-    $all = array();
-    $withheld = array();
-    if(!is_array($rows) || count($rows) === 0){
-        return array("error" => "", "rows" => $all, "withheld_rows" => $withheld);
-    }
-
-    $currentCandidate = "";
-    $currentName = "";
-    $currentGender = "";
-    $resultsBuffer = "";
-    $flushCandidate = function() use (&$all, &$withheld, &$currentCandidate, &$currentName, &$currentGender, &$resultsBuffer){
-        if($currentCandidate === "" || trim($resultsBuffer) === ""){
-            return;
-        }
-        $candidateWithheld = array();
-        $parsed = waec_parse_subject_grades_from_text($resultsBuffer, $candidateWithheld);
-        foreach($parsed as $p){
-            $all[] = array(
-                "candidate_no" => $currentCandidate,
-                "student_name" => $currentName,
-                "gender" => $currentGender,
-                "subject_name" => waec_normalize_subject($p["subject_name"]),
-                "grade" => $p["grade"],
-                "grade_point" => $p["grade_point"]
-            );
-        }
-        foreach($candidateWithheld as $w){
-            $withheld[] = array(
-                "candidate_no" => $currentCandidate,
-                "student_name" => $currentName,
-                "gender" => $currentGender,
-                "subject_name" => waec_normalize_subject($w["subject_name"]),
-                "grade" => $w["grade"]
-            );
-        }
-    };
-
-    $rowCount = count($rows);
-    for($i = 0; $i < $rowCount; $i++){
-        $r = $rows[$i];
-        $c0 = isset($r[0]) ? trim((string)$r[0]) : "";
-        $c1 = isset($r[1]) ? trim((string)$r[1]) : "";
-        $c2 = isset($r[2]) ? trim((string)$r[2]) : "";
-        $c3 = isset($r[3]) ? trim((string)$r[3]) : "";
-        $c4 = isset($r[4]) ? trim((string)$r[4]) : "";
-
-        if($c1 === "NAME" || stripos($c1, "WAEC Results Listing") !== false || stripos($c0, "INDEX NUMBER") !== false){
-            continue;
-        }
-        if(stripos($c0, "http://") !== false || stripos($c0, "https://") !== false){
-            continue;
-        }
-
-        if(waec_is_index_number($c0)){
-            $flushCandidate();
-
-            $currentCandidate = preg_replace('/\s+/', '', $c0);
-            $surname = "";
-            $other = "";
-            $carriedResultPrefix = "";
-            $currentGender = waec_normalize_gender($c2);
-            if($currentGender === ""){
-                $currentGender = waec_normalize_gender($c3);
-            }
-
-            if($i > 0){
-                $prev = $rows[$i - 1];
-                $surname = isset($prev[1]) ? trim((string)$prev[1]) : "";
-                /* The WAEC CSV can print the first subject one to three rows before its index number. */
-                for($lookBack = 1; $lookBack <= 3 && ($i - $lookBack) >= 0; $lookBack++){
-                    $prior = $rows[$i - $lookBack];
-                    $priorResult = isset($prior[4]) ? trim((string)$prior[4], " \t\n\r\0\x0B\"'") : "";
-                    if($priorResult !== "" && preg_match('/-\s*$/', $priorResult) && !preg_match('/-\s*(A1|B2|B3|C4|C5|C6|D7|E8|F9|X|W)\s*$/i', $priorResult)){
-                        $carriedResultPrefix = $priorResult;
-                        break;
-                    }
-                }
-            }
-
-            if($c1 !== ""){
-                $other = $c1;
-            }
-
-            if($i + 1 < $rowCount){
-                $n = $rows[$i + 1];
-                $n1 = isset($n[1]) ? trim((string)$n[1]) : "";
-                $n2 = isset($n[2]) ? trim((string)$n[2]) : "";
-                $n3 = isset($n[3]) ? trim((string)$n[3]) : "";
-                if($n1 !== "" && ($n2 === "Male" || $n2 === "Female" || $n3 !== "")){
-                    $other = $n1;
-                }
-                if($currentGender === ""){
-                    $currentGender = waec_normalize_gender($n2);
-                }
-                if($currentGender === ""){
-                    $currentGender = waec_normalize_gender($n3);
-                }
-            }
-
-            $currentName = trim($surname." ".$other);
-            $currentName = preg_replace('/\s+/', ' ', $currentName);
-            $resultsBuffer = trim($carriedResultPrefix." ".$c4);
-        } else {
-            if($c4 !== "" && $currentCandidate !== ""){
-                $resultsBuffer .= " ".$c4;
-            }
-        }
-    }
-
-    $flushCandidate();
-    return array("error" => "", "rows" => $all, "withheld_rows" => $withheld);
+    return waec_listing_blocks($rows);
 }
 
 function waec_extract_listing_rows_from_xlsx($tmpName){
-    require_once "simplexlsx.class.php";
-    $oldLevel = error_reporting();
-    error_reporting($oldLevel & ~E_DEPRECATED & ~E_NOTICE);
+    require_once __DIR__."/simplexlsx.class.php";
     $xlsx = new SimpleXLSX($tmpName);
-    error_reporting($oldLevel);
-    if(!$xlsx->success()){
-        return array("error" => $xlsx->error(), "rows" => array());
+    if(!$xlsx->success()) return array("error"=>$xlsx->error(), "rows"=>array(), "withheld_rows"=>array());
+    $rows = array();
+    foreach($xlsx->sheetNames() as $sheetId=>$sheetName){
+        foreach($xlsx->rows($sheetId) as $row) $rows[]=$row;
     }
-
-    $all = array();
-    $withheld = array();
-    $sheetNames = $xlsx->sheetNames();
-    if(!is_array($sheetNames)){
-        return array("error" => "", "rows" => $all, "withheld_rows" => $withheld);
-    }
-
-    $currentCandidate = "";
-    $currentName = "";
-    $currentGender = "";
-    $resultsBuffer = "";
-    $flushCandidate = function() use (&$all, &$withheld, &$currentCandidate, &$currentName, &$currentGender, &$resultsBuffer){
-        if($currentCandidate === "" || trim($resultsBuffer) === ""){
-            return;
-        }
-        $candidateWithheld = array();
-        $parsed = waec_parse_subject_grades_from_text($resultsBuffer, $candidateWithheld);
-        foreach($parsed as $p){
-            $all[] = array(
-                "candidate_no" => $currentCandidate,
-                "student_name" => $currentName,
-                "gender" => $currentGender,
-                "subject_name" => waec_normalize_subject($p["subject_name"]),
-                "grade" => $p["grade"],
-                "grade_point" => $p["grade_point"]
-            );
-        }
-        foreach($candidateWithheld as $w){
-            $withheld[] = array(
-                "candidate_no" => $currentCandidate,
-                "student_name" => $currentName,
-                "gender" => $currentGender,
-                "subject_name" => waec_normalize_subject($w["subject_name"]),
-                "grade" => $w["grade"]
-            );
-        }
-    };
-
-    foreach($sheetNames as $sheetId => $sheetName){
-        $rows = $xlsx->rows($sheetId);
-        if(!is_array($rows) || count($rows) === 0){
-            continue;
-        }
-
-        $rowCount = count($rows);
-        for($i = 0; $i < $rowCount; $i++){
-            $r = $rows[$i];
-            $c0 = isset($r[0]) ? trim((string)$r[0]) : "";
-            $c1 = isset($r[1]) ? trim((string)$r[1]) : "";
-            $c2 = isset($r[2]) ? trim((string)$r[2]) : "";
-            $c3 = isset($r[3]) ? trim((string)$r[3]) : "";
-            $c4 = isset($r[4]) ? trim((string)$r[4]) : "";
-
-            if($c1 === "NAME" || stripos($c1, "WAEC Results Listing") !== false || stripos($c0, "INDEX NUMBER") !== false){
-                continue;
-            }
-            if(stripos($c0, "http://") !== false || stripos($c0, "https://") !== false){
-                continue;
-            }
-
-            if(waec_is_index_number($c0)){
-                $flushCandidate();
-
-                $currentCandidate = preg_replace('/\s+/', '', $c0);
-                $surname = "";
-                $other = "";
-                $carriedResultPrefix = "";
-                $currentGender = waec_normalize_gender($c2);
-                if($currentGender === ""){
-                    $currentGender = waec_normalize_gender($c3);
-                }
-
-                if($i > 0){
-                    $prev = $rows[$i - 1];
-                    $surname = isset($prev[1]) ? trim((string)$prev[1]) : "";
-                    /* Some WAEC CSV exports wrap the first subject before the index number.
-                       Carry only an unfinished "SUBJECT -" fragment into this candidate. */
-                    $prevResult = isset($prev[4]) ? trim((string)$prev[4], " \t\n\r\0\x0B\"'") : "";
-                    if($prevResult !== "" && preg_match('/-\s*$/', $prevResult) && !preg_match('/-\s*(A1|B2|B3|C4|C5|C6|D7|E8|F9|X|W)\s*$/i', $prevResult)){
-                        $carriedResultPrefix = $prevResult;
-                    }
-                }
-
-                if($c1 !== ""){
-                    $other = $c1;
-                }
-
-                if($i + 1 < $rowCount){
-                    $n = $rows[$i + 1];
-                    $n1 = isset($n[1]) ? trim((string)$n[1]) : "";
-                    $n2 = isset($n[2]) ? trim((string)$n[2]) : "";
-                    $n3 = isset($n[3]) ? trim((string)$n[3]) : "";
-                    if($n1 !== "" && ($n2 === "Male" || $n2 === "Female" || $n3 !== "")){
-                        $other = $n1;
-                    }
-                    if($currentGender === ""){
-                        $currentGender = waec_normalize_gender($n2);
-                    }
-                    if($currentGender === ""){
-                        $currentGender = waec_normalize_gender($n3);
-                    }
-                }
-
-                $currentName = trim($surname." ".$other);
-                $currentName = preg_replace('/\s+/', ' ', $currentName);
-                $resultsBuffer = trim($carriedResultPrefix." ".$c4);
-            } else {
-                if($c4 !== "" && $currentCandidate !== ""){
-                    $resultsBuffer .= " ".$c4;
-                }
-            }
-        }
-
-    }
-
-    // Flush the last candidate once all page-sheets have been processed.
-    $flushCandidate();
-
-    return array("error" => "", "rows" => $all, "withheld_rows" => $withheld);
+    return waec_listing_blocks($rows);
 }
 
 function waec_extract_rows($rows){
@@ -1111,10 +918,11 @@ function waec_extract_rows($rows){
             $row = $rows[$i];
             $candidate = isset($row[$candidateCol]) ? trim((string)$row[$candidateCol]) : "";
             $name = isset($row[$nameCol]) ? trim((string)$row[$nameCol]) : "";
+            if($candidate === "" && $name === "") continue;
             $gender = ($genderCol >= 0 && isset($row[$genderCol])) ? waec_normalize_gender($row[$genderCol]) : "";
             $subject = isset($row[$subjectCol]) ? trim((string)$row[$subjectCol]) : "";
             $gradeRaw = isset($row[$gradeCol]) ? waec_grade_or_withheld($row[$gradeCol]) : "";
-            if($subject !== "" && in_array($gradeRaw, array("X","W"))){
+            if($subject !== "" && in_array($gradeRaw, array("X","W","*","P"))){
                 $withheld[] = array(
                     "candidate_no" => $candidate,
                     "student_name" => $name,
@@ -1147,6 +955,7 @@ function waec_extract_rows($rows){
         $row = $rows[$i];
         $candidate = isset($row[$candidateCol]) ? trim((string)$row[$candidateCol]) : "";
         $name = isset($row[$nameCol]) ? trim((string)$row[$nameCol]) : "";
+        if($candidate === "" && $name === "") continue;
         $gender = ($genderCol >= 0 && isset($row[$genderCol])) ? waec_normalize_gender($row[$genderCol]) : "";
 
         for($c = 0; $c < count($header); $c++){
@@ -1161,7 +970,7 @@ function waec_extract_rows($rows){
 
             $value = isset($row[$c]) ? $row[$c] : "";
             $gradeRaw = waec_grade_or_withheld($value);
-            if(in_array($gradeRaw, array("X","W"))){
+            if(in_array($gradeRaw, array("X","W","*","P"))){
                 $withheld[] = array(
                     "candidate_no" => $candidate,
                     "student_name" => $name,
@@ -1189,6 +998,8 @@ function waec_extract_rows($rows){
 }
 
 function waec_deduplicate_records($records, $withheldRecords){
+    $conflict = waec_import_conflict($records, $withheldRecords);
+    if($conflict !== "") return array("error"=>$conflict, "rows"=>array(), "withheld_rows"=>array());
     $dedupRecords = array();
     $dedupWithheld = array();
     $gradedKeySet = array();
@@ -1215,7 +1026,7 @@ function waec_deduplicate_records($records, $withheldRecords){
         $sub = waec_normalize_subject($w["subject_name"]);
         $grade = strtoupper(trim((string)$w["grade"]));
         $w["gender"] = waec_normalize_gender(isset($w["gender"]) ? $w["gender"] : "");
-        if(!in_array($grade, array("X","W"))){
+        if(!in_array($grade, array("X","W","*","P"))){
             continue;
         }
         $baseKey = waec_identity_key($cand, $name);
@@ -1236,6 +1047,8 @@ function waec_deduplicate_records($records, $withheldRecords){
 
     return array("rows" => $dedupRecords, "withheld_rows" => $dedupWithheld);
 }
+
+require_once __DIR__."/waec-listing-utils.php";
 
 waec_ensure_tables($con);
 
@@ -1269,16 +1082,19 @@ if(isset($_POST["upload_waec"])){
             } else {
                 $records = array();
                 $withheldRecords = array();
+                $parseError = "";
                 if($ext === "xlsx"){
                     $xlsxData = waec_read_xlsx_rows($targetPath);
                     if($xlsxData["error"] !== ""){
+                        $parseError = $xlsxData["error"];
                         $message = "<div style='color:red'>Excel parse error: ".waec_esc($xlsxData["error"])."</div>";
                     } else {
                         $extracted = waec_extract_rows($xlsxData["rows"]);
                         $records = $extracted["rows"];
                         $withheldRecords = $extracted["withheld_rows"];
-                        if(count($records) === 0){
+                        if(count($records) === 0 && count($withheldRecords) === 0){
                             $listing = waec_extract_listing_rows_from_xlsx($targetPath);
+                            $parseError = $listing["error"] ?? "";
                             if($listing["error"] !== ""){
                                 $message = "<div style='color:red'>WAEC listing parse error: ".waec_esc($listing["error"])."</div>";
                             } else {
@@ -1312,7 +1128,8 @@ if(isset($_POST["upload_waec"])){
                     }
                 }
 
-                $insertUpload = true;
+                $insertUpload = ($parseError === "");
+                if(!$insertUpload) $message = "<div style='color:red'>".waec_esc($parseError)."</div>";
                 if(count($records) > 0 || count($withheldRecords) > 0){
                     $ded = waec_deduplicate_records($records, $withheldRecords);
                     $records = $ded["rows"];
@@ -1367,6 +1184,7 @@ if(isset($_POST["upload_waec"])){
                     }
                 }
 
+                if(!$insertUpload && is_file($targetPath)) unlink($targetPath);
                 if($insertUpload){
                     $uploadIdEsc = mysqli_real_escape_string($con, $uploadId);
                     $origEsc = mysqli_real_escape_string($con, $originalName);
@@ -1406,7 +1224,7 @@ if(isset($_POST["upload_waec"])){
                                     $genderEsc = mysqli_real_escape_string($con, waec_normalize_gender(isset($wrec["gender"]) ? $wrec["gender"] : ""));
                                     $subEsc = mysqli_real_escape_string($con, $wrec["subject_name"]);
                                     $gradeW = isset($wrec["grade"]) ? strtoupper(trim((string)$wrec["grade"])) : "W";
-                                    if(!in_array($gradeW, array("W","X"))){
+                                    if(!in_array($gradeW, array("W","X","*","P"))){
                                         $gradeW = "W";
                                     }
                                     $gradeEsc = mysqli_real_escape_string($con, $gradeW);
@@ -1531,6 +1349,7 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 FROM tblwaecresult WHERE $expWhere");
             $sum = array("total_results"=>0,"total_students"=>0,"total_subjects"=>0,"pass_count"=>0,"fail_count"=>0,"avg_point"=>0);
             if($sumExp && $r=mysqli_fetch_array($sumExp, MYSQLI_ASSOC)){ $sum = $r; }
+            $sum["total_students"] = waec_filtered_student_count($con, $upload["uploadid"], $expFocusSubject, $expFocusGender, $expFocusGrade);
             $overallPassExp = ((int)$sum["total_results"] > 0) ? round((((int)$sum["pass_count"]*100)/(int)$sum["total_results"]),2) : 0;
 
             $readExp = mysqli_query($con, "SELECT
@@ -1544,8 +1363,8 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 FROM (
                     SELECT
                         CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END AS cand_key,
-                        MAX(CASE WHEN subject_name='ENGLISH LANG' AND grade_point<=6 THEN 1 ELSE 0 END) AS eng_credit,
-                        MAX(CASE WHEN subject_name='MATHEMATICS(CORE)' AND grade_point<=6 THEN 1 ELSE 0 END) AS math_credit,
+                        MAX(CASE WHEN subject_name IN ('ENGLISH LANG','ENGLISH LANGUAGE','ENGLISH') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS eng_credit,
+                        MAX(CASE WHEN subject_name IN ('MATHEMATICS(CORE)','MATHEMATICS (CORE)','CORE MATHEMATICS','CORE MATHS') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS math_credit,
                         MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point<=6 THEN 1 ELSE 0 END) AS sci_social_credit,
                         SUM(CASE WHEN grade_point<=6 THEN 1 ELSE 0 END) AS credits_total
                     FROM tblwaecresult
@@ -1596,14 +1415,14 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
             $pdf->SetFont("Arial","",9);
             $pdf->Cell(70,6,"Total Results:",0,0); $pdf->Cell(25,6,$sum["total_results"],0,0);
             $pdf->Cell(55,6,"Total Students:",0,0); $pdf->Cell(0,6,$sum["total_students"],0,1);
-            $pdf->Cell(70,6,"Pass (A1-C6):",0,0); $pdf->Cell(25,6,$sum["pass_count"],0,0);
-            $pdf->Cell(55,6,"Fail (D7-F9):",0,0); $pdf->Cell(0,6,$sum["fail_count"],0,1);
-            $pdf->Cell(70,6,"Overall Pass %:",0,0); $pdf->Cell(25,6,$overallPassExp."%",0,0);
+            $pdf->Cell(70,6,"Credit (A1-C6):",0,0); $pdf->Cell(25,6,$sum["pass_count"],0,0);
+            $pdf->Cell(55,6,"Below credit (D7-F9):",0,0); $pdf->Cell(0,6,$sum["fail_count"],0,1);
+            $pdf->Cell(70,6,"Credit rate (A1-C6):",0,0); $pdf->Cell(25,6,$overallPassExp."%",0,0);
             $pdf->Cell(55,6,"Average Point:",0,0); $pdf->Cell(0,6,$sum["avg_point"],0,1);
             $pdf->Ln(2);
 
             $pdf->SetFont("Arial","B",11);
-            $pdf->Cell(0,7,"Admission Readiness",0,1);
+            $pdf->Cell(0,7,"Core and Credit Indicators",0,1);
             $pdf->SetFont("Arial","B",9);
             $pdf->Cell(95,7,"Metric",1,0,"C");
             $pdf->Cell(25,7,"Count",1,0,"C");
@@ -1616,7 +1435,7 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 array("Science/Social Credit (A1-C6)",(int)$read["science_social_credit_count"]),
                 array("At Least 5 Credits",(int)$read["credits5_count"]),
                 array("At Least 6 Credits",(int)$read["credits6_count"]),
-                array("Core Ready (Eng+Math+Sci/Soc)",(int)$read["core_ready_count"])
+                array("Core credits (Eng+Math+Sci/Soc)",(int)$read["core_ready_count"])
             );
             foreach($rm as $m){
                 $rp = $st>0 ? round(($m[1]*100)/$st,2) : 0;
@@ -1693,10 +1512,13 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 CASE WHEN student_name<>'' THEN student_name ELSE 'Unknown' END AS student_name,
                 COUNT(*) AS total_subjects,
                 SUM(CASE WHEN grade_point<=6 THEN 1 ELSE 0 END) AS total_credits,
-                MAX(CASE WHEN subject_name='ENGLISH LANG' AND grade_point<=6 THEN 1 ELSE 0 END) AS english_credit,
-                MAX(CASE WHEN subject_name='MATHEMATICS(CORE)' AND grade_point<=6 THEN 1 ELSE 0 END) AS math_credit,
+                MAX(CASE WHEN subject_name IN ('ENGLISH LANG','ENGLISH LANGUAGE','ENGLISH') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS english_credit,
+                MAX(CASE WHEN subject_name IN ('MATHEMATICS(CORE)','MATHEMATICS (CORE)','CORE MATHEMATICS','CORE MATHS') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS math_credit,
                 ROUND(AVG(grade_point),2) AS avg_point
-                FROM tblwaecresult
+                FROM (
+                    SELECT uploadid,candidate_no,student_name,subject_name,grade_point FROM tblwaecresult
+                    UNION ALL SELECT uploadid,candidate_no,student_name,subject_name,NULL AS grade_point FROM tblwaecwithheld
+                ) student_outcomes
                 WHERE uploadid='$expUpload' AND $studentFilterExport
                 GROUP BY CASE WHEN candidate_no<>'' THEN candidate_no ELSE student_name END, student_name
                 LIMIT 1");
@@ -1752,6 +1574,8 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 $sRowsRes = mysqli_query($con, "SELECT subject_name,grade,grade_point
                     FROM tblwaecresult
                     WHERE uploadid='$expUpload' AND $studentFilterExport
+                    UNION ALL SELECT subject_name,grade,NULL AS grade_point FROM tblwaecwithheld
+                    WHERE uploadid='$expUpload' AND $studentFilterExport
                     ORDER BY subject_name ASC");
                 if($sRowsRes){
                     while($row = mysqli_fetch_array($sRowsRes, MYSQLI_ASSOC)){
@@ -1783,11 +1607,11 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 $overallPassCsv = $totalRowsCsv > 0 ? round(($passRowsCsv * 100) / $totalRowsCsv, 2) : 0;
             }
             fputcsv($out, array("Upload ID", $upload["uploadid"]));
-            fputcsv($out, array("Original File", $upload["originalname"]));
+            fputcsv($out, array("Original File", waec_csv_cell($upload["originalname"])));
             fputcsv($out, array("Uploaded At", $upload["datetimeentry"]));
             fputcsv($out, array("Total Students", $upload["totalstudents"]));
             fputcsv($out, array("Total Subject Results", $upload["totalrows"]));
-            fputcsv($out, array("Overall Pass % (A1-C6)", $overallPassCsv."%"));
+            fputcsv($out, array("Credit rate (A1-C6)", $overallPassCsv."%"));
             $readinessCsv = mysqli_query($con, "SELECT
                 COUNT(*) AS students_total,
                 SUM(CASE WHEN eng_credit=1 THEN 1 ELSE 0 END) AS english_credit_count,
@@ -1798,15 +1622,15 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 FROM (
                     SELECT
                         CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END AS cand_key,
-                        MAX(CASE WHEN subject_name='ENGLISH LANG' AND grade_point<=6 THEN 1 ELSE 0 END) AS eng_credit,
-                        MAX(CASE WHEN subject_name='MATHEMATICS(CORE)' AND grade_point<=6 THEN 1 ELSE 0 END) AS math_credit,
+                        MAX(CASE WHEN subject_name IN ('ENGLISH LANG','ENGLISH LANGUAGE','ENGLISH') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS eng_credit,
+                        MAX(CASE WHEN subject_name IN ('MATHEMATICS(CORE)','MATHEMATICS (CORE)','CORE MATHEMATICS','CORE MATHS') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS math_credit,
                         MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point<=6 THEN 1 ELSE 0 END) AS sci_social_credit,
                         SUM(CASE WHEN grade_point<=6 THEN 1 ELSE 0 END) AS credits_total
                     FROM tblwaecresult WHERE uploadid='$expUpload'
                     GROUP BY CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END
                 ) rollup");
             if($readinessCsv && $rw = mysqli_fetch_array($readinessCsv, MYSQLI_ASSOC)){
-                fputcsv($out, array("Core Ready (Eng+Math+Sci/Soc)", $rw["core_ready_count"]));
+                fputcsv($out, array("Core credits (Eng+Math+Sci/Soc)", $rw["core_ready_count"]));
                 fputcsv($out, array("English Credit Count", $rw["english_credit_count"]));
                 fputcsv($out, array("Core Math Credit Count", $rw["math_credit_count"]));
                 fputcsv($out, array("Science/Social Credit Count", $rw["science_social_credit_count"]));
@@ -1816,10 +1640,14 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
             fputcsv($out, array("Candidate No", "Student Name", "Gender", "Subject", "Grade", "Point"));
 
             $rRes = mysqli_query($con, "SELECT candidate_no,student_name,gender,subject_name,grade,grade_point
-                FROM tblwaecresult WHERE uploadid='$expUpload' ORDER BY student_name ASC, subject_name ASC");
+                FROM tblwaecresult WHERE uploadid='$expUpload'
+                UNION ALL
+                SELECT candidate_no,student_name,gender,subject_name,grade,NULL AS grade_point
+                FROM tblwaecwithheld WHERE uploadid='$expUpload'
+                ORDER BY student_name ASC, subject_name ASC");
             if($rRes){
                 while($r = mysqli_fetch_array($rRes, MYSQLI_ASSOC)){
-                    fputcsv($out, array($r["candidate_no"], $r["student_name"], waec_display_gender($r["gender"]), $r["subject_name"], $r["grade"], $r["grade_point"]));
+                    fputcsv($out, array_map("waec_csv_cell", array($r["candidate_no"], $r["student_name"], waec_display_gender($r["gender"]), $r["subject_name"], $r["grade"], $r["grade_point"])));
                 }
             }
             fclose($out);
@@ -1870,12 +1698,13 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 SUM(CASE WHEN grade IN ('A1','B2','B3','C4','C5','C6') THEN 1 ELSE 0 END) AS pass_rows
                 FROM tblwaecresult WHERE uploadid='$expUpload'");
             $overallPassPdf = 0;
+            $totalRowsPdf = 0;
             if($overallPassPdfRes && $ovp = mysqli_fetch_array($overallPassPdfRes, MYSQLI_ASSOC)){
                 $totalRowsPdf = (int)$ovp["total_rows"];
                 $passRowsPdf = (int)$ovp["pass_rows"];
                 $overallPassPdf = $totalRowsPdf > 0 ? round(($passRowsPdf * 100) / $totalRowsPdf, 2) : 0;
             }
-            $pdf->Cell(50, 6, "Overall Pass % (A1-C6):", 0, 0);
+            $pdf->Cell(50, 6, "Credit rate (A1-C6):", 0, 0);
             $pdf->Cell(0, 6, $overallPassPdf."%", 0, 1);
             $pdf->Ln(4);
             $studentsTotalPdf = 0;
@@ -1891,8 +1720,8 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 FROM (
                     SELECT
                         CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END AS cand_key,
-                        MAX(CASE WHEN subject_name='ENGLISH LANG' AND grade_point<=6 THEN 1 ELSE 0 END) AS eng_credit,
-                        MAX(CASE WHEN subject_name='MATHEMATICS(CORE)' AND grade_point<=6 THEN 1 ELSE 0 END) AS math_credit,
+                        MAX(CASE WHEN subject_name IN ('ENGLISH LANG','ENGLISH LANGUAGE','ENGLISH') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS eng_credit,
+                        MAX(CASE WHEN subject_name IN ('MATHEMATICS(CORE)','MATHEMATICS (CORE)','CORE MATHEMATICS','CORE MATHS') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS math_credit,
                         MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point<=6 THEN 1 ELSE 0 END) AS sci_social_credit,
                         SUM(CASE WHEN grade_point<=6 THEN 1 ELSE 0 END) AS credits_total
                     FROM tblwaecresult WHERE uploadid='$expUpload'
@@ -1903,9 +1732,9 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 $coreReadyPdf = (int)$rr["core_ready_count"];
                 $credits5Pdf = (int)$rr["credits5_count"];
                 $pdf->SetFont("Arial", "B", 11);
-                $pdf->Cell(0, 7, "Admission Readiness Snapshot", 0, 1);
+                $pdf->Cell(0, 7, "Core and Credit Indicators", 0, 1);
                 $pdf->SetFont("Arial", "", 9);
-                $pdf->Cell(70, 6, "Core Ready (Eng+Math+Sci/Soc):", 0, 0);
+                $pdf->Cell(70, 6, "Core credits (Eng+Math+Sci/Soc):", 0, 0);
                 $pdf->Cell(0, 6, $rr["core_ready_count"]." / ".$rr["students_total"], 0, 1);
                 $pdf->Cell(70, 6, "Students with 5+ Credits:", 0, 0);
                 $pdf->Cell(0, 6, $rr["credits5_count"], 0, 1);
@@ -1964,16 +1793,16 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
             $pdf->Cell(90, 7, "Metric", 1, 0, "C");
             $pdf->Cell(40, 7, "Value", 1, 1, "C");
             $pdf->SetFont("Arial", "", 9);
-            $overallFailPdf = round(100 - (float)$overallPassPdf, 2);
+            $overallFailPdf = $totalRowsPdf > 0 ? round(100 - (float)$overallPassPdf, 2) : 0;
             $coreReadyPctPdf = $studentsTotalPdf > 0 ? round(($coreReadyPdf * 100) / $studentsTotalPdf, 2) : 0;
             $credits5PctPdf = $studentsTotalPdf > 0 ? round(($credits5Pdf * 100) / $studentsTotalPdf, 2) : 0;
             $facts = array(
-                array("Overall Pass % (A1-C6)", $overallPassPdf."%"),
-                array("Overall Fail % (D7-F9)", $overallFailPdf."%"),
+                array("Credit rate (A1-C6)", $overallPassPdf."%"),
+                array("Below credit % (D7-F9)", $overallFailPdf."%"),
                 array("Average Grade Point", $avgPoint),
                 array("Strong Grades Share (A1-B3)", $strongPct."%"),
                 array("Weak Grades Share (D7-F9)", $weakPct."%"),
-                array("Core Ready (Eng+Math+Sci/Soc)", $coreReadyPdf." / ".$studentsTotalPdf." (".$coreReadyPctPdf."%)"),
+                array("Core credits (Eng+Math+Sci/Soc)", $coreReadyPdf." / ".$studentsTotalPdf." (".$coreReadyPctPdf."%)"),
                 array("Students with 5+ Credits", $credits5Pdf." / ".$studentsTotalPdf." (".$credits5PctPdf."%)")
             );
             foreach($facts as $f){
@@ -2050,6 +1879,7 @@ $subjectOptions = null;
 $subjectCoverageRows = array();
 $subjectAbsentMap = array();
 $subjectWithheldMap = array();
+$subjectSourceStatusMap = array();
 $allStudentsCount = 0;
 $absentSummary = array("absent_rows" => 0, "absent_students" => 0);
 $withheldSummary = array("withheld_rows" => 0, "withheld_students" => 0);
@@ -2078,7 +1908,6 @@ $selectedStudentCandidate = "";
 $genderCandidateBreakdown = array();
 $genderPerformanceRows = array();
 $genderSubjectComparison = array();
-$genderCoreComparison = array();
 $genderStatusBreakdown = array();
 $genderCandidateCounts = array("Male" => 0, "Female" => 0);
 $genderPerformanceMap = array();
@@ -2203,8 +2032,8 @@ if($currentUploadId !== ""){
         FROM (
             SELECT
                 CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END AS cand_key,
-                MAX(CASE WHEN subject_name='ENGLISH LANG' AND grade_point<=6 THEN 1 ELSE 0 END) AS eng_credit,
-                MAX(CASE WHEN subject_name='MATHEMATICS(CORE)' AND grade_point<=6 THEN 1 ELSE 0 END) AS math_credit,
+                MAX(CASE WHEN subject_name IN ('ENGLISH LANG','ENGLISH LANGUAGE','ENGLISH') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS eng_credit,
+                MAX(CASE WHEN subject_name IN ('MATHEMATICS(CORE)','MATHEMATICS (CORE)','CORE MATHEMATICS','CORE MATHS') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS math_credit,
                 MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point<=6 THEN 1 ELSE 0 END) AS sci_social_credit,
                 SUM(CASE WHEN grade_point<=6 THEN 1 ELSE 0 END) AS credits_total
             FROM tblwaecresult
@@ -2271,6 +2100,13 @@ if($currentUploadId !== ""){
         while($sw = mysqli_fetch_array($subjectWithheldRes, MYSQLI_ASSOC)){
             $subjectWithheldMap[$sw["subject_name"]] = (int)$sw["withheld_students"];
         }
+    }
+
+    $sourceStatusRes = mysqli_query($con, "SELECT subject_name,
+        COUNT(DISTINCT CASE WHEN candidate_no<>'' THEN candidate_no ELSE student_name END) AS status_students
+        FROM tblwaecwithheld WHERE uploadid='$uploadIdEsc' AND grade IN ('*','P') GROUP BY subject_name");
+    if($sourceStatusRes){
+        while($row = mysqli_fetch_assoc($sourceStatusRes)) $subjectSourceStatusMap[$row["subject_name"]] = (int)$row["status_students"];
     }
 
     $fullAbsentRes = mysqli_query($con, "SELECT COUNT(*) AS total_full_absent FROM (
@@ -2442,35 +2278,6 @@ if($currentUploadId !== ""){
             if($row["Male_pct"] !== "" && $row["Female_pct"] !== ""){
                 $genderSubjectComparison[$subjectName]["gap"] = round((float)$row["Male_pct"] - (float)$row["Female_pct"], 2);
             }
-        }
-    }
-
-    $genderCoreRes = mysqli_query($con, "SELECT
-        subject_name,
-        $genderExpr AS gender_group,
-        COUNT(*) AS total_entries,
-        ROUND((SUM(CASE WHEN grade_point<=6 THEN 1 ELSE 0 END) * 100.0) / NULLIF(COUNT(*),0),2) AS pass_pct
-        FROM tblwaecresult
-        WHERE $resultBaseWhere AND gender IN ('Male','Female')
-          AND subject_name IN ('ENGLISH LANG','MATHEMATICS(CORE)','INTEGRATED SCIENCE','SOCIAL STUDIES')
-        GROUP BY subject_name, gender_group
-        ORDER BY FIELD(subject_name,'ENGLISH LANG','MATHEMATICS(CORE)','INTEGRATED SCIENCE','SOCIAL STUDIES'),
-            FIELD(gender_group,'Male','Female')");
-    if($genderCoreRes){
-        while($gcRow = mysqli_fetch_array($genderCoreRes, MYSQLI_ASSOC)){
-            $subjectName = $gcRow["subject_name"];
-            if(!isset($genderCoreComparison[$subjectName])){
-                $genderCoreComparison[$subjectName] = array(
-                    "subject_name" => $subjectName,
-                    "Male_pct" => "",
-                    "Male_entries" => 0,
-                    "Female_pct" => "",
-                    "Female_entries" => 0
-                );
-            }
-            $group = $gcRow["gender_group"];
-            $genderCoreComparison[$subjectName][$group."_pct"] = $gcRow["pass_pct"];
-            $genderCoreComparison[$subjectName][$group."_entries"] = (int)$gcRow["total_entries"];
         }
     }
 
@@ -2714,8 +2521,8 @@ if($currentUploadId !== ""){
                 MAX(CASE WHEN gender<>'' THEN gender ELSE '' END) AS gender,
                 COUNT(*) AS total_subjects,
                 SUM(CASE WHEN grade_point<=6 THEN 1 ELSE 0 END) AS total_credits,
-                MAX(CASE WHEN subject_name='ENGLISH LANG' AND grade_point<=6 THEN 1 ELSE 0 END) AS english_credit,
-                MAX(CASE WHEN subject_name='MATHEMATICS(CORE)' AND grade_point<=6 THEN 1 ELSE 0 END) AS math_credit,
+                MAX(CASE WHEN subject_name IN ('ENGLISH LANG','ENGLISH LANGUAGE','ENGLISH') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS english_credit,
+                MAX(CASE WHEN subject_name IN ('MATHEMATICS(CORE)','MATHEMATICS (CORE)','CORE MATHEMATICS','CORE MATHS') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS math_credit,
                 ROUND(AVG(grade_point),2) AS avg_point
                 FROM tblwaecresult
                 WHERE uploadid='$uploadIdEsc' AND $studentKeyFilter
@@ -2725,8 +2532,12 @@ if($currentUploadId !== ""){
     }
 }
 ?>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WAEC Results Analysis</title>
 <?php
 include("links.php");
 ?>
@@ -3041,6 +2852,7 @@ include("links.php");
     .waec-card h3 { margin-bottom: 8px; }
 }
 </style>
+<link rel="stylesheet" href="css/waec-analysis.css">
 </head>
 <body style="background:linear-gradient(180deg, #f6f9fc 0%, #edf3f9 100%);">
 <div class="header">
@@ -3049,15 +2861,32 @@ include("menu.php");
 ?>
 </div>
 <div class="waec-wrap">
-    <div class="waec-card">
-        <h2 class="waec-title"><i class="fa fa-line-chart"></i> WAEC Analysis</h2>
-        <p class="waec-note">Upload WAEC file, analyze grade performance, and export results to Excel or PDF.</p>
+    <header class="waec-hero">
+        <span class="waec-eyebrow">Academic performance</span>
+        <h1>WAEC Results Analysis</h1>
+        <p>Understand your results. Find subject trends, compare performance and review individual candidates.</p>
+        <nav aria-label="Analysis sections">
+            <a href="#waec-upload"><i class="fa fa-upload" aria-hidden="true"></i> Import results</a>
+            <a href="#waec-overview">Overview</a>
+            <a href="#student-result-analysis">Find a student</a>
+            <a href="#waec-subjects">Subject performance</a>
+        </nav>
+    </header>
+    <div class="waec-card" id="waec-upload">
+        <h2 class="waec-title">Import a results file</h2>
+        <p class="waec-note">Upload Excel, CSV or a text-based PDF results listing.</p>
         <?php echo $message; ?>
         <form method="post" enctype="multipart/form-data" action="waec-analysis.php">
             <input type="file" name="waec_file" accept=".xlsx,.csv,.pdf" required />
             <button type="submit" name="upload_waec" class="waec-btn"><i class="fa fa-upload"></i> Upload & Analyze</button>
             <span class="waec-small">Recommended: Excel/CSV with WAEC grades A1-F9 and a Gender/Sex column.</span>
         </form>
+        <details class="waec-method">
+            <summary>File format and how to read the figures</summary>
+            <p>For a simple CSV, use Candidate No, Student Name, Gender, Subject and Grade columns (one subject per row), or put each subject in its own column. Keep index numbers as text to retain leading zeros. Supported outcomes: A1-F9, X (absent), W (withheld) and source markers * / P. Blank cells are not failures.</p>
+            <p>Credit rates on this page use graded results only. They may differ from published statistics that use all candidates who sat. Full CSV and PDF reports cover the whole upload; the filtered PDF follows the overview filters. Core-credit indicators are not admission decisions.</p>
+            <p>References: <a href="https://waecgh.org/wp-content/uploads/2024/12/Release-of-Provisional-Results.pdf">WAEC's subject-performance reporting</a> and <a href="https://admissions.ug.edu.gh/undergraduate/entry-requirements">University of Ghana entry requirements</a>.</p>
+        </details>
     </div>
 
     <div class="waec-grid">
@@ -3077,7 +2906,7 @@ include("menu.php");
                 if($uploads && mysqli_num_rows($uploads) > 0){
                     while($u = mysqli_fetch_array($uploads, MYSQLI_ASSOC)){
                         echo "<tr>";
-                        echo "<td>".waec_esc($u["uploadid"])."<br><span class='waec-small'>".waec_esc($u["datetimeentry"])."</span></td>";
+                        echo "<td>".waec_esc($u["originalname"])."<br><span class='waec-small'>".waec_esc($u["datetimeentry"])."</span></td>";
                         echo "<td>".waec_esc(strtoupper($u["fileext"]))."</td>";
                         echo "<td>".waec_esc($u["totalrows"])."</td>";
                         echo "<td class='waec-action-col'><div class='waec-action-wrap'>";
@@ -3097,16 +2926,16 @@ include("menu.php");
             </table>
         </div>
 
-        <div class="waec-card waec-analysis-card">
+        <div class="waec-card waec-analysis-card" id="waec-overview">
             <h3 style="margin-top:0">Analysis</h3>
             <?php if($currentUploadId === ""){ ?>
                 <p>Select an upload from the left panel to view analysis.</p>
             <?php } else { ?>
                 <p class="waec-small">Current Upload: <span class="waec-badge"><?php echo waec_esc($currentUploadId); ?></span></p>
-                <form method="get" action="waec-analysis.php#student-result-analysis" class="waec-toolbar">
+                <form method="get" action="waec-analysis.php#waec-overview" class="waec-toolbar">
                     <input type="hidden" name="uploadid" value="<?php echo waec_esc($currentUploadId); ?>">
                     <input type="hidden" name="distribution_subject" value="<?php echo waec_esc($distributionSubject); ?>">
-                    <select name="focus_subject">
+                    <select name="focus_subject" aria-label="Filter by subject">
                         <option value="">All Subjects</option>
                         <?php
                         foreach($subjectOptionRows as $opt){
@@ -3115,24 +2944,26 @@ include("menu.php");
                         }
                         ?>
                     </select>
-                    <select name="focus_grade">
-                        <option value="">All Grades</option>
+                    <select name="focus_grade" aria-label="Filter by grade or result status">
+                        <option value="">All Grades / Statuses</option>
+                        <option value="*"<?php echo $focusGrade === "*" ? " selected" : ""; ?>>* (Source status)</option>
+                        <option value="P"<?php echo $focusGrade === "P" ? " selected" : ""; ?>>P (Source status)</option>
                         <?php
                         foreach(array("A1","B2","B3","C4","C5","C6","D7","E8","F9") as $gr){
                             $sel = ($focusGrade === $gr) ? "selected" : "";
                             echo "<option value='$gr' $sel>$gr</option>";
                         }
-                        if($focusSubject !== "" && $focusSubjectAbsentStudents > 0){
+                        if($focusSubjectAbsentStudents > 0 || $focusGrade === "X"){
                             $selX = ($focusGrade === "X") ? "selected" : "";
                             echo "<option value='X' $selX>X (Students Absent)</option>";
                         }
-                        if($focusSubject !== "" && $focusSubjectWithheldStudents > 0){
+                        if($focusSubjectWithheldStudents > 0 || $focusGrade === "W"){
                             $selW = ($focusGrade === "W") ? "selected" : "";
                             echo "<option value='W' $selW>W (Subject Withheld)</option>";
                         }
                         ?>
                     </select>
-                    <select name="focus_gender">
+                    <select name="focus_gender" aria-label="Filter by gender">
                         <option value="">All Genders</option>
                         <?php
                         foreach(array("Male","Female") as $genderOpt){
@@ -3155,8 +2986,8 @@ include("menu.php");
                     <a class="waec-btn-muted waec-btn-small waec-btn-clear" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&focus_subject=<?php echo urlencode($focusSubject); ?>&focus_grade=<?php echo urlencode($focusGrade); ?>&focus_gender=<?php echo urlencode($focusGender); ?>&distribution_subject=<?php echo urlencode($distributionSubject); ?>">Clear Search</a>
                 </form>
                 <div class="waec-actions">
-                    <a class="waec-btn-muted waec-btn-excel" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&export=excel"><i class="fa fa-file-excel-o"></i> Download Excel</a>
-                    <a class="waec-btn-muted waec-btn-pdf" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&export=pdf"><i class="fa fa-file-pdf-o"></i> Download PDF</a>
+                    <a class="waec-btn-muted waec-btn-excel" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&export=excel"><i class="fa fa-file-excel-o"></i> Full report (CSV)</a>
+                    <a class="waec-btn-muted waec-btn-pdf" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&export=pdf"><i class="fa fa-file-pdf-o"></i> Full report (PDF)</a>
                     <a class="waec-btn-muted waec-btn-pdf" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&export=filtered_dashboard_pdf&focus_subject=<?php echo urlencode($focusSubject); ?>&focus_grade=<?php echo urlencode($focusGrade); ?>&focus_gender=<?php echo urlencode($focusGender); ?>&distribution_subject=<?php echo urlencode($distributionSubject); ?>"><i class="fa fa-print"></i> Print Filtered Dashboard</a>
                 </div>
                 <br>
@@ -3169,10 +3000,7 @@ include("menu.php");
                 $summaryWithheldRows = (int)$focusSubjectWithheldRows;
                 $summaryWithheldStudents = (int)$focusSubjectWithheldStudents;
                 $hasDashboardFilter = ($focusSubject !== "" || $focusGrade !== "" || $focusGender !== "");
-                $genderScopedStudents = array_sum($genderCandidateCounts);
-                $dashboardTotalStudents = $hasDashboardFilter
-                    ? (($focusGender !== "" && $genderScopedStudents > 0) ? $genderScopedStudents : (int)@$summary["total_students"])
-                    : ($uploadSheetTotalStudents > 0 ? $uploadSheetTotalStudents : (int)@$summary["total_students"]);
+                $dashboardTotalStudents = waec_filtered_student_count($con, $currentUploadId, $focusSubject, $focusGender, $focusGrade);
                 if($focusSubject !== ""){
                     $displayAbsentStudents = (int)$focusSubjectAbsentStudents;
                     $displayAbsentRows = (int)$focusSubjectAbsentRows;
@@ -3211,11 +3039,11 @@ include("menu.php");
                         <strong><?php echo (int)@$summary["total_subjects"]; ?></strong>
                     </div>
                     <div class="waec-stat">
-                        <h4>Pass (A1-C6)</h4>
+                        <h4>Credit (A1-C6)</h4>
                         <strong><?php echo (int)@$summary["pass_count"]; ?></strong>
                     </div>
                     <div class="waec-stat">
-                        <h4>Fail (D7-F9)</h4>
+                        <h4>Below credit (D7-F9)</h4>
                         <strong><?php echo (int)@$summary["fail_count"]; ?></strong>
                     </div>
                     <div class="waec-stat">
@@ -3223,7 +3051,7 @@ include("menu.php");
                         <strong><?php echo waec_esc(@$summary["avg_point"]); ?></strong>
                     </div>
                     <div class="waec-stat">
-                        <h4>Overall Pass % (A1-C6)</h4>
+                        <h4>Credit rate (A1-C6)</h4>
                         <strong><?php echo $overallPassPct; ?>%</strong>
                     </div>
                     <div class="waec-stat">
@@ -3237,16 +3065,7 @@ include("menu.php");
                     </div>
                     <?php } ?>
                 </div>
-                <?php
-                $studentsTotal = (int)@$readiness["students_total"];
-                $coreReady = (int)@$readiness["core_ready_count"];
-                $coreReadyPct = $studentsTotal > 0 ? round(($coreReady * 100) / $studentsTotal, 2) : 0;
-                ?>
-                <div class="waec-kpi-alert">
-                    Core readiness (English + Core Math + Science/Social credit): <strong><?php echo $coreReady; ?></strong>
-                    of <strong><?php echo $studentsTotal; ?></strong> students
-                    (<?php echo $coreReadyPct; ?>%).
-                </div>
+                <p class="waec-small">Credit rate = A1-C6 results divided by graded results (A1-F9). Absent (X) and withheld (W) outcomes are excluded. D7/E8 are below credit; F9 is a fail. A lower average grade point is better.</p>
                 <?php if($displayAbsentRows > 0){ ?>
                 <div class="waec-kpi-alert" style="margin-top:8px;">
                     Students absent<?php echo ($focusSubject !== "" ? " for ".waec_esc($focusSubject) : ""); ?>:
@@ -3457,26 +3276,6 @@ include("menu.php");
                 </table>
             </div>
             <div class="waec-card" style="margin-bottom:0;">
-                <h3 style="margin-top:0">Core Subjects By Gender</h3>
-                <table class="waec-table">
-                    <thead><tr><th>Subject</th><th>Male %</th><th>Female %</th></tr></thead>
-                    <tbody>
-                    <?php
-                    if(count($genderCoreComparison) > 0){
-                        foreach($genderCoreComparison as $row){
-                            echo "<tr>";
-                            echo "<td>".waec_esc($row["subject_name"])."</td>";
-                            echo "<td>".($row["Male_pct"] !== "" ? waec_esc($row["Male_pct"])."% <span class='waec-small'>(".$row["Male_entries"].")</span>" : "N/A")."</td>";
-                            echo "<td>".($row["Female_pct"] !== "" ? waec_esc($row["Female_pct"])."% <span class='waec-small'>(".$row["Female_entries"].")</span>" : "N/A")."</td>";
-                            echo "</tr>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='3'>No core-subject gender comparison available yet.</td></tr>";
-                    }
-                    ?>
-                    </tbody>
-                </table>
-                <br>
                 <h3 style="margin-top:0">Absent / Withheld By Gender</h3>
                 <table class="waec-table">
                     <thead><tr><th>Gender</th><th>Absent Students</th><th>Absent Rows</th><th>Withheld Students</th><th>Withheld Rows</th></tr></thead>
@@ -3600,7 +3399,8 @@ include("menu.php");
             }
             ?>
             <br>
-            <h3 style="margin-top:0">Top Candidates (Best Avg Point)</h3>
+            <h3 style="margin-top:0">Lowest Average Grade Points</h3>
+            <p class="waec-small">Based on the selected result filters. Candidates may have different subject counts; this is not a best-six aggregate or an admission ranking.</p>
             <table class="waec-table">
                 <thead><tr><th>Candidate No</th><th>Name</th><th>Avg Point</th><th>Subjects</th></tr></thead>
                 <tbody>
@@ -3617,7 +3417,8 @@ include("menu.php");
             </table>
         </div>
         <div class="waec-card">
-            <h3 style="margin-top:0">Admission Readiness</h3>
+            <h3 style="margin-top:0">Core &amp; Credit Indicators</h3>
+            <p class="waec-small">Uses all subjects for the selected gender and candidates with at least one graded result. Subject and grade filters do not apply here. These indicators do not determine admission: institutions require specific core subjects, relevant electives and programme aggregates.</p>
             <table class="waec-table">
                 <thead><tr><th>Metric</th><th>Count</th><th>% of Students</th></tr></thead>
                 <tbody>
@@ -3629,7 +3430,7 @@ include("menu.php");
                         "Science/Social Credit (A1-C6)" => (int)@$readiness["science_social_credit_count"],
                         "At Least 5 Credits" => (int)@$readiness["credits5_count"],
                         "At Least 6 Credits" => (int)@$readiness["credits6_count"],
-                        "Core Ready (Eng+Math+Sci/Soc)" => (int)@$readiness["core_ready_count"]
+                        "Core credits (Eng+Math+Sci/Soc)" => (int)@$readiness["core_ready_count"]
                     );
                     foreach($rMetrics as $label => $countVal){
                         $pct = $sTotal > 0 ? round(($countVal * 100) / $sTotal, 2) : 0;
@@ -3643,10 +3444,7 @@ include("menu.php");
                 <button type="button" class="waec-btn-muted waec-btn-pdf" onclick="waecPrintSection('waec-grade-distribution-print', 'Grade Distribution')"><i class="fa fa-print"></i> Print Grade Distribution</button>
             </div>
             <h3 style="margin-top:0">Grade Distribution</h3>
-            <?php if($focusSubject !== ""){ ?>
-                <div id="waec-grade-distribution-print">
-                <p class="waec-small">Distribution scope follows the dashboard subject filter: <span class="waec-badge"><?php echo waec_esc($gradeDistributionLabel); ?></span>. Clear the main subject filter above to switch Grade Distribution independently.</p>
-            <?php } else { ?>
+            <?php if($focusSubject === ""){ ?>
                 <form method="get" action="waec-analysis.php" class="waec-toolbar" style="margin-bottom:8px;">
                     <input type="hidden" name="uploadid" value="<?php echo waec_esc($currentUploadId); ?>">
                     <input type="hidden" name="focus_subject" value="<?php echo waec_esc($focusSubject); ?>">
@@ -3668,9 +3466,12 @@ include("menu.php");
                     <button class="waec-btn-muted waec-btn-filter" type="submit"><i class="fa fa-filter"></i> Apply</button>
                     <a class="waec-btn-muted waec-btn-small waec-btn-reset" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&focus_subject=<?php echo urlencode($focusSubject); ?>&focus_grade=<?php echo urlencode($focusGrade); ?>&focus_gender=<?php echo urlencode($focusGender); ?>&student_query=<?php echo urlencode($studentQuery); ?><?php echo ($selectedStudentKey !== "") ? "&student_key=".urlencode($selectedStudentKey) : ""; ?>">Reset Grade Distribution</a>
                 </form>
-                <div id="waec-grade-distribution-print">
             <?php } ?>
+            <div id="waec-grade-distribution-print">
             <p class="waec-small">Distribution scope: <span class="waec-badge"><?php echo waec_esc($gradeDistributionLabel); ?></span></p>
+            <?php if($focusSubject !== ""){ ?>
+            <p class="waec-small">Uses the dashboard subject filter. Clear that filter to choose a different distribution subject.</p>
+            <?php } ?>
             <table class="waec-table">
                 <thead><tr><th>Grade</th><th>Count</th><th>%</th></tr></thead>
                 <tbody>
@@ -3688,7 +3489,7 @@ include("menu.php");
             </table>
             </div>
             <br>
-            <h3 style="margin-top:0">Subject Performance</h3>
+            <h3 style="margin-top:0" id="waec-subjects">Subject Performance</h3>
             <?php
             echo "<div class='waec-bars'>";
             if($subjectRows && mysqli_num_rows($subjectRows) > 0){
@@ -3713,97 +3514,28 @@ include("menu.php");
         <div class="waec-actions" style="margin-bottom:8px;">
             <button type="button" class="waec-btn-muted waec-btn-pdf" onclick="waecPrintCoverageAudit()"><i class="fa fa-print"></i> Print Coverage Audit</button>
         </div>
-        <p class="waec-small">Core subjects use the full uploaded candidate population. Any candidate with no grade, Absent (X), or Withheld (W) record is shown separately as <strong>No outcome recorded</strong>; no grade is invented.</p>
+        <p class="waec-small">Core subjects use the full uploaded candidate population. <strong>No outcome recorded</strong> means no imported entry for that subject. Source markers <strong>* / P</strong> are preserved separately with no grade points; they are not treated as missing, failed or absent. Known-sat counts include graded and W entries only.</p>
         <div id="waec-coverage-audit-print">
         <table class="waec-table">
-            <thead><tr><th>Subject</th><th>Students With Grade</th><th>Students Absent (X)</th><th>Student Results Withheld (W)</th><th>No Outcome Recorded</th><th>Total Registered</th><th>Students Who Sat</th><th>% Sat</th><th>% With Grade</th></tr></thead>
+            <thead><tr><th>Subject</th><th>Students With Grade</th><th>Students Absent (X)</th><th>Student Results Withheld (W)</th><th>Source Status (* / P)</th><th>No Outcome Recorded</th><th>Total Registered</th><th>Known Sat (graded / W)</th><th>% Sat</th><th>% With Grade</th></tr></thead>
             <tbody>
             <?php
-            if(count($subjectCoverageRows) > 0 || count($subjectAbsentMap) > 0 || count($subjectWithheldMap) > 0){
-                $coverageSeen = array();
-                foreach($subjectCoverageRows as $sc){
-                    $coverageSeen[$sc["subject_name"]] = true;
-                    $withCount = (int)$sc["students_with_subject"];
-                    $absentCount = isset($subjectAbsentMap[$sc["subject_name"]]) ? (int)$subjectAbsentMap[$sc["subject_name"]] : 0;
-                    $withheldCount = isset($subjectWithheldMap[$sc["subject_name"]]) ? (int)$subjectWithheldMap[$sc["subject_name"]] : 0;
-                    $recordedCount = $withCount + $absentCount + $withheldCount;
-                    $isCoreSubject = in_array($sc["subject_name"], array("ENGLISH LANG","MATHEMATICS(CORE)","INTEGRATED SCIENCE","SOCIAL STUDIES"), true);
-                    $registeredCount = ($isCoreSubject && $allStudentsCount > $recordedCount) ? $allStudentsCount : $recordedCount;
-                    $noOutcomeCount = $registeredCount - $recordedCount;
-                    $satCount = $withCount + $withheldCount;
-                    $satPct = $registeredCount > 0 ? round(($satCount * 100) / $registeredCount, 2) : 0;
-                    $withGradePct = $registeredCount > 0 ? round(($withCount * 100) / $registeredCount, 2) : 0;
-                    $subjectLabel = waec_esc($sc["subject_name"]);
-                    if(in_array($sc["subject_name"], array("ENGLISH LANG","MATHEMATICS(CORE)","INTEGRATED SCIENCE","SOCIAL STUDIES"))){
-                        $subjectLabel .= " <span class='waec-core-tag'>CORE</span>";
-                    }
-                    echo "<tr>";
-                    echo "<td>".$subjectLabel."</td>";
-                    echo "<td>".$withCount."</td>";
-                    echo "<td>".$absentCount."</td>";
-                    echo "<td>".$withheldCount."</td>";
-                    echo "<td>".$noOutcomeCount."</td>";
-                    echo "<td>".$registeredCount."</td>";
-                    echo "<td>".$satCount."</td>";
-                    echo "<td>".$satPct."%</td>";
-                    echo "<td>".$withGradePct."%</td>";
-                    echo "</tr>";
-                }
-                foreach($subjectAbsentMap as $aSubject => $aCount){
-                    if(isset($coverageSeen[$aSubject])){
-                        continue;
-                    }
-                    $withheldCount = isset($subjectWithheldMap[$aSubject]) ? (int)$subjectWithheldMap[$aSubject] : 0;
-                    $absentCount = (int)$aCount;
-                    $registeredCount = $absentCount + $withheldCount;
-                    $satCount = $withheldCount;
-                    $satPct = $registeredCount > 0 ? round(($satCount * 100) / $registeredCount, 2) : 0;
-                    $withGradePct = 0;
-                    $subjectLabel = waec_esc($aSubject);
-                    if(in_array($aSubject, array("ENGLISH LANG","MATHEMATICS(CORE)","INTEGRATED SCIENCE","SOCIAL STUDIES"))){
-                        $subjectLabel .= " <span class='waec-core-tag'>CORE</span>";
-                    }
-                    echo "<tr>";
-                    echo "<td>".$subjectLabel."</td>";
-                    echo "<td>0</td>";
-                    echo "<td>".$absentCount."</td>";
-                    echo "<td>".$withheldCount."</td>";
-                    echo "<td>0</td>";
-                    echo "<td>".$registeredCount."</td>";
-                    echo "<td>".$satCount."</td>";
-                    echo "<td>".$satPct."%</td>";
-                    echo "<td>".$withGradePct."%</td>";
-                    echo "</tr>";
-                    $coverageSeen[$aSubject] = true;
-                }
-                foreach($subjectWithheldMap as $wSubject => $wCount){
-                    if(isset($coverageSeen[$wSubject])){
-                        continue;
-                    }
-                    $absentCount = isset($subjectAbsentMap[$wSubject]) ? (int)$subjectAbsentMap[$wSubject] : 0;
-                    $registeredCount = (int)$wCount + $absentCount;
-                    $satCount = (int)$wCount;
-                    $satPct = $registeredCount > 0 ? round(($satCount * 100) / $registeredCount, 2) : 0;
-                    $withGradePct = 0;
-                    $subjectLabel = waec_esc($wSubject);
-                    if(in_array($wSubject, array("ENGLISH LANG","MATHEMATICS(CORE)","INTEGRATED SCIENCE","SOCIAL STUDIES"))){
-                        $subjectLabel .= " <span class='waec-core-tag'>CORE</span>";
-                    }
-                    echo "<tr>";
-                    echo "<td>".$subjectLabel."</td>";
-                    echo "<td>0</td>";
-                    echo "<td>".$absentCount."</td>";
-                    echo "<td>".(int)$wCount."</td>";
-                    echo "<td>0</td>";
-                    echo "<td>".$registeredCount."</td>";
-                    echo "<td>".$satCount."</td>";
-                    echo "<td>".$satPct."%</td>";
-                    echo "<td>".$withGradePct."%</td>";
-                    echo "</tr>";
-                }
-            } else {
-                echo "<tr><td colspan='9'>No coverage data available yet.</td></tr>";
+            $coverageGrades = array();
+            foreach($subjectCoverageRows as $sc) $coverageGrades[$sc["subject_name"]] = (int)$sc["students_with_subject"];
+            $coverageSubjects = array_unique(array_merge(array_keys($coverageGrades), array_keys($subjectAbsentMap), array_keys($subjectWithheldMap), array_keys($subjectSourceStatusMap)));
+            sort($coverageSubjects);
+            foreach($coverageSubjects as $subject){
+                $graded = $coverageGrades[$subject] ?? 0;
+                $absent = $subjectAbsentMap[$subject] ?? 0;
+                $withheld = $subjectWithheldMap[$subject] ?? 0;
+                $sourceStatus = $subjectSourceStatusMap[$subject] ?? 0;
+                $isCore = in_array($subject, array("ENGLISH LANG","MATHEMATICS(CORE)","INTEGRATED SCIENCE","SOCIAL STUDIES"), true);
+                $counts = waec_coverage_totals($allStudentsCount, $graded, $absent, $withheld, $sourceStatus, $isCore);
+                echo "<tr><td>".waec_esc($subject).($isCore ? " <span class='waec-core-tag'>CORE</span>" : "")."</td>";
+                foreach(array($graded,$absent,$withheld,$sourceStatus,$counts["missing"],$counts["registered"],$counts["sat"]) as $count) echo "<td>".(int)$count."</td>";
+                echo "<td>".$counts["sat_pct"]."%</td><td>".$counts["graded_pct"]."%</td></tr>";
             }
+            if(!$coverageSubjects) echo "<tr><td colspan='10'>No coverage data available yet.</td></tr>";
             ?>
             </tbody>
         </table>
