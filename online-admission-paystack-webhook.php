@@ -42,6 +42,18 @@ if($reference === ""){
     paystack_webhook_response(200, "MISSING_REFERENCE");
 }
 
+if(strpos($reference, 'ALMDOC_') === 0){
+    require_once __DIR__.'/alumni-document-utils.php';
+    try {
+        $ok = ald_record_payment($con, $reference, $data);
+        paystack_webhook_response(200, $ok ? 'OK' : 'INTEGRITY_FAILED');
+    } catch(Throwable $error) {
+        error_log('Alumni document webhook storage failed: '.get_class($error));
+        // Ask Paystack to retry when persistence is temporarily unavailable.
+        paystack_webhook_response(500, 'RETRY');
+    }
+}
+
 $payment = online_admission_get_payment_by_reference($con, $reference);
 if(!$payment){
     $resultPayment = result_access_get_payment_by_reference($con, $reference);

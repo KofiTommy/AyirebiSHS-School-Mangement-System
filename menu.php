@@ -64,6 +64,11 @@ if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE'])){
     }
 }
 $_ShowLiveUsersIndicator = false;
+$_PendingDocumentReviews = 0;
+if(um_is_admin_manager() && um_current_user_can_access_module($con, 'alumni_management')){
+    require_once __DIR__.'/alumni-document-notifications.php';
+    $_PendingDocumentReviews = ald_pending_review_count($con);
+}
 $_LiveUsersCount = 0;
 if(isset($_SESSION['ACCESSLEVEL']) && $_SESSION['ACCESSLEVEL'] === "administrator"){
     $_ShowLiveUsersIndicator = true;
@@ -309,6 +314,11 @@ button{
     <a class="top-action-link" href="<?php echo $_HomeLink; ?>" title="Click To Home Page">
       <i class="fa fa-home"></i> Home
     </a>
+    <?php if($_PendingDocumentReviews > 0){ ?>
+    <a class="top-action-link" href="alumni-document-admin.php?status=submitted" title="Alumni document requests awaiting your review">
+        <i class="fa fa-bell" aria-hidden="true"></i> Document requests (<?php echo (int)$_PendingDocumentReviews; ?>)
+    </a>
+    <?php } ?>
     <?php if($_ShowLiveUsersIndicator){ ?>
     <span class="top-action-link top-action-indicator" id="top-live-users-indicator" title="Users active in the last 5 minutes">
       <i class="fa fa-signal"></i> Live Users: <strong id="top-live-users-count"><?php echo number_format((int)$_LiveUsersCount); ?></strong>

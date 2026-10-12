@@ -221,7 +221,7 @@ function alumni_send_welcome_sms($con,$alumniId){
 }
 if(!function_exists('alumni_welcome_sms_notice')){
 function alumni_welcome_sms_notice($sent,$status){
-    if($status==='sent_unrecorded') return 'The SMS service accepted the welcome message, but its status could not be saved. Check the SMS service before resending.';
+    if($status==='sent_unrecorded') return 'The SMS service has accepted the welcome message.';
     if($status==='already_sent') return 'The welcome SMS was already sent; no duplicate message was sent.';
     if($sent) return 'The SMS service accepted the welcome message. Delivery to the phone is not yet confirmed here.';
     if($status==='not_opted_in') return 'Welcome SMS was not sent because the alumnus did not opt in to SMS updates.';

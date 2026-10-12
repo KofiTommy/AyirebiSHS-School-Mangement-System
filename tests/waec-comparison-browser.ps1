@@ -68,6 +68,49 @@ try {
         $capture = Invoke-Cdp 'Page.captureScreenshot' @{format='png'; captureBeyondViewport=$false}
         [IO.File]::WriteAllBytes((Join-Path $PreviewDirectory ($viewport.name+'-checked.png')), [Convert]::FromBase64String($capture.data))
         Write-Output "$($viewport.name): no page overflow ($($dimensions.viewport)px)."
+        $loginDialog = Invoke-Cdp 'Runtime.evaluate' @{expression='!!document.querySelector("dialog#old-student-login")'; returnByValue=$true}
+        if ($loginDialog.result.value) {
+            $null = Invoke-Cdp 'Runtime.evaluate' @{expression='document.querySelector("button[data-open-login]").click()'}
+            $state = Invoke-Cdp 'Runtime.evaluate' @{expression='(()=>{const d=document.getElementById("old-student-login"),r=d.getBoundingClientRect();return d.open&&d.matches(":modal")&&document.activeElement.id==="old-student-identity"&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight;})()'; returnByValue=$true}
+            if (!$state.result.value) { throw 'Login modal did not open, focus its input, or fit the screen.' }
+            for($tabIndex=0; $tabIndex -lt 10; $tabIndex++) {
+                $null = Invoke-Cdp 'Input.dispatchKeyEvent' @{type='keyDown'; key='Tab'; code='Tab'; windowsVirtualKeyCode=9}
+                $null = Invoke-Cdp 'Input.dispatchKeyEvent' @{type='keyUp'; key='Tab'; code='Tab'; windowsVirtualKeyCode=9}
+            }
+            $focus = Invoke-Cdp 'Runtime.evaluate' @{expression='document.getElementById("old-student-login").contains(document.activeElement)'; returnByValue=$true}
+            if (!$focus.result.value) { throw 'Keyboard focus escaped the login modal.' }
+            $capture = Invoke-Cdp 'Page.captureScreenshot' @{format='png'; captureBeyondViewport=$false}
+            [IO.File]::WriteAllBytes((Join-Path $PreviewDirectory ($viewport.name+'-login-modal.png')), [Convert]::FromBase64String($capture.data))
+            $null = Invoke-Cdp 'Runtime.evaluate' @{expression='document.querySelector(".alumni-login-close").click()'}
+            $closed = Invoke-Cdp 'Runtime.evaluate' @{expression='!document.getElementById("old-student-login").open&&document.activeElement.matches("button[data-open-login]")&&!document.documentElement.classList.contains("alumni-login-open")'; returnByValue=$true}
+            if (!$closed.result.value) { throw 'Login modal close/focus restoration failed.' }
+            $null = Invoke-Cdp 'Runtime.evaluate' @{expression='document.querySelector("button[data-open-login]").click()'}
+            $null = Invoke-Cdp 'Input.dispatchKeyEvent' @{type='keyDown'; key='Escape'; code='Escape'; windowsVirtualKeyCode=27}
+            $null = Invoke-Cdp 'Input.dispatchKeyEvent' @{type='keyUp'; key='Escape'; code='Escape'; windowsVirtualKeyCode=27}
+            $escape = Invoke-Cdp 'Runtime.evaluate' @{expression='!document.getElementById("old-student-login").open'; returnByValue=$true}
+            if (!$escape.result.value) { throw 'Escape did not close the login modal.' }
+            $null = Invoke-Cdp 'Runtime.evaluate' @{expression='document.querySelector("button[data-open-login]").click()'}
+            $null = Invoke-Cdp 'Input.dispatchMouseEvent' @{type='mousePressed'; x=1; y=1; button='left'; clickCount=1}
+            $null = Invoke-Cdp 'Input.dispatchMouseEvent' @{type='mouseReleased'; x=1; y=1; button='left'; clickCount=1}
+            $outside = Invoke-Cdp 'Runtime.evaluate' @{expression='!document.getElementById("old-student-login").open'; returnByValue=$true}
+            if (!$outside.result.value) { throw 'Outside click did not close the login modal.' }
+            $reopen = Invoke-Cdp 'Runtime.evaluate' @{expression='(async()=>{location.hash="old-student-login";await new Promise(r=>setTimeout(r,50));return document.getElementById("old-student-login").open;})()'; returnByValue=$true; awaitPromise=$true}
+            if (!$reopen.result.value) { throw 'Login return hash did not reopen the modal.' }
+            $null = Invoke-Cdp 'Runtime.evaluate' @{expression='document.querySelector(".alumni-login-close").click(); scrollTo(0,0)'}
+            Write-Output "$($viewport.name): login popup, focus, close button, Escape, outside click and error-return hash passed."
+        }
+        $documentsCheck = Invoke-Cdp 'Runtime.evaluate' @{expression='!!document.getElementById("document-service")'; returnByValue=$true}
+        if ($documentsCheck.result.value) {
+            $documentState = Invoke-Cdp 'Runtime.evaluate' @{expression='(()=>{const s=document.getElementById("document-service"),d=document.getElementById("document-delivery");s.value="1";s.dispatchEvent(new Event("change"));d.value="physical";d.dispatchEvent(new Event("change"));return !document.querySelector("[data-delivery-fields=physical]").hidden&&document.querySelector("[data-delivery-fields=email]").hidden&&document.getElementById("document-total").textContent.includes("225.00");})()'; returnByValue=$true}
+            if (!$documentState.result.value) { throw 'Document physical delivery fields or fee preview failed.' }
+            $null = Invoke-Cdp 'Runtime.evaluate' @{expression='document.getElementById("document-request-form").scrollIntoView()'}
+            $documentShot = Invoke-Cdp 'Page.captureScreenshot' @{format='png'; captureBeyondViewport=$false}
+            [IO.File]::WriteAllBytes((Join-Path $PreviewDirectory "$($viewport.name)-document-form.png"),[Convert]::FromBase64String($documentShot.data))
+            $documentEmail = Invoke-Cdp 'Runtime.evaluate' @{expression='(()=>{const s=document.getElementById("document-service"),d=document.getElementById("document-delivery");d.value="email";d.dispatchEvent(new Event("change"));const email=!document.querySelector("[data-delivery-fields=email]").hidden&&document.querySelector("[data-delivery-fields=physical]").hidden&&document.getElementById("document-total").textContent.includes("200.00");s.value="3";s.dispatchEvent(new Event("change"));return email&&d.value===""&&d.querySelector("option[value=email]").disabled&&document.documentElement.scrollWidth<=innerWidth+1;})()'; returnByValue=$true}
+            if (!$documentEmail.result.value) { throw 'Document delivery switching or permitted methods failed.' }
+            $null = Invoke-Cdp 'Runtime.evaluate' @{expression='scrollTo(0,0)'}
+            Write-Output "$($viewport.name): document delivery fields, permitted methods and fees passed."
+        }
         $studentCheck = Invoke-Cdp 'Runtime.evaluate' @{expression='!!document.querySelector(".wac-student-table")'; returnByValue=$true}
         if ($studentCheck.result.value) {
             $null = Invoke-Cdp 'Runtime.evaluate' @{expression='document.getElementById("matches-heading").scrollIntoView(); document.querySelector(".wac-evidence summary").click();'}

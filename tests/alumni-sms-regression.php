@@ -33,7 +33,7 @@ foreach($cases as $i=>$case){
 }
 sms_check(strpos(alumni_welcome_sms_notice(true,'sent'),'accepted')!==false,'Success notice describes acceptance');
 sms_check(strpos(alumni_welcome_sms_notice(true,'already_sent'),'no duplicate')!==false,'Already-sent is not failure');
-sms_check(strpos(alumni_welcome_sms_notice(true,'sent_unrecorded'),'before resending')!==false,'Accepted but not recorded is not labelled delivery failure');
+sms_check(alumni_welcome_sms_notice(true,'sent_unrecorded')==='The SMS service has accepted the welcome message.','Accepted but not recorded uses the requested concise notice');
 sms_check(strpos(alumni_welcome_sms_notice(false,'not_opted_in'),'did not opt in')!==false,'Consent notice retained');
 sms_check(strpos(alumni_welcome_sms_notice(false,'no_valid_phone'),'no valid Ghana')!==false,'Invalid phone notice retained');
 sms_check(strpos(alumni_welcome_sms_notice(false,'failed'),'before retrying')!==false,'Unconfirmed response warns against duplicates');

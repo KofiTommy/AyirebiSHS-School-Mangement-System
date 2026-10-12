@@ -512,7 +512,7 @@ function um_module_catalog(){
             'label' => 'Alumni And Graduate Tracking',
             'group' => 'Community',
             'description' => 'Manage old-student contacts, achievements, mentorship, donations, and events.',
-            'scripts' => array('alumni-hub.php')
+            'scripts' => array('alumni-hub.php','alumni-document-admin.php')
         ),
         'billing' => array(
             'label' => 'Billing',

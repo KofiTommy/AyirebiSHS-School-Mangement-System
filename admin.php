@@ -2884,6 +2884,9 @@ include("links.php");
                                                     $_NotificationAction = "<br><a class='system-change-action-link' href='admin.php#portal-help-requests'><i class='fa fa-arrow-right'></i> Open Portal Help</a>";
                                                 }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'ALUMNI_REGISTRATION_SUBMITTED'){
                                                     $_NotificationAction = "<br><a class='system-change-action-link' href='alumni-hub.php#pending-approvals'><i class='fa fa-arrow-right'></i> Review Alumni Request</a>";
+                                                }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'ALUMNI_DOCUMENT_REQUEST_SUBMITTED' && ctype_digit((string)$row_log['target_userid'])){
+                                                    $_DocumentReviewLink = 'alumni-document-admin.php?id='.(int)$row_log['target_userid'].'#request-detail';
+                                                    $_NotificationAction = "<br><a class='system-change-action-link' href='".admin_dashboard_safe($_DocumentReviewLink)."'><i class='fa fa-arrow-right'></i> Review Document Request</a>";
                                                 }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'ALUMNI_CONCERN_SUBMITTED'){
                                                     $_NotificationAction = "<br><a class='system-change-action-link' href='alumni-concerns.php'><i class='fa fa-arrow-right'></i> Review Alumni Concern</a>";
                                                 }elseif(strtoupper(trim((string)$row_log['action_type'])) === 'ALUMNI_DONATION_RECEIVED'){
