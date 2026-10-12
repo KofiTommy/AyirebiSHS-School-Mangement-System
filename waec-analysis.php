@@ -2,6 +2,7 @@
 session_start();
 include("check-login.php");
 include("dbstring.php");
+require_once __DIR__.'/waec-comparison-utils.php';
 
 $isAllowed = (
     ($_SESSION['ACCESSLEVEL'] == "administrator" && $_SESSION['SYSTEMTYPE'] == "normal_user") ||
@@ -59,6 +60,13 @@ function waec_extract_gender_hint($value){
     if($value === ""){
         return "";
     }
+    // PDF text may join either side of the gender column, e.g.
+    // "NAMEFemale23/11/2006" or "NAMEMale 23/11/2006".
+    // Require the following DOB when accepting a missing word boundary;
+    // do not infer gender from the student's name.
+    if(preg_match('/(FEMALE|MALE)\s*(?=\d{1,2}\/\d{1,2}\/\d{2,4}(?!\d))/i', $value, $m)){
+        return waec_normalize_gender($m[1]);
+    }
     if(preg_match('/\b(MALE|FEMALE|BOY|GIRL|M|F)\b/i', $value, $m)){
         return waec_normalize_gender($m[1]);
     }
@@ -84,38 +92,6 @@ function waec_gender_pair_text($maleCount, $femaleCount){
         return "-";
     }
     return $male."/".$female;
-}
-
-function waec_normalize_subject($subject){
-    $s = strtoupper(trim((string)$subject));
-    $s = preg_replace('/\s+/', ' ', $s);
-    $k = preg_replace('/[^A-Z0-9]+/', '', $s);
-
-    $map = array(
-        "ENGLISH" => "ENGLISH LANG",
-        "ENGLISHLANG" => "ENGLISH LANG",
-        "ENGLISHLANGUAGE" => "ENGLISH LANG",
-        "COREMATHEMATICS" => "MATHEMATICS(CORE)",
-        "COREMATHS" => "MATHEMATICS(CORE)",
-        "MATHEMATICSCORE" => "MATHEMATICS(CORE)",
-        "ELECTIVEMATHEMATICS" => "MATHEMATICS(ELECT)",
-        "MATHEMATICSELECTIVE" => "MATHEMATICS(ELECT)",
-        "MATHEMATICSELECT" => "MATHEMATICS(ELECT)",
-        "INTEGRATEDSCIENCE" => "INTEGRATED SCIENCE",
-        "SOCIALSTUDIES" => "SOCIAL STUDIES",
-        "LITINENGLISH" => "LITERATURE IN ENGLISH",
-        "GENKNOWINART" => "GENERAL KNOWLEDGE IN ART",
-        "MGTINLIVING" => "MANAGEMENT IN LIVING",
-        "PRINOFCOSTACCTS" => "PRINCIPLES OF COST ACCOUNTING",
-        "CHRISTIANRELSTUD" => "CHRISTIAN RELIGIOUS STUDIES",
-        "INFOCOMMTECHNOLOGY" => "INFORMATION & COMMUNICATION TECHNOLOGY",
-        "TWIAKUAPEM" => "TWI",
-        "TWIASANTE" => "TWI"
-    );
-    if(isset($map[$k])){
-        return $map[$k];
-    }
-    return $s;
 }
 
 function waec_candidate_col($headerMap){
@@ -535,8 +511,14 @@ function waec_is_result_fragment_line($line){
     if($l === ""){
         return false;
     }
-    if(strpos($l, "-") !== false){
+    // Hyphenated surnames (including wrapped "LARYEA-" / "SOWAH") are not results.
+    if(preg_match('/\s-|-\s|-(?:A1|B2|B3|C4|C5|C6|D7|E8|F9|X|W|P|\*)(?:\s|,|$)/', $l)){
         return true;
+    }
+    if(substr($l, -1) === '-'){
+        foreach(waec_pdf_subject_alias_map() as $aliases){
+            foreach($aliases as $alias) if(rtrim(substr($l,0,-1)) === strtoupper($alias)) return true;
+        }
     }
     if(preg_match('/\b(A1|B2|B3|C4|C5|C6|D7|E8|F9|X|W)\b/', $l)){
         return true;
@@ -552,6 +534,7 @@ function waec_is_noise_line($line){
     if(stripos($l, "WAEC RESULTS LISTING") !== false) return true;
     if(stripos($l, "THE WEST AFRICAN") !== false) return true;
     if(stripos($l, "INDEX NUMBER") !== false) return true;
+    if(preg_match('/^DATE\s*:/', $l)) return true;
     if(stripos($l, "TOTAL NUMBER OF CANDIDATES") !== false) return true;
     if(stripos($l, "COMMITTED TO EXCELLENCE") !== false) return true;
     if(stripos($l, "HTTP://") !== false || stripos($l, "HTTPS://") !== false) return true;
@@ -562,11 +545,11 @@ function waec_is_noise_line($line){
 
 function waec_clean_name_fragment($line){
     $l = trim((string)$line);
-    $l = preg_replace('/\b(MALE|FEMALE)\b\s*\d{1,2}\/\d{1,2}\/\d{2,4}/i', '', $l);
+    $l = preg_replace('/\b(MALE|FEMALE)\s*\d{1,2}\/\d{1,2}\/\d{2,4}/i', '', $l);
     $l = preg_replace('/\b(MALE|FEMALE)\b/i', '', $l);
     $l = preg_replace('/\d{1,2}\/\d{1,2}\/\d{2,4}/', '', $l);
     $l = preg_replace('/\s+/', ' ', $l);
-    return trim($l, " ,.-");
+    return trim($l, " ,.");
 }
 
 function waec_is_name_fragment($line){
@@ -699,6 +682,7 @@ function waec_extract_listing_rows_from_text($rawText){
         if($currentName === ""){
             $nameBuilt = trim(implode(" ", $nameParts));
             $nameBuilt = preg_replace('/\s+/', ' ', $nameBuilt);
+            $nameBuilt = preg_replace('/-\s+/', '-', $nameBuilt);
             $currentName = $nameBuilt;
         }
         if($currentCandidate === "" || trim($resultsBuffer) === ""){
@@ -784,6 +768,8 @@ function waec_extract_listing_rows_from_text($rawText){
     foreach($lines as $lineRaw){
         $line = trim((string)$lineRaw);
         if($line === "" || waec_is_noise_line($line)){
+            // Do not carry a school/page heading forward as a candidate name.
+            $prevLine = "";
             continue;
         }
 
@@ -807,7 +793,7 @@ function waec_extract_listing_rows_from_text($rawText){
                 if(waec_is_result_fragment_line($rest)){
                     $resultsBuffer .= " ".$rest;
                     $hasResultForCurrent = true;
-                } elseif($restGender === "" && waec_is_name_fragment($rest)){
+                } elseif(waec_is_name_fragment($rest)){
                     $nameParts[] = waec_clean_name_fragment($rest);
                 }
             }
@@ -824,7 +810,9 @@ function waec_extract_listing_rows_from_text($rawText){
                 $resultsBuffer .= " ".$line;
                 $hasResultForCurrent = true;
             }
-            if(!$hasResultForCurrent && $lineGender === "" && waec_is_name_fragment($line)){
+            // A wrapped given name can share a line with gender/date of birth.
+            // Validate the cleaned fragment instead of dropping the whole line.
+            if(!$hasResultForCurrent && waec_is_name_fragment($line)){
                 $nameParts[] = waec_clean_name_fragment($line);
             }
         }
@@ -1051,12 +1039,18 @@ function waec_deduplicate_records($records, $withheldRecords){
 require_once __DIR__."/waec-listing-utils.php";
 
 waec_ensure_tables($con);
+wac_ensure_metadata($con);
 
 $message = "";
 $currentUploadId = isset($_GET["uploadid"]) ? trim($_GET["uploadid"]) : "";
 
 if(isset($_POST["upload_waec"])){
-    if(!isset($_FILES["waec_file"]) || $_FILES["waec_file"]["error"] !== UPLOAD_ERR_OK){
+    $batchMetadataError = '';
+    try{ $batchMetadata = wac_metadata($_POST); }
+    catch(InvalidArgumentException $e){ $batchMetadataError = $e->getMessage(); }
+    if($batchMetadataError !== ''){
+        $message = "<div style='color:red'>".waec_esc($batchMetadataError)."</div>";
+    }elseif(!isset($_FILES["waec_file"]) || $_FILES["waec_file"]["error"] !== UPLOAD_ERR_OK){
         $message = "<div style='color:red'>Upload failed. Please choose a valid file.</div>";
     } else {
         $originalName = $_FILES["waec_file"]["name"];
@@ -1195,8 +1189,11 @@ if(isset($_POST["upload_waec"])){
                     $userEsc = mysqli_real_escape_string($con, $_SESSION["USERID"]);
                     $branchEsc = mysqli_real_escape_string($con, $_SESSION["BRANCHID"]);
 
-                    $sqlUpload = "INSERT INTO tblwaecupload(uploadid,originalname,storedname,fileext,totalrows,totalstudents,withheldrows,withheldstudents,notes,status,uploadedby,branchid,datetimeentry)
-                        VALUES('$uploadIdEsc','$origEsc','$storedEsc','$extEsc',$totalRows,$totalStudents,$withheldRowsCount,$withheldStudentsCount,'$notesEsc','$statusEsc','$userEsc','$branchEsc',NOW())";
+                    $examYear = $batchMetadata['exam_year'];
+                    $examSitting = mysqli_real_escape_string($con, $batchMetadata['exam_sitting']);
+                    $batchLabel = mysqli_real_escape_string($con, $batchMetadata['batch_label']);
+                    $sqlUpload = "INSERT INTO tblwaecupload(uploadid,originalname,storedname,fileext,totalrows,totalstudents,withheldrows,withheldstudents,notes,status,uploadedby,branchid,datetimeentry,exam_year,exam_sitting,batch_label)
+                        VALUES('$uploadIdEsc','$origEsc','$storedEsc','$extEsc',$totalRows,$totalStudents,$withheldRowsCount,$withheldStudentsCount,'$notesEsc','$statusEsc','$userEsc','$branchEsc',NOW(),$examYear,'$examSitting','$batchLabel')";
                     if(!mysqli_query($con, $sqlUpload)){
                         $message = "<div style='color:red'>Failed to save upload metadata: ".waec_esc(mysqli_error($con))."</div>";
                     } else {
@@ -2852,86 +2849,62 @@ include("links.php");
     .waec-card h3 { margin-bottom: 8px; }
 }
 </style>
-<link rel="stylesheet" href="css/waec-analysis.css">
+<link rel="stylesheet" href="css/waec-analysis.css?v=20261011-layout2">
 </head>
-<body style="background:linear-gradient(180deg, #f6f9fc 0%, #edf3f9 100%);">
+<body class="waec-page">
 <div class="header">
 <?php
 include("menu.php");
 ?>
 </div>
-<div class="waec-wrap">
+<?php
+// Presentation-only batch list; leave the saved result sets and calculations unchanged.
+$workspaceUploads = array(); $workspaceSelected = null;
+if($uploads){
+    while($workspaceUpload = mysqli_fetch_array($uploads, MYSQLI_ASSOC)){
+        $workspaceUploads[] = $workspaceUpload;
+        if($workspaceUpload['uploadid'] === $currentUploadId) $workspaceSelected = $workspaceUpload;
+    }
+    if(count($workspaceUploads)) mysqli_data_seek($uploads, 0);
+}
+?>
+<main class="waec-wrap">
     <header class="waec-hero">
-        <span class="waec-eyebrow">Academic performance</span>
-        <h1>WAEC Results Analysis</h1>
-        <p>Understand your results. Find subject trends, compare performance and review individual candidates.</p>
-        <nav aria-label="Analysis sections">
-            <a href="#waec-upload"><i class="fa fa-upload" aria-hidden="true"></i> Import results</a>
-            <a href="#waec-overview">Overview</a>
-            <a href="#student-result-analysis">Find a student</a>
-            <a href="#waec-subjects">Subject performance</a>
-        </nav>
+        <div><span class="waec-eyebrow">Academic intelligence / WAEC</span>
+        <h1>Your results, clearly understood.</h1>
+        <p>Start with the big picture. Explore subjects, support students and check every outcome.</p></div>
+        <a class="waec-compare-link" href="waec-comparison.php"><i class="fa fa-bar-chart" aria-hidden="true"></i><span>Compare batches<small>See progress across examination years</small></span><i class="fa fa-arrow-right" aria-hidden="true"></i></a>
     </header>
-    <div class="waec-card" id="waec-upload">
-        <h2 class="waec-title">Import a results file</h2>
-        <p class="waec-note">Upload Excel, CSV or a text-based PDF results listing.</p>
-        <?php echo $message; ?>
-        <form method="post" enctype="multipart/form-data" action="waec-analysis.php">
-            <input type="file" name="waec_file" accept=".xlsx,.csv,.pdf" required />
-            <button type="submit" name="upload_waec" class="waec-btn"><i class="fa fa-upload"></i> Upload & Analyze</button>
-            <span class="waec-small">Recommended: Excel/CSV with WAEC grades A1-F9 and a Gender/Sex column.</span>
+    <?php if($message !== ''){ ?><div class="waec-feedback" role="status"><?php echo $message; ?></div><?php } ?>
+    <section class="waec-context" aria-label="Selected results batch">
+        <form method="get" action="waec-analysis.php#waec-overview" class="waec-batch-switch">
+            <label for="waec-current-batch">Results workspace <small>Choose the upload you want to analyse</small></label>
+            <select id="waec-current-batch" name="uploadid" required>
+                <option value="">Select a saved results batch</option>
+                <?php if($currentUploadId !== '' && !$workspaceSelected){ ?><option value="<?php echo waec_esc($currentUploadId); ?>" selected><?php echo waec_esc($currentUploadId); ?></option><?php } ?>
+                <?php foreach($workspaceUploads as $workspaceUpload){ ?>
+                <option value="<?php echo waec_esc($workspaceUpload['uploadid']); ?>" <?php echo $workspaceUpload['uploadid'] === $currentUploadId ? 'selected' : ''; ?>><?php echo waec_esc((wac_ready($workspaceUpload) ? wac_title($workspaceUpload) : $workspaceUpload['originalname']).' · '.substr($workspaceUpload['uploadid'], -8)); ?></option>
+                <?php } ?>
+            </select>
+            <button type="submit" class="waec-btn">Open batch</button>
         </form>
-        <details class="waec-method">
-            <summary>File format and how to read the figures</summary>
-            <p>For a simple CSV, use Candidate No, Student Name, Gender, Subject and Grade columns (one subject per row), or put each subject in its own column. Keep index numbers as text to retain leading zeros. Supported outcomes: A1-F9, X (absent), W (withheld) and source markers * / P. Blank cells are not failures.</p>
-            <p>Credit rates on this page use graded results only. They may differ from published statistics that use all candidates who sat. Full CSV and PDF reports cover the whole upload; the filtered PDF follows the overview filters. Core-credit indicators are not admission decisions.</p>
-            <p>References: <a href="https://waecgh.org/wp-content/uploads/2024/12/Release-of-Provisional-Results.pdf">WAEC's subject-performance reporting</a> and <a href="https://admissions.ug.edu.gh/undergraduate/entry-requirements">University of Ghana entry requirements</a>.</p>
-        </details>
-    </div>
-
-    <div class="waec-grid">
-        <div class="waec-card waec-recent-card">
-            <h3 style="margin-top:0">Recent Uploads</h3>
-            <table class="waec-table">
-                <thead>
-                    <tr>
-                        <th>Upload</th>
-                        <th>Type</th>
-                        <th>Rows</th>
-                        <th class="waec-action-col">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php
-                if($uploads && mysqli_num_rows($uploads) > 0){
-                    while($u = mysqli_fetch_array($uploads, MYSQLI_ASSOC)){
-                        echo "<tr>";
-                        echo "<td>".waec_esc($u["originalname"])."<br><span class='waec-small'>".waec_esc($u["datetimeentry"])."</span></td>";
-                        echo "<td>".waec_esc(strtoupper($u["fileext"]))."</td>";
-                        echo "<td>".waec_esc($u["totalrows"])."</td>";
-                        echo "<td class='waec-action-col'><div class='waec-action-wrap'>";
-                        echo "<a class='waec-btn-muted waec-action-btn' href='waec-analysis.php?uploadid=".urlencode($u["uploadid"])."'>View</a>";
-                        echo "<form method='post' action='waec-analysis.php' onsubmit=\"return confirm('Delete this upload and all analyzed WAEC rows?');\">";
-                        echo "<input type='hidden' name='delete_uploadid' value='".waec_esc($u["uploadid"])."'>";
-                        echo "<button type='submit' name='delete_upload' class='waec-btn-muted waec-action-btn' style='border-color:#ef4444;color:#b91c1c;'><i class='fa fa-trash'></i>&nbsp;Delete</button>";
-                        echo "</form>";
-                        echo "</div></td>";
-                        echo "</tr>";
-                    }
-                } else {
-                    echo "<tr><td colspan='4'>No WAEC upload yet.</td></tr>";
-                }
-                ?>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="waec-card waec-analysis-card" id="waec-overview">
-            <h3 style="margin-top:0">Analysis</h3>
-            <?php if($currentUploadId === ""){ ?>
-                <p>Select an upload from the left panel to view analysis.</p>
-            <?php } else { ?>
-                <p class="waec-small">Current Upload: <span class="waec-badge"><?php echo waec_esc($currentUploadId); ?></span></p>
+        <?php if($workspaceSelected){ ?><p class="waec-context-note"><i class="fa fa-file-text-o" aria-hidden="true"></i> <?php echo waec_esc($workspaceSelected['originalname']); ?> <span>Uploaded <?php echo waec_esc($workspaceSelected['datetimeentry']); ?></span></p><?php } ?>
+    </section>
+    <div class="waec-workspace" data-waec-workspace data-default-section="<?php echo $currentUploadId !== '' ? 'waec-overview' : 'waec-upload'; ?>">
+        <nav class="waec-workspace-nav" aria-label="WAEC workspace sections">
+            <span class="waec-nav-label">Explore results</span>
+            <a href="#waec-overview" data-waec-nav><i class="fa fa-th-large" aria-hidden="true"></i><span>Overview<small>Key figures &amp; indicators</small></span></a>
+            <a href="#waec-subjects" data-waec-nav><i class="fa fa-bar-chart" aria-hidden="true"></i><span>Subjects<small>Grades &amp; performance</small></span></a>
+            <a href="#student-result-analysis" data-waec-nav><i class="fa fa-users" aria-hidden="true"></i><span>Students<small>Search &amp; breakdowns</small></span></a>
+            <a href="#waec-coverage" data-waec-nav><i class="fa fa-check-square-o" aria-hidden="true"></i><span>Coverage<small>Missing &amp; special outcomes</small></span></a>
+            <a href="#waec-upload" data-waec-nav><i class="fa fa-folder-open-o" aria-hidden="true"></i><span>Uploads<small>Import &amp; manage files</small></span></a>
+            <p class="waec-nav-note"><i class="fa fa-info-circle" aria-hidden="true"></i> Rates use graded entries. A missing outcome is not a failure.</p>
+        </nav>
+        <div class="waec-workspace-content">
+        <?php if($currentUploadId !== ''){ ?>
+        <details class="waec-filter-drawer" <?php echo $focusSubject !== '' || $focusGrade !== '' || $focusGender !== '' ? 'open' : ''; ?>>
+            <summary><span><i class="fa fa-sliders" aria-hidden="true"></i> Refine this view</span><span class="waec-filter-summary"><?php echo waec_esc($focusSubject !== '' ? $focusSubject : 'All subjects'); ?> · <?php echo waec_esc($focusGrade !== '' ? $focusGrade : 'All grades'); ?> · <?php echo waec_esc($focusGender !== '' ? $focusGender : 'All genders'); ?></span></summary>
+            <p class="waec-small">Overview and subject results follow these filters. Other sections explain their own scope.</p>
                 <form method="get" action="waec-analysis.php#waec-overview" class="waec-toolbar">
                     <input type="hidden" name="uploadid" value="<?php echo waec_esc($currentUploadId); ?>">
                     <input type="hidden" name="distribution_subject" value="<?php echo waec_esc($distributionSubject); ?>">
@@ -2975,22 +2948,22 @@ include("menu.php");
                     <button class="waec-btn-muted waec-btn-filter" type="submit"><i class="fa fa-filter"></i> Apply</button>
                     <a class="waec-btn-muted waec-btn-small waec-btn-reset" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&student_query=<?php echo urlencode($studentQuery); ?>">Reset</a>
                 </form>
-                <form method="get" action="waec-analysis.php" class="waec-toolbar">
-                    <input type="hidden" name="uploadid" value="<?php echo waec_esc($currentUploadId); ?>">
-                    <input type="hidden" name="focus_subject" value="<?php echo waec_esc($focusSubject); ?>">
-                    <input type="hidden" name="focus_grade" value="<?php echo waec_esc($focusGrade); ?>">
-                    <input type="hidden" name="focus_gender" value="<?php echo waec_esc($focusGender); ?>">
-                    <input type="hidden" name="distribution_subject" value="<?php echo waec_esc($distributionSubject); ?>">
-                    <input type="text" name="student_query" value="<?php echo waec_esc($studentQuery); ?>" placeholder="Type few letters of name or index number">
-                    <button class="waec-btn-muted waec-btn-search" type="submit"><i class="fa fa-search"></i> Find Student</button>
-                    <a class="waec-btn-muted waec-btn-small waec-btn-clear" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&focus_subject=<?php echo urlencode($focusSubject); ?>&focus_grade=<?php echo urlencode($focusGrade); ?>&focus_gender=<?php echo urlencode($focusGender); ?>&distribution_subject=<?php echo urlencode($distributionSubject); ?>">Clear Search</a>
-                </form>
-                <div class="waec-actions">
+        </details>
+        <details class="waec-export-drawer"><summary><i class="fa fa-download" aria-hidden="true"></i> Download &amp; print reports</summary>                <div class="waec-actions">
                     <a class="waec-btn-muted waec-btn-excel" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&export=excel"><i class="fa fa-file-excel-o"></i> Full report (CSV)</a>
                     <a class="waec-btn-muted waec-btn-pdf" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&export=pdf"><i class="fa fa-file-pdf-o"></i> Full report (PDF)</a>
                     <a class="waec-btn-muted waec-btn-pdf" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&export=filtered_dashboard_pdf&focus_subject=<?php echo urlencode($focusSubject); ?>&focus_grade=<?php echo urlencode($focusGrade); ?>&focus_gender=<?php echo urlencode($focusGender); ?>&distribution_subject=<?php echo urlencode($distributionSubject); ?>"><i class="fa fa-print"></i> Print Filtered Dashboard</a>
-                </div>
-                <br>
+                </div></details>
+        <?php } ?>
+<section class="waec-panel" id="waec-overview" aria-label="Performance overview">
+        <div class="waec-card waec-analysis-card">
+            <div class="waec-section-heading"><div><span class="waec-section-kicker">The big picture</span><h2>Performance overview</h2></div><span class="waec-scope-badge">Current filters</span></div>
+            <?php if($currentUploadId === ""){ ?>
+                <p>Choose a saved batch above, or open Uploads to import your first results file.</p>
+            <?php } else { ?>
+
+
+
                 <?php
                 $overallPassPct = 0;
                 $summaryTotalResults = (int)@$summary["total_results"];
@@ -3019,51 +2992,19 @@ include("menu.php");
                     $overallPassPct = round(($summaryPassCount * 100) / $summaryTotalResults, 2);
                 }
                 ?>
-                <div class="waec-stats">
-                    <div class="waec-stat">
-                        <h4>Total Results</h4>
-                        <strong><?php echo (int)@$summary["total_results"]; ?></strong>
-                    </div>
-                    <div class="waec-stat">
-                        <h4>Total Students</h4>
-                        <strong><?php echo $dashboardTotalStudents; ?></strong>
-                    </div>
-                    <?php if($focusSubject !== ""){ ?>
-                    <div class="waec-stat">
-                        <h4>Students For <?php echo waec_esc($focusSubject); ?></h4>
-                        <strong><?php echo (int)$focusSubjectRegisteredStudents; ?></strong>
-                    </div>
-                    <?php } ?>
-                    <div class="waec-stat">
-                        <h4>Subjects</h4>
-                        <strong><?php echo (int)@$summary["total_subjects"]; ?></strong>
-                    </div>
-                    <div class="waec-stat">
-                        <h4>Credit (A1-C6)</h4>
-                        <strong><?php echo (int)@$summary["pass_count"]; ?></strong>
-                    </div>
-                    <div class="waec-stat">
-                        <h4>Below credit (D7-F9)</h4>
-                        <strong><?php echo (int)@$summary["fail_count"]; ?></strong>
-                    </div>
-                    <div class="waec-stat">
-                        <h4>Average Point</h4>
-                        <strong><?php echo waec_esc(@$summary["avg_point"]); ?></strong>
-                    </div>
-                    <div class="waec-stat">
-                        <h4>Credit rate (A1-C6)</h4>
-                        <strong><?php echo $overallPassPct; ?>%</strong>
-                    </div>
-                    <div class="waec-stat">
-                        <h4>Students Absent</h4>
-                        <strong><?php echo $displayAbsentStudents; ?></strong>
-                    </div>
-                    <?php if($summaryWithheldRows > 0){ ?>
-                    <div class="waec-stat">
-                        <h4>Student Results Withheld</h4>
-                        <strong><?php echo $summaryWithheldRows; ?></strong>
-                    </div>
-                    <?php } ?>
+                <div class="waec-stats waec-primary-stats">
+                    <div class="waec-stat waec-stat--featured"><span class="waec-stat-icon"><i class="fa fa-line-chart" aria-hidden="true"></i></span><h4>Credit rate</h4><strong><?php echo $summaryTotalResults > 0 ? waec_esc($overallPassPct).'%' : 'N/A'; ?></strong><small>A1–C6 / graded entries</small></div>
+                    <div class="waec-stat"><span class="waec-stat-icon"><i class="fa fa-users" aria-hidden="true"></i></span><h4>Students</h4><strong><?php echo number_format($dashboardTotalStudents); ?></strong><small>Within the selected filters</small></div>
+                    <div class="waec-stat"><span class="waec-stat-icon"><i class="fa fa-file-text-o" aria-hidden="true"></i></span><h4>Graded entries</h4><strong><?php echo number_format($summaryTotalResults); ?></strong><small>Subject results with A1–F9</small></div>
+                    <div class="waec-stat"><span class="waec-stat-icon"><i class="fa fa-balance-scale" aria-hidden="true"></i></span><h4>Average point</h4><strong><?php echo $summaryTotalResults > 0 ? waec_esc(@$summary["avg_point"]) : 'N/A'; ?></strong><small>Lower is better · A1 = 1</small></div>
+                </div>
+                <div class="waec-secondary-stats">
+                    <div><span>Subjects</span><strong><?php echo (int)@$summary["total_subjects"]; ?></strong></div>
+                    <div><span>Credits · A1–C6</span><strong><?php echo number_format((int)@$summary["pass_count"]); ?></strong></div>
+                    <div><span>Below credit · D7–F9</span><strong><?php echo number_format((int)@$summary["fail_count"]); ?></strong></div>
+                    <div><span>Students absent</span><strong><?php echo $displayAbsentStudents; ?></strong></div>
+                    <div><span>Withheld entries</span><strong><?php echo $summaryWithheldRows; ?></strong></div>
+                    <?php if($focusSubject !== ""){ ?><div><span>Registered for subject</span><strong><?php echo (int)$focusSubjectRegisteredStudents; ?></strong></div><?php } ?>
                 </div>
                 <p class="waec-small">Credit rate = A1-C6 results divided by graded results (A1-F9). Absent (X) and withheld (W) outcomes are excluded. D7/E8 are below credit; F9 is a fail. A lower average grade point is better.</p>
                 <?php if($displayAbsentRows > 0){ ?>
@@ -3079,231 +3020,156 @@ include("menu.php");
                     <strong><?php echo $summaryWithheldStudents; ?></strong> students.
                 </div>
                 <?php } ?>
-                <?php if(count($absentStudentBreakdownRows) > 0){ ?>
-                <div class="waec-card" style="margin-top:10px;padding:10px;">
-                    <h3 style="margin-top:0">Absent Students Breakdown (X)</h3>
-                    <table class="waec-table">
-                        <thead><tr><th>Candidate No</th><th>Student Name</th><th>Absent Subjects Count</th><th>Subjects</th></tr></thead>
-                        <tbody>
-                        <?php
-                        foreach($absentStudentBreakdownRows as $ab){
-                            echo "<tr>";
-                            echo "<td>".waec_esc($ab["candidate_no"])."</td>";
-                            echo "<td>".waec_esc($ab["student_name"])."</td>";
-                            echo "<td>".(int)$ab["absent_subject_count"]."</td>";
-                            echo "<td>".waec_esc($ab["absent_subjects"])."</td>";
-                            echo "</tr>";
-                        }
-                        ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php } ?>
+
             <?php } ?>
         </div>
-    </div>
 
-    <?php if($currentUploadId !== ""){ ?>
-    <div class="waec-card">
-        <div class="waec-actions" style="margin-bottom:8px;">
-            <button type="button" class="waec-btn-muted waec-btn-pdf" onclick="waecPrintSection('waec-statement-overview-print', 'Statement-Style Overview')"><i class="fa fa-print"></i> Print Statement Overview</button>
-        </div>
-        <div id="waec-statement-overview-print">
-        <h3 style="margin-top:0">Statement-Style Overview</h3>
-        <p class="waec-small">These tables mirror the PDF full statement structure. They always use the full upload so candidate totals do not collapse when subject, grade, or gender filters are active above.</p>
-        <div class="waec-grid" style="margin-top:10px;">
-            <div class="waec-card" style="margin-bottom:0;">
-                <h3 style="margin-top:0">Candidate Summary (M / F / T)</h3>
-                <p class="waec-small">Status rows can overlap. For example, one candidate can have grade rows and also have an absent or withheld subject.</p>
-                <table class="waec-table">
-                    <thead><tr><th>Metric</th><th>Male</th><th>Female</th><th>Total</th></tr></thead>
-                    <tbody>
-                    <?php
-                    if(count($statementCandidateSummaryRows) > 0){
-                        foreach($statementCandidateSummaryRows as $row){
-                            echo "<tr>";
-                            echo "<td>".waec_esc($row["label"])."</td>";
-                            echo "<td>".(int)$row["Male"]."</td>";
-                            echo "<td>".(int)$row["Female"]."</td>";
-                            echo "<td>".(int)$row["total"]."</td>";
-                            echo "</tr>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='4'>No candidate rollup available yet.</td></tr>";
-                    }
-                    ?>
-                    </tbody>
-                </table>
-            </div>
-            <div class="waec-card" style="margin-bottom:0;">
-                <h3 style="margin-top:0">Subjects Passed Per Candidate (A1-C6)</h3>
-                <p class="waec-small">This is the same 8 to 0-style view shown in the official statement. The <strong>8+</strong> bucket includes every candidate with eight or more credits.</p>
-                <table class="waec-table">
-                    <thead><tr><th>Credits Passed</th><th>Male</th><th>Female</th><th>Total</th><th>% of Candidates</th></tr></thead>
-                    <tbody>
-                    <?php
-                    if(count($statementPassBucketRows) > 0){
-                        foreach($statementPassBucketRows as $row){
-                            echo "<tr>";
-                            echo "<td>".waec_esc($row["label"])."</td>";
-                            echo "<td>".(int)$row["Male"]."</td>";
-                            echo "<td>".(int)$row["Female"]."</td>";
-                            echo "<td>".(int)$row["total"]."</td>";
-                            echo "<td>".waec_esc($row["pct"])."%</td>";
-                            echo "</tr>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='5'>No credit-bucket analysis available yet.</td></tr>";
-                    }
-                    ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        </div>
-    </div>
-
-    <div class="waec-card">
-        <div class="waec-actions" style="margin-bottom:8px;">
-            <button type="button" class="waec-btn-muted waec-btn-pdf" onclick="waecPrintSection('waec-grade-matrix-print', 'Subject Grade Counts By Gender')"><i class="fa fa-print"></i> Print Grade Matrix</button>
-        </div>
-        <div id="waec-grade-matrix-print">
-        <h3 style="margin-top:0">Subject Grade Counts By Gender</h3>
-        <p class="waec-small">Each grade cell shows <strong>Male/Female</strong> counts from graded rows only.</p>
-        <div class="waec-table-wrap">
+<?php if($currentUploadId !== ''){ ?>
+<div class="waec-quick-links"><a href="#waec-subjects"><i class="fa fa-bar-chart" aria-hidden="true"></i><span>Explore subject results<small>Find strengths and areas for attention</small></span><span aria-hidden="true">→</span></a><a href="#waec-coverage"><i class="fa fa-check-square-o" aria-hidden="true"></i><span>Check result coverage<small>Review missing and ungraded outcomes</small></span><span aria-hidden="true">→</span></a></div>        <div class="waec-card">
+            <h3 style="margin-top:0">Core &amp; Credit Indicators</h3>
+            <p class="waec-small">Uses all subjects for the selected gender and candidates with at least one graded result. Subject and grade filters do not apply here. These indicators do not determine admission: institutions require specific core subjects, relevant electives and programme aggregates.</p>
             <table class="waec-table">
-                <thead>
-                    <tr>
-                        <th>Subject</th>
+                <thead><tr><th>Metric</th><th>Count</th><th>% of Students</th></tr></thead>
+                <tbody>
+                    <?php
+                    $sTotal = (int)@$readiness["students_total"];
+                    $rMetrics = array(
+                        "English Credit (A1-C6)" => (int)@$readiness["english_credit_count"],
+                        "Core Math Credit (A1-C6)" => (int)@$readiness["math_credit_count"],
+                        "Science/Social Credit (A1-C6)" => (int)@$readiness["science_social_credit_count"],
+                        "At Least 5 Credits" => (int)@$readiness["credits5_count"],
+                        "At Least 6 Credits" => (int)@$readiness["credits6_count"],
+                        "Core credits (Eng+Math+Sci/Soc)" => (int)@$readiness["core_ready_count"]
+                    );
+                    foreach($rMetrics as $label => $countVal){
+                        $pct = $sTotal > 0 ? round(($countVal * 100) / $sTotal, 2) : 0;
+                        echo "<tr><td>".waec_esc($label)."</td><td>".$countVal."</td><td>".$pct."%</td></tr>";
+                    }
+                    ?>
+                </tbody>
+            </table></div>
+<?php } ?>
+</section>
+<section class="waec-panel" id="waec-subjects" aria-label="Subject analysis">
+<div class="waec-panel-heading"><span class="waec-section-kicker">Subject insights</span><h2>Where are students doing well?</h2><p>Explore credit rates first, then inspect grade distributions and the highest- and lowest-performing subjects.</p></div>
+<?php if($currentUploadId !== ''){ ?>
+<div class="waec-card">            <h3 style="margin-top:0">Subject Performance</h3>
+            <?php
+            echo "<div class='waec-bars'>";
+            if($subjectRows && mysqli_num_rows($subjectRows) > 0){
+                while($s = mysqli_fetch_array($subjectRows, MYSQLI_ASSOC)){
+                    $pct = (float)$s["pass_pct"];
+                    echo "<div class='waec-bar-row'>";
+                    echo "<div><strong>".waec_esc($s["subject_name"])."</strong> <span class='waec-small'>(".waec_esc($s["total"])." entries, avg ".waec_esc($s["avg_point"]).")</span>";
+                    echo "<div class='waec-track'><div class='waec-fill' style='width:".$pct."%'></div></div></div>";
+                    echo "<div style='text-align:right'>".$pct."%</div>";
+                    echo "</div>";
+                }
+            } else {
+                echo "<p>No subject data.</p>";
+            }
+            echo "</div>";
+            ?>
+        </div><div class="waec-grid waec-balanced-grid"><div class="waec-card">            <div class="waec-actions" style="margin-bottom:8px;">
+                <button type="button" class="waec-btn-muted waec-btn-pdf" onclick="waecPrintSection('waec-grade-distribution-print', 'Grade Distribution')"><i class="fa fa-print"></i> Print Grade Distribution</button>
+            </div>
+            <h3 style="margin-top:0">Grade Distribution</h3>
+            <?php if($focusSubject === ""){ ?>
+                <form method="get" action="waec-analysis.php#waec-subjects" class="waec-toolbar" style="margin-bottom:8px;">
+                    <input type="hidden" name="uploadid" value="<?php echo waec_esc($currentUploadId); ?>">
+                    <input type="hidden" name="focus_subject" value="<?php echo waec_esc($focusSubject); ?>">
+                    <input type="hidden" name="focus_grade" value="<?php echo waec_esc($focusGrade); ?>">
+                    <input type="hidden" name="focus_gender" value="<?php echo waec_esc($focusGender); ?>">
+                    <input type="hidden" name="student_query" value="<?php echo waec_esc($studentQuery); ?>">
+                    <?php if($selectedStudentKey !== ""){ ?>
+                        <input type="hidden" name="student_key" value="<?php echo waec_esc($selectedStudentKey); ?>">
+                    <?php } ?>
+                    <select name="distribution_subject" aria-label="Grade distribution subject">
+                        <option value="">All Subjects In Grade Distribution</option>
                         <?php
-                        foreach(waec_grade_scale() as $gradeCode){
-                            echo "<th>".waec_esc($gradeCode)."<br><span class='waec-small'>M/F</span></th>";
+                        foreach($subjectOptionRows as $opt){
+                            $sel = ($distributionSubject === $opt["subject_name"]) ? "selected" : "";
+                            echo "<option value='".waec_esc($opt["subject_name"])."' $sel>".waec_esc($opt["subject_name"])."</option>";
                         }
                         ?>
-                        <th>Total</th>
-                    </tr>
-                </thead>
+                    </select>
+                    <button class="waec-btn-muted waec-btn-filter" type="submit"><i class="fa fa-filter"></i> Apply</button>
+                    <a class="waec-btn-muted waec-btn-small waec-btn-reset" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&focus_subject=<?php echo urlencode($focusSubject); ?>&focus_grade=<?php echo urlencode($focusGrade); ?>&focus_gender=<?php echo urlencode($focusGender); ?>&student_query=<?php echo urlencode($studentQuery); ?><?php echo ($selectedStudentKey !== "") ? "&student_key=".urlencode($selectedStudentKey) : ""; ?>#waec-subjects">Reset Grade Distribution</a>
+                </form>
+            <?php } ?>
+            <div id="waec-grade-distribution-print">
+            <p class="waec-small">Distribution scope: <span class="waec-badge"><?php echo waec_esc($gradeDistributionLabel); ?></span></p>
+            <?php if($focusSubject !== ""){ ?>
+            <p class="waec-small">Uses the dashboard subject filter. Clear that filter to choose a different distribution subject.</p>
+            <?php } ?>
+            <table class="waec-table">
+                <thead><tr><th>Grade</th><th>Count</th><th>%</th></tr></thead>
                 <tbody>
                 <?php
-                if(count($statementGradeMatrixRows) > 0){
-                    foreach($statementGradeMatrixRows as $row){
-                        echo "<tr>";
-                        echo "<td>".waec_esc($row["subject_name"])."</td>";
-                        foreach(waec_grade_scale() as $gradeCode){
-                            $gradeKey = strtolower($gradeCode);
-                            $maleKey = "g_".$gradeKey."_male";
-                            $femaleKey = "g_".$gradeKey."_female";
-                            echo "<td>".waec_esc(waec_gender_pair_text($row[$maleKey], $row[$femaleKey]))."</td>";
-                        }
-                        echo "<td>".(int)$row["total_entries"]."</td>";
-                        echo "</tr>";
+                if($gradeRows && mysqli_num_rows($gradeRows) > 0){
+                    while($g = mysqli_fetch_array($gradeRows, MYSQLI_ASSOC)){
+                        echo "<tr><td>".waec_esc($g["grade"])."</td><td>".waec_esc($g["total"])."</td><td>".waec_esc($g["pct"])."%</td></tr>";
                     }
+                    echo "<tr class='waec-highlight-row'><td>Credit rate (A1-C6)</td><td colspan='2'>".waec_esc($gradeDistributionPassPct)."%</td></tr>";
                 } else {
-                    echo "<tr><td colspan='11'>No subject grade matrix available yet.</td></tr>";
+                    echo "<tr><td colspan='3'>No grade data.</td></tr>";
                 }
                 ?>
                 </tbody>
             </table>
-        </div>
-        </div>
-    </div>
+            </div></div><div class="waec-card">            <h3 style="margin-top:0">Subject credit-rate leaders &amp; gaps</h3>
+            <p class="waec-small">Subjects with at least 10 graded entries, within the selected gender scope. Subject and grade filters do not apply to this ranking.</p>
+            <table class="waec-table">
+                <thead><tr><th>Category</th><th>Subject</th><th>Credit %</th></tr></thead>
+                <tbody>
+                <?php
+                $topLeague = array();
+                $bottomLeague = array();
+                if($topSubjects && mysqli_num_rows($topSubjects) > 0){
+                    while($s = mysqli_fetch_array($topSubjects, MYSQLI_ASSOC)){
+                        $topLeague[] = $s;
+                        echo "<tr><td>Top</td><td>".waec_esc($s["subject_name"])."</td><td>".waec_esc($s["pass_pct"])."%</td></tr>";
+                    }
+                }
+                if($bottomSubjects && mysqli_num_rows($bottomSubjects) > 0){
+                    while($s2 = mysqli_fetch_array($bottomSubjects, MYSQLI_ASSOC)){
+                        $bottomLeague[] = $s2;
+                        echo "<tr><td>Bottom</td><td>".waec_esc($s2["subject_name"])."</td><td>".waec_esc($s2["pass_pct"])."%</td></tr>";
+                    }
+                }
+                if(!$topLeague && !$bottomLeague){
+                    echo "<tr><td colspan='3'>No subjects have at least 10 graded entries in this scope.</td></tr>";
+                }
+                ?>
+                </tbody>
+            </table>
+            <?php
+            if(count($topLeague) > 0 && count($bottomLeague) > 0){
+                $best = $topLeague[0];
+                $worst = $bottomLeague[0];
+                $spread = round(((float)$best["pass_pct"] - (float)$worst["pass_pct"]), 2);
+                echo "<div class='waec-kpi-alert' style='margin-top:10px;'>";
+                echo "Insight: Best subject is <strong>".waec_esc($best["subject_name"])."</strong> (".waec_esc($best["pass_pct"])."%) while weakest is <strong>".waec_esc($worst["subject_name"])."</strong> (".waec_esc($worst["pass_pct"])."%). Spread: <strong>".$spread."%</strong>.";
+                echo "</div>";
+            }
+            ?></div></div>
+<?php }else{ ?><div class="waec-card waec-empty-state"><i class="fa fa-file-text-o" aria-hidden="true"></i><h3>Choose a batch to begin</h3><p>Open a saved batch above, or import a results file in Uploads.</p><a href="#waec-upload" class="waec-btn-muted">Go to uploads</a></div><?php } ?>
 
+</section>
+<section class="waec-panel" id="student-result-analysis" aria-label="Student analysis">
+<div class="waec-panel-heading"><span class="waec-section-kicker">Student insights</span><h2>From the batch to the individual</h2><p>Find a candidate, review their results, or open the detailed candidate and gender breakdowns.</p></div>
+<?php if($currentUploadId !== ''){ ?>
+<div class="waec-card waec-student-search"><h3>Find a student</h3><p class="waec-small">Search by name or index number. Individual results cover the selected student’s full upload, not just the dashboard filters.</p>                <form method="get" action="waec-analysis.php#student-result-analysis" class="waec-toolbar">
+                    <input type="hidden" name="uploadid" value="<?php echo waec_esc($currentUploadId); ?>">
+                    <input type="hidden" name="focus_subject" value="<?php echo waec_esc($focusSubject); ?>">
+                    <input type="hidden" name="focus_grade" value="<?php echo waec_esc($focusGrade); ?>">
+                    <input type="hidden" name="focus_gender" value="<?php echo waec_esc($focusGender); ?>">
+                    <input type="hidden" name="distribution_subject" value="<?php echo waec_esc($distributionSubject); ?>">
+                    <input type="text" aria-label="Student name or index number" name="student_query" value="<?php echo waec_esc($studentQuery); ?>" placeholder="Type few letters of name or index number">
+                    <button class="waec-btn-muted waec-btn-search" type="submit"><i class="fa fa-search"></i> Find Student</button>
+                    <a class="waec-btn-muted waec-btn-small waec-btn-clear" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&focus_subject=<?php echo urlencode($focusSubject); ?>&focus_grade=<?php echo urlencode($focusGrade); ?>&focus_gender=<?php echo urlencode($focusGender); ?>&distribution_subject=<?php echo urlencode($distributionSubject); ?>#student-result-analysis">Clear Search</a>
+                </form></div>    <?php if($studentQuery !== "" || $selectedStudentKey !== "" || $studentKeyInput !== ""){ ?>
     <div class="waec-card">
-        <div class="waec-actions" style="margin-bottom:8px;">
-            <button type="button" class="waec-btn-muted waec-btn-pdf" onclick="waecPrintSection('waec-gender-analysis-print', 'Gender Analysis')"><i class="fa fa-print"></i> Print Gender Analysis</button>
-        </div>
-        <div id="waec-gender-analysis-print">
-        <h3 style="margin-top:0">Gender Analysis</h3>
-        <p class="waec-small">Comparison below uses only Male and Female records from the current upload plus the current subject/gender scope. The grade filter is not applied here so pass-rate comparisons remain meaningful.</p>
-        <?php
-        $malePerf = isset($genderPerformanceMap["Male"]) ? $genderPerformanceMap["Male"] : array("pass_pct" => "", "avg_point" => "", "total_results" => 0, "pass_count" => 0);
-        $femalePerf = isset($genderPerformanceMap["Female"]) ? $genderPerformanceMap["Female"] : array("pass_pct" => "", "avg_point" => "", "total_results" => 0, "pass_count" => 0);
-        $genderPassGap = ($malePerf["pass_pct"] !== "" && $femalePerf["pass_pct"] !== "")
-            ? round((float)$malePerf["pass_pct"] - (float)$femalePerf["pass_pct"], 2)
-            : "";
-        ?>
-        <div class="waec-stats">
-            <div class="waec-stat">
-                <h4>Male Candidates</h4>
-                <strong><?php echo (int)$genderCandidateCounts["Male"]; ?></strong>
-            </div>
-            <div class="waec-stat">
-                <h4>Female Candidates</h4>
-                <strong><?php echo (int)$genderCandidateCounts["Female"]; ?></strong>
-            </div>
-            <div class="waec-stat">
-                <h4>Male Pass %</h4>
-                <strong><?php echo ($malePerf["pass_pct"] !== "" ? waec_esc($malePerf["pass_pct"])."%" : "N/A"); ?></strong>
-            </div>
-            <div class="waec-stat">
-                <h4>Female Pass %</h4>
-                <strong><?php echo ($femalePerf["pass_pct"] !== "" ? waec_esc($femalePerf["pass_pct"])."%" : "N/A"); ?></strong>
-            </div>
-            <div class="waec-stat">
-                <h4>Male Avg Point</h4>
-                <strong><?php echo ($malePerf["avg_point"] !== "" ? waec_esc($malePerf["avg_point"]) : "N/A"); ?></strong>
-            </div>
-            <div class="waec-stat">
-                <h4>Female Avg Point</h4>
-                <strong><?php echo ($femalePerf["avg_point"] !== "" ? waec_esc($femalePerf["avg_point"]) : "N/A"); ?></strong>
-            </div>
-            <div class="waec-stat">
-                <h4>Pass Gap (M-F)</h4>
-                <strong><?php echo ($genderPassGap !== "" ? waec_esc($genderPassGap)."%" : "N/A"); ?></strong>
-            </div>
-        </div>
-        <div class="waec-grid" style="margin-top:10px;">
-            <div class="waec-card" style="margin-bottom:0;">
-                <h3 style="margin-top:0">Subject Pass Rate By Gender</h3>
-                <table class="waec-table">
-                    <thead><tr><th>Subject</th><th>Male %</th><th>Female %</th><th>Gap (M-F)</th></tr></thead>
-                    <tbody>
-                    <?php
-                    if(count($genderSubjectComparison) > 0){
-                        foreach($genderSubjectComparison as $row){
-                            echo "<tr>";
-                            echo "<td>".waec_esc($row["subject_name"])."</td>";
-                            echo "<td>".($row["Male_pct"] !== "" ? waec_esc($row["Male_pct"])."% <span class='waec-small'>(".$row["Male_entries"].")</span>" : "N/A")."</td>";
-                            echo "<td>".($row["Female_pct"] !== "" ? waec_esc($row["Female_pct"])."% <span class='waec-small'>(".$row["Female_entries"].")</span>" : "N/A")."</td>";
-                            echo "<td>".($row["gap"] !== "" ? waec_esc($row["gap"])."%" : "N/A")."</td>";
-                            echo "</tr>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='4'>No subject gender comparison available yet.</td></tr>";
-                    }
-                    ?>
-                    </tbody>
-                </table>
-            </div>
-            <div class="waec-card" style="margin-bottom:0;">
-                <h3 style="margin-top:0">Absent / Withheld By Gender</h3>
-                <table class="waec-table">
-                    <thead><tr><th>Gender</th><th>Absent Students</th><th>Absent Rows</th><th>Withheld Students</th><th>Withheld Rows</th></tr></thead>
-                    <tbody>
-                    <?php
-                    if(count($genderStatusBreakdown) > 0){
-                        foreach($genderStatusBreakdown as $row){
-                            echo "<tr>";
-                            echo "<td>".waec_esc($row["gender_group"])."</td>";
-                            echo "<td>".(int)$row["absent_students"]."</td>";
-                            echo "<td>".(int)$row["absent_rows"]."</td>";
-                            echo "<td>".(int)$row["withheld_students"]."</td>";
-                            echo "<td>".(int)$row["withheld_rows"]."</td>";
-                            echo "</tr>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='5'>No absent/withheld gender data available yet.</td></tr>";
-                    }
-                    ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        </div>
-    </div>
-
-    <?php if($studentQuery !== "" || $selectedStudentKey !== "" || $studentKeyInput !== ""){ ?>
-    <div class="waec-card" id="student-result-analysis">
         <h3 style="margin-top:0">Student Result Analysis</h3>
         <?php
         if(count($studentMatches) > 1 && $selectedStudentKey === ""){
@@ -3364,42 +3230,205 @@ include("menu.php");
     </div>
     <?php } ?>
 
-    <div class="waec-grid">
-        <div class="waec-card">
-            <h3 style="margin-top:0">Subject Pass League (Top 5 / Bottom 5)</h3>
+<details class="waec-detail"><summary><span>Candidate summary & credit totals<small>Full upload · candidate counts and number of credits achieved</small></span><span class="waec-detail-toggle" aria-hidden="true">+</span></summary><div class="waec-detail-body">    <div class="waec-card">
+        <div class="waec-actions" style="margin-bottom:8px;">
+            <button type="button" class="waec-btn-muted waec-btn-pdf" onclick="waecPrintSection('waec-statement-overview-print', 'Statement-Style Overview')"><i class="fa fa-print"></i> Print Statement Overview</button>
+        </div>
+        <div id="waec-statement-overview-print">
+        <h3 style="margin-top:0">Statement-Style Overview</h3>
+        <p class="waec-small">These tables mirror the PDF full statement structure. They always use the full upload so candidate totals do not collapse when subject, grade, or gender filters are active above.</p>
+        <div class="waec-grid" style="margin-top:10px;">
+            <div class="waec-card" style="margin-bottom:0;">
+                <h3 style="margin-top:0">Candidate Summary (M / F / T)</h3>
+                <p class="waec-small">Status rows can overlap. For example, one candidate can have grade rows and also have an absent or withheld subject.</p>
+                <table class="waec-table">
+                    <thead><tr><th>Metric</th><th>Male</th><th>Female</th><th>Total</th></tr></thead>
+                    <tbody>
+                    <?php
+                    if(count($statementCandidateSummaryRows) > 0){
+                        foreach($statementCandidateSummaryRows as $row){
+                            echo "<tr>";
+                            echo "<td>".waec_esc($row["label"])."</td>";
+                            echo "<td>".(int)$row["Male"]."</td>";
+                            echo "<td>".(int)$row["Female"]."</td>";
+                            echo "<td>".(int)$row["total"]."</td>";
+                            echo "</tr>";
+                        }
+                    } else {
+                        echo "<tr><td colspan='4'>No candidate rollup available yet.</td></tr>";
+                    }
+                    ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="waec-card" style="margin-bottom:0;">
+                <h3 style="margin-top:0">Subjects Passed Per Candidate (A1-C6)</h3>
+                <p class="waec-small">This is the same 8 to 0-style view shown in the official statement. The <strong>8+</strong> bucket includes every candidate with eight or more credits.</p>
+                <table class="waec-table">
+                    <thead><tr><th>Credits Passed</th><th>Male</th><th>Female</th><th>Total</th><th>% of Candidates</th></tr></thead>
+                    <tbody>
+                    <?php
+                    if(count($statementPassBucketRows) > 0){
+                        foreach($statementPassBucketRows as $row){
+                            echo "<tr>";
+                            echo "<td>".waec_esc($row["label"])."</td>";
+                            echo "<td>".(int)$row["Male"]."</td>";
+                            echo "<td>".(int)$row["Female"]."</td>";
+                            echo "<td>".(int)$row["total"]."</td>";
+                            echo "<td>".waec_esc($row["pct"])."%</td>";
+                            echo "</tr>";
+                        }
+                    } else {
+                        echo "<tr><td colspan='5'>No credit-bucket analysis available yet.</td></tr>";
+                    }
+                    ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+    </div>
+
+</div></details><details class="waec-detail"><summary><span>Gender performance<small>Subject/gender scope · grade filter excluded</small></span><span class="waec-detail-toggle" aria-hidden="true">+</span></summary><div class="waec-detail-body">    <div class="waec-card">
+        <div class="waec-actions" style="margin-bottom:8px;">
+            <button type="button" class="waec-btn-muted waec-btn-pdf" onclick="waecPrintSection('waec-gender-analysis-print', 'Gender Analysis')"><i class="fa fa-print"></i> Print Gender Analysis</button>
+        </div>
+        <div id="waec-gender-analysis-print">
+        <h3 style="margin-top:0">Gender Analysis</h3>
+        <p class="waec-small">Comparison below uses only Male and Female records from the current upload plus the current subject/gender scope. The grade filter is not applied here so pass-rate comparisons remain meaningful.</p>
+        <?php
+        $malePerf = isset($genderPerformanceMap["Male"]) ? $genderPerformanceMap["Male"] : array("pass_pct" => "", "avg_point" => "", "total_results" => 0, "pass_count" => 0);
+        $femalePerf = isset($genderPerformanceMap["Female"]) ? $genderPerformanceMap["Female"] : array("pass_pct" => "", "avg_point" => "", "total_results" => 0, "pass_count" => 0);
+        $genderPassGap = ($malePerf["pass_pct"] !== "" && $femalePerf["pass_pct"] !== "")
+            ? round((float)$malePerf["pass_pct"] - (float)$femalePerf["pass_pct"], 2)
+            : "";
+        ?>
+        <div class="waec-stats">
+            <div class="waec-stat">
+                <h4>Male Candidates</h4>
+                <strong><?php echo (int)$genderCandidateCounts["Male"]; ?></strong>
+            </div>
+            <div class="waec-stat">
+                <h4>Female Candidates</h4>
+                <strong><?php echo (int)$genderCandidateCounts["Female"]; ?></strong>
+            </div>
+            <div class="waec-stat">
+                <h4>Male credit %</h4>
+                <strong><?php echo ($malePerf["pass_pct"] !== "" ? waec_esc($malePerf["pass_pct"])."%" : "N/A"); ?></strong>
+            </div>
+            <div class="waec-stat">
+                <h4>Female credit %</h4>
+                <strong><?php echo ($femalePerf["pass_pct"] !== "" ? waec_esc($femalePerf["pass_pct"])."%" : "N/A"); ?></strong>
+            </div>
+            <div class="waec-stat">
+                <h4>Male Avg Point</h4>
+                <strong><?php echo ($malePerf["avg_point"] !== "" ? waec_esc($malePerf["avg_point"]) : "N/A"); ?></strong>
+            </div>
+            <div class="waec-stat">
+                <h4>Female Avg Point</h4>
+                <strong><?php echo ($femalePerf["avg_point"] !== "" ? waec_esc($femalePerf["avg_point"]) : "N/A"); ?></strong>
+            </div>
+            <div class="waec-stat">
+                <h4>Credit-rate gap (M–F)</h4>
+                <strong><?php echo ($genderPassGap !== "" ? waec_esc($genderPassGap)." pp" : "N/A"); ?></strong>
+            </div>
+        </div>
+        <div class="waec-grid" style="margin-top:10px;">
+            <div class="waec-card" style="margin-bottom:0;">
+                <h3 style="margin-top:0">Subject credit rates by gender</h3>
+                <table class="waec-table">
+                    <thead><tr><th>Subject</th><th>Male %</th><th>Female %</th><th>Gap (M-F)</th></tr></thead>
+                    <tbody>
+                    <?php
+                    if(count($genderSubjectComparison) > 0){
+                        foreach($genderSubjectComparison as $row){
+                            echo "<tr>";
+                            echo "<td>".waec_esc($row["subject_name"])."</td>";
+                            echo "<td>".($row["Male_pct"] !== "" ? waec_esc($row["Male_pct"])."% <span class='waec-small'>(".$row["Male_entries"].")</span>" : "N/A")."</td>";
+                            echo "<td>".($row["Female_pct"] !== "" ? waec_esc($row["Female_pct"])."% <span class='waec-small'>(".$row["Female_entries"].")</span>" : "N/A")."</td>";
+                            echo "<td>".($row["gap"] !== "" ? waec_esc($row["gap"])." pp" : "N/A")."</td>";
+                            echo "</tr>";
+                        }
+                    } else {
+                        echo "<tr><td colspan='4'>No subject gender comparison available yet.</td></tr>";
+                    }
+                    ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="waec-card" style="margin-bottom:0;">
+                <h3 style="margin-top:0">Absent / Withheld By Gender</h3>
+                <table class="waec-table">
+                    <thead><tr><th>Gender</th><th>Absent Students</th><th>Absent Rows</th><th>Withheld Students</th><th>Withheld Rows</th></tr></thead>
+                    <tbody>
+                    <?php
+                    if(count($genderStatusBreakdown) > 0){
+                        foreach($genderStatusBreakdown as $row){
+                            echo "<tr>";
+                            echo "<td>".waec_esc($row["gender_group"])."</td>";
+                            echo "<td>".(int)$row["absent_students"]."</td>";
+                            echo "<td>".(int)$row["absent_rows"]."</td>";
+                            echo "<td>".(int)$row["withheld_students"]."</td>";
+                            echo "<td>".(int)$row["withheld_rows"]."</td>";
+                            echo "</tr>";
+                        }
+                    } else {
+                        echo "<tr><td colspan='5'>No absent/withheld gender data available yet.</td></tr>";
+                    }
+                    ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+    </div>
+
+</div></details><details class="waec-detail"><summary><span>Subject grade matrix<small>Full upload · male/female counts for every grade</small></span><span class="waec-detail-toggle" aria-hidden="true">+</span></summary><div class="waec-detail-body">    <div class="waec-card">
+        <div class="waec-actions" style="margin-bottom:8px;">
+            <button type="button" class="waec-btn-muted waec-btn-pdf" onclick="waecPrintSection('waec-grade-matrix-print', 'Subject Grade Counts By Gender')"><i class="fa fa-print"></i> Print Grade Matrix</button>
+        </div>
+        <div id="waec-grade-matrix-print">
+        <h3 style="margin-top:0">Subject Grade Counts By Gender</h3>
+        <p class="waec-small">Each grade cell shows <strong>Male/Female</strong> counts from graded rows only.</p>
+        <div class="waec-table-wrap">
             <table class="waec-table">
-                <thead><tr><th>Category</th><th>Subject</th><th>Pass %</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Subject</th>
+                        <?php
+                        foreach(waec_grade_scale() as $gradeCode){
+                            echo "<th>".waec_esc($gradeCode)."<br><span class='waec-small'>M/F</span></th>";
+                        }
+                        ?>
+                        <th>Total</th>
+                    </tr>
+                </thead>
                 <tbody>
                 <?php
-                $topLeague = array();
-                $bottomLeague = array();
-                if($topSubjects && mysqli_num_rows($topSubjects) > 0){
-                    while($s = mysqli_fetch_array($topSubjects, MYSQLI_ASSOC)){
-                        $topLeague[] = $s;
-                        echo "<tr><td>Top</td><td>".waec_esc($s["subject_name"])."</td><td>".waec_esc($s["pass_pct"])."%</td></tr>";
+                if(count($statementGradeMatrixRows) > 0){
+                    foreach($statementGradeMatrixRows as $row){
+                        echo "<tr>";
+                        echo "<td>".waec_esc($row["subject_name"])."</td>";
+                        foreach(waec_grade_scale() as $gradeCode){
+                            $gradeKey = strtolower($gradeCode);
+                            $maleKey = "g_".$gradeKey."_male";
+                            $femaleKey = "g_".$gradeKey."_female";
+                            echo "<td>".waec_esc(waec_gender_pair_text($row[$maleKey], $row[$femaleKey]))."</td>";
+                        }
+                        echo "<td>".(int)$row["total_entries"]."</td>";
+                        echo "</tr>";
                     }
-                }
-                if($bottomSubjects && mysqli_num_rows($bottomSubjects) > 0){
-                    while($s2 = mysqli_fetch_array($bottomSubjects, MYSQLI_ASSOC)){
-                        $bottomLeague[] = $s2;
-                        echo "<tr><td>Bottom</td><td>".waec_esc($s2["subject_name"])."</td><td>".waec_esc($s2["pass_pct"])."%</td></tr>";
-                    }
+                } else {
+                    echo "<tr><td colspan='11'>No subject grade matrix available yet.</td></tr>";
                 }
                 ?>
                 </tbody>
             </table>
-            <?php
-            if(count($topLeague) > 0 && count($bottomLeague) > 0){
-                $best = $topLeague[0];
-                $worst = $bottomLeague[0];
-                $spread = round(((float)$best["pass_pct"] - (float)$worst["pass_pct"]), 2);
-                echo "<div class='waec-kpi-alert' style='margin-top:10px;'>";
-                echo "Insight: Best subject is <strong>".waec_esc($best["subject_name"])."</strong> (".waec_esc($best["pass_pct"])."%) while weakest is <strong>".waec_esc($worst["subject_name"])."</strong> (".waec_esc($worst["pass_pct"])."%). Spread: <strong>".$spread."%</strong>.";
-                echo "</div>";
-            }
-            ?>
-            <br>
-            <h3 style="margin-top:0">Lowest Average Grade Points</h3>
+        </div>
+        </div>
+    </div>
+
+</div></details><details class="waec-detail"><summary><span>Lowest average grade points<small>Current filters · not a best-six aggregate or admission ranking</small></span><span class="waec-detail-toggle" aria-hidden="true">+</span></summary><div class="waec-detail-body"><div class="waec-card">            <h3 style="margin-top:0">Lowest Average Grade Points</h3>
             <p class="waec-small">Based on the selected result filters. Candidates may have different subject counts; this is not a best-six aggregate or an admission ranking.</p>
             <table class="waec-table">
                 <thead><tr><th>Candidate No</th><th>Name</th><th>Avg Point</th><th>Subjects</th></tr></thead>
@@ -3416,99 +3445,13 @@ include("menu.php");
                 </tbody>
             </table>
         </div>
-        <div class="waec-card">
-            <h3 style="margin-top:0">Core &amp; Credit Indicators</h3>
-            <p class="waec-small">Uses all subjects for the selected gender and candidates with at least one graded result. Subject and grade filters do not apply here. These indicators do not determine admission: institutions require specific core subjects, relevant electives and programme aggregates.</p>
-            <table class="waec-table">
-                <thead><tr><th>Metric</th><th>Count</th><th>% of Students</th></tr></thead>
-                <tbody>
-                    <?php
-                    $sTotal = (int)@$readiness["students_total"];
-                    $rMetrics = array(
-                        "English Credit (A1-C6)" => (int)@$readiness["english_credit_count"],
-                        "Core Math Credit (A1-C6)" => (int)@$readiness["math_credit_count"],
-                        "Science/Social Credit (A1-C6)" => (int)@$readiness["science_social_credit_count"],
-                        "At Least 5 Credits" => (int)@$readiness["credits5_count"],
-                        "At Least 6 Credits" => (int)@$readiness["credits6_count"],
-                        "Core credits (Eng+Math+Sci/Soc)" => (int)@$readiness["core_ready_count"]
-                    );
-                    foreach($rMetrics as $label => $countVal){
-                        $pct = $sTotal > 0 ? round(($countVal * 100) / $sTotal, 2) : 0;
-                        echo "<tr><td>".waec_esc($label)."</td><td>".$countVal."</td><td>".$pct."%</td></tr>";
-                    }
-                    ?>
-                </tbody>
-            </table>
-            <br>
-            <div class="waec-actions" style="margin-bottom:8px;">
-                <button type="button" class="waec-btn-muted waec-btn-pdf" onclick="waecPrintSection('waec-grade-distribution-print', 'Grade Distribution')"><i class="fa fa-print"></i> Print Grade Distribution</button>
-            </div>
-            <h3 style="margin-top:0">Grade Distribution</h3>
-            <?php if($focusSubject === ""){ ?>
-                <form method="get" action="waec-analysis.php" class="waec-toolbar" style="margin-bottom:8px;">
-                    <input type="hidden" name="uploadid" value="<?php echo waec_esc($currentUploadId); ?>">
-                    <input type="hidden" name="focus_subject" value="<?php echo waec_esc($focusSubject); ?>">
-                    <input type="hidden" name="focus_grade" value="<?php echo waec_esc($focusGrade); ?>">
-                    <input type="hidden" name="focus_gender" value="<?php echo waec_esc($focusGender); ?>">
-                    <input type="hidden" name="student_query" value="<?php echo waec_esc($studentQuery); ?>">
-                    <?php if($selectedStudentKey !== ""){ ?>
-                        <input type="hidden" name="student_key" value="<?php echo waec_esc($selectedStudentKey); ?>">
-                    <?php } ?>
-                    <select name="distribution_subject">
-                        <option value="">All Subjects In Grade Distribution</option>
-                        <?php
-                        foreach($subjectOptionRows as $opt){
-                            $sel = ($distributionSubject === $opt["subject_name"]) ? "selected" : "";
-                            echo "<option value='".waec_esc($opt["subject_name"])."' $sel>".waec_esc($opt["subject_name"])."</option>";
-                        }
-                        ?>
-                    </select>
-                    <button class="waec-btn-muted waec-btn-filter" type="submit"><i class="fa fa-filter"></i> Apply</button>
-                    <a class="waec-btn-muted waec-btn-small waec-btn-reset" href="waec-analysis.php?uploadid=<?php echo urlencode($currentUploadId); ?>&focus_subject=<?php echo urlencode($focusSubject); ?>&focus_grade=<?php echo urlencode($focusGrade); ?>&focus_gender=<?php echo urlencode($focusGender); ?>&student_query=<?php echo urlencode($studentQuery); ?><?php echo ($selectedStudentKey !== "") ? "&student_key=".urlencode($selectedStudentKey) : ""; ?>">Reset Grade Distribution</a>
-                </form>
-            <?php } ?>
-            <div id="waec-grade-distribution-print">
-            <p class="waec-small">Distribution scope: <span class="waec-badge"><?php echo waec_esc($gradeDistributionLabel); ?></span></p>
-            <?php if($focusSubject !== ""){ ?>
-            <p class="waec-small">Uses the dashboard subject filter. Clear that filter to choose a different distribution subject.</p>
-            <?php } ?>
-            <table class="waec-table">
-                <thead><tr><th>Grade</th><th>Count</th><th>%</th></tr></thead>
-                <tbody>
-                <?php
-                if($gradeRows && mysqli_num_rows($gradeRows) > 0){
-                    while($g = mysqli_fetch_array($gradeRows, MYSQLI_ASSOC)){
-                        echo "<tr><td>".waec_esc($g["grade"])."</td><td>".waec_esc($g["total"])."</td><td>".waec_esc($g["pct"])."%</td></tr>";
-                    }
-                    echo "<tr class='waec-highlight-row'><td>Pass Rate (A1-C6)</td><td colspan='2'>".waec_esc($gradeDistributionPassPct)."%</td></tr>";
-                } else {
-                    echo "<tr><td colspan='3'>No grade data.</td></tr>";
-                }
-                ?>
-                </tbody>
-            </table>
-            </div>
-            <br>
-            <h3 style="margin-top:0" id="waec-subjects">Subject Performance</h3>
-            <?php
-            echo "<div class='waec-bars'>";
-            if($subjectRows && mysqli_num_rows($subjectRows) > 0){
-                while($s = mysqli_fetch_array($subjectRows, MYSQLI_ASSOC)){
-                    $pct = (float)$s["pass_pct"];
-                    echo "<div class='waec-bar-row'>";
-                    echo "<div><strong>".waec_esc($s["subject_name"])."</strong> <span class='waec-small'>(".waec_esc($s["total"])." entries, avg ".waec_esc($s["avg_point"]).")</span>";
-                    echo "<div class='waec-track'><div class='waec-fill' style='width:".$pct."%'></div></div></div>";
-                    echo "<div style='text-align:right'>".$pct."%</div>";
-                    echo "</div>";
-                }
-            } else {
-                echo "<p>No subject data.</p>";
-            }
-            echo "</div>";
-            ?>
-        </div>
-    </div>
+</div></details>
+<?php }else{ ?><div class="waec-card waec-empty-state"><i class="fa fa-file-text-o" aria-hidden="true"></i><h3>Choose a batch to begin</h3><p>Open a saved batch above, or import a results file in Uploads.</p><a href="#waec-upload" class="waec-btn-muted">Go to uploads</a></div><?php } ?>
 
+</section>
+<section class="waec-panel" id="waec-coverage" aria-label="Coverage audit">
+<div class="waec-panel-heading"><span class="waec-section-kicker">Data quality</span><h2>Account for every outcome</h2><p>Keep grades, absence, withheld results and source markers separate. Use the full-upload audit to investigate gaps.</p></div>
+<?php if($currentUploadId !== ''){ ?>
     <div class="waec-card">
         <h3 style="margin-top:0">Subject Coverage Audit (All Students)</h3>
         <div class="waec-actions" style="margin-bottom:8px;">
@@ -3542,11 +3485,96 @@ include("menu.php");
         </div>
     </div>
 
-    <?php } ?>
-    <div class="waec-card waec-footer-note">
-        <p class="waec-small"><strong>Note:</strong> PDF, Excel, and CSV uploads are supported. If a PDF cannot be parsed on the server, it will still be stored and shown in recent uploads.</p>
+                <?php if(count($absentStudentBreakdownRows) > 0){ ?>
+                <div class="waec-card" style="margin-top:10px;padding:10px;">
+                    <h3 style="margin-top:0">Absent Students Breakdown (X)</h3>
+                    <table class="waec-table">
+                        <thead><tr><th>Candidate No</th><th>Student Name</th><th>Absent Subjects Count</th><th>Subjects</th></tr></thead>
+                        <tbody>
+                        <?php
+                        foreach($absentStudentBreakdownRows as $ab){
+                            echo "<tr>";
+                            echo "<td>".waec_esc($ab["candidate_no"])."</td>";
+                            echo "<td>".waec_esc($ab["student_name"])."</td>";
+                            echo "<td>".(int)$ab["absent_subject_count"]."</td>";
+                            echo "<td>".waec_esc($ab["absent_subjects"])."</td>";
+                            echo "</tr>";
+                        }
+                        ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php } ?>
+<?php }else{ ?><div class="waec-card waec-empty-state"><i class="fa fa-file-text-o" aria-hidden="true"></i><h3>Choose a batch to begin</h3><p>Open a saved batch above, or import a results file in Uploads.</p><a href="#waec-upload" class="waec-btn-muted">Go to uploads</a></div><?php } ?>
+
+</section>
+<section class="waec-panel" id="waec-upload" aria-label="Upload management">
+<div class="waec-panel-heading"><span class="waec-section-kicker">Results library</span><h2>Bring your results into focus</h2><p>Import a new batch or open one of your recent uploads. Existing grades are not changed when you switch views.</p></div>
+    <div class="waec-card">
+        <h2 class="waec-title">Import a results file</h2>
+        <p class="waec-note">Upload Excel, CSV or a text-based PDF results listing.</p>
+        <form method="post" enctype="multipart/form-data" action="waec-analysis.php">
+            <div class="waec-batch-fields">
+                <label>Examination year<input type="number" name="exam_year" min="1950" max="2100" placeholder="e.g. 2025" value="<?php echo waec_esc(isset($_POST['exam_year']) && is_scalar($_POST['exam_year']) ? $_POST['exam_year'] : ''); ?>" required></label>
+                <label>Examination sitting<input type="text" name="exam_sitting" maxlength="80" placeholder="e.g. School candidates" value="<?php echo waec_esc(isset($_POST['exam_sitting']) && is_scalar($_POST['exam_sitting']) ? $_POST['exam_sitting'] : ''); ?>" required></label>
+                <label>Batch label<input type="text" name="batch_label" maxlength="120" placeholder="e.g. 2025 graduating class" value="<?php echo waec_esc(isset($_POST['batch_label']) && is_scalar($_POST['batch_label']) ? $_POST['batch_label'] : ''); ?>" required></label>
+            </div>
+            <p class="waec-small">Use the examination year, not the upload date. You can label older uploads on the <a href="waec-comparison.php#batch-library">Compare batches</a> page.</p>
+            <label for="waec-results-file" class="waec-small">Results file (Excel, CSV or PDF)</label>
+            <input type="file" id="waec-results-file" name="waec_file" accept=".xlsx,.csv,.pdf" required />
+            <button type="submit" name="upload_waec" class="waec-btn"><i class="fa fa-upload"></i> Upload & Analyze</button>
+            <span class="waec-small">Recommended: Excel/CSV with WAEC grades A1-F9 and a Gender/Sex column.</span>
+        </form>
+        <details class="waec-method">
+            <summary>File format and how to read the figures</summary>
+            <p>For a simple CSV, use Candidate No, Student Name, Gender, Subject and Grade columns (one subject per row), or put each subject in its own column. Keep index numbers as text to retain leading zeros. Supported outcomes: A1-F9, X (absent), W (withheld) and source markers * / P. Blank cells are not failures.</p>
+            <p>Credit rates on this page use graded results only. They may differ from published statistics that use all candidates who sat. Full CSV and PDF reports cover the whole upload; the filtered PDF follows the overview filters. Core-credit indicators are not admission decisions.</p>
+            <p>References: <a href="https://waecgh.org/wp-content/uploads/2024/12/Release-of-Provisional-Results.pdf">WAEC's subject-performance reporting</a> and <a href="https://admissions.ug.edu.gh/undergraduate/entry-requirements">University of Ghana entry requirements</a>.</p>
+        </details>
     </div>
-</div>
+
+        <div class="waec-card waec-recent-card">
+            <h3 style="margin-top:0">Recent Uploads</h3>
+            <table class="waec-table">
+                <thead>
+                    <tr>
+                        <th>Upload</th>
+                        <th>Type</th>
+                        <th>Rows</th>
+                        <th class="waec-action-col">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php
+                if($uploads && mysqli_num_rows($uploads) > 0){
+                    while($u = mysqli_fetch_array($uploads, MYSQLI_ASSOC)){
+                        echo "<tr>";
+                        echo "<td>".waec_esc($u["originalname"])."<br><span class='waec-small'>".waec_esc(wac_ready($u) ? wac_title($u) : 'Batch details not yet set')."<br>".waec_esc($u["datetimeentry"])."</span></td>";
+                        echo "<td>".waec_esc(strtoupper($u["fileext"]))."</td>";
+                        echo "<td>".waec_esc($u["totalrows"])."</td>";
+                        echo "<td class='waec-action-col'><div class='waec-action-wrap'>";
+                        echo "<a class='waec-btn-muted waec-action-btn' href='waec-analysis.php?uploadid=".urlencode($u["uploadid"])."'>View</a>";
+                        echo "<form method='post' action='waec-analysis.php' onsubmit=\"return confirm('Delete this upload and all analyzed WAEC rows?');\">";
+                        echo "<input type='hidden' name='delete_uploadid' value='".waec_esc($u["uploadid"])."'>";
+                        echo "<button type='submit' name='delete_upload' class='waec-btn-muted waec-action-btn' style='border-color:#ef4444;color:#b91c1c;'><i class='fa fa-trash'></i>&nbsp;Delete</button>";
+                        echo "</form>";
+                        echo "</div></td>";
+                        echo "</tr>";
+                    }
+                } else {
+                    echo "<tr><td colspan='4'>No WAEC upload yet.</td></tr>";
+                }
+                ?>
+                </tbody>
+            </table>
+        </div>
+
+
+</section>
+        </div>
+    </div>
+</main>
+<script src="js/waec-analysis-workspace.js?v=20261011"></script>
 <script>
 function waecPrintSection(elementId, title){
     var el = document.getElementById(elementId);

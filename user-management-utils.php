@@ -536,7 +536,7 @@ function um_module_catalog(){
             'label' => 'Reports',
             'group' => 'Examinations',
             'description' => 'Result reports, terminal reports, and exam analysis.',
-            'scripts' => array('scores-report.php','scores-report-all.php','terminal-report.php','individual-terminal-report.php','student-terminal-data.php','upload-student-remark-data.php','report-approval-board.php','waec-analysis.php','internal-exam-analysis.php','examanalysis-subject.php','examanalysis-rank.php')
+            'scripts' => array('scores-report.php','scores-report-all.php','terminal-report.php','individual-terminal-report.php','student-terminal-data.php','upload-student-remark-data.php','report-approval-board.php','waec-analysis.php','waec-comparison.php','waec-achievement-students.php','internal-exam-analysis.php','examanalysis-subject.php','examanalysis-rank.php')
         ),
         'teacher_terminal_reports' => array(
             'label' => 'Teacher Terminal Reports',
@@ -986,6 +986,8 @@ function um_baseline_scripts_for_role($roleKey){
             'terminal-report.php',
             'internal-exam-analysis.php',
             'waec-analysis.php',
+            'waec-comparison.php',
+            'waec-achievement-students.php',
             'lesson-timetable-report.php',
             'examinationtimetablereport.php',
             'daily-report.php',

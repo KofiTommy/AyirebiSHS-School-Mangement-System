@@ -5,6 +5,7 @@ if(PHP_SAPI !== 'cli'){
 }
 // Run with PHP CLI. Load only pure helpers; no session, connection or upload writes.
 require_once __DIR__.'/../waec-listing-utils.php';
+require_once __DIR__.'/../waec-subject-utils.php';
 $source = file_get_contents(__DIR__.'/../waec-analysis.php');
 $tokens = token_get_all($source);
 $wanted = array('waec_key','waec_grade','waec_grade_or_withheld','waec_normalize_gender',
@@ -12,7 +13,11 @@ $wanted = array('waec_key','waec_grade','waec_grade_or_withheld','waec_normalize
     'waec_name_col','waec_gender_col','waec_subject_col','waec_grade_col',
     'waec_build_header_map','waec_extract_rows','waec_deduplicate_records','waec_csv_cell',
     'waec_build_filter_where','waec_filtered_student_count','waec_is_index_number',
-    'waec_extract_listing_rows_from_rows','waec_extract_listing_rows_from_xlsx','waec_read_csv_rows');
+    'waec_extract_listing_rows_from_rows','waec_extract_listing_rows_from_xlsx','waec_read_csv_rows',
+    'waec_extract_gender_hint','waec_command_exists','waec_extract_text_from_pdf',
+    'waec_is_result_fragment_line','waec_is_noise_line','waec_clean_name_fragment','waec_is_name_fragment',
+    'waec_resolve_subject_name','waec_pdf_subject_alias_map','waec_extract_listing_rows_from_text',
+    'waec_extract_listing_rows_from_pdf','waec_parse_subject_grades_from_text');
 for($i=0; $i<count($tokens); $i++){
     if(!is_array($tokens[$i]) || $tokens[$i][0] !== T_FUNCTION) continue;
     $nameIndex = $i + 1;
@@ -70,6 +75,40 @@ $duplicate = $long['rows'][0]; $duplicate['subject_name'] = 'English'; $duplicat
 $dedup = waec_deduplicate_records($duplicates, $long['withheld_rows']);
 expect_same(2, count($dedup['rows']), 'Subject aliases do not double count');
 expect_same(2, count($dedup['withheld_rows']), 'Separate candidates retain status');
+$wrapped = array(
+    array('INDEX NUMBER','NAME','GENDER','DOB','RESULTS'),
+    array('','','','','SOCIAL STUDIES - A1 ,'),
+    array('','Example','','','ENGLISH LANG - B2 ,'),
+    array('20703001','','','','MATHEMATICS(CORE) - * ,'),
+    array('','One','Female','','INTEGRATED SCIENCE - B3'),
+    array('','','','','SOCIAL STUDIES - F9 ,'),
+    array('20703002','Example Two','Male','','ENGLISH LANG - X ,'),
+    array('','','','','MATHEMATICS(CORE) - D7 ,'),
+    array('https://example.test/page','','','',''),
+    array('INDEX NUMBER','NAME','GENDER','DOB','RESULTS'),
+    array('','','','','INTEGRATED SCIENCE - C6 , INFO. & COMM.'),
+    array('','','','','TECHNOLOGY - P'),
+    array('SUMMARY OF SUBJECT PASSES','','','',''),
+    array('8 PASSES:','','','','2')
+);
+$parsed = waec_listing_blocks($wrapped);
+expect_same('', $parsed['error'], 'Wrapped blocks and page headers');
+expect_same(6, count($parsed['rows']), 'All numeric grades preserved');
+expect_same(3, count($parsed['withheld_rows']), 'X, star and P retained');
+expect_same('20703001', $parsed['rows'][0]['candidate_no'], 'Grades above index belong to next candidate');
+expect_same('A1', $parsed['rows'][0]['grade'], 'First candidate grade unchanged');
+expect_same('F9', $parsed['rows'][3]['grade'], 'Second candidate does not steal first grade');
+expect_same('Example One', $parsed['rows'][0]['student_name'], 'Wrapped names preserved');
+expect_same('*', waec_grade_or_withheld('*'), 'Structured star supported');
+expect_same('P', waec_grade_or_withheld('P'), 'Structured P supported');
+$conflict = $long['rows'][0]; $conflict['grade']='F9';
+expect_same(true, !empty(waec_deduplicate_records(array($long['rows'][0],$conflict),array())['error']), 'Conflicting duplicates rejected');
+$ambiguous=$wrapped; $ambiguous[2][0]='20703099';
+expect_same(true, waec_listing_blocks($ambiguous)['error'] !== '', 'Ambiguous ownership rejected');
+$invalid=$wrapped; $invalid[0][4]='ENGLISH LANG - A1'; $invalid[0][0]=''; $invalid[0][1]='';
+expect_same(true, waec_listing_blocks($invalid)['error'] !== '', 'Leading unassigned grade rejected');
+expect_same(0, waec_coverage_totals(349,343,3,0,3,true)['missing'], 'Source markers are outcomes');
+expect_same(3, waec_coverage_totals(349,343,3,0,0,true)['missing'], 'Genuine missing rows remain visible');
 if(in_array('--database', $argv, true)){
     require __DIR__.'/../dbstring.php';
     // Connection-local tables shadow production names, and disappear on disconnect.

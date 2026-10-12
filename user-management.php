@@ -781,7 +781,7 @@ $modulePickerGroups = um_module_groups_for_role($formData["role_key"]);
 include("title.php");
 include("links.php");
 ?>
-<link rel="stylesheet" type="text/css" href="css/user-management.css">
+<link rel="stylesheet" type="text/css" href="css/user-management.css?v=20261010">
 </head>
 <body class="um-page">
 <div class="header">
@@ -797,41 +797,46 @@ include("links.php");
         <main class="um-main">
             <section class="um-hero">
                 <div class="um-hero__copy">
-                    <span class="um-kicker">Administration</span>
+                    <span class="um-kicker"><i class="fa fa-shield" aria-hidden="true"></i> Administration / People &amp; access</span>
                     <h1>User Management</h1>
-                    <p>Create internal accounts, reset passwords, restrict access, and keep account support in one place.</p>
+                    <p>The right people. The right access.<br>Create accounts and manage your school team in one place.</p>
                 </div>
                 <div class="um-hero__meta">
-                    <span class="um-pill"><?php echo $isSuperAdmin ? "System Administrator" : "Branch Administrator"; ?></span>
-                    <span class="um-pill"><?php echo umh(isset($branchLabels[$currentBranchId]) ? $branchLabels[$currentBranchId] : "Current Branch"); ?></span>
+                    <span class="um-pill"><i class="fa fa-user-circle-o" aria-hidden="true"></i> <?php echo $isSuperAdmin ? "System Administrator" : "Branch Administrator"; ?></span>
+                    <span class="um-pill"><i class="fa fa-building-o" aria-hidden="true"></i> <?php echo umh(isset($branchLabels[$currentBranchId]) ? $branchLabels[$currentBranchId] : "Current Branch"); ?></span>
                 </div>
             </section>
 
             <nav class="um-jump-links" aria-label="User Management Sections">
-                <a class="um-jump-link" href="#account-form"><i class="fa fa-user-plus"></i> Account Form</a>
-                <a class="um-jump-link" href="#user-directory"><i class="fa fa-users"></i> Account Directory</a>
+                <a class="um-jump-link" href="#account-form"><i class="fa fa-user-plus" aria-hidden="true"></i><span><?php echo $formMode === "update" ? "Continue editing" : "Create an account"; ?><small>Profile, role and permissions</small></span><i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+                <a class="um-jump-link" href="#user-directory" data-directory-shortcut><i class="fa fa-users" aria-hidden="true"></i><span>Browse accounts<small>Search, filter and manage your team</small></span><i class="fa fa-arrow-right" aria-hidden="true"></i></a>
             </nav>
 
             <?php echo $flashMessage; ?>
 
             <section class="um-stats">
                 <article class="um-stat">
+                    <i class="fa fa-users um-stat__icon" aria-hidden="true"></i>
                     <span class="um-stat__label">Visible Accounts</span>
                     <strong><?php echo number_format($totalUsers); ?></strong>
                 </article>
                 <article class="um-stat">
+                    <i class="fa fa-check-circle um-stat__icon" aria-hidden="true"></i>
                     <span class="um-stat__label">Active</span>
                     <strong><?php echo number_format($activeUsers); ?></strong>
                 </article>
                 <article class="um-stat">
+                    <i class="fa fa-lock um-stat__icon" aria-hidden="true"></i>
                     <span class="um-stat__label">Blocked</span>
                     <strong><?php echo number_format($blockedUsers); ?></strong>
                 </article>
                 <article class="um-stat">
+                    <i class="fa fa-key um-stat__icon" aria-hidden="true"></i>
                     <span class="um-stat__label">Password Reset Required</span>
                     <strong><?php echo number_format($resetRequiredUsers); ?></strong>
                 </article>
                 <article class="um-stat">
+                    <i class="fa fa-shield um-stat__icon" aria-hidden="true"></i>
                     <span class="um-stat__label">Administrators</span>
                     <strong><?php echo number_format($adminUsers); ?></strong>
                 </article>
@@ -857,6 +862,8 @@ include("links.php");
 
                 <form method="post" action="<?php echo umh(um_url(array("edit_user" => $formMode === "update" ? $formData["userid"] : null), "#account-form")); ?>" class="um-form-grid">
                     <input type="hidden" name="form_mode" value="<?php echo umh($formMode); ?>">
+
+                    <div class="um-form-divider"><span>01</span><div><h3>Account setup</h3><p>Choose the role, branch and account status.</p></div></div>
 
                     <label class="um-field">
                         <span>User ID</span>
@@ -913,6 +920,8 @@ include("links.php");
                         <?php } ?>
                         <?php } ?>
                     </label>
+
+                    <div class="um-form-divider"><span>02</span><div><h3>Personal details</h3><p>Profile information and sign-in details.</p></div></div>
 
                     <label class="um-field">
                         <span>First Name</span>
@@ -972,10 +981,11 @@ include("links.php");
                     </label>
                     <?php } ?>
 
+                    <div class="um-form-divider"><span>03</span><div><h3>Access &amp; permissions</h3><p>Choose which parts of the school portal this person can use.</p></div></div>
+
                     <div class="um-field um-field--wide">
-                        <span>Module Access</span>
                         <details class="um-module-picker" open>
-                            <summary>Choose the modules this account can open</summary>
+                            <summary><i class="fa fa-shield" aria-hidden="true"></i> Module access <span class="um-module-count" data-module-count></span></summary>
                             <div class="um-module-picker__body">
                                 <p class="um-module-picker__note">Leave a module unchecked if you want to hide and block that area for this user. Core pages like home, profile, and password change stay available.</p>
                                 <?php foreach($modulePickerGroups as $groupLabel => $groupModules){ ?>
@@ -1031,8 +1041,8 @@ include("links.php");
                 <?php if(!$directoryRequested){ ?>
                 <div class="um-directory-placeholder" data-directory-placeholder>
                     <div>
-                        <strong>Manage accounts stays tucked away until you need it.</strong>
-                        <p>Open this section to load search, filters, and the account cards. That keeps the page lighter, especially on phones.</p>
+                        <strong>Your team, in one place.</strong>
+                        <p>Open the directory to find an account, update access or help someone sign in.</p>
                     </div>
                     <span class="um-pill"><?php echo number_format($totalUsers); ?> Accounts Ready</span>
                 </div>
@@ -1041,6 +1051,7 @@ include("links.php");
                 <div
                     class="um-directory-shell<?php echo $directoryRequested ? " is-open is-loaded" : ""; ?>"
                     data-directory-shell
+                    id="account-directory-content"
                     <?php echo $directoryRequested ? "" : "hidden"; ?>
                 >
                     <?php if($directoryRequested){ echo $directoryBodyHtml; } ?>
@@ -1051,12 +1062,24 @@ include("links.php");
 </div>
 <script>
 (function(){
+    var modulePicker = document.querySelector('.um-module-picker');
+    var moduleCount = document.querySelector('[data-module-count]');
+    function updateModuleCount(){
+        if(modulePicker && moduleCount){
+            moduleCount.textContent = modulePicker.querySelectorAll('input[type="checkbox"]:checked').length + ' selected';
+        }
+    }
+    if(modulePicker){ modulePicker.addEventListener('change', updateModuleCount); }
+    updateModuleCount();
+
     var toggle = document.querySelector('[data-directory-toggle]');
     var shell = document.querySelector('[data-directory-shell]');
     var placeholder = document.querySelector('[data-directory-placeholder]');
     if(!toggle || !shell){
         return;
     }
+    toggle.setAttribute('aria-controls', 'account-directory-content');
+    var directoryLoading = false;
 
     function setOpenState(isOpen){
         toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
@@ -1080,20 +1103,40 @@ include("links.php");
         }
         shell.hidden = false;
         shell.classList.add('is-open');
-        shell.innerHTML = '<div class="um-directory-loading"><i class="fa fa-refresh fa-spin"></i> Loading accounts...</div>';
+        shell.innerHTML = '<div class="um-directory-loading" role="status"><i class="fa fa-refresh fa-spin" aria-hidden="true"></i> Loading accounts...</div>';
         try{
             var response = await fetch(toggle.getAttribute('data-open-url'), { credentials: 'same-origin' });
-            if(!response.ok){
+            if(!response.ok || response.redirected){
                 throw new Error('load failed');
             }
             var html = await response.text();
+            var fragment = document.createElement('template');
+            fragment.innerHTML = html;
+            if(!fragment.content.querySelector('.um-filter-bar')){
+                throw new Error('Unexpected response');
+            }
             shell.innerHTML = html;
             shell.classList.add('is-loaded');
             if(placeholder){ placeholder.hidden = true; }
             return true;
         }catch(error){
-            shell.innerHTML = '<div class="um-empty"><h3>Accounts could not load right now.</h3><p>Please try opening the section again.</p></div>';
+            shell.innerHTML = '<div class="um-empty" role="alert"><h3>Accounts could not load right now.</h3><p>Please try again. If your session has expired, refresh the page and sign in.</p></div>';
             return false;
+        }
+    }
+
+    async function openDirectory(){
+        if(directoryLoading){ return; }
+        directoryLoading = true;
+        toggle.disabled = true;
+        shell.setAttribute('aria-busy', 'true');
+        try{
+            var loaded = await loadDirectory();
+            if(loaded){ setOpenState(true); }
+        }finally{
+            directoryLoading = false;
+            toggle.disabled = false;
+            shell.setAttribute('aria-busy', 'false');
         }
     }
 
@@ -1103,11 +1146,17 @@ include("links.php");
             setOpenState(false);
             return;
         }
-        var loaded = await loadDirectory();
-        if(loaded){
-            setOpenState(true);
-        }
+        await openDirectory();
     });
+
+    var shortcut = document.querySelector('[data-directory-shortcut]');
+    if(shortcut){
+        shortcut.addEventListener('click', async function(){
+            await openDirectory();
+            var search = shell.querySelector('input[name="q"]');
+            if(search){ search.focus({preventScroll:true}); }
+        });
+    }
 })();
 </script>
 </body>
