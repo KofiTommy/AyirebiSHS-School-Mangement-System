@@ -55,6 +55,13 @@ try {
     }
     foreach($viewport in @(@{name='desktop'; width=1440; height=1000}, @{name='phone'; width=390; height=844})) {
         $null = Invoke-Cdp 'Emulation.setDeviceMetricsOverride' @{width=$viewport.width; height=$viewport.height; deviceScaleFactor=1; mobile=$false}
+        $null = Invoke-Cdp 'Runtime.evaluate' @{expression='scrollTo(0,0)'}
+        $compareButton = Invoke-Cdp 'Runtime.evaluate' @{expression='(()=>{const a=document.querySelector(".waec-compare-link"); if(!a)return null; const r=a.getBoundingClientRect(); return {href:a.getAttribute("href"),fits:r.left>=0&&r.right<=innerWidth&&a.scrollWidth<=a.clientWidth+1,touch:r.height>=44,copy:!!a.querySelector(".waec-compare-copy strong"),color:getComputedStyle(a).color};})()'; returnByValue=$true}
+        if ($null -ne $compareButton.result.value) {
+            $button = $compareButton.result.value
+            if ($button.href -ne 'waec-comparison.php' -or !$button.fits -or !$button.touch -or !$button.copy -or $button.color -ne 'rgb(22, 78, 80)') { throw 'Compare batches link layout, destination or contrast check failed.' }
+            Write-Output "$($viewport.name): Compare batches button fits, retains its destination and has readable text styling."
+        }
         $size = Invoke-Cdp 'Runtime.evaluate' @{expression='JSON.stringify({viewport:innerWidth,document:document.documentElement.scrollWidth})'; returnByValue=$true}
         $dimensions = $size.result.value | ConvertFrom-Json
         if ($dimensions.document -gt ($dimensions.viewport+1)) { throw "Horizontal page overflow at $($viewport.name): $($size.result.value)" }

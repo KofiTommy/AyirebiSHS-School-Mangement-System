@@ -2849,7 +2849,7 @@ include("links.php");
     .waec-card h3 { margin-bottom: 8px; }
 }
 </style>
-<link rel="stylesheet" href="css/waec-analysis.css?v=20261011-layout2">
+<link rel="stylesheet" href="css/waec-analysis.css?v=20261012-compare-button">
 </head>
 <body class="waec-page">
 <div class="header">
@@ -2870,15 +2870,14 @@ if($uploads){
 ?>
 <main class="waec-wrap">
     <header class="waec-hero">
-        <div><span class="waec-eyebrow">Academic intelligence / WAEC</span>
-        <h1>Your results, clearly understood.</h1>
-        <p>Start with the big picture. Explore subjects, support students and check every outcome.</p></div>
-        <a class="waec-compare-link" href="waec-comparison.php"><i class="fa fa-bar-chart" aria-hidden="true"></i><span>Compare batches<small>See progress across examination years</small></span><i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+        <div><span class="waec-eyebrow">Examinations / WAEC</span>
+        <h1>WAEC Results Analysis</h1></div>
+        <a class="waec-compare-link" href="waec-comparison.php"><i class="fa fa-bar-chart" aria-hidden="true"></i><span class="waec-compare-copy"><strong>Compare batches</strong><small>Compare results across exam years</small></span><i class="fa fa-arrow-right" aria-hidden="true"></i></a>
     </header>
     <?php if($message !== ''){ ?><div class="waec-feedback" role="status"><?php echo $message; ?></div><?php } ?>
     <section class="waec-context" aria-label="Selected results batch">
         <form method="get" action="waec-analysis.php#waec-overview" class="waec-batch-switch">
-            <label for="waec-current-batch">Results workspace <small>Choose the upload you want to analyse</small></label>
+            <label for="waec-current-batch">Results batch <small>Select an uploaded results file</small></label>
             <select id="waec-current-batch" name="uploadid" required>
                 <option value="">Select a saved results batch</option>
                 <?php if($currentUploadId !== '' && !$workspaceSelected){ ?><option value="<?php echo waec_esc($currentUploadId); ?>" selected><?php echo waec_esc($currentUploadId); ?></option><?php } ?>
@@ -2891,7 +2890,7 @@ if($uploads){
         <?php if($workspaceSelected){ ?><p class="waec-context-note"><i class="fa fa-file-text-o" aria-hidden="true"></i> <?php echo waec_esc($workspaceSelected['originalname']); ?> <span>Uploaded <?php echo waec_esc($workspaceSelected['datetimeentry']); ?></span></p><?php } ?>
     </section>
     <div class="waec-workspace" data-waec-workspace data-default-section="<?php echo $currentUploadId !== '' ? 'waec-overview' : 'waec-upload'; ?>">
-        <nav class="waec-workspace-nav" aria-label="WAEC workspace sections">
+        <nav class="waec-workspace-nav" aria-label="WAEC report sections">
             <span class="waec-nav-label">Explore results</span>
             <a href="#waec-overview" data-waec-nav><i class="fa fa-th-large" aria-hidden="true"></i><span>Overview<small>Key figures &amp; indicators</small></span></a>
             <a href="#waec-subjects" data-waec-nav><i class="fa fa-bar-chart" aria-hidden="true"></i><span>Subjects<small>Grades &amp; performance</small></span></a>
@@ -2957,7 +2956,7 @@ if($uploads){
         <?php } ?>
 <section class="waec-panel" id="waec-overview" aria-label="Performance overview">
         <div class="waec-card waec-analysis-card">
-            <div class="waec-section-heading"><div><span class="waec-section-kicker">The big picture</span><h2>Performance overview</h2></div><span class="waec-scope-badge">Current filters</span></div>
+            <div class="waec-section-heading"><div><span class="waec-section-kicker">Summary</span><h2>Performance overview</h2></div><span class="waec-scope-badge">Current filters</span></div>
             <?php if($currentUploadId === ""){ ?>
                 <p>Choose a saved batch above, or open Uploads to import your first results file.</p>
             <?php } else { ?>
@@ -3051,7 +3050,7 @@ if($uploads){
 <?php } ?>
 </section>
 <section class="waec-panel" id="waec-subjects" aria-label="Subject analysis">
-<div class="waec-panel-heading"><span class="waec-section-kicker">Subject insights</span><h2>Where are students doing well?</h2><p>Explore credit rates first, then inspect grade distributions and the highest- and lowest-performing subjects.</p></div>
+<div class="waec-panel-heading"><span class="waec-section-kicker">Subjects</span><h2>Subject performance</h2><p>Credit rates, grade distributions and subject rankings.</p></div>
 <?php if($currentUploadId !== ''){ ?>
 <div class="waec-card">            <h3 style="margin-top:0">Subject Performance</h3>
             <?php
@@ -3149,7 +3148,7 @@ if($uploads){
                 $worst = $bottomLeague[0];
                 $spread = round(((float)$best["pass_pct"] - (float)$worst["pass_pct"]), 2);
                 echo "<div class='waec-kpi-alert' style='margin-top:10px;'>";
-                echo "Insight: Best subject is <strong>".waec_esc($best["subject_name"])."</strong> (".waec_esc($best["pass_pct"])."%) while weakest is <strong>".waec_esc($worst["subject_name"])."</strong> (".waec_esc($worst["pass_pct"])."%). Spread: <strong>".$spread."%</strong>.";
+                echo "Highest credit rate: <strong>".waec_esc($best["subject_name"])."</strong> (".waec_esc($best["pass_pct"])."%). Lowest credit rate: <strong>".waec_esc($worst["subject_name"])."</strong> (".waec_esc($worst["pass_pct"])."%). Difference: <strong>".$spread." percentage points</strong>.";
                 echo "</div>";
             }
             ?></div></div>
@@ -3157,7 +3156,7 @@ if($uploads){
 
 </section>
 <section class="waec-panel" id="student-result-analysis" aria-label="Student analysis">
-<div class="waec-panel-heading"><span class="waec-section-kicker">Student insights</span><h2>From the batch to the individual</h2><p>Find a candidate, review their results, or open the detailed candidate and gender breakdowns.</p></div>
+<div class="waec-panel-heading"><span class="waec-section-kicker">Students</span><h2>Student results</h2><p>Candidate search, individual results and gender breakdowns.</p></div>
 <?php if($currentUploadId !== ''){ ?>
 <div class="waec-card waec-student-search"><h3>Find a student</h3><p class="waec-small">Search by name or index number. Individual results cover the selected student’s full upload, not just the dashboard filters.</p>                <form method="get" action="waec-analysis.php#student-result-analysis" class="waec-toolbar">
                     <input type="hidden" name="uploadid" value="<?php echo waec_esc($currentUploadId); ?>">
@@ -3450,7 +3449,7 @@ if($uploads){
 
 </section>
 <section class="waec-panel" id="waec-coverage" aria-label="Coverage audit">
-<div class="waec-panel-heading"><span class="waec-section-kicker">Data quality</span><h2>Account for every outcome</h2><p>Keep grades, absence, withheld results and source markers separate. Use the full-upload audit to investigate gaps.</p></div>
+<div class="waec-panel-heading"><span class="waec-section-kicker">Data quality</span><h2>Result coverage</h2><p>Recorded grades, absent and withheld results, source markers and missing entries.</p></div>
 <?php if($currentUploadId !== ''){ ?>
     <div class="waec-card">
         <h3 style="margin-top:0">Subject Coverage Audit (All Students)</h3>
@@ -3509,7 +3508,7 @@ if($uploads){
 
 </section>
 <section class="waec-panel" id="waec-upload" aria-label="Upload management">
-<div class="waec-panel-heading"><span class="waec-section-kicker">Results library</span><h2>Bring your results into focus</h2><p>Import a new batch or open one of your recent uploads. Existing grades are not changed when you switch views.</p></div>
+<div class="waec-panel-heading"><span class="waec-section-kicker">Results files</span><h2>Upload and manage results</h2><p>Import a new batch or open a saved upload.</p></div>
     <div class="waec-card">
         <h2 class="waec-title">Import a results file</h2>
         <p class="waec-note">Upload Excel, CSV or a text-based PDF results listing.</p>

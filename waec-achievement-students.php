@@ -71,9 +71,8 @@ if(!$error){
 <div class="header wac-no-print"><?php include('menu.php'); ?></div>
 <main class="wac-wrap">
     <header class="wac-hero">
-        <span class="wac-eyebrow">Academic performance / Student evidence</span>
-        <h1>The students behind the numbers.</h1>
-        <p>Explore confirmed achievements and review incomplete outcomes without treating missing results as failures.</p>
+        <span class="wac-eyebrow">WAEC / Student results</span>
+        <h1>Student Achievement</h1>
         <nav class="wac-actions wac-no-print" aria-label="WAEC navigation"><a href="waec-comparison.php">Batch comparison</a><a href="waec-analysis.php">Results &amp; uploads</a></nav>
     </header>
     <?php if($error){ ?><div class="wac-warning" role="alert"><?php echo wac_h($error); ?></div><?php }else{ ?>
@@ -97,7 +96,7 @@ if(!$error){
         <p class="wac-muted">Confidential student information. CSV includes every matching student; import the candidate-number column as text to preserve leading zeros.</p>
         <?php if(!$students){ ?><div class="wac-empty">No students match these filters. Try another group or clear the outcome flag and search.</div><?php }else{ ?>
         <div class="wac-table-scroll" tabindex="0" role="region" aria-label="Student results, scroll horizontally on small screens">
-        <table class="wac-student-table"><thead><tr><th scope="col">Candidate</th><th scope="col">Achievement</th><th scope="col">Recorded outcome flags</th><th scope="col">Subject evidence</th></tr></thead><tbody>
+        <table class="wac-student-table"><thead><tr><th scope="col">Candidate</th><th scope="col">Achievement</th><th scope="col">Recorded outcome flags</th><th scope="col">Subject results</th></tr></thead><tbody>
         <?php foreach($pageStudents as $student){ ?>
             <tr><th scope="row"><strong><?php echo wac_h($student['number'] ?: 'No candidate number'); ?></strong><small><?php echo wac_h($student['name'] ?: 'Name not supplied'); ?></small><?php if($student['number']===''){ ?><small>Matched by name only; verify identity.</small><?php } ?><?php if($student['name_conflict']){ ?><small>Multiple names in source; verify identity.</small><?php } ?></th>
                 <td><span class="wac-badge <?php echo $student['metrics'][$filters['metric']]['achieved'] ? '':'wac-badge-review'; ?>"><?php echo $student['metrics'][$filters['metric']]['achieved'] ? 'Confirmed':'Not confirmed'; ?></span><small><?php echo $student['credits']; ?> distinct A1–C6 credits overall</small></td>

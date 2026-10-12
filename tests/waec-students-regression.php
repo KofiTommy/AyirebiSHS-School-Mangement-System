@@ -72,6 +72,7 @@ $exportUrl='waec-achievement-students.php?'.http_build_query(array_merge($baseQu
 ob_start(); eval('?>'.$view); $html=ob_get_clean();
 verify(stripos($html,'<script>alert(1)</script>')===false && stripos($html,'&lt;script&gt;')!==false,'Student names HTML escaped');
 verify(strpos($html,'6 matching students')!==false,'Matching total rendered');
+verify(strpos($html,'<h1>Student Achievement</h1>')!==false,'Plain student report heading');
 verify(strpos($html,'C6 / W')!==false,'Conflicting outcomes shown');
 verify(strpos($html,'Export all matches (CSV)')!==false && strpos($html,'Print this page')!==false,'Export scope clear');
 $students=array(); $total=0; $pageStudents=array();

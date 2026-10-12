@@ -140,6 +140,7 @@ $batches[0]['batch_label']='<script>alert(1)</script>';
 ob_start(); eval('?>'.$view); $html=ob_get_clean();
 check(strpos($html,'<script>alert(1)</script>')===false && strpos($html,'&lt;script&gt;')!==false,'view escapes batch labels');
 check(strpos($html,'id="wac-print"')!==false && strpos($html,'Download CSV')!==false,'report includes print and CSV controls');
+check(strpos($html,'<h1>WAEC Batch Comparison</h1>')!==false,'plain comparison heading');
 check(strpos($html,'Coverage &amp; ungraded outcomes')!==false,'coverage visible in report');
 check(strpos($html,'id="student-achievement"')!==false && strpos($html,'Not confirmed does not mean failed.')!==false,'achievement table and qualifications rendered');
 check(strpos($html,'Observed credit counts per student')!==false,'student credit buckets rendered for printing');
@@ -157,7 +158,7 @@ if(in_array('--preview',$argv,true)){
 }
 $batches=array(); $uploads=array(); $ready=array(); $summary=array();
 ob_start(); eval('?>'.$view); $emptyHtml=ob_get_clean();
-check(strpos($emptyHtml,'Your comparison workspace is ready')!==false,'empty state supports future uploads');
+check(strpos($emptyHtml,'Two labelled batches required')!==false,'empty state supports future uploads');
 check(strpos($emptyHtml,'id="wac-print"')===false,'empty state does not pretend to have a report');
 
 if(in_array('--database',$argv,true)){

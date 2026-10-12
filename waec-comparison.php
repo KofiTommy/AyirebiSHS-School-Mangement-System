@@ -136,8 +136,8 @@ $exportUrl = 'waec-comparison.php?'.http_build_query(array('batches'=>array_colu
 <main class="wac-wrap">
     <header class="wac-hero">
         <span class="wac-eyebrow">Academic performance / Batch comparison</span>
-        <h1>See the progress. Understand the gaps.</h1>
-        <p>Compare two or three WAEC batches with consistent subject names, clear percentages and honest coverage checks.</p>
+        <h1>WAEC Batch Comparison</h1>
+        <p>Compare results for two or three examination batches.</p>
         <nav class="wac-actions wac-no-print" aria-label="WAEC navigation">
             <a href="waec-analysis.php"><i class="fa fa-arrow-left" aria-hidden="true"></i> Results &amp; uploads</a>
             <a href="#batch-library">Label existing uploads</a>
@@ -164,7 +164,7 @@ $exportUrl = 'waec-comparison.php?'.http_build_query(array('batches'=>array_colu
             <div class="wac-actions"><button type="submit" name="compare" value="1" <?php echo count($ready) < 2 ? 'disabled' : ''; ?>><i class="fa fa-bar-chart" aria-hidden="true"></i> Compare batches</button><a class="wac-secondary" href="waec-comparison.php">Clear selection</a></div>
         </form>
         <?php if(count($ready) < 2){ ?>
-        <div class="wac-empty"><i class="fa fa-clone" aria-hidden="true"></i><div><h3>Your comparison workspace is ready</h3><p>Upload results for at least two distinct batches, then confirm their year, sitting and label. Existing uploads can be labelled below. No sample results are mixed into your school data.</p><a href="waec-analysis.php#waec-upload">Upload another results file &rarr;</a></div></div>
+        <div class="wac-empty"><i class="fa fa-clone" aria-hidden="true"></i><div><h3>Two labelled batches required</h3><p>Upload at least two batches and set their examination year, sitting and label. You can label existing uploads below.</p><a href="waec-analysis.php#waec-upload">Upload another results file &rarr;</a></div></div>
         <?php } ?>
     </section>
 
@@ -269,7 +269,7 @@ $exportUrl = 'waec-comparison.php?'.http_build_query(array('batches'=>array_colu
             <li>Credit rate = number of A1–C6 outcomes divided by A1–F9 graded outcomes × 100. Absence, withheld results, source markers and missing records never become F9.</li>
             <li>Candidate totals include identifiable candidates with grades or statuses. Core gaps use those candidates as the expected population. Students entirely absent from the upload cannot be detected without a registration roster.</li>
             <li>Student achievement percentages use all identifiable candidates as the denominator, not just those with grades. Only unambiguous A1–C6 outcomes count as confirmed credits. Incomplete records can understate achievements. The remaining students are not automatically failures.</li>
-            <li>Elective registration is not available, so an unrecorded elective is not assumed to be a missing result. Programme and gender comparisons are not included in this first version.</li>
+            <li>Elective registration is not available, so an unrecorded elective is not assumed to be a missing result. This report does not compare programmes or genders.</li>
             <li>Equivalent subject names use the same alias rules as the importer. Exact duplicate outcomes count once; conflicting outcomes are excluded and flagged.</li>
             <li>A small batch or a batch with many ungraded results can have a misleadingly high rate. Compare denominators, coverage, sitting and subject mix before drawing conclusions.</li>
         </ul></section>

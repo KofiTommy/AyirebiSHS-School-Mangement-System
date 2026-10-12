@@ -85,10 +85,17 @@
 .waec-wrap .waec-hero { display:flex; justify-content:space-between; align-items:center; gap:28px; padding:30px 34px; border-radius:20px; margin-bottom:18px; }
 .waec-hero h1 { font-size:clamp(25px,2.5vw,35px); line-height:1.2; margin:12px 0; }
 .waec-hero p { font-size:14px; margin:0; }
-.waec-compare-link { display:flex; align-items:center; gap:14px; color:#fff; text-decoration:none; background:#ffffff0d; border:1px solid #ffffff40; padding:18px; border-radius:13px; flex-shrink:0; font-size:14px; font-weight:650; }
-.waec-compare-link small { display:block; color:#c5e5e8; font-size:11px; font-weight:400; margin-top:5px; }
-.waec-compare-link > i:first-child { font-size:20px; color:#a1e4d1; }
-.waec-compare-link:hover { color:#fff; background:#ffffff16; }
+.waec-compare-link { display:flex; align-items:center; gap:12px; min-height:70px; min-width:0; max-width:100%; color:#164e50; text-decoration:none; background:#effaf6; border:1px solid #c4e5d9; padding:14px 16px; border-radius:13px; flex-shrink:0; font-size:14px; font-weight:650; line-height:1.4; text-align:left; box-shadow:0 4px 12px #071f2920; transition:background .15s ease,box-shadow .15s ease; }
+.waec-compare-link .waec-compare-copy { flex:1; min-width:0; }
+.waec-compare-link strong { display:block; color:#164e50; font-size:15px; font-weight:700; }
+.waec-compare-link small { display:block; color:#416769; font-size:12px; font-weight:400; line-height:1.5; margin-top:3px; overflow-wrap:anywhere; }
+.waec-compare-link > i { flex-shrink:0; }
+.waec-compare-link > i:first-child { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:9px; background:#d6eee4; font-size:18px; color:#176e61; }
+.waec-compare-link > i:last-child { margin-left:auto; color:#176e61; font-size:14px; }
+.waec-compare-link:visited { color:#164e50; }
+.waec-compare-link:hover { color:#164e50; background:#fff; text-decoration:none; box-shadow:0 6px 16px #071f2930; }
+.waec-wrap .waec-compare-link:focus-visible { outline:3px solid #b7f3df; outline-offset:4px; }
+@media(prefers-reduced-motion:reduce) { .waec-compare-link { transition:none; } }
 .waec-context { background:#fff; border:1px solid #dae4ea; border-radius:14px; padding:18px 22px; margin-bottom:24px; }
 .waec-batch-switch { display:flex; align-items:center; gap:16px; margin:0; }
 .waec-batch-switch label { color:#213e52; font-weight:700; font-size:14px; min-width:200px; }

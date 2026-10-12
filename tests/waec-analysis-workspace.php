@@ -62,6 +62,8 @@ $states=array('overview'=>array(),'student'=>array('student_query'=>'001'),'filt
 foreach($states as $state=>$query){
     $_GET=$query; $_POST=array(); $currentUploadId=$state==='empty' ? '' : 'UI_FIXTURE_2025'; $message='';
     ob_start(); eval($queryCode); eval('?>'.$view); $html=ob_get_clean();
+    expect_same(true,strpos($html,'<h1>WAEC Results Analysis</h1>')!==false,$state.' neutral report heading');
+    expect_same(0,preg_match('/Academic intelligence|Subject insights|Student insights|Your results, clearly understood|Bring your results into focus/',strip_tags($html)),$state.' no AI-style promotional wording');
     foreach(array('waec-overview','waec-subjects','student-result-analysis','waec-coverage','waec-upload') as $id){
         expect_same(1,substr_count($html,'id="'.$id.'"'),$state.' unique panel '.$id);
     }
