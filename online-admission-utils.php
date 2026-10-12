@@ -3379,6 +3379,46 @@ function online_admission_update_help_request($con, $branchId, $requestId, $stat
 }
 }
 
+if(!function_exists('online_admission_sms_gateway_result')){
+function online_admission_sms_gateway_result($response, $httpCode, &$resultCode = null){
+    // Keep credentials and recipient details out of stored/displayed responses.
+    if($httpCode < 200 || $httpCode >= 300){
+        $resultCode = 'SMS_GATEWAY_HTTP_'.(int)$httpCode;
+        return false;
+    }
+    $response = trim(preg_replace('/^\xEF\xBB\xBF/', '', (string)$response));
+    $decoded = json_decode($response, true);
+    if(is_array($decoded)){
+        $hasCode = array_key_exists('code', $decoded) && $decoded['code'] !== null && $decoded['code'] !== '';
+        $code = $hasCode && is_scalar($decoded['code']) ? trim((string)$decoded['code']) : '';
+        $hasSuccess = array_key_exists('success', $decoded);
+        $success = $decoded['success'] ?? null;
+        // Explicit rejection or an unexpected code must never become a success.
+        if($hasSuccess && $success !== true){
+            $resultCode = 'Gateway did not accept the message';
+            return false;
+        }
+        if($hasCode){
+            $resultCode = preg_match('/^[0-9]{1,8}$/D', $code) ? 'Gateway code '.$code : 'Gateway returned an unrecognised code';
+            return $code === '1000';
+        }
+        if($success === true){
+            $resultCode = 'Gateway accepted message';
+            return true;
+        }
+    }else{
+        // Also accept a JSON-encoded numeric/string form of the legacy code.
+        $code = (is_int($decoded) || is_string($decoded)) ? trim((string)$decoded) : $response;
+        if(preg_match('/^[0-9]{1,8}$/D', $code)){
+            $resultCode = $code;
+            return $code === '1000';
+        }
+    }
+    $resultCode = 'Gateway response did not confirm acceptance';
+    return false;
+}
+}
+
 if(!function_exists('online_admission_sms_gateway_send')){
 function online_admission_sms_config(){
     $config = array(
@@ -3421,6 +3461,7 @@ function online_admission_sms_gateway_send($phone, $message, &$resultCode = null
         "sender_id" => $config["sender_id"]
     ), "", "&", PHP_QUERY_RFC3986);
     $response = false;
+    $httpCode = 0;
     if(function_exists('curl_init')){
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -3431,8 +3472,9 @@ function online_admission_sms_gateway_send($phone, $message, &$resultCode = null
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
         }
         $response = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         if($response === false){
-            $resultCode = trim((string)curl_error($ch));
+            $resultCode = 'SMS_GATEWAY_TRANSPORT_ERROR_'.(int)curl_errno($ch);
         }
         curl_close($ch);
     }
@@ -3440,18 +3482,7 @@ function online_admission_sms_gateway_send($phone, $message, &$resultCode = null
         $resultCode = $resultCode !== "" ? $resultCode : "SMS_GATEWAY_TIMEOUT";
         return false;
     }
-    $response = trim((string)$response);
-    /* BulkSMS Ghana may return either the legacy plain code or a JSON payload. */
-    $decodedResponse = json_decode($response, true);
-    if(is_array($decodedResponse)){
-        $gatewayCode = isset($decodedResponse['code']) ? trim((string)$decodedResponse['code']) : '';
-        $gatewaySuccess = isset($decodedResponse['success']) ? $decodedResponse['success'] : null;
-        /* Store a short safe result only; the raw payload can contain the API key. */
-        $resultCode = $gatewayCode !== '' ? 'Gateway code '.$gatewayCode : ($gatewaySuccess === true ? 'Gateway accepted message' : 'Gateway did not confirm delivery');
-        return $gatewayCode === '1000' || ($gatewaySuccess === true && $gatewayCode === '1000');
-    }
-    $resultCode = $response;
-    return $resultCode === "1000";
+    return online_admission_sms_gateway_result($response, $httpCode, $resultCode);
 }
 }
 

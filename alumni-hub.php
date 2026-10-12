@@ -37,13 +37,27 @@ if(isset($_POST['save_achievement'])){ $stmt=mysqli_prepare($con,'INSERT INTO tb
 if(isset($_POST['save_mentor'])){ $stmt=mysqli_prepare($con,'INSERT INTO tblalumnimentorship(alumniid,expertise,availability,notes,status) VALUES(?,?,?,?,?)'); if($stmt){$id=trim((string)$_POST['alumniid']);$expertise=trim((string)$_POST['expertise']);$availability=trim((string)$_POST['availability']);$notes=trim((string)$_POST['notes']);$status=trim((string)$_POST['status']);mysqli_stmt_bind_param($stmt,'sssss',$id,$expertise,$availability,$notes,$status);mysqli_stmt_execute($stmt);mysqli_stmt_close($stmt);$_SESSION['alumni_flash']='Mentorship interest recorded.';} alumni_redirect(); }
 if(isset($_POST['save_donation'])){ $stmt=mysqli_prepare($con,'INSERT INTO tblalumnidonation(alumniid,donationtype,amount,currency,pledgeddate,receiveddate,status,notes,recordedby) VALUES(?,?,?,?,?,?,?,?,?)'); if($stmt){$id=trim((string)$_POST['alumniid']);$type=trim((string)$_POST['donationtype']);$amount=(float)$_POST['amount'];$currency=trim((string)$_POST['currency']);$pledged=trim((string)$_POST['pledgeddate']);$received=trim((string)$_POST['receiveddate']);$status=trim((string)$_POST['status']);$notes=trim((string)$_POST['notes']);mysqli_stmt_bind_param($stmt,'ssdssssss',$id,$type,$amount,$currency,$pledged,$received,$status,$notes,$actor);mysqli_stmt_execute($stmt);mysqli_stmt_close($stmt);$_SESSION['alumni_flash']='Donation or pledge recorded.';} alumni_redirect(); }
 if(isset($_POST['save_event'])){ $eventid=alumni_new_id('EVT');$stmt=mysqli_prepare($con,'INSERT INTO tblalumnievent(eventid,title,eventdate,venue,description,status,recordedby) VALUES(?,?,?,?,?,?,?)');if($stmt){$title=trim((string)$_POST['title']);$date=trim((string)$_POST['eventdate']);$venue=trim((string)$_POST['venue']);$desc=trim((string)$_POST['description']);$status=trim((string)$_POST['status']);mysqli_stmt_bind_param($stmt,'sssssss',$eventid,$title,$date,$venue,$desc,$status,$actor);mysqli_stmt_execute($stmt);mysqli_stmt_close($stmt);$_SESSION['alumni_flash']='Old-student event created.';} alumni_redirect(); }
-if(isset($_POST['approve_alumnus'])){ $id=trim((string)$_POST['alumniid']);$stmt=mysqli_prepare($con,"UPDATE tblalumni SET status='active',updatedat=CURRENT_TIMESTAMP WHERE alumniid=? AND status='pending'");if($stmt){mysqli_stmt_bind_param($stmt,'s',$id);mysqli_stmt_execute($stmt);$approved=mysqli_stmt_affected_rows($stmt)>0;mysqli_stmt_close($stmt);if($approved){list($smsSent,$smsStatus)=alumni_hub_send_welcome_sms_safely($con,$id);$_SESSION['alumni_flash']='Alumni registration approved.'.($smsSent?' Welcome SMS sent.':($smsStatus==='not_opted_in'?' Welcome SMS was not sent because the alumnus did not opt in to SMS updates.':($smsStatus==='no_valid_phone'?' Welcome SMS was not sent because no valid mobile number was supplied.':' Welcome SMS could not be sent right now.')));}}alumni_redirect(); }
-if(isset($_POST['approve_all_pending'])){ $pendingIds=array();$pendingRows=mysqli_query($con,"SELECT alumniid FROM tblalumni WHERE status='pending'");while($pendingRows&&($pendingRow=mysqli_fetch_assoc($pendingRows)))$pendingIds[]=$pendingRow['alumniid'];$result=mysqli_query($con,"UPDATE tblalumni SET status='active',updatedat=CURRENT_TIMESTAMP WHERE status='pending'");$approved=$result?mysqli_affected_rows($con):0;$smsSent=0;foreach($pendingIds as $pendingId){list($sent)=alumni_hub_send_welcome_sms_safely($con,$pendingId);if($sent)$smsSent++;}$_SESSION['alumni_flash']=$approved>0?$approved.' Alumni registration(s) approved. Welcome SMS sent to '.$smsSent.' approved Alumni who opted in.':'There are no pending Alumni registrations to approve.';alumni_redirect(); }
+if(isset($_POST['approve_alumnus'])){ $id=trim((string)$_POST['alumniid']);$stmt=mysqli_prepare($con,"UPDATE tblalumni SET status='active',updatedat=CURRENT_TIMESTAMP WHERE alumniid=? AND status='pending'");if($stmt){mysqli_stmt_bind_param($stmt,'s',$id);mysqli_stmt_execute($stmt);$approved=mysqli_stmt_affected_rows($stmt)>0;mysqli_stmt_close($stmt);if($approved){list($smsSent,$smsStatus)=alumni_hub_send_welcome_sms_safely($con,$id);$_SESSION['alumni_flash']='Alumni registration approved. '.alumni_welcome_sms_notice($smsSent,$smsStatus);}}alumni_redirect(); }
+if(isset($_POST['approve_all_pending'])){
+    $pendingIds=array(); $pendingRows=mysqli_query($con,"SELECT alumniid FROM tblalumni WHERE status='pending'");
+    while($pendingRows&&($pendingRow=mysqli_fetch_assoc($pendingRows))) $pendingIds[]=$pendingRow['alumniid'];
+    $result=mysqli_query($con,"UPDATE tblalumni SET status='active',updatedat=CURRENT_TIMESTAMP WHERE status='pending'");
+    $approved=$result?mysqli_affected_rows($con):0; $smsSent=0; $smsUnrecorded=0;
+    foreach($pendingIds as $pendingId){
+        list($sent,$smsStatus)=alumni_hub_send_welcome_sms_safely($con,$pendingId);
+        if($sent) $smsSent++;
+        if($smsStatus==='sent_unrecorded') $smsUnrecorded++;
+    }
+    $_SESSION['alumni_flash']=$approved>0
+        ? $approved.' Alumni registration(s) approved. Welcome SMS accepted by the service or previously sent for '.$smsSent.' alumni. Delivery to their phones is not confirmed here.'
+            .($smsUnrecorded>0 ? ' '.$smsUnrecorded.' accepted message status(es) could not be saved; check the SMS service before resending.' : '')
+        : 'There are no pending Alumni registrations to approve.';
+    alumni_redirect();
+}
 if(isset($_POST['resend_welcome_sms'])){
     $id=trim((string)($_POST['alumniid'] ?? ''));
     list($smsSent,$smsStatus)=alumni_hub_send_welcome_sms_safely($con,$id,true);
-    $failureDetail = alumni_hub_welcome_sms_failure_detail($con, $id);
-    $_SESSION['alumni_flash']=$smsSent ? 'Welcome SMS resent successfully.' : ($smsStatus==='not_opted_in' ? 'This alumnus did not opt in to receive SMS updates.' : ($smsStatus==='no_valid_phone' ? 'This alumnus has no valid Ghana mobile number for SMS.' : 'The alumnus remains approved, but the welcome SMS could not be sent.'.($failureDetail!=='' ? ' SMS service response: '.$failureDetail : '')));
+    $_SESSION['alumni_flash']=alumni_welcome_sms_notice($smsSent,$smsStatus);
     alumni_redirect();
 }
 if(isset($_POST['send_sms_campaign'])){

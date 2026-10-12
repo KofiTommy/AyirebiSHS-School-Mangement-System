@@ -183,7 +183,53 @@ if(!function_exists('alumni_ensure_column')){function alumni_ensure_column($con,
 if(!function_exists('alumni_new_id')){ function alumni_new_id($prefix='ALM'){ return $prefix.date('ymdHis').strtoupper(bin2hex(random_bytes(4))); } }
 if(!function_exists('alumni_safe')){ function alumni_safe($value){ return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); } }
 if(!function_exists('alumni_ensure_student_profile')){function alumni_ensure_student_profile($con,$studentId){$studentId=trim((string)$studentId);if($studentId==='')return null;$stmt=mysqli_prepare($con,"SELECT * FROM tblsystemuser WHERE userid=? AND systemtype='Student' AND LOWER(TRIM(COALESCE(status,'')))='alumni' LIMIT 1");if(!$stmt)return null;mysqli_stmt_bind_param($stmt,'s',$studentId);mysqli_stmt_execute($stmt);$result=mysqli_stmt_get_result($stmt);$student=$result?mysqli_fetch_assoc($result):null;mysqli_stmt_close($stmt);if(!$student)return null;$class=mysqli_fetch_assoc(mysqli_query($con,"SELECT cl.datetimeentry,ce.class_name FROM tblclass cl LEFT JOIN tblclassentry ce ON ce.class_entryid=cl.class_entryid WHERE cl.userid='".mysqli_real_escape_string($con,$studentId)."' ORDER BY CASE WHEN LOWER(TRIM(COALESCE(cl.status,'')))='graduated' THEN 0 ELSE 1 END,cl.datetimeentry DESC LIMIT 1"));$fullName=trim((string)$student['firstname'].' '.(string)$student['othernames'].' '.(string)$student['surname']);$programme=trim((string)($class['class_name']??''));$year=(int)date('Y',strtotime((string)($class['datetimeentry']??'now')));if($year<1950||$year>2100)$year=(int)date('Y');$existing=mysqli_fetch_assoc(mysqli_query($con,"SELECT * FROM tblalumni WHERE studentid='".mysqli_real_escape_string($con,$studentId)."' LIMIT 1"));if(!$existing){$nameEsc=mysqli_real_escape_string($con,$fullName);$programmeEsc=mysqli_real_escape_string($con,$programme);$existing=mysqli_fetch_assoc(mysqli_query($con,"SELECT * FROM tblalumni WHERE fullname='$nameEsc' AND graduationyear=$year AND programme='$programmeEsc' LIMIT 1"));}if($existing){$status=(strtolower(trim((string)$existing['recordedby']))==='automatic graduate transfer')?'active':$existing['status'];$stmt=mysqli_prepare($con,"UPDATE tblalumni SET studentid=?,mobile=CASE WHEN TRIM(COALESCE(mobile,''))='' THEN ? ELSE mobile END,email=CASE WHEN TRIM(COALESCE(email,''))='' THEN ? ELSE email END,status=?,updatedat=NOW() WHERE alumniid=?");mysqli_stmt_bind_param($stmt,'sssss',$studentId,$student['mobile'],$student['email'],$status,$existing['alumniid']);mysqli_stmt_execute($stmt);mysqli_stmt_close($stmt);$existing=mysqli_fetch_assoc(mysqli_query($con,"SELECT * FROM tblalumni WHERE alumniid='".mysqli_real_escape_string($con,$existing['alumniid'])."' LIMIT 1"));return $existing;}$alumniId=alumni_new_id('ALM');$contact=trim((string)$student['mobile'])!==''?'Phone':(trim((string)$student['email'])!==''?'Email':'Phone');$status='active';$recorded='Automatic graduate transfer';$stmt=mysqli_prepare($con,'INSERT INTO tblalumni(alumniid,studentid,fullname,graduationyear,programme,mobile,email,contactpreference,status,recordedby) VALUES(?,?,?,?,?,?,?,?,?,?)');mysqli_stmt_bind_param($stmt,'sssissssss',$alumniId,$studentId,$fullName,$year,$programme,$student['mobile'],$student['email'],$contact,$status,$recorded);mysqli_stmt_execute($stmt);mysqli_stmt_close($stmt);return mysqli_fetch_assoc(mysqli_query($con,"SELECT * FROM tblalumni WHERE alumniid='".mysqli_real_escape_string($con,$alumniId)."' LIMIT 1"));}}
-if(!function_exists('alumni_send_welcome_sms')){function alumni_send_welcome_sms($con,$alumniId){include_once(__DIR__.DIRECTORY_SEPARATOR.'online-admission-utils.php');$stmt=mysqli_prepare($con,"SELECT fullname,mobile,smsoptin,status,welcomesmssentat FROM tblalumni WHERE alumniid=? LIMIT 1");if(!$stmt)return array(false,'failed');mysqli_stmt_bind_param($stmt,'s',$alumniId);mysqli_stmt_execute($stmt);$result=mysqli_stmt_get_result($stmt);$alumnus=$result?mysqli_fetch_assoc($result):null;mysqli_stmt_close($stmt);if(!$alumnus||(string)$alumnus['status']!=='active')return array(false,'not_approved');if(trim((string)$alumnus['welcomesmssentat'])!=='')return array(false,'already_sent');if((int)$alumnus['smsoptin']!==1){$status='not_opted_in';$response='Alumnus did not opt in to SMS updates.';}else{$phone=online_admission_normalize_sms_phone((string)$alumnus['mobile']);if($phone===''){$status='no_valid_phone';$response='No valid mobile number was supplied.';}else{$nameParts=preg_split('/\s+/',trim((string)$alumnus['fullname']));$firstName=trim((string)($nameParts[0]??'Alumnus'));$message='Congratulations '.$firstName.'! Welcome to the AYOSA family. Visit ayirebishs.com regularly for Alumni news and updates, and invite your fellow AYISEC old students to join us. We are glad to have you.';$response='';$sent=online_admission_sms_gateway_send($phone,$message,$response);$status=$sent?'sent':'failed';}}$stmt=mysqli_prepare($con,"UPDATE tblalumni SET welcomesmsstatus=?,welcomesmsresponse=?,welcomesmssentat=IF(?='sent',NOW(),welcomesmssentat) WHERE alumniid=?");mysqli_stmt_bind_param($stmt,'ssss',$status,$response,$status,$alumniId);mysqli_stmt_execute($stmt);mysqli_stmt_close($stmt);return array($status==='sent',$status);}}
+if(!function_exists('alumni_send_welcome_sms')){
+function alumni_send_welcome_sms($con,$alumniId){
+    include_once(__DIR__.DIRECTORY_SEPARATOR.'online-admission-utils.php');
+    $stmt=mysqli_prepare($con,"SELECT fullname,mobile,smsoptin,status,welcomesmssentat FROM tblalumni WHERE alumniid=? LIMIT 1");
+    if(!$stmt) return array(false,'failed');
+    mysqli_stmt_bind_param($stmt,'s',$alumniId); mysqli_stmt_execute($stmt);
+    $result=mysqli_stmt_get_result($stmt); $alumnus=$result?mysqli_fetch_assoc($result):null; mysqli_stmt_close($stmt);
+    if(!$alumnus || (string)$alumnus['status']!=='active') return array(false,'not_approved');
+    if(trim((string)$alumnus['welcomesmssentat'])!=='') return array(true,'already_sent');
+    if((int)$alumnus['smsoptin']!==1){
+        $status='not_opted_in'; $response='Alumnus did not opt in to SMS updates.';
+    }else{
+        $phone=online_admission_normalize_sms_phone((string)$alumnus['mobile']);
+        if($phone===''){
+            $status='no_valid_phone'; $response='No valid mobile number was supplied.';
+        }else{
+            $nameParts=preg_split('/\s+/',trim((string)$alumnus['fullname']));
+            $firstName=trim((string)($nameParts[0]??'Alumnus'));
+            $message='Congratulations '.$firstName.'! Welcome to the AYOSA family. Visit ayirebishs.com regularly for Alumni news and updates, and invite your fellow AYISEC old students to join us. We are glad to have you.';
+            $response=''; $sent=online_admission_sms_gateway_send($phone,$message,$response); $status=$sent?'sent':'failed';
+        }
+    }
+    try{
+        $stmt=mysqli_prepare($con,"UPDATE tblalumni SET welcomesmsstatus=?,welcomesmsresponse=?,welcomesmssentat=IF(?='sent',NOW(),welcomesmssentat) WHERE alumniid=?");
+        if(!$stmt) throw new RuntimeException('SMS status could not be prepared.');
+        mysqli_stmt_bind_param($stmt,'ssss',$status,$response,$status,$alumniId);
+        $saved=mysqli_stmt_execute($stmt); $affected=mysqli_stmt_affected_rows($stmt); mysqli_stmt_close($stmt);
+        if(!$saved || ($status==='sent' && $affected===0)) throw new RuntimeException('SMS status could not be saved.');
+    }catch(Throwable $error){
+        // A database failure after gateway acceptance is not an SMS rejection.
+        error_log('Alumni welcome SMS status could not be saved.');
+        return $status==='sent' ? array(true,'sent_unrecorded') : array(false,$status);
+    }
+    return array($status==='sent',$status);
+}
+}
+if(!function_exists('alumni_welcome_sms_notice')){
+function alumni_welcome_sms_notice($sent,$status){
+    if($status==='sent_unrecorded') return 'The SMS service accepted the welcome message, but its status could not be saved. Check the SMS service before resending.';
+    if($status==='already_sent') return 'The welcome SMS was already sent; no duplicate message was sent.';
+    if($sent) return 'The SMS service accepted the welcome message. Delivery to the phone is not yet confirmed here.';
+    if($status==='not_opted_in') return 'Welcome SMS was not sent because the alumnus did not opt in to SMS updates.';
+    if($status==='no_valid_phone') return 'Welcome SMS was not sent because no valid Ghana mobile number was supplied.';
+    if($status==='not_approved') return 'Welcome SMS was not sent because this registration is not approved.';
+    return 'The SMS service did not confirm acceptance of the welcome message. Check the SMS service before retrying to avoid a duplicate.';
+}
+}
 if(!function_exists('alumni_resend_welcome_sms')){
 function alumni_resend_welcome_sms($con, $alumniId){
     $alumniId = trim((string)$alumniId);
