@@ -597,6 +597,7 @@ function waec_resolve_subject_name($subject){
         "MATHEMATICS(ELECT)",
         "BUSINESS MANAGEMENT",
         "FINANCIAL ACCOUNTING",
+        "PRINCIPLES OF COST ACCOUNTING",
         "CHEMISTRY",
         "GENERAL AGRICULTURE",
         "ANIMAL HUSBANDRY",
@@ -630,7 +631,7 @@ function waec_resolve_subject_name($subject){
 
 function waec_pdf_subject_alias_map(){
     return array(
-        "ENGLISH LANG" => array("ENGLISH LANG"),
+        "ENGLISH LANG" => array("ENGLISH LANG","ENGLISH LANGUAGE"),
         "SOCIAL STUDIES" => array("SOCIAL STUDIES"),
         "MATHEMATICS(CORE)" => array("MATHEMATICS(CORE)"),
         "INTEGRATED SCIENCE" => array("INTEGRATED SCIENCE"),
@@ -644,18 +645,19 @@ function waec_pdf_subject_alias_map(){
         "TWI" => array("TWI(AKUAPEM)","TWI(ASANTE)","TWI"),
         "BIOLOGY" => array("BIOLOGY"),
         "CLOTHING & TEXTILES" => array("CLOTHING & TEXTILES"),
-        "MANAGEMENT IN LIVING" => array("MGT IN LIVING","MANAGEMENT IN LIVING"),
+        "MANAGEMENT IN LIVING" => array("MGT IN LIVING","MANAGEMENT IN LIVING","MANAGEMENT-IN-LIVING"),
         "GEOGRAPHY" => array("GEOGRAPHY"),
         "FRENCH" => array("FRENCH"),
-        "LITERATURE IN ENGLISH" => array("LIT IN ENGLISH","LITERATURE IN ENGLISH"),
+        "LITERATURE IN ENGLISH" => array("LIT IN ENGLISH","LITERATURE IN ENGLISH","LITERATURE-IN-ENGLISH"),
         "FOODS & NUTRITION" => array("FOODS & NUTRITION"),
-        "MATHEMATICS(ELECT)" => array("MATHEMATICS(ELECT)"),
+        "MATHEMATICS(ELECT)" => array("MATHEMATICS(ELECT)","MATHEMATICS(ELECTIVE)"),
         "BUSINESS MANAGEMENT" => array("BUSINESS MANAGEMENT"),
         "FINANCIAL ACCOUNTING" => array("FINANCIAL ACCOUNTING"),
+        "PRINCIPLES OF COST ACCOUNTING" => array("PRINCIPLES OF COST ACCOUNTING","PRINCIPLE OF COST ACCOUNTING","PRIN OF COST ACCTS"),
         "CHEMISTRY" => array("CHEMISTRY"),
         "GENERAL AGRICULTURE" => array("GENERAL AGRICULTURE"),
         "ANIMAL HUSBANDRY" => array("ANIMAL HUSBANDRY"),
-        "INFORMATION & COMMUNICATION TECHNOLOGY" => array("INFO COMM TECHNOLOGY","INFORMATION & COMMUNICATION TECHNOLOGY")
+        "INFORMATION & COMMUNICATION TECHNOLOGY" => array("INFO COMM TECHNOLOGY","INFO. & COMM. TECHNOLOGY","INFORMATION & COMMUNICATION TECHNOLOGY")
     );
 }
 
@@ -663,7 +665,8 @@ function waec_extract_listing_rows_from_text($rawText){
     $all = array();
     $withheld = array();
 
-    $text = str_replace("\r", "\n", (string)$rawText);
+    $text = waec_join_pdf_subject_lines($rawText);
+    $text = str_replace("\r", "\n", $text);
     $text = preg_replace('/[ \t]+/', ' ', $text);
     $lines = preg_split('/\n+/', $text);
     if(!is_array($lines) || count($lines) === 0){
@@ -845,7 +848,7 @@ function waec_parse_subject_grades_from_text($rawText, &$withheldRows = null){
         return $records;
     }
 
-    preg_match_all('/([A-Z0-9()\/&\-\.\s]+?)\s*-\s*(A1|B2|B3|C4|C5|C6|D7|E8|F9|X|W)\b/', $text, $m, PREG_SET_ORDER);
+    preg_match_all('/([A-Z0-9()\/&\-\.\s]+?)\s*-\s*(A1|B2|B3|C4|C5|C6|D7|E8|F9|X|W|P|\*)(?![A-Z0-9])/', $text, $m, PREG_SET_ORDER);
     foreach($m as $row){
         $subject = trim($row[1], " ,.-");
         $grade = trim($row[2]);
