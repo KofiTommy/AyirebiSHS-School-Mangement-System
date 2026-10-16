@@ -3,6 +3,7 @@ session_start();
 include("dbstring.php");
 include("check-login.php");
 include_once("course-registration-utils.php");
+include_once("course-registration-progress-utils.php");
 course_registration_ensure_tables($con);
 
 if(!(
@@ -234,7 +235,10 @@ if($selectedClassId !== "" && $selectedBatchId !== "" && $selectedAcademicYear !
     }
 }
 
-$recentWindows = course_registration_fetch_recent_windows($con, 10);
+$progressMode = (isset($_GET['progressview']) && $_GET['progressview'] === 'all') ? 'all' : 'recent';
+$progressReady = $selectedBatchId !== '' && $selectedAcademicYear !== '' && in_array($selectedTermName,array('1','2'),true);
+$allClassProgress = ($progressMode === 'all' && $progressReady) ? course_registration_all_class_progress($con,$selectedBatchId,$selectedAcademicYear,$selectedTermName) : array();
+$recentWindows = $progressMode === 'recent' ? course_registration_fetch_recent_windows($con, 10) : array();
 $offeringSelectionMap = array();
 foreach($windowOfferings as $offeringRow){
     $offeringSelectionMap[trim((string)$offeringRow['assignmentid'])] = trim((string)$offeringRow['selectiontype']);
@@ -251,6 +255,7 @@ if(isset($_SESSION['Message']) && trim((string)$_SESSION['Message']) !== ""){
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" type="text/css" href="css/course-registration.css">
+<link rel="stylesheet" href="css/course-registration-progress.css?v=20261016">
 </head>
 <body class="cr-page">
 <div class="header"><?php include("menu.php"); ?></div>
@@ -264,7 +269,7 @@ if(isset($_SESSION['Message']) && trim((string)$_SESSION['Message']) !== ""){
             <p>The course list follows the classified subjects for the selected class, academic year, and semester, so admin does not need to build the list manually.</p>
         </div>
         <div class="cr-hero__meta">
-            <article><span>Recent Windows</span><strong><?php echo count($recentWindows); ?></strong></article>
+            <article><span><?php echo $progressMode === 'all' ? 'Classes in Monitor' : 'Recent Windows'; ?></span><strong><?php echo $progressMode === 'all' ? count($allClassProgress) : count($recentWindows); ?></strong></article>
             <article><span>Active Scope</span><strong><?php echo $existingWindow ? cra_safe($existingWindow['session_label']) : 'Not Loaded'; ?></strong></article>
             <article><span>Registration State</span><strong><?php echo $existingWindow ? cra_safe(course_registration_window_status_label($existingWindow)) : 'Awaiting Setup'; ?></strong></article>
         </div>
@@ -276,6 +281,7 @@ if(isset($_SESSION['Message']) && trim((string)$_SESSION['Message']) !== ""){
                 <div><span class="cr-panel__eyebrow">Admin Setup</span><h2>Registration Window</h2></div>
             </div>
             <form method="get" action="course-registration-admin.php" class="cr-filter-grid">
+                <input type="hidden" name="progressview" value="<?php echo cra_safe($progressMode); ?>">
                 <label>
                     <span>Class</span>
                     <select name="classid">
@@ -409,6 +415,8 @@ if(isset($_SESSION['Message']) && trim((string)$_SESSION['Message']) !== ""){
         </section>
 
         <aside class="cr-panel cr-panel--side">
+            <?php include __DIR__.'/course-registration-progress-view.php'; ?>
+            <?php if($progressMode === 'recent'){ ?>
             <div class="cr-panel__header">
                 <div><span class="cr-panel__eyebrow">Recent Windows</span><h2>Quick Load</h2></div>
             </div>
@@ -423,6 +431,7 @@ if(isset($_SESSION['Message']) && trim((string)$_SESSION['Message']) !== ""){
                 </a>
                 <?php } ?>
             </div>
+            <?php } ?>
         </aside>
     </div>
 
