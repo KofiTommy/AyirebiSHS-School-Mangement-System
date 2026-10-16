@@ -15,6 +15,7 @@ function course_registration_all_class_progress($con, $batchId, $year, $term) {
         LEFT JOIN tblsystemuser su ON su.userid=tr.userid AND su.systemtype='Student' AND su.status='active'
         LEFT JOIN tblstudentcourseregstatus s ON s.windowid=w.windowid AND s.userid=su.userid
         GROUP BY ce.class_entryid,ce.class_name,w.windowid,w.status,w.openfrom,w.closeat
+        HAVING COUNT(DISTINCT su.userid)>0
         ORDER BY ce.class_name,ce.class_entryid";
     $stmt=mysqli_prepare($con,$sql);
     mysqli_stmt_bind_param($stmt,'ssssss',$batchId,$year,$term,$batchId,$year,$term);

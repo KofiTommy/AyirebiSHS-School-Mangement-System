@@ -68,6 +68,16 @@ try {
         $capture = Invoke-Cdp 'Page.captureScreenshot' @{format='png'; captureBeyondViewport=$false}
         [IO.File]::WriteAllBytes((Join-Path $PreviewDirectory ($viewport.name+'-checked.png')), [Convert]::FromBase64String($capture.data))
         Write-Output "$($viewport.name): no page overflow ($($dimensions.viewport)px)."
+        $progressCheck = Invoke-Cdp 'Runtime.evaluate' @{expression='!!document.getElementById("cr-progress-search")'; returnByValue=$true}
+        if ($progressCheck.result.value) {
+            $progressState = Invoke-Cdp 'Runtime.evaluate' @{expression='(()=>{const cards=[...document.querySelectorAll("#cr-progress-cards .cr-progress-card")],visible=()=>cards.filter(c=>!c.hidden),search=document.getElementById("cr-progress-search"),summary=document.querySelector(".cr-progress-summary").textContent;document.querySelector("[data-progress-filter=complete]").click();if(visible().length!==1||visible()[0].dataset.className!=="Class 8")return false;document.querySelector("[data-progress-filter=pending]").click();if(visible().length!==12)return false;search.value="Class 1";search.dispatchEvent(new Event("input"));if(visible().length!==10)return false;search.value="no matching class";search.dispatchEvent(new Event("input"));if(visible().length||document.getElementById("cr-progress-empty").hidden)return false;search.value="";search.dispatchEvent(new Event("input"));document.querySelector("[data-progress-filter=all]").click();return visible().length===13&&summary===document.querySelector(".cr-progress-summary").textContent&&document.querySelector("[data-progress-filter=all]").getAttribute("aria-pressed")==="true";})()'; returnByValue=$true}
+            if (!$progressState.result.value) { throw 'Class progress filtering or summary preservation failed.' }
+            $null = Invoke-Cdp 'Runtime.evaluate' @{expression='document.querySelector(".cr-progress-summary").scrollIntoView()'}
+            $progressShot = Invoke-Cdp 'Page.captureScreenshot' @{format='png'; captureBeyondViewport=$false}
+            [IO.File]::WriteAllBytes((Join-Path $PreviewDirectory "$($viewport.name)-progress.png"),[Convert]::FromBase64String($progressShot.data))
+            $null = Invoke-Cdp 'Runtime.evaluate' @{expression='scrollTo(0,0)'}
+            Write-Output "$($viewport.name): class search, status filters, empty state and unchanged totals passed."
+        }
         $loginDialog = Invoke-Cdp 'Runtime.evaluate' @{expression='!!document.querySelector("dialog#old-student-login")'; returnByValue=$true}
         if ($loginDialog.result.value) {
             $null = Invoke-Cdp 'Runtime.evaluate' @{expression='document.querySelector("button[data-open-login]").click()'}

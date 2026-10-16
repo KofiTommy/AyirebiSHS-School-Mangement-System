@@ -255,9 +255,10 @@ if(isset($_SESSION['Message']) && trim((string)$_SESSION['Message']) !== ""){
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" type="text/css" href="css/course-registration.css">
-<link rel="stylesheet" href="css/course-registration-progress.css?v=20261016">
+<link rel="stylesheet" href="css/course-registration-progress.css?v=20261016-compact">
+<script src="js/course-registration-progress.js?v=20261016-dashboard" defer></script>
 </head>
-<body class="cr-page">
+<body class="cr-page cr-admin-dashboard">
 <div class="header"><?php include("menu.php"); ?></div>
 <main class="cr-shell">
     <?php if($flashMessage !== ""){ ?><div class="cr-flash"><?php echo $flashMessage; ?></div><?php } ?>
