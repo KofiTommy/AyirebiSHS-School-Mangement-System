@@ -36,6 +36,157 @@ $obj_browser->setBrowser(1);
 <?php
 include("dbstring.php");
 include_once("password-utils.php");
+$_SQL_Item_2=mysqli_query($con,"SELECT * FROM tblcurrency");
+if($row_item_2=mysqli_fetch_array($_SQL_Item_2,MYSQLI_ASSOC)){
+$_SESSION['CURRENCY']=$row_item_2['currencyname'];
+$_SESSION['SYMBOL']=$row_item_2['symbol'];
+}
+
+if(isset($_POST["login"])){
+@$_Username=trim((string)$_POST["username"]);
+@$_Password=(string)$_POST["password"];
+@$_User =strtolower($_POST["user"]);
+
+$_SQL_EXECUTE=false;
+$stmt_login=mysqli_prepare($con,"SELECT su.*, br.companyid AS companyid, br.status AS branch_status, br.initials AS audit_branch_initials
+FROM tblsystemuser su
+INNER JOIN tblbranch br ON su.branchid=br.branchid
+WHERE (su.userid=? OR su.username=?)
+ORDER BY CASE
+    WHEN su.userid=? THEN 0
+    WHEN su.username=? THEN 1
+    ELSE 2
+END,
+su.registereddatetime DESC");
+if($stmt_login){
+mysqli_stmt_bind_param($stmt_login,"ssss",$_Username,$_Username,$_Username,$_Username);
+mysqli_stmt_execute($stmt_login);
+$_SQL_EXECUTE=mysqli_stmt_get_result($stmt_login);
+}
+
+//$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsystemuser su  WHERE su.username='$_Username' AND su.password='$_Password'");
+//Verify the password against EVERY matching account row, so duplicate usernames
+//(e.g. one teacher row and one student row sharing a username) can never lock a user out.
+$_LoginRow=false;
+if($_SQL_EXECUTE){
+while($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)){
+if(portal_verify_password($con,$row,$_Password)){
+$_LoginRow=$row;
+break;
+}
+}
+}
+	if($_LoginRow){
+		$row=$_LoginRow;
+			@$_AccessLevel=$row['accesslevel'];
+			@$_SystemType=$row['systemtype'];
+			$_SESSION['USERID']=$row['userid'];
+			$_SESSION['USERNAME']=$row['username'];
+			@$_Userfullname=$row['firstname']." ".$row['othernames']." ".$row['surname'];
+			$_SESSION['FULLNAME']=$_Userfullname;
+			$_SESSION['ACCESSLEVEL']=$row['accesslevel'];
+			$_SESSION['SYSTEMTYPE']=$row['systemtype'];
+			$_SESSION['BRANCHID']=$row['branchid'];
+			$_SESSION['COMPANY']=$row['companyid'];
+
+
+//Get the Audit Date
+$_SESSION["AUDITDATE"]="";
+
+$_SQLAD=mysqli_query($con,"SELECT ad.auditdate
+FROM tblauditdate ad
+WHERE ad.auditdate >= CURDATE()
+AND ad.auditdate < (CURDATE() + INTERVAL 1 DAY)
+AND ad.status='active'
+LIMIT 1");
+if($_SQLAD && ($rowad=mysqli_fetch_array($_SQLAD,MYSQLI_ASSOC))){
+		  $_SESSION["AUDITDATE"]=$rowad["auditdate"];
+}
+else{
+		   //CREATE AUDIT DATE
+		  $_AuditId=(string)$row['audit_branch_initials'].date("YmdHis")."_".bin2hex(random_bytes(5));
+		  $_SQLAD=mysqli_query($con,"INSERT INTO tblauditdate(auditid,auditdate,status,deviceinformation,recordedby,branchid)
+		  VALUES('$_AuditId',NOW(),'active','$_DeviceInfo','$_SESSION[USERID]','$_SESSION[BRANCHID]')");
+		  if($_SQLAD)
+			  {
+			    $_SQLU=mysqli_query($con,"UPDATE tblauditdate ad SET ad.status='sealed' WHERE ad.status='active' AND date_format(ad.auditdate,'%d-%m-%Y')<>date_format(NOW(),'%d-%m-%Y')");
+                // Configure event scheduling at server level, not during sign-in.
+		  }
+
+		  $_SQLAD=mysqli_query($con,"SELECT ad.auditdate
+		  FROM tblauditdate ad
+		  WHERE ad.auditdate >= CURDATE()
+		  AND ad.auditdate < (CURDATE() + INTERVAL 1 DAY)
+		  AND ad.status='active'
+		  LIMIT 1");
+		  if($rowad=mysqli_fetch_array($_SQLAD,MYSQLI_ASSOC)){
+		  $_SESSION["AUDITDATE"]=$rowad["auditdate"];
+		  }
+		 
+	}
+			if(strtolower(trim((string)$row['status'])) === 'alumni'){
+				header("location:alumni-activate.php");
+				exit();
+			}
+			elseif($row['status']=="block"){
+			$_SESSION['Message']="<div class='landing-auth-alert landing-auth-alert--error'><i class='fa fa-ban'></i><span>Account is blocked! Please contact the administrator.</span></div>";
+			}else{
+				if(isset($row['password_reset_required']) && (int)$row['password_reset_required'] === 1){
+					header("location:change-password.php?force=1");
+					exit();
+				}
+				if($_AccessLevel=="administrator" && $_SystemType=="super_user"){
+					header("location:super.php");
+					exit();
+				}
+				elseif($_AccessLevel=="administrator" && $_SystemType=="normal_user"){
+					//header("location:admin.php");
+					header("location:select-branch.php");
+					exit();
+				}
+				elseif($_AccessLevel=="user" && $_SystemType=="Student"){
+					header("location:student-page.php");
+					exit();
+				}
+				elseif($_AccessLevel=="user" && $_SystemType=="Teacher"){
+					header("location:teacher-page.php");
+					exit();
+				}
+				elseif($_AccessLevel=="user" && $_SystemType=="Headmaster"){
+					header("location:headmaster-page.php");
+					exit();
+				}
+				elseif($_AccessLevel=="user" && $_SystemType=="AssistantHeadAcademic"){
+					header("location:assistant-head-academics-page.php");
+					exit();
+				}
+				elseif($_AccessLevel=="user" && $_SystemType=="AssistantHeadAdministration"){
+				header("location:assistant-head-administration-page.php");
+				exit();
+			}
+				elseif($_AccessLevel=="user" && $_SystemType=="Bursar"){
+				header("location:bursar-dashboard.php");
+				exit();
+			}
+				elseif($_AccessLevel=="user" && $_SystemType=="SafeguardingLead"){
+				header("location:safeguarding-dashboard.php");
+				exit();
+			}
+			elseif($_AccessLevel=="user" && $_SystemType=="User"){
+					header("location:user.php");
+					exit();
+				}	
+			}
+	}
+	else
+	{
+		$_SESSION['Message']="<div class='landing-auth-alert landing-auth-alert--error'><i class='fa fa-exclamation-circle'></i><span>Failed to login. Check your username and password, then try again.</span></div>";
+	}
+if(isset($stmt_login) && $stmt_login){
+mysqli_stmt_close($stmt_login);
+}
+}
+// Only prepare the public landing page when no sign-in redirect was sent.
 include_once("online-admission-utils.php");
 include_once("user-management-utils.php");
 include_once("portal-help-utils.php");
@@ -63,10 +214,16 @@ if(trim((string)$__AdmissionBranchContext["branchid"]) !== ""){
     $_PublicAdmissionPaymentEnabled=((int)$__AdmissionSetting["enabled"] === 1 && (float)$__AdmissionSetting["feeamount"] > 0);
 }
 
-$_SQL_Item_2=mysqli_query($con,"SELECT * FROM tblcurrency");
-if($row_item_2=mysqli_fetch_array($_SQL_Item_2,MYSQLI_ASSOC)){
-$_SESSION['CURRENCY']=$row_item_2['currencyname'];
-$_SESSION['SYMBOL']=$row_item_2['symbol'];
+$_LandingStats=array("students"=>0,"teachers"=>0,"alumni"=>0);
+$_SQL_Stats=mysqli_query($con,"SELECT
+SUM(systemtype='Student' AND status='active') AS students,
+SUM(systemtype='Teacher' AND status='active') AS teachers,
+SUM(status='alumni') AS alumni
+FROM tblsystemuser");
+if($_SQL_Stats && ($row_stats=mysqli_fetch_array($_SQL_Stats,MYSQLI_ASSOC))){
+$_LandingStats["students"]=(int)$row_stats["students"];
+$_LandingStats["teachers"]=(int)$row_stats["teachers"];
+$_LandingStats["alumni"]=(int)$row_stats["alumni"];
 }
 
 if(isset($_POST["send_help_request"])){
@@ -115,137 +272,7 @@ if($_LandingHelpForm["requestername"] === ""){
 }
 }
 
-if(isset($_POST["login"])){
-@$_Username=$_POST["username"];
-@$_Password=(string)$_POST["password"];
-@$_User =strtolower($_POST["user"]);
 
-$_SQL_EXECUTE=false;
-$stmt_login=mysqli_prepare($con,"SELECT *
-FROM tblsystemuser su
-INNER JOIN tblbranch br ON su.branchid=br.branchid
-WHERE (su.userid=? OR su.username=?)
-ORDER BY CASE
-    WHEN su.userid=? THEN 0
-    WHEN su.username=? THEN 1
-    ELSE 2
-END,
-su.registereddatetime DESC
-LIMIT 1");
-if($stmt_login){
-mysqli_stmt_bind_param($stmt_login,"ssss",$_Username,$_Username,$_Username,$_Username);
-mysqli_stmt_execute($stmt_login);
-$_SQL_EXECUTE=mysqli_stmt_get_result($stmt_login);
-}
-
-//$_SQL_EXECUTE=mysqli_query($con,"SELECT * FROM tblsystemuser su  WHERE su.username='$_Username' AND su.password='$_Password'");
-	if($_SQL_EXECUTE && mysqli_num_rows($_SQL_EXECUTE)>0){
-		if(($row=mysqli_fetch_array($_SQL_EXECUTE,MYSQLI_ASSOC)) && portal_verify_password($con,$row,$_Password)){
-			@$_AccessLevel=$row['accesslevel'];
-			@$_SystemType=$row['systemtype'];
-			$_SESSION['USERID']=$row['userid'];
-			$_SESSION['USERNAME']=$row['username'];
-			@$_Userfullname=$row['firstname']." ".$row['othernames']." ".$row['surname'];
-			$_SESSION['FULLNAME']=$_Userfullname;
-			$_SESSION['ACCESSLEVEL']=$row['accesslevel'];
-			$_SESSION['SYSTEMTYPE']=$row['systemtype'];
-			$_SESSION['BRANCHID']=$row['branchid'];
-			$_SESSION['COMPANY']=$row['companyid'];
-
-
-//Get the Audit Date
-$_SESSION["AUDITDATE"]="";
-
-$_SQLAD=mysqli_query($con,"SELECT ad.auditdate
-FROM tblauditdate ad
-WHERE ad.auditdate >= CURDATE()
-AND ad.auditdate < (CURDATE() + INTERVAL 1 DAY)
-AND ad.status='active'
-LIMIT 1");
-if($_SQLAD && ($rowad=mysqli_fetch_array($_SQLAD,MYSQLI_ASSOC))){
-		  $_SESSION["AUDITDATE"]=$rowad["auditdate"];
-}
-else{
-		   //CREATE AUDIT DATE
-		  include("code.php");
-		  @$_AuditId=$code;
-		  $_SQLAD=mysqli_query($con,"INSERT INTO tblauditdate(auditid,auditdate,status,deviceinformation,recordedby,branchid)
-		  VALUES('$_AuditId',NOW(),'active','$_DeviceInfo','$_SESSION[USERID]','$_SESSION[BRANCHID]')");
-		  if($_SQLAD)
-			  {
-			    $_SQLU=mysqli_query($con,"UPDATE tblauditdate ad SET ad.status='sealed' WHERE ad.status='active' AND date_format(ad.auditdate,'%d-%m-%Y')<>date_format(NOW(),'%d-%m-%Y')");
-				    if($_SQLU){
-				    	//SET GLOBAL event_scheduler="ON" 
-				    	$_SET_Global=mysqli_query($con,"SET GLOBAL event_scheduler='ON'");
-				    	if($_SET_Global){/*Global event put on*/}
-
-				    }
-		  }
-
-		  $_SQLAD=mysqli_query($con,"SELECT ad.auditdate
-		  FROM tblauditdate ad
-		  WHERE ad.auditdate >= CURDATE()
-		  AND ad.auditdate < (CURDATE() + INTERVAL 1 DAY)
-		  AND ad.status='active'
-		  LIMIT 1");
-		  if($rowad=mysqli_fetch_array($_SQLAD,MYSQLI_ASSOC)){
-		  $_SESSION["AUDITDATE"]=$rowad["auditdate"];
-		  }
-		 
-	}
-			if(strtolower(trim((string)$row['status'])) === 'alumni'){
-				header("location:alumni-activate.php");
-				exit();
-			}
-			elseif($row['status']=="block"){
-			$_SESSION['Message']="<div style='color:red;text-align:center;padding:8px;text-transform:blink'>Account is blocked!! Please contact administrator</div>";
-			}else{
-				if(isset($row['password_reset_required']) && (int)$row['password_reset_required'] === 1){
-					header("location:change-password.php?force=1");
-					exit();
-				}
-				if($_AccessLevel=="administrator" && $_SystemType=="super_user"){
-					header("location:super.php");
-				}
-				elseif($_AccessLevel=="administrator" && $_SystemType=="normal_user"){
-					//header("location:admin.php");
-					header("location:select-branch.php");
-				}
-				elseif($_AccessLevel=="user" && $_SystemType=="Student"){
-					header("location:student-page.php");
-				}
-				elseif($_AccessLevel=="user" && $_SystemType=="Teacher"){
-					header("location:teacher-page.php");
-				}
-				elseif($_AccessLevel=="user" && $_SystemType=="Headmaster"){
-					header("location:headmaster-page.php");
-				}
-				elseif($_AccessLevel=="user" && $_SystemType=="AssistantHeadAcademic"){
-					header("location:assistant-head-academics-page.php");
-				}
-				elseif($_AccessLevel=="user" && $_SystemType=="AssistantHeadAdministration"){
-				header("location:assistant-head-administration-page.php");
-			}
-				elseif($_AccessLevel=="user" && $_SystemType=="Bursar"){
-				header("location:bursar-dashboard.php");
-			}
-				elseif($_AccessLevel=="user" && $_SystemType=="SafeguardingLead"){
-				header("location:safeguarding-dashboard.php");
-			}
-			elseif($_AccessLevel=="user" && $_SystemType=="User"){
-					header("location:user.php");
-				}	
-			}
-		}
-	}
-	else
-	{
-		$_SESSION['Message']="<div style='color:red;text-align:center;padding:8px;'>Failed to login. Try again!!</div>";
-	}
-if(isset($stmt_login) && $stmt_login){
-mysqli_stmt_close($stmt_login);
-}
-}
 ?>
 
 <html>
@@ -257,6 +284,7 @@ include("links.php");
 ?>
 <link rel="stylesheet" type="text/css" href="css/index-landing.css">
 <link rel="stylesheet" type="text/css" href="css/ayisec-shared-palette.css">
+<link rel="stylesheet" type="text/css" href="css/portal-login.css">
 <?php
 include("validation/header.php");
 ?>
@@ -306,7 +334,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
     <style>.school-website-shortcut{position:fixed;z-index:9999;right:20px;bottom:20px;display:inline-flex;gap:10px;align-items:center;padding:12px 17px;border-radius:3px;background:#164239;color:#fff!important;font:700 13px Arial,sans-serif;text-decoration:none;box-shadow:0 8px 22px rgba(0,0,0,.22)}.school-website-shortcut span{color:#e3b650;font-size:18px;line-height:1}.school-website-shortcut:hover{background:#0e3029;color:#fff!important}@media(max-width:600px){.school-website-shortcut{right:12px;bottom:12px;font-size:12px;padding:10px 13px}}</style>
     <a href="website.php" class="school-website-shortcut" aria-label="Open Ayirebi Senior High School public website">Visit school website <span>↗</span></a>
     <style>.school-website-shortcut{bottom:86px}@media(max-width:600px){.school-website-shortcut{bottom:74px}}</style>
-    <style>.school-website-shortcut{bottom:100px;z-index:35}@media(max-width:760px){.school-website-shortcut{right:12px;bottom:160px}}</style>
+    <style>.school-website-shortcut{bottom:100px;z-index:35}@media(max-width:760px){.school-website-shortcut{left:12px;right:auto;bottom:88px;padding:10px 13px;font-size:12px}}</style>
 <div class="landing-shell">
     <div class="landing-currents" aria-hidden="true">
         <span class="landing-current landing-current--one"></span>
@@ -331,7 +359,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
             </div>
         </div>
         <div class="landing-product-mark" aria-label="LiveCampus">
-            <img src="images/LiveCampus-white.png" alt="LiveCampus">
+            <img src="images/LiveCampus-illustration.png?v=3" alt="LiveCampus">
             <span>LiveCampus</span>
         </div>
         <div class="landing-topbar__meta">
@@ -365,6 +393,25 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
                     <img src="images/websiteimages/How%20to%20Print%20your%20Report%20Online.jpeg" alt="Preview of the AYISEC student report printing guide">
                     <span><strong>Student report printing guide</strong><small>Learn how to check and print your terminal report online.</small><b>View the five steps <i class="fa fa-external-link"></i></b></span>
                 </a>
+
+                <ul class="portal-feature-list">
+                    <li>
+                        <span class="portal-feature-list__icon"><i class="fa fa-file-text-o"></i></span>
+                        <div><strong>Results &amp; Reports</strong><small>Terminal reports, WAEC analysis and transcripts on demand.</small></div>
+                    </li>
+                    <li>
+                        <span class="portal-feature-list__icon"><i class="fa fa-credit-card"></i></span>
+                        <div><strong>Fees &amp; Payments</strong><small>Secure online payments with instant receipts and statements.</small></div>
+                    </li>
+                    <li>
+                        <span class="portal-feature-list__icon"><i class="fa fa-calendar-check-o"></i></span>
+                        <div><strong>Attendance &amp; Exeat</strong><small>Live attendance, boarding exeat and welfare monitoring.</small></div>
+                    </li>
+                    <li>
+                        <span class="portal-feature-list__icon"><i class="fa fa-comments-o"></i></span>
+                        <div><strong>Direct Communication</strong><small>Announcements, help desk and WhatsApp support in one place.</small></div>
+                    </li>
+                </ul>
             </div>
 
             <div class="landing-route-grid">
@@ -431,6 +478,23 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
                     </a>
                 </article>
             </div>
+
+            <?php if($_LandingStats["students"] > 0){ ?>
+            <div class="portal-stats" aria-label="School at a glance">
+                <div class="portal-stat">
+                    <strong><?php echo number_format($_LandingStats["students"]); ?>+</strong>
+                    <span>Active Students</span>
+                </div>
+                <div class="portal-stat">
+                    <strong><?php echo number_format($_LandingStats["teachers"]); ?>+</strong>
+                    <span>Teaching Staff</span>
+                </div>
+                <div class="portal-stat">
+                    <strong><?php echo number_format($_LandingStats["alumni"]); ?>+</strong>
+                    <span>Alumni Network</span>
+                </div>
+            </div>
+            <?php } ?>
         </section>
 
         <aside class="landing-auth" id="portal-login">
@@ -443,29 +507,64 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
                     </div>
                 </div>
 
+                <div class="landing-auth__greeting" aria-hidden="true">
+                    <span><strong id="pl-greeting">Welcome back</strong></span>
+                    <span class="landing-auth__clock" id="pl-clock">--:--:--</span>
+                </div>
+
+                <div class="portal-role-picker" role="group" aria-label="Sign in as">
+                    <button type="button" class="portal-role" data-role="administrator">
+                        <i class="fa fa-user-secret" aria-hidden="true"></i><span>Admin</span>
+                    </button>
+                    <button type="button" class="portal-role" data-role="teacher">
+                        <i class="fa fa-mortar-board" aria-hidden="true"></i><span>Teacher</span>
+                    </button>
+                    <button type="button" class="portal-role is-active" data-role="student">
+                        <i class="fa fa-graduation-cap" aria-hidden="true"></i><span>Student</span>
+                    </button>
+                    <button type="button" class="portal-role" data-role="staff">
+                        <i class="fa fa-briefcase" aria-hidden="true"></i><span>Staff</span>
+                    </button>
+                </div>
+                <input type="hidden" name="user" id="pl-role-field" value="student">
+
                 <div class="landing-auth__message">
                     <?php echo @$_SESSION['Message']; ?>
                 </div>
 
                 <form id="formID" name="formID" method="post" action="index.php" class="landing-form">
+                    <input type="hidden" name="login" value="1">
                     <div class="landing-form__group">
                         <label for="username">User Name</label>
                         <div class="landing-field">
                             <span class="landing-field__icon"><i class="fa fa-user"></i></span>
-                            <input type="text" id="username" name="username" placeholder="Type Username" class="validate[required]" autocomplete="username" style="text-align:left !important; direction:ltr; padding-left:16px;">
+                            <input type="text" id="username" name="username" placeholder="Type Username" class="validate[required]" autocomplete="username" required style="text-align:left !important; direction:ltr; padding-left:16px;">
                         </div>
                     </div>
 
                     <div class="landing-form__group">
                         <label for="password">Password</label>
-                        <div class="landing-field">
+                        <div class="landing-field landing-field--password">
                             <span class="landing-field__icon"><i class="fa fa-lock"></i></span>
-                            <input type="password" id="password" name="password" placeholder="Type Password" class="validate[required]" autocomplete="current-password" style="text-align:left !important; direction:ltr; padding-left:16px;">
+                            <input type="password" id="password" name="password" placeholder="Type Password" class="validate[required]" autocomplete="current-password" required style="text-align:left !important; direction:ltr; padding-left:16px;">
+                            <button type="button" class="pl-toggle" id="pl-toggle-pwd" aria-label="Show password" aria-pressed="false" tabindex="-1">
+                                <i class="fa fa-eye" aria-hidden="true"></i>
+                            </button>
                         </div>
+                        <span class="pl-caps" id="pl-caps-hint"><i class="fa fa-arrow-circle-up" aria-hidden="true"></i> Caps Lock is on</span>
                     </div>
 
-                    <button class="landing-submit" id="login" name="login" type="submit">
-                        <i class="fa fa-sign-in"></i> Login
+                    <div class="landing-form__meta">
+                        <label class="landing-remember" for="pl-remember">
+                            <input type="checkbox" id="pl-remember">
+                            <span>Remember me</span>
+                        </label>
+                        <a class="landing-forgot" href="forgotten-password.php">Forgot password?</a>
+                    </div>
+
+                    <button class="landing-submit" id="login" type="submit">
+                        <span class="pl-spinner" aria-hidden="true"></span>
+                        <span class="pl-submit-label"><i class="fa fa-sign-in"></i> Login</span>
                     </button>
                 </form>
 
@@ -493,7 +592,7 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
 
     <footer class="landing-footer">
         <p class="landing-footer__product">
-            <img src="images/LiveCampus-white.png" alt="LiveCampus" class="landing-footer__product-logo">
+            <img src="images/LiveCampus-mark.png" alt="LiveCampus" class="landing-footer__product-logo">
             <span>&copy; 2026 LiveCampus V2.20.2.2</span>
         </p>
         <a class="landing-footer__developer" href="https://tokaatechconsult.com/" target="_blank" rel="noopener noreferrer" aria-label="Visit Tokaa Tech Consult">
@@ -686,6 +785,196 @@ if(isset($_Logo) && trim((string)$_Logo) !== ""){
             helpFab.classList.toggle('landing-help-fab--footer-visible', !!entries[0].isIntersecting);
         }, { threshold: 0.08 });
         footerObserver.observe(landingFooter);
+    }
+})();
+</script>
+<script>
+(function () {
+    'use strict';
+
+    var aside = document.getElementById('portal-login');
+    var card = aside ? aside.querySelector('.landing-auth__card') : null;
+    var form = document.getElementById('formID');
+    var userInput = document.getElementById('username');
+    var pwdInput = document.getElementById('password');
+    if (!card || !form || !userInput || !pwdInput) {
+        return;
+    }
+
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /* ---------- Live greeting + clock ---------- */
+    var greetEl = document.getElementById('pl-greeting');
+    var clockEl = document.getElementById('pl-clock');
+    function plTick() {
+        var now = new Date();
+        if (greetEl) {
+            var h = now.getHours();
+            greetEl.textContent = (h < 12 ? 'Good morning' : (h < 17 ? 'Good afternoon' : 'Good evening')) + ', welcome back';
+        }
+        if (clockEl) {
+            clockEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+    }
+    plTick();
+    setInterval(plTick, 1000);
+
+    /* ---------- Error state: shake + scroll into view ---------- */
+    var msgBox = card.querySelector('.landing-auth__message');
+    var hasError = msgBox && msgBox.querySelector('.landing-auth-alert--error');
+    if (hasError) {
+        card.classList.add('has-error');
+        setTimeout(function () { card.classList.remove('has-error'); }, 700);
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', '#portal-login');
+        }
+        setTimeout(function () {
+            if (aside.scrollIntoView) {
+                aside.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+            }
+        }, 60);
+    } else if (window.location.hash === '#portal-login' && !reduceMotion) {
+        card.classList.add('is-highlighted');
+        setTimeout(function () { card.classList.remove('is-highlighted'); }, 1400);
+    }
+
+    /* ---------- Show / hide password ---------- */
+    var toggle = document.getElementById('pl-toggle-pwd');
+    if (toggle) {
+        toggle.addEventListener('click', function () {
+            var show = pwdInput.type === 'password';
+            pwdInput.type = show ? 'text' : 'password';
+            toggle.setAttribute('aria-pressed', show ? 'true' : 'false');
+            toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+            var icon = toggle.querySelector('i');
+            if (icon) {
+                icon.className = show ? 'fa fa-eye-slash' : 'fa fa-eye';
+            }
+            pwdInput.focus();
+        });
+    }
+
+    /* ---------- Caps Lock detection ---------- */
+    var capsHint = document.getElementById('pl-caps-hint');
+    function plCapsCheck(e) {
+        if (!capsHint || !e.getModifierState) {
+            return;
+        }
+        capsHint.classList.toggle('is-visible', e.getModifierState('CapsLock'));
+    }
+    pwdInput.addEventListener('keydown', plCapsCheck);
+    pwdInput.addEventListener('keyup', plCapsCheck);
+    pwdInput.addEventListener('blur', function () {
+        if (capsHint) {
+            capsHint.classList.remove('is-visible');
+        }
+    });
+
+    /* ---------- Filled-state highlight on fields ---------- */
+    var fields = card.querySelectorAll('.landing-field input');
+    function plSyncFilled() {
+        var field = this.closest ? this.closest('.landing-field') : null;
+        if (field) {
+            field.classList.toggle('is-filled', this.value !== '');
+        }
+    }
+    for (var fi = 0; fi < fields.length; fi++) {
+        fields[fi].addEventListener('input', plSyncFilled);
+        fields[fi].addEventListener('change', plSyncFilled);
+        plSyncFilled.call(fields[fi]);
+    }
+
+    /* ---------- Role picker ---------- */
+    var roleButtons = card.querySelectorAll('.portal-role');
+    var roleField = document.getElementById('pl-role-field');
+    for (var ri = 0; ri < roleButtons.length; ri++) {
+        roleButtons[ri].addEventListener('click', function () {
+            for (var rj = 0; rj < roleButtons.length; rj++) {
+                roleButtons[rj].classList.remove('is-active');
+            }
+            this.classList.add('is-active');
+            if (roleField) {
+                roleField.value = this.getAttribute('data-role') || '';
+            }
+            userInput.focus();
+        });
+    }
+
+    /* ---------- Login button loading state ---------- */
+    var loginBtn = document.getElementById('login');
+    var loginResetTimer;
+    function resetLoginButton() {
+        window.clearTimeout(loginResetTimer);
+        if (!loginBtn) return;
+        loginBtn.classList.remove('is-loading');
+        loginBtn.disabled = false;
+        loginBtn.removeAttribute('aria-busy');
+    }
+    window.addEventListener('pageshow', resetLoginButton);
+    form.addEventListener('submit', function (event) {
+        if (!loginBtn) {
+            return;
+        }
+        // Let native/plugin validation finish before showing a loading state.
+        window.setTimeout(function () {
+            if (event.defaultPrevented || !form.checkValidity()) {
+                resetLoginButton();
+                return;
+            }
+            window.clearTimeout(loginResetTimer);
+            loginBtn.classList.add('is-loading');
+            loginBtn.disabled = true;
+            loginBtn.setAttribute('aria-busy', 'true');
+            loginResetTimer = window.setTimeout(resetLoginButton, 8000);
+        }, 0);
+    });
+
+    /* ---------- Remember me (username only, stored locally) ---------- */
+    var rememberBox = document.getElementById('pl-remember');
+    var REMEMBER_KEY = 'portal_login_remember_username';
+    if (rememberBox) {
+        try {
+            var savedUser = window.localStorage.getItem(REMEMBER_KEY);
+            if (savedUser) {
+                userInput.value = savedUser;
+                rememberBox.checked = true;
+                plSyncFilled.call(userInput);
+            }
+        } catch (err) { /* storage unavailable */ }
+        form.addEventListener('submit', function () {
+            try {
+                if (rememberBox.checked && userInput.value !== '') {
+                    window.localStorage.setItem(REMEMBER_KEY, userInput.value);
+                } else {
+                    window.localStorage.removeItem(REMEMBER_KEY);
+                }
+            } catch (err) { /* storage unavailable */ }
+        });
+    }
+
+    /* ---------- Subtle 3D tilt on the card (desktop pointers only) ---------- */
+    var canTilt = !reduceMotion && window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+    if (canTilt) {
+        var tiltFrame = null;
+        card.addEventListener('mousemove', function (e) {
+            if (tiltFrame) {
+                return;
+            }
+            tiltFrame = window.requestAnimationFrame(function () {
+                tiltFrame = null;
+                var rect = card.getBoundingClientRect();
+                var px = (e.clientX - rect.left) / rect.width - 0.5;
+                var py = (e.clientY - rect.top) / rect.height - 0.5;
+                card.style.transform = 'perspective(1100px) rotateX(' + (-py * 3.2).toFixed(2) + 'deg) rotateY(' + (px * 3.2).toFixed(2) + 'deg) translateY(-2px)';
+            });
+        });
+        card.addEventListener('mouseleave', function () {
+            if (tiltFrame) {
+                window.cancelAnimationFrame(tiltFrame);
+                tiltFrame = null;
+            }
+            card.style.transform = '';
+        });
     }
 })();
 </script>

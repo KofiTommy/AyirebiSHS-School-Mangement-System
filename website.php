@@ -19,7 +19,7 @@ ob_start();
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="school-site.css">
+  <link rel="stylesheet" href="school-site.css?v=5">
   <link rel="stylesheet" href="css/ayisec-shared-palette.css">
   <link rel="stylesheet" href="css/font-awesome-4.7.0/css/font-awesome.min.css">
 </head>
@@ -75,7 +75,7 @@ ob_start();
 
   <footer id="contact"><div class="shell footer-grid"><div class="footer-brand"><a class="brand" href="#home"><span class="crest"><img src="logo/logo.png" alt="Ayirebi Senior High School logo"></span><span><strong>Ayirebi</strong><small>Senior High School</small></span></a><p>Inspiring capable, compassionate young people from the Eastern Region of Ghana.</p></div><div><h4>Explore</h4><a href="#about">About us</a><a href="#academics">Academics</a><a href="#life">Student life</a><a href="#teachers">Our teachers</a><a href="#admissions">Admissions</a></div><div><h4>Contact</h4><p>Ayirebi, Eastern Region<br>Ghana Post GPS: EM-0916-5753<br>P.O. Box 541, Akim Oda</p><a href="tel:+233000000000">+233 (0) 24 560 5120</a><a href="mailto:info@ayirebishs.edu.gh">ayirebishs@ges.gov.gh</a></div><div><h4>Stay connected</h4><p>Receive school news, events and admissions updates.</p><form class="subscribe" onsubmit="event.preventDefault(); this.querySelector('input').value='Thank you for subscribing!';"><input aria-label="Email address" type="email" placeholder="Your email address" required><button aria-label="Subscribe">→</button></form></div></div><div class="shell footer-bottom"><span>© 2026 Ayirebi Senior High School</span><span>Eastern Region · Ghana</span></div></footer>
   <div class="site-legal"><a href="privacy.php">Privacy, student images &amp; safeguarding</a></div>
-  <div class="platform-powered"><span>Powered by</span><a class="tokaa-powered-link" href="https://tokaatechconsult.com/" target="_blank" rel="noopener noreferrer" aria-label="Visit Tokaa Tech Consult"><img src="images/Tokaa%20Logo.png" alt="Tokaa Tech Consult"><strong>Tokaa Tech Consult</strong></a><span class="platform-divider">|</span><img src="images/LiveCampus.png" alt="LiveCampus"></div>
+  <div class="platform-powered"><span>Powered by</span><a class="tokaa-powered-link" href="https://tokaatechconsult.com/" target="_blank" rel="noopener noreferrer" aria-label="Visit Tokaa Tech Consult"><img src="images/Tokaa%20Logo.png" alt="Tokaa Tech Consult"><strong>Tokaa Tech Consult</strong></a><span class="platform-divider">|</span><img src="images/LiveCampus-illustration.png?v=3" alt="LiveCampus"></div>
   <a class="website-help-fab" href="https://wa.me/233245065954?text=Hello%2C%20I%20need%20help%20with%20Ayirebi%20Senior%20High%20School." target="_blank" rel="noopener noreferrer" aria-label="Get help on WhatsApp"><span>Need help?</span><b>WA</b></a>
 <script src="school-site.js"></script>
 </body>

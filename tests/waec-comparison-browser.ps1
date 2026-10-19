@@ -78,6 +78,16 @@ try {
             $null = Invoke-Cdp 'Runtime.evaluate' @{expression='scrollTo(0,0)'}
             Write-Output "$($viewport.name): class search, status filters, empty state and unchanged totals passed."
         }
+        $portalSubmit = Invoke-Cdp 'Runtime.evaluate' @{expression='!!document.querySelector("[data-portal-login-fixture]")'; returnByValue=$true}
+        if ($portalSubmit.result.value) {
+            $submitTest = Invoke-Cdp 'Runtime.evaluate' @{expression='(async()=>{const f=document.getElementById("formID"),b=document.getElementById("login"),u=document.getElementById("username"),p=document.getElementById("password");if(!window.loginFixture){window.loginFixture={count:0,allow:false};f.addEventListener("submit",e=>{if(!window.loginFixture.allow){e.preventDefault();window.loginFixture.count++;window.loginFixture.data=Object.fromEntries(new FormData(f));}});}window.dispatchEvent(new Event("pageshow"));window.loginFixture.count=0;u.value="";p.value="";b.click();if(window.loginFixture.count!==0)return false;u.value="fixture-user";p.value="fixture-password";b.click();await new Promise(r=>setTimeout(r,20));if(window.loginFixture.count!==1||window.loginFixture.data.login!=="1"||window.loginFixture.data.username!=="fixture-user"||b.disabled)return false;window.loginFixture.allow=true;f.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,20));const preserved=b.disabled&&new FormData(f).get("login")==="1"&&new FormData(f).get("password")==="fixture-password";window.loginFixture.allow=false;window.dispatchEvent(new Event("pageshow"));p.focus();return preserved&&!b.disabled&&!b.classList.contains("is-loading");})()'; returnByValue=$true; awaitPromise=$true}
+            if (!$submitTest.result.value) { throw 'Portal login marker, validation, cancelled submission or loading reset failed.' }
+            $null = Invoke-Cdp 'Input.dispatchKeyEvent' @{type='keyDown'; key='Enter'; code='Enter'; windowsVirtualKeyCode=13; text="`r"}
+            $null = Invoke-Cdp 'Input.dispatchKeyEvent' @{type='keyUp'; key='Enter'; code='Enter'; windowsVirtualKeyCode=13}
+            $enterTest = Invoke-Cdp 'Runtime.evaluate' @{expression='window.loginFixture.count===2&&window.loginFixture.data.login==="1"&&window.loginFixture.data.password==="fixture-password"'; returnByValue=$true}
+            if (!$enterTest.result.value) { throw 'Portal Enter-key submission failed.' }
+            Write-Output "$($viewport.name): login click/Enter, required fields, action marker while disabled, cancelled validation and Back reset passed."
+        }
         $loginDialog = Invoke-Cdp 'Runtime.evaluate' @{expression='!!document.querySelector("dialog#old-student-login")'; returnByValue=$true}
         if ($loginDialog.result.value) {
             $null = Invoke-Cdp 'Runtime.evaluate' @{expression='document.querySelector("button[data-open-login]").click()'}

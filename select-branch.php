@@ -159,7 +159,7 @@ document.getElementById("staff-id").value=rnd;
         <div class="branch-hero__copy">
             <div class="branch-brand">
                 <div class="branch-brand__mark">
-                    <img src="images/LiveCampus-white.png" alt="LiveCampus">
+                    <img src="images/LiveCampus-illustration.png?v=3" alt="LiveCampus">
                 </div>
                 <div>
                     <span class="branch-kicker">Branch Workspace</span>

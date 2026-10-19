@@ -1748,3 +1748,272 @@ body.landing-page::before{background:linear-gradient(135deg,rgba(13,44,40,.78),r
 }
 
 .landing-report-guide{margin-top:20px;display:flex;align-items:center;gap:13px;max-width:610px;padding:10px 13px;border:1px solid rgba(214,155,55,.44);border-radius:16px;background:rgba(255,255,255,.11);color:#fff;text-decoration:none;transition:transform .2s ease,background .2s ease}.landing-report-guide:hover,.landing-report-guide:focus-visible{transform:translateY(-2px);background:rgba(255,255,255,.18);color:#fff;text-decoration:none}.landing-report-guide img{width:74px;height:92px;object-fit:cover;object-position:top;border-radius:9px;box-shadow:0 7px 15px rgba(0,0,0,.18)}.landing-report-guide span{display:flex;flex-direction:column;gap:3px;min-width:0}.landing-report-guide strong{font-size:.93rem;color:#fff4df}.landing-report-guide small{color:rgba(255,255,255,.8);line-height:1.4}.landing-report-guide b{margin-top:3px;color:#f4d48a;font-size:.8rem}@media(max-width:560px){.landing-report-guide{padding:9px 10px;gap:10px}.landing-report-guide img{width:61px;height:78px}.landing-report-guide small{font-size:.78rem}.landing-report-guide strong{font-size:.84rem}}
+
+
+/* ============================================================
+   Portal login (#portal-login) interactive enhancements
+   ============================================================ */
+
+/* --- Live greeting + clock strip --- */
+.landing-auth__greeting {
+    margin-top: 16px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--landing-ink-soft);
+    background: linear-gradient(120deg, var(--landing-highlight-soft), var(--landing-accent-soft));
+    border: 1px solid rgba(15, 127, 124, 0.18);
+}
+
+.landing-auth__greeting strong {
+    color: var(--landing-ink);
+}
+
+.landing-auth__clock {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--landing-highlight);
+    letter-spacing: 0.02em;
+}
+
+/* --- Alert messages (replaces legacy inline-styled red text) --- */
+.landing-auth-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    line-height: 1.55;
+    font-size: 0.92rem;
+    animation: plAlertIn 0.35s ease-out both;
+}
+
+.landing-auth-alert i {
+    margin-top: 2px;
+}
+
+.landing-auth__message .landing-auth-alert--error {
+    color: #8c2f12;
+    background: rgba(173, 65, 30, 0.1);
+    border: 1px solid rgba(173, 65, 30, 0.28);
+}
+
+@keyframes plAlertIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Error shake + focus highlight pulse --- */
+@keyframes plShake {
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-4px); }
+    40%, 60% { transform: translateX(4px); }
+}
+
+.landing-auth__card.has-error {
+    animation: plShake 0.55s cubic-bezier(.36,.07,.19,.97) both;
+    border-color: rgba(173, 65, 30, 0.55);
+}
+
+@keyframes plHighlight {
+    0%   { box-shadow: 0 0 0 0 rgba(15, 127, 124, 0.45); }
+    60%  { box-shadow: 0 0 0 14px rgba(15, 127, 124, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(15, 127, 124, 0); }
+}
+
+.landing-auth__card.is-highlighted {
+    animation: plHighlight 1.3s ease-out both;
+}
+
+/* --- Field states --- */
+.landing-field {
+    position: relative;
+    transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
+}
+
+.landing-field:focus-within {
+    border-color: var(--landing-highlight);
+    box-shadow: 0 0 0 4px rgba(15, 127, 124, 0.14), 0 12px 24px rgba(16, 32, 58, 0.08);
+    transform: translateY(-1px);
+}
+
+.landing-field.is-filled .landing-field__icon {
+    background: rgba(15, 127, 124, 0.16);
+}
+
+.landing-field__icon i {
+    transition: transform 0.22s ease;
+}
+
+.landing-field:focus-within .landing-field__icon i {
+    transform: scale(1.12);
+}
+
+/* --- Password field with toggle --- */
+.landing-field--password {
+    grid-template-columns: 48px minmax(0, 1fr) 52px;
+}
+
+.pl-toggle {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    min-height: 58px;
+    border: 0;
+    background: transparent;
+    color: var(--landing-ink-soft);
+    font-size: 1.02rem;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+
+.pl-toggle:hover,
+.pl-toggle:focus-visible {
+    color: var(--landing-highlight);
+    background: rgba(15, 127, 124, 0.08);
+    outline: none;
+}
+
+.pl-toggle[aria-pressed="true"] {
+    color: var(--landing-highlight);
+}
+
+/* --- Caps Lock hint --- */
+.pl-caps {
+    display: none;
+    align-items: center;
+    gap: 7px;
+    margin-top: 8px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #8c5a10;
+    background: rgba(212, 153, 52, 0.14);
+    border: 1px solid rgba(212, 153, 52, 0.4);
+    animation: plAlertIn 0.25s ease-out both;
+}
+
+.pl-caps.is-visible {
+    display: inline-flex;
+}
+
+/* --- Remember me / forgot password row --- */
+.landing-form__meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.86rem;
+}
+
+.landing-remember {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: var(--landing-ink-soft);
+    user-select: none;
+}
+
+.landing-remember input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--landing-highlight);
+    cursor: pointer;
+}
+
+.landing-remember:hover {
+    color: var(--landing-ink);
+}
+
+.landing-forgot {
+    color: var(--landing-highlight);
+    font-weight: 700;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.landing-forgot:hover,
+.landing-forgot:focus-visible {
+    color: #0b625f;
+    text-decoration: underline;
+    outline: none;
+}
+
+/* --- Login button loading state --- */
+.landing-submit {
+    position: relative;
+}
+
+.landing-submit .pl-spinner {
+    display: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: plSpin 0.7s linear infinite;
+}
+
+@keyframes plSpin {
+    to { transform: rotate(360deg); }
+}
+
+.landing-submit.is-loading {
+    pointer-events: none;
+    opacity: 0.88;
+    filter: saturate(0.9);
+}
+
+.landing-submit.is-loading .pl-spinner {
+    display: inline-block;
+}
+
+.landing-submit.is-loading .pl-submit-label {
+    opacity: 0.85;
+}
+
+.landing-submit:disabled {
+    cursor: wait;
+}
+
+/* --- Card tilt (JS-driven, desktop only) --- */
+.landing-auth__card {
+    transition: transform 0.28s ease, box-shadow 0.28s ease;
+    will-change: transform;
+}
+
+/* --- Respect reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+    .landing-auth__card.has-error,
+    .landing-auth__card.is-highlighted,
+    .landing-auth-alert,
+    .pl-caps,
+    .landing-submit .pl-spinner {
+        animation: none;
+    }
+
+    .landing-field,
+    .landing-auth__card {
+        transition: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .landing-auth__greeting {
+        font-size: 0.8rem;
+        padding: 9px 12px;
+    }
+
+    .pl-toggle {
+        min-height: 52px;
+    }
+}
