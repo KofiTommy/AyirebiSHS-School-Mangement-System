@@ -1,0 +1,491 @@
+/* ============================================================
+   Shared colour-mode theme for teacher & student dashboards
+   Modes: light (original) / dark / auto / ocean / emerald / royal
+   Choice is shared with the admin dashboard via localStorage key
+   'admin-colour-mode'.
+   ============================================================ */
+
+/* ---------- Theme switcher control ---------- */
+.admin-theme-switcher {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 6px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #0f2742, #155e75);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 12px 28px rgba(10, 22, 42, 0.4);
+}
+.admin-theme-switcher__label {
+    padding: 0 4px 0 8px;
+    font: 700 10px "Segoe UI", Tahoma, sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #bcd2e8;
+}
+.admin-theme-switcher button {
+    border: 0;
+    background: transparent;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+/* Pure-CSS palette dots: identical size, perfectly round, no emoji-font quirks */
+.admin-theme-dot {
+    display: block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.admin-theme-dot--light {
+    background: linear-gradient(135deg, #ffffff, #c3d0e0);
+}
+.admin-theme-dot--dark {
+    background: linear-gradient(135deg, #475569, #0f172a);
+}
+.admin-theme-dot--auto {
+    background: linear-gradient(90deg, #f1f5f9 0 50%, #16233b 50% 100%);
+}
+.admin-theme-dot--ocean {
+    background: linear-gradient(135deg, #38bdf8, #0d3b66);
+}
+.admin-theme-dot--emerald {
+    background: linear-gradient(135deg, #34d399, #064e3b);
+}
+.admin-theme-dot--royal {
+    background: linear-gradient(135deg, #a78bfa, #312a6e);
+}
+.admin-theme-switcher button:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+.admin-theme-switcher button:hover .admin-theme-dot {
+    transform: scale(1.12);
+}
+.admin-theme-switcher button.is-active {
+    background: rgba(255, 255, 255, 0.12);
+}
+.admin-theme-switcher button.is-active .admin-theme-dot {
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px rgba(255, 255, 255, 0.32), inset 0 1px 2px rgba(255, 255, 255, 0.35);
+}
+@media (max-width: 620px) {
+    .admin-theme-switcher {
+        right: 10px;
+        bottom: 10px;
+        padding: 4px 5px;
+    }
+    .admin-theme-switcher__label {
+        display: none;
+    }
+}
+
+/* ============================================================
+   DARK MODE
+   ============================================================ */
+html[data-admin-theme="dark"] {
+    color-scheme: dark;
+}
+html[data-admin-theme="dark"] body.teacher-dashboard-page,
+html[data-admin-theme="dark"] body.student-dashboard-page {
+    background:
+        radial-gradient(circle at top left, rgba(213, 155, 55, 0.08), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(45, 212, 191, 0.07), transparent 18%),
+        linear-gradient(145deg, #101d33 0%, #0d1829 60%, #0b1424 100%) !important;
+    color: #e4edf9;
+}
+
+/* Header bar */
+html[data-admin-theme="dark"] body.teacher-dashboard-page .header,
+html[data-admin-theme="dark"] body.student-dashboard-page .header {
+    background: rgba(14, 23, 42, 0.94);
+    border-bottom: 1px solid #3d5a82;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* menu.php chrome: top bar actions + account dropdown */
+html[data-admin-theme="dark"] .top-action-link,
+html[data-admin-theme="dark"] .dropbtnNew {
+    background-color: #1e2f4e;
+    color: #e9f1fb;
+    border-color: rgba(148, 163, 184, 0.32);
+}
+html[data-admin-theme="dark"] .top-action-link:hover,
+html[data-admin-theme="dark"] .dropbtnNew:hover,
+html[data-admin-theme="dark"] .dropdownNew:hover .dropbtnNew {
+    background-color: #273e63;
+}
+html[data-admin-theme="dark"] .top-action-indicator {
+    background: linear-gradient(135deg, #16324a, #1b3d5c);
+    border-color: #3d5a82;
+    color: #cfe3f7;
+}
+html[data-admin-theme="dark"] .top-action-indicator small { color: #8fb0cc; }
+html[data-admin-theme="dark"] .top-action-indicator i { color: #38bdf8; }
+html[data-admin-theme="dark"] .dropdownNew-content {
+    background-color: #182747;
+    border-color: #3d5a82;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+html[data-admin-theme="dark"] .dropdownNew-content a { color: #e9f1fb; }
+html[data-admin-theme="dark"] .dropdownNew-content a:hover { background-color: #273e63; }
+html[data-admin-theme="dark"] .dropdownNew.is-open .dropdownNew-content {
+    background: linear-gradient(145deg, #182747 0%, #131f38 100%);
+    border-color: #3d5a82;
+    box-shadow: 0 22px 48px rgba(0, 0, 0, 0.55);
+}
+
+/* Dashboard surfaces */
+html[data-admin-theme="dark"] .teacher-panel,
+html[data-admin-theme="dark"] .teacher-action-card,
+html[data-admin-theme="dark"] .student-panel,
+html[data-admin-theme="dark"] .student-action-card,
+html[data-admin-theme="dark"] .student-report-card,
+html[data-admin-theme="dark"] .student-list-card,
+html[data-admin-theme="dark"] .student-summary-card,
+html[data-admin-theme="dark"] .student-finance-card,
+html[data-admin-theme="dark"] .teacher-action-centre,
+html[data-admin-theme="dark"] .student-action-centre,
+html[data-admin-theme="dark"] .teacher-action-centre__item,
+html[data-admin-theme="dark"] .student-action-centre__item,
+html[data-admin-theme="dark"] .dashboard-exam-paper {
+    background: #1a2942;
+    border-color: rgba(148, 163, 184, 0.22);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+    color: #e4edf9;
+}
+/* Inner containers one shade deeper than their panels */
+html[data-admin-theme="dark"] .teacher-performance-kpi,
+html[data-admin-theme="dark"] .student-performance-kpi,
+html[data-admin-theme="dark"] .teacher-performance-table-wrap,
+html[data-admin-theme="dark"] .student-performance-table-wrap,
+html[data-admin-theme="dark"] .teacher-message-card,
+html[data-admin-theme="dark"] .student-message-card,
+html[data-admin-theme="dark"] .teacher-engagement-hero,
+html[data-admin-theme="dark"] .student-engagement-hero,
+html[data-admin-theme="dark"] .teacher-empty-state,
+html[data-admin-theme="dark"] .student-empty-state {
+    background: #16233b;
+    border-color: rgba(148, 163, 184, 0.2);
+    color: #e4edf9;
+}
+html[data-admin-theme="dark"] .teacher-panel h2,
+html[data-admin-theme="dark"] .student-panel h2,
+html[data-admin-theme="dark"] .teacher-panel__header h2,
+html[data-admin-theme="dark"] .student-panel__header h2,
+html[data-admin-theme="dark"] .teacher-action-centre__heading h2,
+html[data-admin-theme="dark"] .student-action-centre__heading h2,
+html[data-admin-theme="dark"] .teacher-performance-kpi strong,
+html[data-admin-theme="dark"] .student-performance-kpi strong {
+    color: #e8eef8;
+}
+html[data-admin-theme="dark"] .teacher-panel:hover,
+html[data-admin-theme="dark"] .student-panel:hover {
+    border-color: rgba(56, 189, 248, 0.35);
+}
+
+/* Headings + body text on surfaces */
+html[data-admin-theme="dark"] .teacher-section__heading h2,
+html[data-admin-theme="dark"] .student-section__heading h2,
+html[data-admin-theme="dark"] .teacher-action-card h3,
+html[data-admin-theme="dark"] .student-action-card h3,
+html[data-admin-theme="dark"] .student-report-card h3,
+html[data-admin-theme="dark"] .student-list-card h3,
+html[data-admin-theme="dark"] .dashboard-exam-paper__main h3 {
+    color: #e8eef8;
+}
+html[data-admin-theme="dark"] .teacher-action-card p,
+html[data-admin-theme="dark"] .student-action-card p,
+html[data-admin-theme="dark"] .dashboard-exam-paper__main p {
+    color: #a5b9d0;
+}
+html[data-admin-theme="dark"] .teacher-panel__eyebrow,
+html[data-admin-theme="dark"] .student-panel__eyebrow,
+html[data-admin-theme="dark"] .student-section__eyebrow,
+html[data-admin-theme="dark"] .teacher-action-centre__body small,
+html[data-admin-theme="dark"] .student-action-centre__body small,
+html[data-admin-theme="dark"] .dashboard-exam-paper__date span,
+html[data-admin-theme="dark"] .dashboard-exam-paper__time small,
+html[data-admin-theme="dark"] .dashboard-exam-empty p {
+    color: #93a9c6;
+}
+html[data-admin-theme="dark"] .teacher-action-centre__body strong,
+html[data-admin-theme="dark"] .student-action-centre__body strong,
+html[data-admin-theme="dark"] .dashboard-exam-paper__time,
+html[data-admin-theme="dark"] .dashboard-exam-empty strong {
+    color: #e4edf9;
+}
+
+/* Icon chips + count badges */
+html[data-admin-theme="dark"] .teacher-action-card__icon,
+html[data-admin-theme="dark"] .student-action-card__icon {
+    background: rgba(45, 212, 191, 0.15);
+    color: #2dd4bf;
+}
+html[data-admin-theme="dark"] .teacher-action-centre__icon,
+html[data-admin-theme="dark"] .student-action-centre__icon {
+    background: rgba(45, 212, 191, 0.14);
+    color: #2dd4bf;
+}
+html[data-admin-theme="dark"] .teacher-action-centre__count,
+html[data-admin-theme="dark"] .student-action-centre__count {
+    background: #2b3f61;
+    color: #e8eef8;
+}
+html[data-admin-theme="dark"] .teacher-action-centre__arrow,
+html[data-admin-theme="dark"] .student-action-centre__arrow {
+    color: #7d95b3;
+}
+html[data-admin-theme="dark"] .dashboard-exam-type {
+    background: rgba(56, 189, 248, 0.16);
+    color: #7dd3fc;
+}
+html[data-admin-theme="dark"] .dashboard-exam-empty > i {
+    background: rgba(56, 189, 248, 0.14);
+    color: #38bdf8;
+}
+html[data-admin-theme="dark"] .dashboard-exam-empty {
+    color: #a5b9d0;
+}
+html[data-admin-theme="dark"] .dashboard-exam-paper__main small,
+html[data-admin-theme="dark"] .dashboard-exam-paper__time i {
+    color: #7dd3fc;
+}
+
+/* Panel link chips */
+html[data-admin-theme="dark"] .teacher-panel__link,
+html[data-admin-theme="dark"] .student-panel__link {
+    background: rgba(148, 163, 184, 0.14);
+    color: #e4edf9;
+}
+html[data-admin-theme="dark"] .teacher-panel__link:hover,
+html[data-admin-theme="dark"] .student-panel__link:hover {
+    background: rgba(148, 163, 184, 0.24);
+}
+
+/* Form controls inside dashboards */
+html[data-admin-theme="dark"] .teacher-performance-toolbar__field select,
+html[data-admin-theme="dark"] .student-performance-toolbar__field select,
+html[data-admin-theme="dark"] .teacher-message-form select,
+html[data-admin-theme="dark"] .teacher-message-form textarea,
+html[data-admin-theme="dark"] .student-message-form select,
+html[data-admin-theme="dark"] .student-message-form textarea {
+    background: #131f35;
+    color: #e8eef8;
+    -webkit-text-fill-color: #e8eef8;
+    border-color: rgba(148, 163, 184, 0.35);
+    color-scheme: dark;
+    box-shadow: none;
+}
+html[data-admin-theme="dark"] .teacher-message-form select option,
+html[data-admin-theme="dark"] .teacher-message-form select optgroup,
+html[data-admin-theme="dark"] .student-message-form select option,
+html[data-admin-theme="dark"] .student-message-form select optgroup {
+    color: #e8eef8;
+    background: #131f35;
+}
+
+/* Secondary buttons / links on dashboards */
+html[data-admin-theme="dark"] .teacher-secondary-link,
+html[data-admin-theme="dark"] .student-secondary-link,
+html[data-admin-theme="dark"] .student-inline-btn {
+    background: rgba(148, 163, 184, 0.12);
+    color: #e4edf9;
+    border-color: rgba(148, 163, 184, 0.3);
+}
+html[data-admin-theme="dark"] .teacher-primary-btn,
+html[data-admin-theme="dark"] .student-primary-btn {
+    background: linear-gradient(135deg, #0f766e, #115e59);
+    color: #eafffb;
+    border-color: rgba(45, 212, 191, 0.4);
+}
+
+/* Tables inside dashboard panels */
+html[data-admin-theme="dark"] body.teacher-dashboard-page table,
+html[data-admin-theme="dark"] body.student-dashboard-page table {
+    color: #c9d6e8;
+}
+
+/* ============================================================
+   LIGHT PALETTES: Ocean / Emerald / Royal
+   ============================================================ */
+
+/* ---------- Ocean ---------- */
+html[data-admin-theme="ocean"] body.teacher-dashboard-page,
+html[data-admin-theme="ocean"] body.student-dashboard-page {
+    background:
+        radial-gradient(circle at top left, rgba(2, 132, 199, 0.08), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(56, 189, 248, 0.08), transparent 18%),
+        linear-gradient(145deg, #f2f8fd 0%, #e9f2fa 46%, #e0ecf6 100%) !important;
+    color: #0f2f4c;
+}
+html[data-admin-theme="ocean"] .teacher-hero,
+html[data-admin-theme="ocean"] .student-hero {
+    background:
+        linear-gradient(145deg, rgba(10, 58, 95, 0.97), rgba(20, 89, 140, 0.92)),
+        linear-gradient(140deg, rgba(56, 189, 248, 0.18), transparent 58%);
+}
+html[data-admin-theme="ocean"] .teacher-action-card__icon,
+html[data-admin-theme="ocean"] .student-action-card__icon {
+    background: rgba(2, 132, 199, 0.12);
+    color: #0369a1;
+}
+html[data-admin-theme="ocean"] .teacher-action-card h3,
+html[data-admin-theme="ocean"] .student-action-card h3 {
+    color: #0d3b66;
+}
+html[data-admin-theme="ocean"] .teacher-panel__link,
+html[data-admin-theme="ocean"] .student-panel__link {
+    background: rgba(2, 132, 199, 0.1);
+    color: #0f2f4c;
+}
+html[data-admin-theme="ocean"] .teacher-panel__eyebrow,
+html[data-admin-theme="ocean"] .student-panel__eyebrow,
+html[data-admin-theme="ocean"] .student-section__eyebrow {
+    color: #0369a1;
+}
+html[data-admin-theme="ocean"] .teacher-action-centre__icon,
+html[data-admin-theme="ocean"] .student-action-centre__icon {
+    background: rgba(2, 132, 199, 0.12);
+    color: #0369a1;
+}
+html[data-admin-theme="ocean"] .dashboard-exam-type {
+    background: rgba(2, 132, 199, 0.12);
+    color: #0b5c8f;
+}
+html[data-admin-theme="ocean"] .dashboard-exam-empty > i {
+    background: rgba(2, 132, 199, 0.12);
+    color: #0369a1;
+}
+html[data-admin-theme="ocean"] .teacher-panel,
+html[data-admin-theme="ocean"] .student-panel,
+html[data-admin-theme="ocean"] .teacher-action-card,
+html[data-admin-theme="ocean"] .student-action-card,
+html[data-admin-theme="ocean"] .teacher-action-centre__item,
+html[data-admin-theme="ocean"] .student-action-centre__item,
+html[data-admin-theme="ocean"] .dashboard-exam-paper {
+    border-color: rgba(13, 59, 102, 0.14);
+}
+
+/* ---------- Emerald ---------- */
+html[data-admin-theme="emerald"] body.teacher-dashboard-page,
+html[data-admin-theme="emerald"] body.student-dashboard-page {
+    background:
+        radial-gradient(circle at top left, rgba(5, 150, 105, 0.08), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(52, 211, 153, 0.08), transparent 18%),
+        linear-gradient(145deg, #f0f9f4 0%, #e7f4ec 46%, #ddefe4 100%) !important;
+    color: #14352a;
+}
+html[data-admin-theme="emerald"] .teacher-hero,
+html[data-admin-theme="emerald"] .student-hero {
+    background:
+        linear-gradient(145deg, rgba(6, 78, 59, 0.97), rgba(13, 112, 80, 0.92)),
+        linear-gradient(140deg, rgba(52, 211, 153, 0.18), transparent 58%);
+}
+html[data-admin-theme="emerald"] .teacher-action-card__icon,
+html[data-admin-theme="emerald"] .student-action-card__icon {
+    background: rgba(5, 150, 105, 0.12);
+    color: #047857;
+}
+html[data-admin-theme="emerald"] .teacher-action-card h3,
+html[data-admin-theme="emerald"] .student-action-card h3 {
+    color: #064e3b;
+}
+html[data-admin-theme="emerald"] .teacher-panel__link,
+html[data-admin-theme="emerald"] .student-panel__link {
+    background: rgba(5, 150, 105, 0.1);
+    color: #14352a;
+}
+html[data-admin-theme="emerald"] .teacher-panel__eyebrow,
+html[data-admin-theme="emerald"] .student-panel__eyebrow,
+html[data-admin-theme="emerald"] .student-section__eyebrow {
+    color: #047857;
+}
+html[data-admin-theme="emerald"] .teacher-action-centre__icon,
+html[data-admin-theme="emerald"] .student-action-centre__icon {
+    background: rgba(5, 150, 105, 0.12);
+    color: #047857;
+}
+html[data-admin-theme="emerald"] .dashboard-exam-type {
+    background: rgba(5, 150, 105, 0.12);
+    color: #065f46;
+}
+html[data-admin-theme="emerald"] .dashboard-exam-empty > i {
+    background: rgba(5, 150, 105, 0.12);
+    color: #047857;
+}
+html[data-admin-theme="emerald"] .teacher-panel,
+html[data-admin-theme="emerald"] .student-panel,
+html[data-admin-theme="emerald"] .teacher-action-card,
+html[data-admin-theme="emerald"] .student-action-card,
+html[data-admin-theme="emerald"] .teacher-action-centre__item,
+html[data-admin-theme="emerald"] .student-action-centre__item,
+html[data-admin-theme="emerald"] .dashboard-exam-paper {
+    border-color: rgba(6, 78, 59, 0.14);
+}
+
+/* ---------- Royal ---------- */
+html[data-admin-theme="royal"] body.teacher-dashboard-page,
+html[data-admin-theme="royal"] body.student-dashboard-page {
+    background:
+        radial-gradient(circle at top left, rgba(124, 58, 237, 0.07), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(167, 139, 250, 0.09), transparent 18%),
+        linear-gradient(145deg, #f4f2fc 0%, #ece9f8 46%, #e2ddf3 100%) !important;
+    color: #28234d;
+}
+html[data-admin-theme="royal"] .teacher-hero,
+html[data-admin-theme="royal"] .student-hero {
+    background:
+        linear-gradient(145deg, rgba(45, 39, 103, 0.97), rgba(84, 66, 156, 0.92)),
+        linear-gradient(140deg, rgba(167, 139, 250, 0.2), transparent 58%);
+}
+html[data-admin-theme="royal"] .teacher-action-card__icon,
+html[data-admin-theme="royal"] .student-action-card__icon {
+    background: rgba(124, 58, 237, 0.12);
+    color: #6d28d9;
+}
+html[data-admin-theme="royal"] .teacher-action-card h3,
+html[data-admin-theme="royal"] .student-action-card h3 {
+    color: #312a6e;
+}
+html[data-admin-theme="royal"] .teacher-panel__link,
+html[data-admin-theme="royal"] .student-panel__link {
+    background: rgba(124, 58, 237, 0.1);
+    color: #28234d;
+}
+html[data-admin-theme="royal"] .teacher-panel__eyebrow,
+html[data-admin-theme="royal"] .student-panel__eyebrow,
+html[data-admin-theme="royal"] .student-section__eyebrow {
+    color: #6d28d9;
+}
+html[data-admin-theme="royal"] .teacher-action-centre__icon,
+html[data-admin-theme="royal"] .student-action-centre__icon {
+    background: rgba(124, 58, 237, 0.12);
+    color: #6d28d9;
+}
+html[data-admin-theme="royal"] .dashboard-exam-type {
+    background: rgba(124, 58, 237, 0.12);
+    color: #5b21b6;
+}
+html[data-admin-theme="royal"] .dashboard-exam-empty > i {
+    background: rgba(124, 58, 237, 0.12);
+    color: #6d28d9;
+}
+html[data-admin-theme="royal"] .teacher-panel,
+html[data-admin-theme="royal"] .student-panel,
+html[data-admin-theme="royal"] .teacher-action-card,
+html[data-admin-theme="royal"] .student-action-card,
+html[data-admin-theme="royal"] .teacher-action-centre__item,
+html[data-admin-theme="royal"] .student-action-centre__item,
+html[data-admin-theme="royal"] .dashboard-exam-paper {
+    border-color: rgba(49, 42, 110, 0.16);
+}
