@@ -1,6 +1,6 @@
 /* ============================================================
    Shared colour-mode theme for teacher & student dashboards
-   Modes: light (original) / dark / auto / ocean / emerald / royal
+   Modes: light (crisp branded gold) / dark / auto / classic (original) / ocean / emerald / royal
    Choice is shared with the admin dashboard via localStorage key
    'admin-colour-mode'.
    ============================================================ */
@@ -57,6 +57,9 @@
 .admin-theme-dot--auto {
     background: linear-gradient(90deg, #f1f5f9 0 50%, #16233b 50% 100%);
 }
+.admin-theme-dot--classic {
+    background: linear-gradient(135deg, #5c7891, #34495e);
+}
 .admin-theme-dot--ocean {
     background: linear-gradient(135deg, #38bdf8, #0d3b66);
 }
@@ -106,7 +109,9 @@ html[data-admin-theme="dark"] body.student-dashboard-page {
 
 /* Header bar */
 html[data-admin-theme="dark"] body.teacher-dashboard-page .header,
-html[data-admin-theme="dark"] body.student-dashboard-page .header {
+html[data-admin-theme="dark"] body.student-dashboard-page .header,
+html[data-admin-theme="dark"] body.bursar-page .header,
+html[data-admin-theme="dark"] body.storekeeper-page .header {
     background: rgba(14, 23, 42, 0.94);
     border-bottom: 1px solid #3d5a82;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -316,6 +321,65 @@ html[data-admin-theme="dark"] body.student-dashboard-page table {
 }
 
 /* ============================================================
+   LIGHT THEME: crisp branded light (gold + deep navy)
+   ============================================================ */
+html[data-admin-theme="light"] body.teacher-dashboard-page,
+html[data-admin-theme="light"] body.student-dashboard-page {
+    background:
+        radial-gradient(circle at top left, rgba(213, 155, 45, 0.1), transparent 24%),
+        radial-gradient(circle at 86% 12%, rgba(47, 128, 185, 0.09), transparent 20%),
+        linear-gradient(180deg, #fbfcfe 0%, #f2f6fb 58%, #eaf1f8 100%) !important;
+    color: #24344a;
+}
+html[data-admin-theme="light"] .teacher-hero,
+html[data-admin-theme="light"] .student-hero {
+    background:
+        linear-gradient(145deg, rgba(9, 28, 51, 0.97), rgba(20, 56, 92, 0.93)),
+        linear-gradient(135deg, rgba(213, 155, 45, 0.24), transparent 58%);
+}
+html[data-admin-theme="light"] .teacher-action-card__icon,
+html[data-admin-theme="light"] .student-action-card__icon {
+    background: rgba(213, 155, 45, 0.14);
+    color: #b45309;
+}
+html[data-admin-theme="light"] .teacher-action-card h3,
+html[data-admin-theme="light"] .student-action-card h3 {
+    color: #102a43;
+}
+html[data-admin-theme="light"] .teacher-panel__link,
+html[data-admin-theme="light"] .student-panel__link {
+    background: rgba(213, 155, 45, 0.12);
+    color: #24344a;
+}
+html[data-admin-theme="light"] .teacher-panel__eyebrow,
+html[data-admin-theme="light"] .student-panel__eyebrow,
+html[data-admin-theme="light"] .student-section__eyebrow {
+    color: #b45309;
+}
+html[data-admin-theme="light"] .teacher-action-centre__icon,
+html[data-admin-theme="light"] .student-action-centre__icon {
+    background: rgba(213, 155, 45, 0.14);
+    color: #b45309;
+}
+html[data-admin-theme="light"] .dashboard-exam-type {
+    background: rgba(213, 155, 45, 0.14);
+    color: #92400e;
+}
+html[data-admin-theme="light"] .dashboard-exam-empty > i {
+    background: rgba(213, 155, 45, 0.14);
+    color: #b45309;
+}
+html[data-admin-theme="light"] .teacher-panel,
+html[data-admin-theme="light"] .student-panel,
+html[data-admin-theme="light"] .teacher-action-card,
+html[data-admin-theme="light"] .student-action-card,
+html[data-admin-theme="light"] .teacher-action-centre__item,
+html[data-admin-theme="light"] .student-action-centre__item,
+html[data-admin-theme="light"] .dashboard-exam-paper {
+    border-color: rgba(16, 42, 67, 0.14);
+}
+
+/* ============================================================
    LIGHT PALETTES: Ocean / Emerald / Royal
    ============================================================ */
 
@@ -488,4 +552,324 @@ html[data-admin-theme="royal"] .teacher-action-centre__item,
 html[data-admin-theme="royal"] .student-action-centre__item,
 html[data-admin-theme="royal"] .dashboard-exam-paper {
     border-color: rgba(49, 42, 110, 0.16);
+}
+
+
+/* ============================================================
+   ROLE DASHBOARDS: Bursar / Storekeeper / House-master
+   ============================================================ */
+
+/* ---------- Dark ---------- */
+html[data-admin-theme="dark"] body.bursar-page,
+html[data-admin-theme="dark"] body.storekeeper-page,
+html[data-admin-theme="dark"] body.house-master-page {
+    background:
+        radial-gradient(circle at top left, rgba(213, 155, 55, 0.08), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(45, 212, 191, 0.07), transparent 18%),
+        linear-gradient(145deg, #101d33 0%, #0d1829 60%, #0b1424 100%) !important;
+    color: #e4edf9;
+}
+/* Heroes stay deep, re-washed for dark */
+html[data-admin-theme="dark"] .bursar-hero {
+    background: linear-gradient(125deg, #0d1c30, #17395c);
+    box-shadow: 0 16px 34px rgba(4, 10, 22, 0.5);
+}
+html[data-admin-theme="dark"] .sk-hero {
+    background: linear-gradient(135deg, rgba(12, 42, 54, 0.98), rgba(8, 28, 42, 0.95));
+    border-color: rgba(148, 163, 184, 0.22);
+    box-shadow: 0 26px 55px rgba(2, 8, 20, 0.5);
+}
+html[data-admin-theme="dark"] .hm-hero {
+    background: linear-gradient(125deg, #0c1e33 0%, #143049 58%, #0d4038 145%);
+}
+/* Surfaces */
+html[data-admin-theme="dark"] .bursar-stats article,
+html[data-admin-theme="dark"] .bursar-section,
+html[data-admin-theme="dark"] .sk-panel,
+html[data-admin-theme="dark"] .sk-summary-card,
+html[data-admin-theme="dark"] .hm-stat,
+html[data-admin-theme="dark"] .hm-section {
+    background: #1a2942;
+    border-color: rgba(148, 163, 184, 0.22);
+    box-shadow: 0 14px 30px rgba(2, 8, 20, 0.35);
+    color: #e4edf9;
+}
+html[data-admin-theme="dark"] .hm-shell {
+    background: rgba(13, 24, 41, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    box-shadow: 0 20px 46px rgba(2, 8, 20, 0.45);
+}
+html[data-admin-theme="dark"] .bursar-actions a {
+    background: #16233b;
+    border-color: rgba(148, 163, 184, 0.22);
+    color: #e4edf9;
+}
+html[data-admin-theme="dark"] .bursar-actions a:hover {
+    border-color: rgba(213, 155, 45, 0.5);
+}
+html[data-admin-theme="dark"] .sk-link-chip {
+    background: #16233b;
+    border-color: rgba(148, 163, 184, 0.25);
+    color: #e4edf9;
+}
+html[data-admin-theme="dark"] .hm-nav-link {
+    background: #16233b;
+    border-color: rgba(148, 163, 184, 0.22);
+    color: #cfe0f4;
+}
+html[data-admin-theme="dark"] .hm-nav-link:hover {
+    background: #1e3050;
+    color: #7dd3fc;
+}
+/* Headings + muted text */
+html[data-admin-theme="dark"] .bursar-section-head h2,
+html[data-admin-theme="dark"] .bursar-stats strong,
+html[data-admin-theme="dark"] .sk-panel__header h2,
+html[data-admin-theme="dark"] .sk-panel__header h3,
+html[data-admin-theme="dark"] .sk-stat strong,
+html[data-admin-theme="dark"] .sk-summary-card strong,
+html[data-admin-theme="dark"] .hm-section h3,
+html[data-admin-theme="dark"] .hm-stat strong,
+html[data-admin-theme="dark"] .hm-title {
+    color: #e8eef8;
+}
+html[data-admin-theme="dark"] .bursar-stats span,
+html[data-admin-theme="dark"] .bursar-section-head p,
+html[data-admin-theme="dark"] .bursar-actions small,
+html[data-admin-theme="dark"] .bursar-empty,
+html[data-admin-theme="dark"] .sk-panel__header p,
+html[data-admin-theme="dark"] .sk-muted,
+html[data-admin-theme="dark"] .sk-empty,
+html[data-admin-theme="dark"] .sk-stat small,
+html[data-admin-theme="dark"] .sk-summary-card span,
+html[data-admin-theme="dark"] .sk-summary-card small,
+html[data-admin-theme="dark"] .hm-stat span,
+html[data-admin-theme="dark"] .hm-section p,
+html[data-admin-theme="dark"] .hm-subtitle {
+    color: #a5b9d0;
+}
+/* Links + tables */
+html[data-admin-theme="dark"] .bursar-section-head > a {
+    color: #7dd3fc;
+}
+html[data-admin-theme="dark"] .bursar-table-wrap th,
+html[data-admin-theme="dark"] .sk-table thead th,
+html[data-admin-theme="dark"] .hm-table th {
+    background: #131f35;
+    color: #cfe0f4;
+}
+html[data-admin-theme="dark"] .bursar-table-wrap td,
+html[data-admin-theme="dark"] .sk-table th,
+html[data-admin-theme="dark"] .sk-table td,
+html[data-admin-theme="dark"] .hm-table td {
+    border-bottom-color: rgba(148, 163, 184, 0.16);
+    color: #c9d6e8;
+}
+html[data-admin-theme="dark"] .sk-table thead th {
+    color: #a5b9d0;
+}
+html[data-admin-theme="dark"] .sk-table tbody tr:hover,
+html[data-admin-theme="dark"] .hm-table tbody tr:hover {
+    background: rgba(148, 163, 184, 0.07);
+}
+/* Filter form */
+html[data-admin-theme="dark"] .hm-filter-field input,
+html[data-admin-theme="dark"] .hm-filter-field select {
+    background: #131f35;
+    color: #e8eef8;
+    -webkit-text-fill-color: #e8eef8;
+    border-color: rgba(148, 163, 184, 0.35);
+    color-scheme: dark;
+}
+html[data-admin-theme="dark"] .hm-filter-field label {
+    color: #a5b9d0;
+}
+html[data-admin-theme="dark"] .hm-table,
+html[data-admin-theme="dark"] .hm-table-wrap {
+    background: #16233b;
+}
+html[data-admin-theme="dark"] .hm-note {
+    background: #16233b;
+    border-color: rgba(148, 163, 184, 0.3);
+    color: #a5b9d0;
+}
+html[data-admin-theme="dark"] .hm-empty {
+    color: #a5b9d0;
+}
+html[data-admin-theme="dark"] .hm-muted {
+    color: #a5b9d0;
+}
+html[data-admin-theme="dark"] .hm-name {
+    color: #e8eef8;
+}
+html[data-admin-theme="dark"] .hm-alert-warning {
+    background: rgba(180, 83, 9, 0.22);
+    border-color: rgba(251, 146, 60, 0.4);
+    color: #fdba74;
+}
+
+/* ---------- Light (crisp branded gold) ---------- */
+html[data-admin-theme="light"] body.bursar-page,
+html[data-admin-theme="light"] body.storekeeper-page,
+html[data-admin-theme="light"] body.house-master-page {
+    background:
+        radial-gradient(circle at top left, rgba(213, 155, 45, 0.1), transparent 24%),
+        radial-gradient(circle at 86% 12%, rgba(47, 128, 185, 0.09), transparent 20%),
+        linear-gradient(180deg, #fbfcfe 0%, #f2f6fb 58%, #eaf1f8 100%) !important;
+    color: #24344a;
+}
+html[data-admin-theme="light"] .bursar-hero {
+    background:
+        radial-gradient(circle at 85% 15%, rgba(217, 155, 27, 0.35), transparent 48%),
+        linear-gradient(125deg, #0c2340, #1a4f82);
+}
+html[data-admin-theme="light"] .sk-hero {
+    background:
+        radial-gradient(circle at 85% 15%, rgba(217, 155, 27, 0.3), transparent 48%),
+        linear-gradient(135deg, rgba(13, 58, 72, 0.98), rgba(11, 79, 86, 0.94));
+}
+html[data-admin-theme="light"] .hm-hero {
+    background:
+        radial-gradient(circle at 85% 12%, rgba(247, 185, 85, 0.35), transparent 46%),
+        linear-gradient(125deg, #0d2036 0%, #16425f 58%, #0f5a4c 145%);
+}
+html[data-admin-theme="light"] .bursar-stats i,
+html[data-admin-theme="light"] .bursar-section-head > a {
+    color: #b45309;
+}
+html[data-admin-theme="light"] .sk-link-grid--filters .sk-link-chip {
+    color: #92400e;
+    border-color: #e8cb8e;
+}
+html[data-admin-theme="light"] .hm-nav-link:hover {
+    background: #fdf3dc;
+    color: #92400e;
+}
+html[data-admin-theme="light"] .bursar-stats article,
+html[data-admin-theme="light"] .bursar-section,
+html[data-admin-theme="light"] .sk-panel,
+html[data-admin-theme="light"] .sk-summary-card,
+html[data-admin-theme="light"] .hm-stat,
+html[data-admin-theme="light"] .hm-section {
+    border-color: rgba(16, 42, 67, 0.14);
+}
+
+/* ---------- Ocean ---------- */
+html[data-admin-theme="ocean"] body.bursar-page,
+html[data-admin-theme="ocean"] body.storekeeper-page,
+html[data-admin-theme="ocean"] body.house-master-page {
+    background:
+        radial-gradient(circle at top left, rgba(2, 132, 199, 0.08), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(56, 189, 248, 0.08), transparent 18%),
+        linear-gradient(145deg, #f2f8fd 0%, #e9f2fa 46%, #e0ecf6 100%) !important;
+    color: #0f2f4c;
+}
+html[data-admin-theme="ocean"] .bursar-hero {
+    background: linear-gradient(125deg, #0a3a5f, #14598c);
+}
+html[data-admin-theme="ocean"] .sk-hero {
+    background: linear-gradient(135deg, rgba(10, 58, 95, 0.98), rgba(13, 77, 122, 0.94));
+}
+html[data-admin-theme="ocean"] .hm-hero {
+    background: linear-gradient(125deg, #0a3352 0%, #12486e 58%, #0b5e63 145%);
+}
+html[data-admin-theme="ocean"] .bursar-stats i,
+html[data-admin-theme="ocean"] .bursar-section-head > a {
+    color: #0369a1;
+}
+html[data-admin-theme="ocean"] .sk-link-grid--filters .sk-link-chip {
+    color: #0369a1;
+    border-color: #a8d4f0;
+}
+html[data-admin-theme="ocean"] .hm-nav-link:hover {
+    background: #e3f2fb;
+    color: #0369a1;
+}
+html[data-admin-theme="ocean"] .bursar-stats article,
+html[data-admin-theme="ocean"] .bursar-section,
+html[data-admin-theme="ocean"] .sk-panel,
+html[data-admin-theme="ocean"] .sk-summary-card,
+html[data-admin-theme="ocean"] .hm-stat,
+html[data-admin-theme="ocean"] .hm-section {
+    border-color: rgba(13, 59, 102, 0.14);
+}
+
+/* ---------- Emerald ---------- */
+html[data-admin-theme="emerald"] body.bursar-page,
+html[data-admin-theme="emerald"] body.storekeeper-page,
+html[data-admin-theme="emerald"] body.house-master-page {
+    background:
+        radial-gradient(circle at top left, rgba(5, 150, 105, 0.08), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(52, 211, 153, 0.08), transparent 18%),
+        linear-gradient(145deg, #f0f9f4 0%, #e7f4ec 46%, #ddefe4 100%) !important;
+    color: #14352a;
+}
+html[data-admin-theme="emerald"] .bursar-hero {
+    background: linear-gradient(125deg, #064e3b, #0d7050);
+}
+html[data-admin-theme="emerald"] .sk-hero {
+    background: linear-gradient(135deg, rgba(6, 78, 59, 0.98), rgba(9, 107, 78, 0.94));
+}
+html[data-admin-theme="emerald"] .hm-hero {
+    background: linear-gradient(125deg, #063f30 0%, #0b5a41 58%, #064e3b 145%);
+}
+html[data-admin-theme="emerald"] .bursar-stats i,
+html[data-admin-theme="emerald"] .bursar-section-head > a {
+    color: #047857;
+}
+html[data-admin-theme="emerald"] .sk-link-grid--filters .sk-link-chip {
+    color: #047857;
+    border-color: #a7e6cd;
+}
+html[data-admin-theme="emerald"] .hm-nav-link:hover {
+    background: #e2f6ec;
+    color: #047857;
+}
+html[data-admin-theme="emerald"] .bursar-stats article,
+html[data-admin-theme="emerald"] .bursar-section,
+html[data-admin-theme="emerald"] .sk-panel,
+html[data-admin-theme="emerald"] .sk-summary-card,
+html[data-admin-theme="emerald"] .hm-stat,
+html[data-admin-theme="emerald"] .hm-section {
+    border-color: rgba(6, 78, 59, 0.14);
+}
+
+/* ---------- Royal ---------- */
+html[data-admin-theme="royal"] body.bursar-page,
+html[data-admin-theme="royal"] body.storekeeper-page,
+html[data-admin-theme="royal"] body.house-master-page {
+    background:
+        radial-gradient(circle at top left, rgba(124, 58, 237, 0.07), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(167, 139, 250, 0.09), transparent 18%),
+        linear-gradient(145deg, #f4f2fc 0%, #ece9f8 46%, #e2ddf3 100%) !important;
+    color: #28234d;
+}
+html[data-admin-theme="royal"] .bursar-hero {
+    background: linear-gradient(125deg, #2d2767, #4c3f9e);
+}
+html[data-admin-theme="royal"] .sk-hero {
+    background: linear-gradient(135deg, rgba(41, 35, 92, 0.98), rgba(61, 51, 130, 0.94));
+}
+html[data-admin-theme="royal"] .hm-hero {
+    background: linear-gradient(125deg, #271f56 0%, #3d2f7d 58%, #312a6e 145%);
+}
+html[data-admin-theme="royal"] .bursar-stats i,
+html[data-admin-theme="royal"] .bursar-section-head > a {
+    color: #6d28d9;
+}
+html[data-admin-theme="royal"] .sk-link-grid--filters .sk-link-chip {
+    color: #6d28d9;
+    border-color: #cfc3f2;
+}
+html[data-admin-theme="royal"] .hm-nav-link:hover {
+    background: #efeafb;
+    color: #6d28d9;
+}
+html[data-admin-theme="royal"] .bursar-stats article,
+html[data-admin-theme="royal"] .bursar-section,
+html[data-admin-theme="royal"] .sk-panel,
+html[data-admin-theme="royal"] .sk-summary-card,
+html[data-admin-theme="royal"] .hm-stat,
+html[data-admin-theme="royal"] .hm-section {
+    border-color: rgba(45, 39, 103, 0.14);
 }

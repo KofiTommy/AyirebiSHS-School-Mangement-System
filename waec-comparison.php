@@ -90,7 +90,7 @@ if(isset($_GET['export']) && $_GET['export'] === 'csv' && $batches && !$errors){
     header('Content-Disposition: attachment; filename="waec-batch-comparison.csv"');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF");
-    $write = function($row) use ($out){ fputcsv($out, array_map('wac_csv_cell', $row)); };
+    $write = function($row) use ($out){ fputcsv($out, array_map('wac_csv_cell', $row), ',', '"', '\\'); };
     $write(array('WAEC batch comparison'));
     $write(array('Method', 'Credit rate = A1-C6 entries / A1-F9 graded entries x 100. Not the percentage of students passing. X, W, *, P, conflicts and unknown outcomes are excluded.'));
     $write(array('Coverage', 'Core gaps are measured against identifiable candidates in each upload, not an external registration roster. Elective missing counts are unknown. Programme breakdown is unavailable.'));

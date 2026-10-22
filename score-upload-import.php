@@ -67,7 +67,7 @@ function score_upload_parse_tsv_rows($filePath){
         if($line === ''){
             continue;
         }
-        $rows[] = str_getcsv($line, "\t");
+        $rows[] = str_getcsv($line, "\t", '"', '\\');
     }
     return $rows;
 }

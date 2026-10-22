@@ -318,9 +318,9 @@ function aa_csv_string($headers, $rows){
     if(!$stream){
         return "";
     }
-    fputcsv($stream, $headers);
+    fputcsv($stream, $headers, ',', '"', '\\');
     foreach($rows as $row){
-        fputcsv($stream, $row);
+        fputcsv($stream, $row, ',', '"', '\\');
     }
     rewind($stream);
     $content = stream_get_contents($stream);
@@ -458,7 +458,7 @@ function aa_read_csv_rows($tmpName){
             }
         }
         rewind($h);
-        while(($data = fgetcsv($h, 0, $delimiter)) !== false){
+        while(($data = fgetcsv($h, 0, $delimiter, '"', '\\')) !== false){
             if(isset($data[0])){
                 $data[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string)$data[0]);
             }
@@ -1114,8 +1114,8 @@ if(isset($_GET["download_posted_template"])){
     header("Content-Type: text/csv; charset=UTF-8");
     header("Content-Disposition: attachment; filename=\"online_admission_posted_students_template.csv\"");
     $out = fopen("php://output", "w");
-    fputcsv($out, array("beceindexnumber", "birthdate", "firstname", "surname", "othernames", "gender", "admissionyear", "offeredprogram", "offeredclass", "residentialstatus", "mobile"));
-    fputcsv($out, array("1234567890", "2010-01-15", "Akosua", "Mensah", "Serwaa", "Female", date("Y"), "General Arts", "SHS 1A", "Boarding", "0240000000"));
+    fputcsv($out, array("beceindexnumber", "birthdate", "firstname", "surname", "othernames", "gender", "admissionyear", "offeredprogram", "offeredclass", "residentialstatus", "mobile"), ',', '"', '\\');
+    fputcsv($out, array("1234567890", "2010-01-15", "Akosua", "Mensah", "Serwaa", "Female", date("Y"), "General Arts", "SHS 1A", "Boarding", "0240000000"), ',', '"', '\\');
     fclose($out);
     exit();
 }

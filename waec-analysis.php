@@ -423,7 +423,7 @@ function waec_read_csv_rows($tmpName){
             }
         }
         rewind($h);
-        while(($data = fgetcsv($h, 0, $delimiter)) !== false){
+        while(($data = fgetcsv($h, 0, $delimiter, '"', '\\')) !== false){
             if(isset($data[0])){
                 $data[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string)$data[0]);
             }
@@ -1356,7 +1356,8 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 COUNT(*) AS students_total,
                 SUM(CASE WHEN eng_credit=1 THEN 1 ELSE 0 END) AS english_credit_count,
                 SUM(CASE WHEN math_credit=1 THEN 1 ELSE 0 END) AS math_credit_count,
-                SUM(CASE WHEN sci_social_credit=1 THEN 1 ELSE 0 END) AS science_social_credit_count,
+                SUM(CASE WHEN science_credit=1 THEN 1 ELSE 0 END) AS science_credit_count,
+                SUM(CASE WHEN social_credit=1 THEN 1 ELSE 0 END) AS social_credit_count,
                 SUM(CASE WHEN credits_total>=5 THEN 1 ELSE 0 END) AS credits5_count,
                 SUM(CASE WHEN credits_total>=6 THEN 1 ELSE 0 END) AS credits6_count,
                 SUM(CASE WHEN eng_credit=1 AND math_credit=1 AND sci_social_credit=1 THEN 1 ELSE 0 END) AS core_ready_count
@@ -1365,13 +1366,15 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                         CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END AS cand_key,
                         MAX(CASE WHEN subject_name IN ('ENGLISH LANG','ENGLISH LANGUAGE','ENGLISH') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS eng_credit,
                         MAX(CASE WHEN subject_name IN ('MATHEMATICS(CORE)','MATHEMATICS (CORE)','CORE MATHEMATICS','CORE MATHS') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS math_credit,
-                        MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point<=6 THEN 1 ELSE 0 END) AS sci_social_credit,
+                        MAX(CASE WHEN subject_name='INTEGRATED SCIENCE' AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS science_credit,
+                        MAX(CASE WHEN subject_name='SOCIAL STUDIES' AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS social_credit,
+                        MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS sci_social_credit,
                         SUM(CASE WHEN grade_point<=6 THEN 1 ELSE 0 END) AS credits_total
                     FROM tblwaecresult
                     WHERE $expWhere
                     GROUP BY CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END
                 ) student_rollup");
-            $read = array("students_total"=>0,"english_credit_count"=>0,"math_credit_count"=>0,"science_social_credit_count"=>0,"credits5_count"=>0,"credits6_count"=>0,"core_ready_count"=>0);
+            $read = array("students_total"=>0,"english_credit_count"=>0,"math_credit_count"=>0,"science_credit_count"=>0,"social_credit_count"=>0,"credits5_count"=>0,"credits6_count"=>0,"core_ready_count"=>0);
             if($readExp && $re=mysqli_fetch_array($readExp, MYSQLI_ASSOC)){ $read = $re; }
 
             $gradeExp = mysqli_query($con, "SELECT grade, COUNT(*) AS total,
@@ -1432,10 +1435,11 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
             $rm = array(
                 array("English Credit (A1-C6)",(int)$read["english_credit_count"]),
                 array("Core Math Credit (A1-C6)",(int)$read["math_credit_count"]),
-                array("Science/Social Credit (A1-C6)",(int)$read["science_social_credit_count"]),
+                array("Integrated Science Credit (A1-C6)",(int)$read["science_credit_count"]),
+                array("Social Studies Credit (A1-C6)",(int)$read["social_credit_count"]),
                 array("At Least 5 Credits",(int)$read["credits5_count"]),
                 array("At Least 6 Credits",(int)$read["credits6_count"]),
-                array("Core credits (Eng+Math+Sci/Soc)",(int)$read["core_ready_count"])
+                array("Core credits: Eng + Math + (Science OR Social)",(int)$read["core_ready_count"])
             );
             foreach($rm as $m){
                 $rp = $st>0 ? round(($m[1]*100)/$st,2) : 0;
@@ -1606,17 +1610,18 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 $passRowsCsv = (int)$ov["pass_rows"];
                 $overallPassCsv = $totalRowsCsv > 0 ? round(($passRowsCsv * 100) / $totalRowsCsv, 2) : 0;
             }
-            fputcsv($out, array("Upload ID", $upload["uploadid"]));
-            fputcsv($out, array("Original File", waec_csv_cell($upload["originalname"])));
-            fputcsv($out, array("Uploaded At", $upload["datetimeentry"]));
-            fputcsv($out, array("Total Students", $upload["totalstudents"]));
-            fputcsv($out, array("Total Subject Results", $upload["totalrows"]));
-            fputcsv($out, array("Credit rate (A1-C6)", $overallPassCsv."%"));
+            fputcsv($out, array("Upload ID", $upload["uploadid"]), ',', '"', '\\');
+            fputcsv($out, array("Original File", waec_csv_cell($upload["originalname"])), ',', '"', '\\');
+            fputcsv($out, array("Uploaded At", $upload["datetimeentry"]), ',', '"', '\\');
+            fputcsv($out, array("Total Students", $upload["totalstudents"]), ',', '"', '\\');
+            fputcsv($out, array("Total Subject Results", $upload["totalrows"]), ',', '"', '\\');
+            fputcsv($out, array("Credit rate (A1-C6)", $overallPassCsv."%"), ',', '"', '\\');
             $readinessCsv = mysqli_query($con, "SELECT
                 COUNT(*) AS students_total,
                 SUM(CASE WHEN eng_credit=1 THEN 1 ELSE 0 END) AS english_credit_count,
                 SUM(CASE WHEN math_credit=1 THEN 1 ELSE 0 END) AS math_credit_count,
-                SUM(CASE WHEN sci_social_credit=1 THEN 1 ELSE 0 END) AS science_social_credit_count,
+                SUM(CASE WHEN science_credit=1 THEN 1 ELSE 0 END) AS science_credit_count,
+                SUM(CASE WHEN social_credit=1 THEN 1 ELSE 0 END) AS social_credit_count,
                 SUM(CASE WHEN credits_total>=5 THEN 1 ELSE 0 END) AS credits5_count,
                 SUM(CASE WHEN eng_credit=1 AND math_credit=1 AND sci_social_credit=1 THEN 1 ELSE 0 END) AS core_ready_count
                 FROM (
@@ -1624,20 +1629,23 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                         CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END AS cand_key,
                         MAX(CASE WHEN subject_name IN ('ENGLISH LANG','ENGLISH LANGUAGE','ENGLISH') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS eng_credit,
                         MAX(CASE WHEN subject_name IN ('MATHEMATICS(CORE)','MATHEMATICS (CORE)','CORE MATHEMATICS','CORE MATHS') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS math_credit,
-                        MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point<=6 THEN 1 ELSE 0 END) AS sci_social_credit,
+                        MAX(CASE WHEN subject_name='INTEGRATED SCIENCE' AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS science_credit,
+                        MAX(CASE WHEN subject_name='SOCIAL STUDIES' AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS social_credit,
+                        MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS sci_social_credit,
                         SUM(CASE WHEN grade_point<=6 THEN 1 ELSE 0 END) AS credits_total
                     FROM tblwaecresult WHERE uploadid='$expUpload'
                     GROUP BY CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END
                 ) rollup");
             if($readinessCsv && $rw = mysqli_fetch_array($readinessCsv, MYSQLI_ASSOC)){
-                fputcsv($out, array("Core credits (Eng+Math+Sci/Soc)", $rw["core_ready_count"]));
-                fputcsv($out, array("English Credit Count", $rw["english_credit_count"]));
-                fputcsv($out, array("Core Math Credit Count", $rw["math_credit_count"]));
-                fputcsv($out, array("Science/Social Credit Count", $rw["science_social_credit_count"]));
-                fputcsv($out, array("Students with 5+ Credits", $rw["credits5_count"]));
+                fputcsv($out, array("Core credits: Eng + Math + (Science OR Social)", $rw["core_ready_count"]), ',', '"', '\\');
+                fputcsv($out, array("English Credit Count", $rw["english_credit_count"]), ',', '"', '\\');
+                fputcsv($out, array("Core Math Credit Count", $rw["math_credit_count"]), ',', '"', '\\');
+                fputcsv($out, array("Integrated Science Credit Count", $rw["science_credit_count"]), ',', '"', '\\');
+                fputcsv($out, array("Social Studies Credit Count", $rw["social_credit_count"]), ',', '"', '\\');
+                fputcsv($out, array("Students with 5+ Credits", $rw["credits5_count"]), ',', '"', '\\');
             }
-            fputcsv($out, array(""));
-            fputcsv($out, array("Candidate No", "Student Name", "Gender", "Subject", "Grade", "Point"));
+            fputcsv($out, array(""), ',', '"', '\\');
+            fputcsv($out, array("Candidate No", "Student Name", "Gender", "Subject", "Grade", "Point"), ',', '"', '\\');
 
             $rRes = mysqli_query($con, "SELECT candidate_no,student_name,gender,subject_name,grade,grade_point
                 FROM tblwaecresult WHERE uploadid='$expUpload'
@@ -1647,7 +1655,7 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 ORDER BY student_name ASC, subject_name ASC");
             if($rRes){
                 while($r = mysqli_fetch_array($rRes, MYSQLI_ASSOC)){
-                    fputcsv($out, array_map("waec_csv_cell", array($r["candidate_no"], $r["student_name"], waec_display_gender($r["gender"]), $r["subject_name"], $r["grade"], $r["grade_point"])));
+                    fputcsv($out, array_map("waec_csv_cell", array($r["candidate_no"], $r["student_name"], waec_display_gender($r["gender"]), $r["subject_name"], $r["grade"], $r["grade_point"])), ',', '"', '\\');
                 }
             }
             fclose($out);
@@ -1714,7 +1722,8 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 COUNT(*) AS students_total,
                 SUM(CASE WHEN eng_credit=1 THEN 1 ELSE 0 END) AS english_credit_count,
                 SUM(CASE WHEN math_credit=1 THEN 1 ELSE 0 END) AS math_credit_count,
-                SUM(CASE WHEN sci_social_credit=1 THEN 1 ELSE 0 END) AS science_social_credit_count,
+                SUM(CASE WHEN science_credit=1 THEN 1 ELSE 0 END) AS science_credit_count,
+                SUM(CASE WHEN social_credit=1 THEN 1 ELSE 0 END) AS social_credit_count,
                 SUM(CASE WHEN credits_total>=5 THEN 1 ELSE 0 END) AS credits5_count,
                 SUM(CASE WHEN eng_credit=1 AND math_credit=1 AND sci_social_credit=1 THEN 1 ELSE 0 END) AS core_ready_count
                 FROM (
@@ -1722,7 +1731,9 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                         CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END AS cand_key,
                         MAX(CASE WHEN subject_name IN ('ENGLISH LANG','ENGLISH LANGUAGE','ENGLISH') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS eng_credit,
                         MAX(CASE WHEN subject_name IN ('MATHEMATICS(CORE)','MATHEMATICS (CORE)','CORE MATHEMATICS','CORE MATHS') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS math_credit,
-                        MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point<=6 THEN 1 ELSE 0 END) AS sci_social_credit,
+                        MAX(CASE WHEN subject_name='INTEGRATED SCIENCE' AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS science_credit,
+                        MAX(CASE WHEN subject_name='SOCIAL STUDIES' AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS social_credit,
+                        MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS sci_social_credit,
                         SUM(CASE WHEN grade_point<=6 THEN 1 ELSE 0 END) AS credits_total
                     FROM tblwaecresult WHERE uploadid='$expUpload'
                     GROUP BY CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END
@@ -1734,7 +1745,7 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 $pdf->SetFont("Arial", "B", 11);
                 $pdf->Cell(0, 7, "Core and Credit Indicators", 0, 1);
                 $pdf->SetFont("Arial", "", 9);
-                $pdf->Cell(70, 6, "Core credits (Eng+Math+Sci/Soc):", 0, 0);
+                $pdf->Cell(70, 6, "Core credits: Eng + Math + (Science OR Social):", 0, 0);
                 $pdf->Cell(0, 6, $rr["core_ready_count"]." / ".$rr["students_total"], 0, 1);
                 $pdf->Cell(70, 6, "Students with 5+ Credits:", 0, 0);
                 $pdf->Cell(0, 6, $rr["credits5_count"], 0, 1);
@@ -1802,7 +1813,7 @@ if(isset($_GET["export"]) && isset($_GET["uploadid"])){
                 array("Average Grade Point", $avgPoint),
                 array("Strong Grades Share (A1-B3)", $strongPct."%"),
                 array("Weak Grades Share (D7-F9)", $weakPct."%"),
-                array("Core credits (Eng+Math+Sci/Soc)", $coreReadyPdf." / ".$studentsTotalPdf." (".$coreReadyPctPdf."%)"),
+                array("Core credits: Eng + Math + (Science OR Social)", $coreReadyPdf." / ".$studentsTotalPdf." (".$coreReadyPctPdf."%)"),
                 array("Students with 5+ Credits", $credits5Pdf." / ".$studentsTotalPdf." (".$credits5PctPdf."%)")
             );
             foreach($facts as $f){
@@ -2025,7 +2036,8 @@ if($currentUploadId !== ""){
         COUNT(*) AS students_total,
         SUM(CASE WHEN eng_credit=1 THEN 1 ELSE 0 END) AS english_credit_count,
         SUM(CASE WHEN math_credit=1 THEN 1 ELSE 0 END) AS math_credit_count,
-        SUM(CASE WHEN sci_social_credit=1 THEN 1 ELSE 0 END) AS science_social_credit_count,
+        SUM(CASE WHEN science_credit=1 THEN 1 ELSE 0 END) AS science_credit_count,
+        SUM(CASE WHEN social_credit=1 THEN 1 ELSE 0 END) AS social_credit_count,
         SUM(CASE WHEN credits_total>=5 THEN 1 ELSE 0 END) AS credits5_count,
         SUM(CASE WHEN credits_total>=6 THEN 1 ELSE 0 END) AS credits6_count,
         SUM(CASE WHEN eng_credit=1 AND math_credit=1 AND sci_social_credit=1 THEN 1 ELSE 0 END) AS core_ready_count
@@ -2034,7 +2046,9 @@ if($currentUploadId !== ""){
                 CASE WHEN candidate_no<>'' THEN candidate_no ELSE CONCAT('NAME:',student_name) END AS cand_key,
                 MAX(CASE WHEN subject_name IN ('ENGLISH LANG','ENGLISH LANGUAGE','ENGLISH') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS eng_credit,
                 MAX(CASE WHEN subject_name IN ('MATHEMATICS(CORE)','MATHEMATICS (CORE)','CORE MATHEMATICS','CORE MATHS') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS math_credit,
-                MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point<=6 THEN 1 ELSE 0 END) AS sci_social_credit,
+                MAX(CASE WHEN subject_name='INTEGRATED SCIENCE' AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS science_credit,
+                MAX(CASE WHEN subject_name='SOCIAL STUDIES' AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS social_credit,
+                MAX(CASE WHEN subject_name IN ('INTEGRATED SCIENCE','SOCIAL STUDIES') AND grade_point BETWEEN 1 AND 6 THEN 1 ELSE 0 END) AS sci_social_credit,
                 SUM(CASE WHEN grade_point<=6 THEN 1 ELSE 0 END) AS credits_total
             FROM tblwaecresult
             WHERE ".waec_build_filter_where($con, $currentUploadId, "", $focusGender, "", "result", false)."
@@ -3038,10 +3052,11 @@ if($uploads){
                     $rMetrics = array(
                         "English Credit (A1-C6)" => (int)@$readiness["english_credit_count"],
                         "Core Math Credit (A1-C6)" => (int)@$readiness["math_credit_count"],
-                        "Science/Social Credit (A1-C6)" => (int)@$readiness["science_social_credit_count"],
+                        "Integrated Science Credit (A1-C6)" => (int)@$readiness["science_credit_count"],
+                        "Social Studies Credit (A1-C6)" => (int)@$readiness["social_credit_count"],
                         "At Least 5 Credits" => (int)@$readiness["credits5_count"],
                         "At Least 6 Credits" => (int)@$readiness["credits6_count"],
-                        "Core credits (Eng+Math+Sci/Soc)" => (int)@$readiness["core_ready_count"]
+                        "Core credits: Eng + Math + (Science OR Social)" => (int)@$readiness["core_ready_count"]
                     );
                     foreach($rMetrics as $label => $countVal){
                         $pct = $sTotal > 0 ? round(($countVal * 100) / $sTotal, 2) : 0;

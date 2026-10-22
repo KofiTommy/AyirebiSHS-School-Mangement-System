@@ -8,7 +8,7 @@
  */
 class HttpPost extends HttpRequest {
 
-    public function __construct($curlHandle, $path, $accept, array $params = NULL) {
+    public function __construct($curlHandle, $path, $accept, ?array $params = NULL) {
         parent::__construct($curlHandle, $path, $accept, NULL);
         $this->httpMethod = "POST";
         $this->contentType = parent::URLENCODED;

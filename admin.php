@@ -183,12 +183,8 @@ include("links.php");
 (function () {
     try {
         var v = localStorage.getItem('admin-colour-mode');
-        var themes = { light: 1, dark: 1, ocean: 1, emerald: 1, royal: 1 };
+        var themes = { light: 1, dark: 1, classic: 1, ocean: 1, emerald: 1, royal: 1 };
         var resolved = v;
-        if (v === 'auto' || !themes[v]) {
-            var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            resolved = dark ? 'dark' : 'light';
-        }
         if (!themes[resolved]) { resolved = 'light'; }
         document.documentElement.setAttribute('data-admin-theme', resolved);
     } catch (e) { document.documentElement.setAttribute('data-admin-theme', 'light'); }
@@ -2386,6 +2382,26 @@ html[data-admin-theme="royal"] .admin-sidebar-scroll .menu-inner {
     background-color: #312a6e;
 }
 
+/* Light: crisp branded light — bright surfaces with a warm gold shimmer */
+html[data-admin-theme="light"] .body-style {
+    background:
+        radial-gradient(circle at 12% 6%, rgba(199, 140, 32, 0.09), transparent 26%),
+        radial-gradient(circle at 88% 20%, rgba(47, 128, 185, 0.07), transparent 22%),
+        linear-gradient(180deg, #fbfcfe 0%, #f2f6fb 58%, #ebf1f7 100%);
+}
+html[data-admin-theme="light"] .admin-sidebar-scroll .menu-inner {
+    background-color: #2e4156;
+}
+html[data-admin-theme="light"] .main-platform>h2 {
+    background: linear-gradient(105deg, #0d1f33, #1d4569);
+}
+html[data-admin-theme="light"] .dash-side-btn.active {
+    background: #fdf3dc;
+    border-color: #e8cb8e;
+    color: #7a5410;
+    box-shadow: inset 3px 0 0 var(--executive-gold);
+}
+
 /* Top bar actions + account dropdown follow the active palette */
 html[data-admin-theme="dark"] .top-action-link,
 html[data-admin-theme="dark"] .dropbtnNew {
@@ -2671,6 +2687,10 @@ html[data-admin-theme="royal"] .table tbody tr:hover{background:#efeafc}
 
 .admin-theme-dot--auto {
     background: linear-gradient(90deg, #f1f5f9 0 50%, #16233b 50% 100%);
+}
+
+.admin-theme-dot--classic {
+    background: linear-gradient(135deg, #5c7891, #34495e);
 }
 
 .admin-theme-dot--ocean {
@@ -4398,7 +4418,7 @@ html[data-admin-theme="dark"] .system-change-pill-unread {
     <span class="admin-theme-switcher__label">Theme</span>
     <button type="button" data-admin-theme-value="light" title="Light mode" aria-label="Light mode"><i class="admin-theme-dot admin-theme-dot--light"></i></button>
     <button type="button" data-admin-theme-value="dark" title="Dark mode" aria-label="Dark mode"><i class="admin-theme-dot admin-theme-dot--dark"></i></button>
-    <button type="button" data-admin-theme-value="auto" title="Match device setting" aria-label="Match device setting"><i class="admin-theme-dot admin-theme-dot--auto"></i></button>
+    <button type="button" data-admin-theme-value="classic" title="Classic &mdash; original colours" aria-label="Classic original colours"><i class="admin-theme-dot admin-theme-dot--classic"></i></button>
     <button type="button" data-admin-theme-value="ocean" title="Ocean &mdash; blue palette" aria-label="Ocean blue palette"><i class="admin-theme-dot admin-theme-dot--ocean"></i></button>
     <button type="button" data-admin-theme-value="emerald" title="Emerald &mdash; green palette" aria-label="Emerald green palette"><i class="admin-theme-dot admin-theme-dot--emerald"></i></button>
     <button type="button" data-admin-theme-value="royal" title="Royal &mdash; violet palette" aria-label="Royal violet palette"><i class="admin-theme-dot admin-theme-dot--royal"></i></button>
@@ -4408,12 +4428,6 @@ html[data-admin-theme="dark"] .system-change-pill-unread {
     'use strict';
     var KEY = 'admin-colour-mode';
     var root = document.documentElement;
-    var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-
-    function resolved(v) {
-        if (v === 'auto') { return (mq && mq.matches) ? 'dark' : 'light'; }
-        return v;
-    }
     function sync(v) {
         var btns = document.querySelectorAll('[data-admin-theme-value]');
         for (var i = 0; i < btns.length; i++) {
@@ -4421,13 +4435,13 @@ html[data-admin-theme="dark"] .system-change-pill-unread {
         }
     }
     function apply(v) {
-        root.setAttribute('data-admin-theme', resolved(v));
+        root.setAttribute('data-admin-theme', v);
         sync(v);
     }
 
     var saved = null;
     try { saved = localStorage.getItem(KEY); } catch (e) {}
-    var validModes = { light: 1, dark: 1, ocean: 1, emerald: 1, royal: 1, auto: 1 };
+    var validModes = { light: 1, dark: 1, classic: 1, ocean: 1, emerald: 1, royal: 1 };
     if (!validModes[saved]) { saved = 'light'; }
     apply(saved);
 
@@ -4439,13 +4453,6 @@ html[data-admin-theme="dark"] .system-change-pill-unread {
         apply(v);
     });
 
-    if (mq && mq.addEventListener) {
-        mq.addEventListener('change', function () {
-            var cur = null;
-            try { cur = localStorage.getItem(KEY); } catch (e) {}
-            if (!cur || cur === 'auto') { apply('auto'); }
-        });
-    }
 })();
 </script>
 </body>

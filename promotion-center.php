@@ -134,10 +134,10 @@ if (isset($_POST["export_dry_run_csv"])) {
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename=dry_run_promotion_preview_'.date('Ymd_His').'.csv');
         $out = fopen('php://output', 'w');
-        fputcsv($out, array('userid', 'student_name', 'from_batch', 'current_class', 'suggested_class', 'terminal_note', 'dry_run_status'));
+        fputcsv($out, array('userid', 'student_name', 'from_batch', 'current_class', 'suggested_class', 'terminal_note', 'dry_run_status'), ',', '"', '\\');
         foreach ($_DryRunRows as $r) {
             $name = trim($r['firstname']." ".$r['othernames']." ".$r['surname']);
-            fputcsv($out, array($r['userid'], $name, $r['from_batch'], $r['class_name'], $r['to_class_name'], $r['note'], $r['dry_run_status']));
+            fputcsv($out, array($r['userid'], $name, $r['from_batch'], $r['class_name'], $r['to_class_name'], $r['note'], $r['dry_run_status']), ',', '"', '\\');
         }
         fclose($out);
         exit();

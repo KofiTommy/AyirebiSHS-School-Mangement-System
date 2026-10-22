@@ -1861,9 +1861,9 @@ if($scopeReady){
         header("Content-Type: text/csv; charset=UTF-8");
         header("Content-Disposition: attachment; filename=\"".implode("-", $filenameParts).".csv\"");
         $out = fopen("php://output", "w");
-        fputcsv($out, array("Student ID", "Student Name", "Gender", "Subject", "Score Obtained", "Total Possible", "Percent", "Grade", "Components"));
+        fputcsv($out, array("Student ID", "Student Name", "Gender", "Subject", "Score Obtained", "Total Possible", "Percent", "Grade", "Components"), ',', '"', '\\');
         foreach($dashboardRows as $row){
-            fputcsv($out, array($row["userid"], $row["student_name"], $row["gender"], $row["subject"], $row["total_mark"], $row["total_possible"], $row["percent"], $row["grade"], $row["component_count"]));
+            fputcsv($out, array($row["userid"], $row["student_name"], $row["gender"], $row["subject"], $row["total_mark"], $row["total_possible"], $row["percent"], $row["grade"], $row["component_count"]), ',', '"', '\\');
         }
         fclose($out);
         exit();

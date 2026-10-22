@@ -30,6 +30,7 @@ $name = trim((string)($_SESSION['FULLNAME'] ?? 'Bursar'));
 <head>
     <?php include('links.php'); ?>
     <link rel="stylesheet" href="css/bursar-dashboard.css?v=20260902">
+    <?php include('colour-modes-head.php'); ?>
     <title>Bursar Dashboard</title>
 </head>
 <body class="bursar-page">
@@ -61,5 +62,6 @@ $name = trim((string)($_SESSION['FULLNAME'] ?? 'Bursar'));
             </tbody></table></div>
         </section>
     </main>
+    <?php include('colour-modes.php'); ?>
 </body>
 </html>

@@ -838,8 +838,9 @@ body{background:linear-gradient(145deg,#eef3f8 0%,#f8fafc 48%,#edf7f4 100%)}
 .hm-section{border:1px solid #e1e9f0;border-radius:20px;box-shadow:0 10px 24px rgba(20,46,70,.05)}.hm-section h3{color:#173a52}.hm-table th{background:#edf5f8;color:#24435a}.hm-table tbody tr:hover{background:#f2faf8}
 @media(max-width:720px){.hm-shell{padding:10px;border-radius:20px}.hm-hero{padding:22px 18px;border-radius:18px}.hm-actions{justify-content:flex-start}.hm-hero .hm-btn{padding:9px 12px}.hm-stats{gap:10px}}
 </style>
+<?php include("colour-modes-head.php"); ?>
 </head>
-<body>
+<body class="house-master-page">
 <div class="hm-wrap" style="padding:24px 12px 32px;">
     <div class="hm-shell">
         <div class="hm-hero">
@@ -1109,5 +1110,6 @@ function printHouseMasterStudentList(){
     setTimeout(cleanup, 1200);
 }
 </script>
+<?php include("colour-modes.php"); ?>
 </body>
 </html>

@@ -17,7 +17,7 @@ abstract class HttpRequest {
     protected $curlHandle;
     protected $accept;
 
-    public function __construct($curlHandle, $path, $accept, array $params = NULL) {
+    public function __construct($curlHandle, $path, $accept, ?array $params = NULL) {
 
         $this->curlHandle = $curlHandle;
         $this->accept = $accept;

@@ -43,7 +43,7 @@ if(!$error){
         header('Content-Disposition: attachment; filename="waec-achievement-students.csv"');
         header('X-Content-Type-Options: nosniff');
         $out = fopen('php://output','w'); fwrite($out,"\xEF\xBB\xBF");
-        $write = function($row) use ($out){ fputcsv($out,array_map('wac_csv_cell',$row)); };
+        $write = function($row) use ($out){ fputcsv($out,array_map('wac_csv_cell',$row), ',', '"', '\\'); };
         $write(array('Batch',$title,'Upload ID',$uploadId));
         $write(array('Criterion',$labels[$filters['metric']],'Group',$groups[$filters['group']]));
         $write(array('Outcome filter',$flagLabels[$filters['flag']] ?? 'All outcomes','Search',$filters['q'],'Matching students',$total));

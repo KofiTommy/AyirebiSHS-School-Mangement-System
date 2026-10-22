@@ -4645,9 +4645,9 @@ function online_admission_backup_year_images($con, $branchId, $admissionYear, $b
     $manifestPath = $backupDir.DIRECTORY_SEPARATOR."image-manifest.csv";
     $manifestHandle = fopen($manifestPath, "w");
     if($manifestHandle){
-        fputcsv($manifestHandle, array("applicationid", "beceindexnumber", "studentname", "originalfile", "savedfile"));
+        fputcsv($manifestHandle, array("applicationid", "beceindexnumber", "studentname", "originalfile", "savedfile"), ',', '"', '\\');
         foreach($manifestRows as $manifestRow){
-            fputcsv($manifestHandle, $manifestRow);
+            fputcsv($manifestHandle, $manifestRow, ',', '"', '\\');
         }
         fclose($manifestHandle);
     }

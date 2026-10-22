@@ -324,7 +324,7 @@ abstract class AbstractHttpClient {
      * @param array $params The HEAD Payload
      * @return HttpResponse response object
      */
-    public function head($path, array $params = NULL) {
+    public function head($path, ?array $params = NULL) {
         return $this->execute(new HttpHead($this->curlHandle, $path, "application/json", $params));
     }
 
@@ -335,7 +335,7 @@ abstract class AbstractHttpClient {
      * @param array $params The HEAD Payload
      * @return HttpResponse response object
      */
-    public function sendHead($path, $accept = "application/json", array $params = NULL) {
+    public function sendHead($path, $accept = "application/json", ?array $params = NULL) {
         return $this->execute(new HttpHead($this->curlHandle, $path, $accept, $params));
     }
 
@@ -346,7 +346,7 @@ abstract class AbstractHttpClient {
      * @param array $params The query string 
      * @return HttpResponse response object
      */
-    public function sendGet($path, $accept = "application/json", array $params = NULL) {
+    public function sendGet($path, $accept = "application/json", ?array $params = NULL) {
         return $this->execute(new HttpGet($this->curlHandle, $path, $accept, $params));
     }
 
@@ -357,7 +357,7 @@ abstract class AbstractHttpClient {
      * @param array $params The query string 
      * @return HttpResponse response object
      */
-    public function get($path, array $params = NULL) {
+    public function get($path, ?array $params = NULL) {
         return $this->execute(new HttpGet($this->curlHandle, $path, "application/json", $params));
     }
 
@@ -368,7 +368,7 @@ abstract class AbstractHttpClient {
      * @param array $params The POST payload
      * @return HttpResponse response object
      */
-    public function post($path, array $params = NULL) {
+    public function post($path, ?array $params = NULL) {
         return $this->execute(new HttpPost($this->curlHandle, $path, "application/json", $params));
     }
 
@@ -379,7 +379,7 @@ abstract class AbstractHttpClient {
      * @param array $params The POST payload
      * @return HttpResponse response object
      */
-    public function sendPost($path, $accept = "application/json", array $params = NULL) {
+    public function sendPost($path, $accept = "application/json", ?array $params = NULL) {
         return $this->execute(new HttpPost($this->curlHandle, $path, $accept, $params));
     }
 
@@ -390,7 +390,7 @@ abstract class AbstractHttpClient {
      * @param array $params The POST payload
      * @return HttpResponse response object
      */
-    public function put($path, array $params = NULL) {
+    public function put($path, ?array $params = NULL) {
         return $this->execute(new HttpPut($this->curlHandle, $path, "application/json", $params));
     }
 
@@ -401,7 +401,7 @@ abstract class AbstractHttpClient {
      * @param array $params The PUT payload
      * @return HttpResponse response object
      */
-    public function sendPut($path, $accept = "application/json", array $params = NULL) {
+    public function sendPut($path, $accept = "application/json", ?array $params = NULL) {
         return $this->execute(new HttpPut($this->curlHandle, $path, $accept, $params));
     }
 
@@ -412,7 +412,7 @@ abstract class AbstractHttpClient {
      * @param array $params
      * @return HttpResponse response object
      */
-    public function delete($path, array $params = NULL) {
+    public function delete($path, ?array $params = NULL) {
         return $this->execute(new HttpDelete($this->curlHandle, $path, "application/json", $params));
     }
 
@@ -423,7 +423,7 @@ abstract class AbstractHttpClient {
      * @param array $params The DELETE payload
      * @return HttpResponse response object
      */
-    public function sendDelete($path, $accept = "application/json", array $params = NULL) {
+    public function sendDelete($path, $accept = "application/json", ?array $params = NULL) {
         return $this->execute(new HttpDelete($this->curlHandle, $path, $accept, $params));
     }
 
@@ -580,7 +580,7 @@ abstract class AbstractHttpClient {
                 case false === $v = realpath(filter_var($v)):
                 case!is_file($v):
                 case!is_readable($v):
-                    continue; // or return false, throw new InvalidArgumentException
+                    continue 2; // Skip an invalid file, not merely the switch.
             }
             $data = file_get_contents($v);
 

@@ -62,9 +62,9 @@ function cra_export_csv($filename, $headers, $rows){
     header("Content-Disposition: attachment; filename=".$filename);
     $output = fopen("php://output", "w");
     fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-    fputcsv($output, $headers);
+    fputcsv($output, $headers, ',', '"', '\\');
     foreach($rows as $row){
-        fputcsv($output, $row);
+        fputcsv($output, $row, ',', '"', '\\');
     }
     fclose($output);
     exit();

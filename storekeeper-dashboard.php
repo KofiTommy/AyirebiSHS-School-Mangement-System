@@ -119,6 +119,7 @@ $_RecentRequisitionCount = count($_RecentMatronRequisitions);
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" href="css/storekeeper.css">
+<?php include("colour-modes-head.php"); ?>
 </head>
 <body class="storekeeper-page">
 <div class="header">
@@ -641,5 +642,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
+<?php include("colour-modes.php"); ?>
 </body>
 </html>

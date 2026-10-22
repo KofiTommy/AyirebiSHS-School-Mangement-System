@@ -3,7 +3,7 @@
 include("dbstring.php");
 $_SQL_USER=mysqli_query($con,"SELECT * FROM tblsystemuser su WHERE su.userid='$_SESSION[USERID]' AND su.systemtype='Student'  ORDER BY su.userid");
 
-sqli_fetch_array($_SQL_USER,MYSQLI_ASSOC))
+while($row_us=mysqli_fetch_array($_SQL_USER,MYSQLI_ASSOC))
 {
 
 $_SQL_SU=mysqli_query($con,"SELECT * FROM tblsubject");
@@ -51,6 +51,7 @@ if(mysqli_num_rows($_SQL_EXECUTE)==0){
 	}
 	}
 	}
+}
 }
 }
 }

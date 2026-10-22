@@ -232,31 +232,31 @@ function SetCompression($compress)
 function SetTitle($title, $isUTF8=false)
 {
 	// Title of document
-	$this->metadata['Title'] = $isUTF8 ? $title : utf8_encode($title);
+	$this->metadata['Title'] = $isUTF8 ? $title : iconv('ISO-8859-1', 'UTF-8', (string)$title);
 }
 
 function SetAuthor($author, $isUTF8=false)
 {
 	// Author of document
-	$this->metadata['Author'] = $isUTF8 ? $author : utf8_encode($author);
+	$this->metadata['Author'] = $isUTF8 ? $author : iconv('ISO-8859-1', 'UTF-8', (string)$author);
 }
 
 function SetSubject($subject, $isUTF8=false)
 {
 	// Subject of document
-	$this->metadata['Subject'] = $isUTF8 ? $subject : utf8_encode($subject);
+	$this->metadata['Subject'] = $isUTF8 ? $subject : iconv('ISO-8859-1', 'UTF-8', (string)$subject);
 }
 
 function SetKeywords($keywords, $isUTF8=false)
 {
 	// Keywords of document
-	$this->metadata['Keywords'] = $isUTF8 ? $keywords : utf8_encode($keywords);
+	$this->metadata['Keywords'] = $isUTF8 ? $keywords : iconv('ISO-8859-1', 'UTF-8', (string)$keywords);
 }
 
 function SetCreator($creator, $isUTF8=false)
 {
 	// Creator of document
-	$this->metadata['Creator'] = $isUTF8 ? $creator : utf8_encode($creator);
+	$this->metadata['Creator'] = $isUTF8 ? $creator : iconv('ISO-8859-1', 'UTF-8', (string)$creator);
 }
 
 function AliasNbPages($alias='{nb}')
@@ -1184,7 +1184,7 @@ protected function _httpencode($param, $value, $isUTF8)
 	if($this->_isascii($value))
 		return $param.'="'.$value.'"';
 	if(!$isUTF8)
-		$value = utf8_encode($value);
+		$value = iconv('ISO-8859-1', 'UTF-8', (string)$value);
 	if(strpos($_SERVER['HTTP_USER_AGENT'],'MSIE')!==false)
 		return $param.'="'.rawurlencode($value).'"';
 	else
