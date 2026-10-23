@@ -72,3 +72,51 @@
         border-radius: 14px;
     }
 }
+
+
+/* ============================================================
+   AURORA REBORN — teacher accent (teal), supersedes legacy
+   rules above on the teacher registration page.
+   ============================================================ */
+.teacher-register-page .rs-hero {
+    background:
+        radial-gradient(420px 220px at 12% 0%, rgba(45,212,191,.32), transparent 60%),
+        radial-gradient(380px 240px at 88% 110%, rgba(96,165,250,.28), transparent 60%),
+        linear-gradient(135deg,#083344 0%,#0e4f5c 52%,#155e6e 100%);
+    box-shadow: 0 24px 60px rgba(8,51,68,.35);
+}
+.teacher-register-page .rs-kicker { color: #5eead4; }
+.teacher-register-page .rs-kicker--dark { color: #0d9488; }
+.teacher-register-page .rs-hero-card .rs-kicker { color: #5eead4; }
+
+.teacher-register-page .rs-id-chip {
+    background: linear-gradient(135deg,#f0fdfa,#ecfeff);
+    border-color: #99f6e4;
+}
+.teacher-register-page .rs-id-chip strong { color: #0f766e; }
+
+.teacher-register-page .rs-photo-card {
+    background: linear-gradient(145deg,#f0fdfa,#f0f9ff);
+    border-color: #99f6e4;
+}
+.teacher-register-page .rs-photo-copy label { color: #0d9488; }
+
+.teacher-register-page .rs-choice input:checked + span {
+    background: linear-gradient(135deg,#14b8a6,#0d9488);
+    border-color: transparent;
+    box-shadow: 0 8px 18px rgba(13,148,136,.35);
+}
+
+.teacher-register-page .rs-submit {
+    background: linear-gradient(135deg,#14b8a6 0%,#0284c7 100%);
+    box-shadow: 0 14px 28px rgba(13,148,136,.35);
+}
+.teacher-register-page .rs-submit:hover { box-shadow: 0 18px 34px rgba(13,148,136,.45); }
+
+.teacher-register-page .student-register-page input:focus,
+.teacher-register-page input:focus,
+.teacher-register-page select:focus,
+.teacher-register-page textarea:focus {
+    border-color: #14b8a6;
+    box-shadow: 0 0 0 4px rgba(20,184,166,.13);
+}

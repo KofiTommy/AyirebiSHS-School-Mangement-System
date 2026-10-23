@@ -1335,6 +1335,7 @@ if($_SQL_EXECUTE){
 <?php
 include("links.php");
 ?>
+<link rel="stylesheet" type="text/css" href="css/aurora-admin-pages.css?v=1">
 
 <script type="text/javascript">
 function SearchItem(str)
@@ -1415,7 +1416,7 @@ function getStudentBill(str)
 }
 </script>
 </head>
-<body>
+<body class="aurora-payments">
 	<div class="header">
 		<!--<img src="images/logo.png" width="100px" height="100px" alt="logo"/>-->
 	<?php

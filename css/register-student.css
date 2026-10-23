@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 body.student-register-page {
     margin: 0;
     min-height: 100vh;
@@ -714,3 +716,186 @@ body.student-register-page {
         width: 100%;
     }
 }
+
+
+/* ============================================================
+   AURORA REBORN — international-standard re-skin (2026)
+   Applies to both student & teacher registration pages
+   (both carry .student-register-page on <body>).
+   ============================================================ */
+body.student-register-page {
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    color: #0f172a;
+    background:
+        radial-gradient(700px 320px at 6% -6%, rgba(59,130,246,.12), transparent 60%),
+        radial-gradient(560px 280px at 96% -4%, rgba(139,92,246,.11), transparent 60%),
+        radial-gradient(760px 360px at 50% 112%, rgba(20,184,166,.10), transparent 60%),
+        linear-gradient(180deg,#fbfdff 0%,#f2f6fc 58%,#ecf2fa 100%);
+    background-attachment: fixed;
+}
+
+/* ---------- Hero ---------- */
+.rs-hero {
+    border-radius: 24px;
+    padding: 40px 42px;
+    background:
+        radial-gradient(420px 220px at 12% 0%, rgba(96,165,250,.35), transparent 60%),
+        radial-gradient(380px 240px at 88% 110%, rgba(167,139,250,.30), transparent 60%),
+        linear-gradient(135deg,#1e2a5a 0%,#3b2f7a 52%,#4c2d91 100%);
+    box-shadow: 0 24px 60px rgba(30,27,75,.35);
+}
+.rs-hero::before { display: none; }
+.rs-kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: #fbbf24; font-size: .68rem; font-weight: 800;
+    letter-spacing: .18em; text-transform: uppercase;
+}
+.rs-hero h1 {
+    font-family: inherit; font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+    font-weight: 800; letter-spacing: -.02em; line-height: 1.12;
+    color: #ffffff; max-width: 620px;
+}
+.rs-pills span {
+    background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22);
+    color: #e0e7ff; border-radius: 999px; padding: 6px 14px;
+    font-size: .7rem; font-weight: 700; backdrop-filter: blur(4px);
+}
+.rs-hero-card {
+    background: rgba(255,255,255,.10);
+    border: 1px solid rgba(255,255,255,.20);
+    border-radius: 20px; backdrop-filter: blur(10px);
+    box-shadow: 0 18px 40px rgba(15,15,45,.30);
+}
+.rs-hero-card h2 { color: #ffffff; font-family: inherit; font-weight: 800; }
+.rs-hero-card p,
+.rs-hero-card small { color: #c3cff5; }
+.rs-metrics article {
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 14px; backdrop-filter: blur(4px);
+}
+.rs-metrics span { color: #a7b6e8; font-weight: 700; }
+.rs-metrics strong { color: #ffffff; font-family: inherit; }
+
+/* ---------- Panels ---------- */
+.rs-panel {
+    background: #ffffff;
+    border: 1px solid #e6edf5;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(15,23,42,.06);
+}
+.rs-kicker--dark { color: #6366f1; }
+.rs-panel h2, .rs-panel h3 { font-family: inherit; color: #0f172a; font-weight: 800; letter-spacing: -.01em; }
+.rs-panel-head p, .rs-section-head p, .rs-side-head p { color: #64748b; }
+
+.rs-id-chip {
+    background: linear-gradient(135deg,#eef2ff,#f5f3ff);
+    border: 1px solid #e0e7ff; border-radius: 14px;
+}
+.rs-id-chip span { color: #818cf8; font-weight: 700; }
+.rs-id-chip strong { color: #3730a3; font-family: inherit; }
+
+/* ---------- Sections ---------- */
+.rs-section {
+    border: 1px solid #eef2f7;
+    border-radius: 16px;
+    background: linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);
+}
+.rs-section + .rs-section { margin-top: 18px; }
+.rs-section-head h3 {
+    display: flex; align-items: center; gap: 10px;
+    font-size: .95rem;
+}
+.rs-section-head h3::before {
+    content: ""; width: 9px; height: 22px; border-radius: 5px; flex: none;
+    background: linear-gradient(180deg,#6366f1,#8b5cf6);
+}
+
+/* ---------- Photo card ---------- */
+.rs-photo-card {
+    background: linear-gradient(145deg,#eef2ff,#fdf4ff);
+    border: 1px dashed #c7d2fe; border-radius: 16px;
+}
+.rs-photo-copy label { color: #4f46e5; font-weight: 800; }
+
+/* ---------- Inputs ---------- */
+.student-register-page input[type="text"],
+.student-register-page input[type="email"],
+.student-register-page input[type="password"],
+.student-register-page input[type="tel"],
+.student-register-page input[type="date"],
+.student-register-page input[type="search"],
+.student-register-page select,
+.student-register-page textarea {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 11px;
+    font-family: inherit; color: #0f172a; font-size: .88rem;
+    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.student-register-page input:hover,
+.student-register-page select:hover,
+.student-register-page textarea:hover { border-color: #c7d2fe; }
+.student-register-page input:focus,
+.student-register-page select:focus,
+.student-register-page textarea:focus {
+    outline: none; border-color: #6366f1; background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(99,102,241,.13);
+}
+.student-register-page input[readonly] { background: #eef2f7; color: #475569; }
+.rs-field label { color: #334155; font-weight: 700; font-size: .74rem; }
+.rs-field small { color: #94a3b8; }
+
+/* ---------- Choice chips ---------- */
+.rs-choice span {
+    border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 11px;
+    font-weight: 700; color: #475569;
+    transition: all .15s ease;
+}
+.rs-choice:hover span { border-color: #c7d2fe; }
+.rs-choice input:checked + span {
+    background: linear-gradient(135deg,#6366f1,#8b5cf6);
+    border-color: transparent; color: #ffffff;
+    box-shadow: 0 8px 18px rgba(99,102,241,.35);
+}
+
+/* ---------- Submit ---------- */
+.rs-submit {
+    background: linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);
+    border-radius: 13px; color: #ffffff; font-family: inherit;
+    font-weight: 800; letter-spacing: .01em;
+    box-shadow: 0 14px 28px rgba(99,102,241,.35);
+    transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.rs-submit:hover { transform: translateY(-2px); filter: brightness(1.06); box-shadow: 0 18px 34px rgba(99,102,241,.45); }
+.rs-submit:active { transform: translateY(0); }
+.rs-form-foot p { color: #94a3b8; }
+
+/* ---------- Side panel: recent registrations ---------- */
+.rs-side .rs-panel { overflow: hidden; }
+.rs-search {
+    background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 12px;
+}
+.rs-search i { color: #94a3b8; }
+.rs-search input { background: transparent; font-family: inherit; }
+.rs-recent-item {
+    border: 1px solid #eef2f7; border-radius: 15px; background: #ffffff;
+    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.rs-recent-item:hover {
+    border-color: #c7d2fe; transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(99,102,241,.12);
+}
+.rs-recent-top h3 { font-family: inherit; color: #0f172a; font-weight: 800; }
+.rs-recent-top p, .rs-recent-foot small { color: #94a3b8; }
+.rs-status {
+    background: linear-gradient(135deg,#d1fae5,#a7f3d0); color: #047857;
+    border-radius: 999px; font-weight: 800;
+}
+.rs-tags span {
+    background: #eef2ff; color: #4f46e5; border-radius: 999px;
+    font-weight: 700;
+}
+.rs-recent-foot a { color: #6366f1; font-weight: 800; }
+.rs-recent-foot a:last-child { color: #8b5cf6; }
+.rs-recent-foot a:hover { text-decoration: underline; }
+.rs-empty h3 { font-family: inherit; color: #334155; }
+.rs-empty p { color: #94a3b8; }

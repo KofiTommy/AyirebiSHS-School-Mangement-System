@@ -438,7 +438,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="normal_user"){
  ?>
 <div class="menuboard-quick-links">
-<a class="menuboard-home-link" href="admin.php"><i class="fa fa-home"></i> Home</a>
+<a class="menuboard-home-link" href="executive-dashboard.php"><i class="fa fa-home"></i> Home</a>
 </div>
 
 <?php menuboard_section_start('School Setup', 'fa-cogs'); ?>

@@ -140,6 +140,7 @@ if($isTeacherViewer){
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" type="text/css" href="css/student-attendance.css">
+<link rel="stylesheet" type="text/css" href="css/aurora-admin-pages.css?v=1">
 </head>
 <body class="student-attendance-page">
 <div class="header print-hide"><?php include("menu.php"); ?></div>

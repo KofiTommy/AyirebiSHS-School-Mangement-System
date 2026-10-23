@@ -873,3 +873,107 @@ html[data-admin-theme="royal"] .hm-stat,
 html[data-admin-theme="royal"] .hm-section {
     border-color: rgba(45, 39, 103, 0.14);
 }
+
+
+/* ============================================================
+   EXECUTIVE DASHBOARD (executive-dashboard.php)
+   ============================================================ */
+
+/* ---------- Dark ---------- */
+html[data-admin-theme="dark"] body.exdash-page {
+    background:
+        radial-gradient(circle at top left, rgba(213, 155, 45, 0.08), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(45, 212, 191, 0.07), transparent 18%),
+        linear-gradient(145deg, #101d33 0%, #0d1829 60%, #0b1424 100%) !important;
+    color: #e4edf9;
+    --ex-ink: #e8eef8;
+    --ex-muted: #a5b9d0;
+    --ex-line: rgba(148, 163, 184, 0.22);
+    --ex-bg: #0d1829;
+    --ex-card: #1a2942;
+    --ex-shadow: 0 14px 30px rgba(2, 8, 20, 0.35);
+}
+html[data-admin-theme="dark"] .exdash-topbar {
+    background: rgba(14, 23, 42, 0.94);
+    border-bottom-color: #3d5a82;
+}
+html[data-admin-theme="dark"] .exdash-search input {
+    background: #131f35;
+    border-color: rgba(148, 163, 184, 0.35);
+    color: #e8eef8;
+    -webkit-text-fill-color: #e8eef8;
+    color-scheme: dark;
+}
+html[data-admin-theme="dark"] .exdash-burger,
+html[data-admin-theme="dark"] .exdash-bell {
+    background: #1a2942;
+    border-color: rgba(148, 163, 184, 0.3);
+    color: #e4edf9;
+}
+html[data-admin-theme="dark"] .exdash-bell-menu {
+    background: #1a2942;
+    border-color: rgba(148, 163, 184, 0.28);
+}
+html[data-admin-theme="dark"] .exdash-bell-item,
+html[data-admin-theme="dark"] .exdash-bell-menu header {
+    border-bottom-color: rgba(148, 163, 184, 0.16);
+}
+html[data-admin-theme="dark"] .exdash-table tbody tr:hover {
+    background: rgba(148, 163, 184, 0.07);
+}
+html[data-admin-theme="dark"] .exdash-table td,
+html[data-admin-theme="dark"] .exdash-feed-item {
+    border-bottom-color: rgba(148, 163, 184, 0.14);
+}
+html[data-admin-theme="dark"] .exdash-pill--active {
+    background: rgba(15, 157, 143, 0.18);
+    color: #2dd4bf;
+}
+html[data-admin-theme="dark"] .exdash-pill--pending {
+    background: rgba(217, 155, 27, 0.16);
+    color: #fbbf24;
+}
+html[data-admin-theme="dark"] .exdash-pill--other {
+    background: rgba(148, 163, 184, 0.14);
+    color: #c9d6e8;
+}
+html[data-admin-theme="dark"] .exdash-kpi-trend {
+    background: rgba(15, 157, 143, 0.15);
+    color: #2dd4bf;
+}
+html[data-admin-theme="dark"] .exdash-kpi-trend--muted {
+    background: rgba(148, 163, 184, 0.12);
+    color: #a5b9d0;
+}
+
+/* ---------- Light (crisp branded gold) ---------- */
+html[data-admin-theme="light"] body.exdash-page {
+    background:
+        radial-gradient(circle at top left, rgba(213, 155, 45, 0.1), transparent 24%),
+        radial-gradient(circle at 86% 12%, rgba(47, 128, 185, 0.09), transparent 20%),
+        linear-gradient(180deg, #fbfcfe 0%, #f2f6fb 58%, #eaf1f8 100%) !important;
+}
+
+/* ---------- Ocean ---------- */
+html[data-admin-theme="ocean"] body.exdash-page {
+    background:
+        radial-gradient(circle at top left, rgba(2, 132, 199, 0.08), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(56, 189, 248, 0.08), transparent 18%),
+        linear-gradient(145deg, #f2f8fd 0%, #e9f2fa 46%, #e0ecf6 100%) !important;
+}
+
+/* ---------- Emerald ---------- */
+html[data-admin-theme="emerald"] body.exdash-page {
+    background:
+        radial-gradient(circle at top left, rgba(5, 150, 105, 0.08), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(52, 211, 153, 0.08), transparent 18%),
+        linear-gradient(145deg, #f0f9f4 0%, #e7f4ec 46%, #ddefe4 100%) !important;
+}
+
+/* ---------- Royal ---------- */
+html[data-admin-theme="royal"] body.exdash-page {
+    background:
+        radial-gradient(circle at top left, rgba(124, 58, 237, 0.07), transparent 22%),
+        radial-gradient(circle at 86% 16%, rgba(167, 139, 250, 0.09), transparent 18%),
+        linear-gradient(145deg, #f4f2fc 0%, #ece9f8 46%, #e2ddf3 100%) !important;
+}

@@ -50,7 +50,7 @@ if($stmtLogin){mysqli_stmt_bind_param($stmtLogin,'s',$_Username);mysqli_stmt_exe
 					header("location:super.php");
 				}
 				elseif($_AccessLevel=="administrator" && $_SystemType=="normal_user"){
-					header("location:admin.php");
+					header("location:executive-dashboard.php");
 				}
 				elseif($_AccessLevel=="user" && $_SystemType=="Student"){
 					header("location:student-page.php");

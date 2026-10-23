@@ -314,7 +314,7 @@ $signedInName = isset($_SESSION["FULLNAME"]) ? trim((string)$_SESSION["FULLNAME"
 <html>
 <head>
 <?php include("links.php"); ?>
-<link rel="stylesheet" type="text/css" href="css/register-student.css">
+<link rel="stylesheet" type="text/css" href="css/register-student.css?v=2">
 </head>
 <body class="body-style student-register-page">
 <div class="header"><?php include("menu.php"); ?></div>

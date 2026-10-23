@@ -57,7 +57,7 @@ if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE'])){
         $_HomeLink = "bursar-dashboard.php";
     }
     elseif($_SESSION['ACCESSLEVEL'] === "administrator" && $_SESSION['SYSTEMTYPE'] === "normal_user"){
-        $_HomeLink = "admin.php";
+        $_HomeLink = "executive-dashboard.php";
     }
     elseif($_SESSION['ACCESSLEVEL'] === "administrator" && $_SESSION['SYSTEMTYPE'] === "super_user"){
         $_HomeLink = "super.php";

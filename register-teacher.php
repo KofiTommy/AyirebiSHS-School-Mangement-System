@@ -209,8 +209,8 @@ $signedInName=isset($_SESSION["FULLNAME"]) ? trim((string)$_SESSION["FULLNAME"])
 <html>
 <head>
 <?php include("links.php"); ?>
-<link rel="stylesheet" type="text/css" href="css/register-student.css">
-<link rel="stylesheet" type="text/css" href="css/register-teacher.css">
+<link rel="stylesheet" type="text/css" href="css/register-student.css?v=2">
+<link rel="stylesheet" type="text/css" href="css/register-teacher.css?v=2">
 </head>
 <body class="body-style student-register-page teacher-register-page">
 <div class="header"><?php include("menu.php"); ?></div>

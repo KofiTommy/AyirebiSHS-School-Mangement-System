@@ -8,7 +8,7 @@
 <link rel="stylesheet" type="text/css" href="css/buttonstyle.css">
 <link rel="stylesheet" type="text/css" href="css/result-access-payments.css">
 <?php if (in_array(basename((string)($_SERVER['PHP_SELF'] ?? '')), array('transport-management.php', 'transport-student-assignment.php'), true)) {
-    $__transportHomeLink = (!empty($_SESSION['SYSTEMTYPE']) && $_SESSION['SYSTEMTYPE'] === 'super_user') ? 'super.php' : 'admin.php';
+    $__transportHomeLink = (!empty($_SESSION['SYSTEMTYPE']) && $_SESSION['SYSTEMTYPE'] === 'super_user') ? 'super.php' : 'executive-dashboard.php';
 ?>
 <link rel="stylesheet" type="text/css" href="css/transport-management.css">
 <script>

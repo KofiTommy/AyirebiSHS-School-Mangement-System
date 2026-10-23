@@ -117,6 +117,7 @@ $_SQL_EXECUTE=mysqli_query($con,"DELETE FROM tblclass WHERE classid='$_GET[delet
 include("links.php");
 ?>
 <link rel="stylesheet" href="css/class-registry.css">
+<link rel="stylesheet" type="text/css" href="css/aurora-admin-pages.css?v=1">
 <script type="text/javascript">
 function toggleAllStudents(){
   var selectAll = document.getElementById("all_students");

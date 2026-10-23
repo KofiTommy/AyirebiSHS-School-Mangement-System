@@ -2992,6 +2992,61 @@ html[data-admin-theme="dark"] .system-change-pill-unread {
         ?>
     </div>
 
+    <style>
+    .classic-banner{
+        display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+        max-width:1560px;margin:14px auto 0;padding:11px 16px;
+        border-radius:12px;color:#fff;
+        background:linear-gradient(105deg,#4338ca 0%,#6d28d9 60%,#7c3aed 100%);
+        box-shadow:0 10px 24px rgba(76,29,149,.25);
+        font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+    }
+    .classic-banner[hidden]{display:none}
+    .classic-banner>i{font-size:1.05rem;flex:none}
+    .classic-banner-text{flex:1;min-width:200px;font-size:.86rem;font-weight:600;line-height:1.4}
+    .classic-banner-text strong{font-weight:800}
+    .classic-banner-btn{
+        display:inline-flex;align-items:center;gap:8px;flex:none;
+        padding:8px 16px;border-radius:9px;border:0;cursor:pointer;
+        background:#ffffff;color:#4c1d95;text-decoration:none;
+        font-family:inherit;font-size:.82rem;font-weight:800;
+        box-shadow:0 4px 12px rgba(0,0,0,.18);transition:transform .15s ease,box-shadow .15s ease;
+    }
+    .classic-banner-btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(0,0,0,.24)}
+    .classic-banner-btn i{font-size:.72rem}
+    .classic-banner-x{
+        flex:none;width:28px;height:28px;border:0;border-radius:8px;cursor:pointer;
+        background:rgba(255,255,255,.16);color:#fff;font-size:.78rem;transition:background .15s ease;
+    }
+    .classic-banner-x:hover{background:rgba(255,255,255,.3)}
+    @media(max-width:620px){
+        .classic-banner{margin:10px 10px 0}
+        .classic-banner-btn{width:100%;justify-content:center}
+    }
+    </style>
+    <div class="classic-banner" id="classicPanelBanner" role="note">
+        <i class="fa fa-info-circle"></i>
+        <span class="classic-banner-text"><strong>You're viewing the classic panel.</strong> The new Aurora dashboard is faster and richer.</span>
+        <a class="classic-banner-btn" href="executive-dashboard.php">Open New Dashboard <i class="fa fa-arrow-right"></i></a>
+        <button class="classic-banner-x" id="classicBannerDismiss" aria-label="Dismiss banner"><i class="fa fa-times"></i></button>
+    </div>
+    <script>
+    (function(){
+        var KEY = 'classic-panel-banner-dismissed';
+        var banner = document.getElementById('classicPanelBanner');
+        var dismissBtn = document.getElementById('classicBannerDismiss');
+        try{
+            if(localStorage.getItem(KEY) === '1' && banner){ banner.setAttribute('hidden',''); }
+        }catch(err){}
+        if(dismissBtn && banner){
+            dismissBtn.addEventListener('click', function(){
+                banner.setAttribute('hidden','');
+                try{ localStorage.setItem(KEY, '1'); }catch(err){}
+            });
+        }
+    })();
+    </script>
+
     <div class="main-platform" align="center">
         <h2>Administrator Dashboard</h2>
         <table border="0" width="100%" class="admin-layout">

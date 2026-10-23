@@ -1,0 +1,233 @@
+/* ============================================================
+   Aurora admin theme — course-registration-admin.php ONLY.
+   Scoped to body.cr-admin-dashboard so the student page and
+   shared base stylesheet (css/course-registration.css) are
+   unaffected. Load AFTER the base stylesheet.
+   ============================================================ */
+
+body.cr-admin-dashboard{
+    font-family:'Plus Jakarta Sans','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+    background:linear-gradient(180deg,#f3f6fd 0%,#f8faff 100%);
+}
+
+/* ---------- Hero ---------- */
+body.cr-admin-dashboard .cr-hero{
+    position:relative;overflow:hidden;
+    background:linear-gradient(135deg,#1e2a78 0%,#4338ca 48%,#7c3aed 100%);
+    border-radius:24px;
+    box-shadow:0 20px 48px rgba(67,56,202,.26);
+}
+body.cr-admin-dashboard .cr-hero::before,
+body.cr-admin-dashboard .cr-hero::after{
+    content:"";position:absolute;border-radius:50%;pointer-events:none;
+}
+body.cr-admin-dashboard .cr-hero::before{
+    width:360px;height:360px;right:-100px;top:-150px;
+    background:radial-gradient(circle,rgba(255,255,255,.15),transparent 65%);
+}
+body.cr-admin-dashboard .cr-hero::after{
+    width:280px;height:280px;left:34%;bottom:-170px;
+    background:radial-gradient(circle,rgba(251,191,36,.2),transparent 65%);
+}
+body.cr-admin-dashboard .cr-hero>div{position:relative;z-index:1}
+body.cr-admin-dashboard .cr-kicker{
+    color:#fde68a;background:rgba(255,255,255,.12);
+    padding:5px 12px;border-radius:999px;letter-spacing:.14em;
+}
+body.cr-admin-dashboard .cr-hero h1{font-weight:800;letter-spacing:-.02em}
+body.cr-admin-dashboard .cr-hero__meta article{
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.16);
+    border-radius:16px;
+    backdrop-filter:blur(10px);
+}
+body.cr-admin-dashboard .cr-hero__meta article:nth-child(1) strong{color:#93c5fd}
+body.cr-admin-dashboard .cr-hero__meta article:nth-child(2) strong{color:#5eead4}
+body.cr-admin-dashboard .cr-hero__meta article:nth-child(3) strong{color:#fcd34d}
+
+/* ---------- Panels & sections ---------- */
+body.cr-admin-dashboard .cr-panel,
+body.cr-admin-dashboard .cr-section{
+    border:1px solid #e6ecf7;
+    border-radius:20px;
+    background:#ffffff;
+    box-shadow:0 10px 30px rgba(30,41,99,.07);
+}
+body.cr-admin-dashboard .cr-panel__eyebrow{
+    color:#6366f1;
+    background:rgba(99,102,241,.1);
+    padding:4px 10px;
+    border-radius:8px;
+    font-size:.66rem;
+}
+body.cr-admin-dashboard .cr-panel__header h2,
+body.cr-admin-dashboard .cr-section__header h2{
+    color:#141f3d;
+    font-weight:800;
+    letter-spacing:-.01em;
+}
+body.cr-admin-dashboard .cr-panel__subhead h3,
+body.cr-admin-dashboard .cr-form-block__header h3{color:#141f3d;font-weight:800}
+
+/* ---------- Buttons ---------- */
+body.cr-admin-dashboard .button-show,
+body.cr-admin-dashboard .button-save{
+    border:0;
+    border-radius:12px;
+    color:#ffffff;
+    font-family:inherit;
+    font-weight:800;
+    padding:11px 20px;
+    background:linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%);
+    box-shadow:0 8px 20px rgba(99,102,241,.32);
+    transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;
+}
+body.cr-admin-dashboard .button-show:hover,
+body.cr-admin-dashboard .button-save:hover{
+    transform:translateY(-1px);
+    box-shadow:0 12px 26px rgba(99,102,241,.42);
+    filter:brightness(1.05);
+}
+body.cr-admin-dashboard .cr-secondary-button{
+    border:1px solid #dfe6f3;
+    border-radius:12px;
+    background:#ffffff;
+    color:#3b4a6b;
+    font-weight:700;
+    transition:border-color .15s ease,color .15s ease,background .15s ease,box-shadow .15s ease;
+}
+body.cr-admin-dashboard .cr-secondary-button:hover{
+    border-color:#c7d2fe;
+    background:#f5f7ff;
+    color:#4f46e5;
+    box-shadow:0 6px 16px rgba(99,102,241,.12);
+}
+body.cr-admin-dashboard .cr-reset-link{
+    color:#64748b;
+    font-weight:700;
+    transition:color .15s ease;
+}
+body.cr-admin-dashboard .cr-reset-link:hover{color:#4f46e5}
+
+/* ---------- Inputs ---------- */
+body.cr-admin-dashboard .cr-filter-grid select,
+body.cr-admin-dashboard .cr-filter-grid input,
+body.cr-admin-dashboard .cr-window-grid select,
+body.cr-admin-dashboard .cr-window-grid input,
+body.cr-admin-dashboard .cr-notes-field textarea,
+body.cr-admin-dashboard .cr-offering-card select{
+    border:1px solid #dbe3f0;
+    border-radius:12px;
+    background:#f8fafc;
+    transition:border-color .15s ease,box-shadow .15s ease;
+}
+body.cr-admin-dashboard .cr-filter-grid select:focus,
+body.cr-admin-dashboard .cr-filter-grid input:focus,
+body.cr-admin-dashboard .cr-window-grid select:focus,
+body.cr-admin-dashboard .cr-window-grid input:focus,
+body.cr-admin-dashboard .cr-notes-field textarea:focus{
+    border-color:#818cf8;
+    box-shadow:0 0 0 4px rgba(99,102,241,.12);
+    outline:none;
+}
+
+/* ---------- Stat cards ---------- */
+body.cr-admin-dashboard .cr-summary-grid article,
+body.cr-admin-dashboard .cr-detail-card,
+body.cr-admin-dashboard .cr-note-card{
+    position:relative;
+    overflow:hidden;
+    border:1px solid #e6ecf7;
+    border-radius:16px;
+    background:#ffffff;
+    box-shadow:0 6px 18px rgba(30,41,99,.05);
+}
+body.cr-admin-dashboard .cr-summary-grid article::before{
+    content:"";
+    position:absolute;
+    top:0;left:0;right:0;
+    height:4px;
+}
+body.cr-admin-dashboard .cr-summary-grid article:nth-child(6n+1)::before{background:linear-gradient(90deg,#60a5fa,#3b82f6)}
+body.cr-admin-dashboard .cr-summary-grid article:nth-child(6n+2)::before{background:linear-gradient(90deg,#2dd4bf,#14b8a6)}
+body.cr-admin-dashboard .cr-summary-grid article:nth-child(6n+3)::before{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+body.cr-admin-dashboard .cr-summary-grid article:nth-child(6n+4)::before{background:linear-gradient(90deg,#a78bfa,#8b5cf6)}
+body.cr-admin-dashboard .cr-summary-grid article:nth-child(6n+5)::before{background:linear-gradient(90deg,#f87171,#ef4444)}
+body.cr-admin-dashboard .cr-summary-grid article:nth-child(6n+6)::before{background:linear-gradient(90deg,#34d399,#059669)}
+body.cr-admin-dashboard .cr-summary-grid span,
+body.cr-admin-dashboard .cr-detail-card span,
+body.cr-admin-dashboard .cr-note-card span{color:#8a97b1}
+body.cr-admin-dashboard .cr-summary-grid strong,
+body.cr-admin-dashboard .cr-detail-card strong,
+body.cr-admin-dashboard .cr-note-card strong{color:#141f3d}
+
+/* ---------- Pills ---------- */
+body.cr-admin-dashboard .cr-pill{background:#eef2ff;color:#4f46e5}
+body.cr-admin-dashboard .cr-pill--success{background:#ecfdf5;color:#047857}
+body.cr-admin-dashboard .cr-pill--warning{background:#fffbeb;color:#b45309}
+
+/* ---------- Offering & course cards ---------- */
+body.cr-admin-dashboard .cr-offering-card,
+body.cr-admin-dashboard .cr-course-card{
+    border:1px solid #e6ecf7;
+    border-radius:16px;
+    background:#ffffff;
+    transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
+}
+body.cr-admin-dashboard .cr-offering-card:hover,
+body.cr-admin-dashboard .cr-course-card:hover{
+    transform:translateY(-2px);
+    border-color:#c7d2fe;
+    box-shadow:0 10px 24px rgba(67,56,202,.1);
+}
+body.cr-admin-dashboard .cr-offering-card--locked{background:#f8fafc}
+body.cr-admin-dashboard .cr-offering-card__main h4,
+body.cr-admin-dashboard .cr-course-card__head h3{color:#141f3d}
+body.cr-admin-dashboard .cr-course-card__stats span{color:#4f46e5}
+
+/* ---------- Quick-load window list ---------- */
+body.cr-admin-dashboard .cr-window-list__item{
+    border:1px solid #e6ecf7;
+    border-radius:14px;
+    background:#ffffff;
+    transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
+}
+body.cr-admin-dashboard .cr-window-list__item:hover{
+    transform:translateX(3px);
+    border-color:#c7d2fe;
+    box-shadow:0 8px 20px rgba(67,56,202,.1);
+}
+body.cr-admin-dashboard .cr-window-list__meta{
+    background:#eef2ff;
+    color:#4f46e5;
+    font-weight:800;
+}
+
+/* ---------- Student table ---------- */
+body.cr-admin-dashboard .cr-student-table-wrap{
+    border:1px solid #e6ecf7;
+    border-radius:16px;
+    overflow:hidden;
+}
+body.cr-admin-dashboard .cr-student-table th{
+    background:linear-gradient(135deg,#312e81,#4338ca);
+    color:#ffffff;
+    font-weight:800;
+    font-size:.7rem;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+}
+body.cr-admin-dashboard .cr-student-table td{border-color:#eef2f7;color:#33415e}
+body.cr-admin-dashboard .cr-student-table tbody tr:nth-child(even){background:#f8faff}
+body.cr-admin-dashboard .cr-student-table tbody tr{transition:background .13s ease}
+body.cr-admin-dashboard .cr-student-table tbody tr:hover{background:#eef2ff}
+
+/* ---------- Alerts ---------- */
+body.cr-admin-dashboard .cra-alert{
+    border-radius:14px;
+    border-left-width:4px;
+}
+body.cr-admin-dashboard .cra-alert--info{background:#eef4ff;border-color:#c7d8fe;border-left-color:#3b82f6;color:#1e3a8a}
+body.cr-admin-dashboard .cra-alert--success{background:#ecfdf5;border-color:#bbf0d5;border-left-color:#10b981;color:#065f46}
+body.cr-admin-dashboard .cra-alert--warning{background:#fffbeb;border-color:#fde6b3;border-left-color:#f59e0b;color:#92400e}
+body.cr-admin-dashboard .cra-alert--error{background:#fef2f2;border-color:#fecaca;border-left-color:#ef4444;color:#991b1b}

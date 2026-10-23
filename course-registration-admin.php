@@ -255,6 +255,10 @@ if(isset($_SESSION['Message']) && trim((string)$_SESSION['Message']) !== ""){
 <head>
 <?php include("links.php"); ?>
 <link rel="stylesheet" type="text/css" href="css/course-registration.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="css/course-registration-admin-aurora.css?v=1">
 <link rel="stylesheet" href="css/course-registration-progress.css?v=20261016-compact">
 <script src="js/course-registration-progress.js?v=20261016-dashboard" defer></script>
 </head>

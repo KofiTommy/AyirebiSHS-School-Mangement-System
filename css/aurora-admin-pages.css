@@ -1,0 +1,274 @@
+/* ============================================================
+   Aurora admin skin — shared override for legacy admin pages.
+   Each section is scoped to its page so shared stylesheets and
+   other pages are unaffected. Load AFTER the page's own CSS.
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+/* ---------- Common building blocks ---------- */
+.student-attendance-page,
+body.aurora-payments,
+.registry-page{
+    font-family:'Plus Jakarta Sans','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+}
+.student-attendance-page h1,.student-attendance-page h2,.student-attendance-page h3,
+body.aurora-payments h1,body.aurora-payments h2,body.aurora-payments h3,
+.registry-page h1,.registry-page h2,.registry-page h3{
+    font-family:'Plus Jakarta Sans','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+}
+
+/* Gradient primary buttons (shared classes, page-scoped) */
+.student-attendance-page .button-show,
+.student-attendance-page .button-save,
+body.aurora-payments .button-pay,
+body.aurora-payments .button-show,
+body.aurora-payments .button-save,
+.registry-page .button-save,
+.registry-page .button-show{
+    border:0 !important;
+    border-radius:11px !important;
+    color:#ffffff !important;
+    font-family:inherit;
+    font-weight:800;
+    background:linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%) !important;
+    box-shadow:0 8px 20px rgba(99,102,241,.3);
+    transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;
+}
+.student-attendance-page .button-show:hover,
+.student-attendance-page .button-save:hover,
+body.aurora-payments .button-pay:hover,
+body.aurora-payments .button-show:hover,
+body.aurora-payments .button-save:hover,
+.registry-page .button-save:hover,
+.registry-page .button-show:hover{
+    transform:translateY(-1px);
+    box-shadow:0 12px 26px rgba(99,102,241,.4);
+    filter:brightness(1.05);
+}
+/* Secondary/outline buttons stay light */
+.student-attendance-page .button-print{
+    border:1px solid #dfe6f3 !important;
+    border-radius:11px !important;
+    background:#ffffff !important;
+    color:#3b4a6b !important;
+    box-shadow:none;
+    transition:border-color .15s ease,color .15s ease,background .15s ease;
+}
+.student-attendance-page .button-print:hover{
+    border-color:#c7d2fe !important;
+    color:#4f46e5 !important;
+    background:#f5f7ff !important;
+    transform:none;
+    filter:none;
+}
+
+/* Inputs */
+.student-attendance-page select,
+.student-attendance-page input[type="text"],
+.student-attendance-page input[type="date"],
+body.aurora-payments select,
+body.aurora-payments input[type="text"],
+body.aurora-payments input[type="number"],
+body.aurora-payments input[type="date"],
+.registry-page select,
+.registry-page input[type="text"]{
+    border:1px solid #dbe3f0 !important;
+    border-radius:11px !important;
+    background:#f8fafc !important;
+    transition:border-color .15s ease,box-shadow .15s ease;
+}
+.student-attendance-page select:focus,
+.student-attendance-page input:focus,
+body.aurora-payments select:focus,
+body.aurora-payments input:focus,
+.registry-page select:focus,
+.registry-page input[type="text"]:focus{
+    border-color:#818cf8 !important;
+    box-shadow:0 0 0 4px rgba(99,102,241,.12);
+    outline:none;
+}
+
+/* ============================================================
+   1) student-attendance.php
+   ============================================================ */
+.student-attendance-page{
+    background:linear-gradient(180deg,#f3f6fd 0%,#f8faff 100%) !important;
+}
+.student-attendance-page .attendance-hero__copy{
+    position:relative;
+    overflow:hidden;
+    background:linear-gradient(135deg,#1e2a78 0%,#4338ca 48%,#7c3aed 100%) !important;
+    border:0 !important;
+    box-shadow:0 20px 48px rgba(67,56,202,.26) !important;
+}
+.student-attendance-page .attendance-hero__copy::before,
+.student-attendance-page .attendance-hero__copy::after{
+    content:"";position:absolute;border-radius:50%;pointer-events:none;
+}
+.student-attendance-page .attendance-hero__copy::before{
+    width:300px;height:300px;right:-80px;top:-120px;
+    background:radial-gradient(circle,rgba(255,255,255,.15),transparent 65%);
+}
+.student-attendance-page .attendance-hero__copy::after{
+    width:220px;height:220px;left:30%;bottom:-130px;
+    background:radial-gradient(circle,rgba(251,191,36,.2),transparent 65%);
+}
+.student-attendance-page .attendance-hero__copy>*{position:relative;z-index:1}
+.student-attendance-page .attendance-kicker{
+    color:#fde68a;
+    background:rgba(255,255,255,.12);
+    padding:5px 12px;
+    border-radius:999px;
+}
+.student-attendance-page .attendance-hero__copy h1{color:#ffffff !important;font-weight:800;letter-spacing:-.02em}
+.student-attendance-page .attendance-hero__copy p{color:rgba(255,255,255,.88) !important}
+.student-attendance-page .attendance-metrics article{
+    background:rgba(255,255,255,.12) !important;
+    border:1px solid rgba(255,255,255,.16) !important;
+    backdrop-filter:blur(8px);
+}
+.student-attendance-page .attendance-metrics span{color:rgba(255,255,255,.75) !important}
+.student-attendance-page .attendance-metrics strong{color:#ffffff !important}
+.student-attendance-page .attendance-metrics article:nth-child(1) strong{color:#93c5fd !important}
+.student-attendance-page .attendance-metrics article:nth-child(2) strong{color:#5eead4 !important}
+.student-attendance-page .attendance-metrics article:nth-child(3) strong{color:#fcd34d !important}
+.student-attendance-page .attendance-panel__eyebrow{
+    color:#6366f1;
+    background:rgba(99,102,241,.1);
+    padding:4px 10px;
+    border-radius:8px;
+    font-size:.66rem;
+}
+.student-attendance-page .attendance-guide h2,
+.student-attendance-page .attendance-panel__head h2,
+.student-attendance-page .attendance-register-card__head h2{color:#141f3d;font-weight:800}
+.student-attendance-page .attendance-panel,
+.student-attendance-page .attendance-guide,
+.student-attendance-page .attendance-register-card{
+    border:1px solid #e6ecf7 !important;
+    box-shadow:0 10px 30px rgba(30,41,99,.07) !important;
+}
+.student-attendance-page .attendance-assignment-card{
+    border:1px solid #e6ecf7 !important;
+    background:#ffffff !important;
+    transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
+}
+.student-attendance-page .attendance-assignment-card:hover{
+    transform:translateY(-2px);
+    border-color:#c7d2fe !important;
+    box-shadow:0 10px 24px rgba(67,56,202,.1);
+}
+.student-attendance-page .attendance-assignment-card.is-active{
+    border-color:#818cf8 !important;
+    box-shadow:0 0 0 3px rgba(99,102,241,.15) !important;
+}
+.student-attendance-page .attendance-student-card{
+    border:1px solid #e6ecf7 !important;
+    border-radius:16px !important;
+    background:#ffffff;
+    transition:border-color .15s ease,box-shadow .15s ease;
+}
+.student-attendance-page .attendance-student-card:hover{
+    border-color:#c7d2fe !important;
+    box-shadow:0 8px 20px rgba(67,56,202,.08);
+}
+.student-attendance-page .attendance-alert{border-radius:14px;border-left-width:4px}
+.student-attendance-page .attendance-alert--info{background:#eef4ff;border-color:#c7d8fe;border-left-color:#3b82f6;color:#1e3a8a}
+.student-attendance-page .attendance-alert--success{background:#ecfdf5;border-color:#bbf0d5;border-left-color:#10b981;color:#065f46}
+.student-attendance-page .attendance-alert--warning{background:#fffbeb;border-color:#fde6b3;border-left-color:#f59e0b;color:#92400e}
+.student-attendance-page .attendance-alert--error{background:#fef2f2;border-color:#fecaca;border-left-color:#ef4444;color:#991b1b}
+
+/* ============================================================
+   2) class-registry.php (scoped to .registry-page wrapper)
+   ============================================================ */
+.registry-page{
+    background:
+        radial-gradient(circle at top right,rgba(124,58,237,.08),transparent 40%),
+        linear-gradient(180deg,#f3f6fd 0%,#f8faff 100%) !important;
+}
+.registry-page .registry-hero{
+    position:relative;
+    overflow:hidden;
+    border:0 !important;
+    background:linear-gradient(135deg,#1e2a78 0%,#4338ca 48%,#7c3aed 100%) !important;
+    box-shadow:0 20px 48px rgba(67,56,202,.26) !important;
+}
+.registry-page .registry-hero::before{
+    content:"";position:absolute;width:320px;height:320px;right:-90px;top:-130px;border-radius:50%;
+    background:radial-gradient(circle,rgba(255,255,255,.15),transparent 65%);
+}
+.registry-page .registry-hero>*{position:relative;z-index:1}
+.registry-page .registry-kicker{
+    background:rgba(255,255,255,.14) !important;
+    color:#fde68a !important;
+}
+.registry-page .registry-hero h1{color:#ffffff !important;font-weight:800;letter-spacing:-.02em}
+.registry-page .registry-hero p{color:rgba(255,255,255,.85) !important}
+.registry-page .registry-hero-card{
+    background:rgba(255,255,255,.12) !important;
+    border:1px solid rgba(255,255,255,.18);
+    backdrop-filter:blur(10px);
+}
+.registry-page .registry-hero-card i{color:#fcd34d !important}
+.registry-page .registry-panel{
+    border:1px solid #e6ecf7 !important;
+    box-shadow:0 10px 30px rgba(30,41,99,.07) !important;
+}
+.registry-page .registry-panel-heading h2{color:#141f3d;font-weight:800}
+.registry-page .registry-icon{
+    background:linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%) !important;
+    color:#ffffff !important;
+    box-shadow:0 6px 14px rgba(99,102,241,.3);
+}
+.registry-page .registry-btn-primary{
+    border:0 !important;
+    border-radius:11px !important;
+    background:linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%) !important;
+    color:#ffffff !important;
+    box-shadow:0 8px 20px rgba(99,102,241,.3);
+}
+.registry-page .registry-list-panel table th{
+    background:linear-gradient(135deg,#312e81,#4338ca) !important;
+    color:#ffffff;
+}
+.registry-page .registry-list-panel table tbody tr:nth-child(even){background:#f8faff}
+
+/* ============================================================
+   3) payments.php (scoped to body.aurora-payments)
+   ============================================================ */
+body.aurora-payments{
+    background:linear-gradient(180deg,#f3f6fd 0%,#f8faff 100%);
+}
+body.aurora-payments .form-entry{
+    border:1px solid #e6ecf7 !important;
+    border-radius:18px !important;
+    background:#ffffff !important;
+    box-shadow:0 10px 30px rgba(30,41,99,.08) !important;
+}
+body.aurora-payments table{
+    border-collapse:collapse;
+}
+body.aurora-payments table th{
+    background:linear-gradient(135deg,#312e81,#4338ca) !important;
+    color:#ffffff;
+    font-weight:800;
+    font-size:.72rem;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    padding:10px 12px;
+}
+body.aurora-payments table td{
+    padding:9px 12px;
+    border-bottom:1px solid #eef2f7;
+    color:#33415e;
+}
+body.aurora-payments table tr:nth-child(even) td{background:#f8faff}
+body.aurora-payments table tr:hover td{background:#eef2ff}
+body.aurora-payments h2,body.aurora-payments h3{color:#141f3d;font-weight:800}
+body.aurora-payments #myBtn{
+    border:0;
+    border-radius:999px;
+    background:linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%);
+    color:#ffffff;
+    box-shadow:0 8px 20px rgba(99,102,241,.3);
+}

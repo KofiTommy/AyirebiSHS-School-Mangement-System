@@ -81,7 +81,7 @@ if(isset($_POST["button_update"])){
 if(isset($_GET['select_branch_id'])){
     $_SESSION['BRANCHID'] = $_GET['select_branch_id'];
     if($_SESSION["BRANCHID"] != ""){
-        header("location:admin.php");
+        header("location:executive-dashboard.php");
         exit();
     }
 }

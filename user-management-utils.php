@@ -891,7 +891,7 @@ function um_home_link_for_session(){
         return 'super.php';
     }
     if($_SESSION['ACCESSLEVEL'] === 'administrator' && $_SESSION['SYSTEMTYPE'] === 'normal_user'){
-        return 'admin.php';
+        return 'executive-dashboard.php';
     }
     if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'Teacher'){
         return 'teacher-page.php';
