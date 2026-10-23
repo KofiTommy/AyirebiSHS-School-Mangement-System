@@ -234,10 +234,10 @@ if($rs){
 
 /* ---------- Activity feed (merged from real events) ---------- */
 $feed = array();
-$fp = @mysqli_query($con, "SELECT p.payment, p.paymentdate, su.firstname, su.othernames, su.surname
+$fp = mysqli_query($con, "SELECT p.payment, p.datetimepayment AS paymentdate, su.firstname, su.othernames, su.surname
     FROM tblpayment p LEFT JOIN tblbilling b ON b.billid = p.billid
     LEFT JOIN tblsystemuser su ON su.userid = b.userid
-    WHERE p.status='active' ORDER BY p.paymentdate DESC, p.paymentid DESC LIMIT 3");
+    WHERE p.status='active' ORDER BY p.datetimepayment DESC, p.paymentid DESC LIMIT 3");
 if($fp){
     while($row = mysqli_fetch_array($fp, MYSQLI_ASSOC)){
         $who = trim($row['firstname'] . ' ' . $row['surname']);
