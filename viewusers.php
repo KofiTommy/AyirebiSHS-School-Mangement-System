@@ -155,7 +155,7 @@ if ($_SQL_EXECUTE) {
 <html>
 <head>
 <?php include("links.php"); ?>
-<link rel="stylesheet" href="css/viewusers.css?v=20260426">
+<link rel="stylesheet" href="css/viewusers.css?v=20261024">
 </head>
 <body class="teacher-directory-page">
     <div class="header">

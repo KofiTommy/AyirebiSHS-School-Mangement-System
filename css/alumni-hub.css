@@ -4,3 +4,205 @@
 .alumni-approve{border:0;border-radius:6px;background:#08766f;color:#fff;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}.alumni-status{display:inline-block;border-radius:20px;background:#edf6f5;color:#08766f;padding:5px 9px;font-size:12px;font-weight:700}
 
 .alumni-sms{margin-top:20px}.alumni-sms-note{color:#526277;line-height:1.5;margin:-5px 0 16px}.alumni-sms-form{display:grid;grid-template-columns:.7fr 1.6fr auto;gap:14px;align-items:end;padding:17px;border:1px solid #dbe7ee;border-radius:12px;background:#f8fbfd}.alumni-sms-form label{font-size:12px;font-weight:700;color:#475569}.alumni-sms-form input,.alumni-sms-form textarea{box-sizing:border-box;width:100%;border:1px solid #cfdbe7;border-radius:8px;padding:10px;margin-top:5px;font:inherit;color:#1e293b;background:#fff}.alumni-sms-form textarea{min-height:82px;resize:vertical}.alumni-sms-form small{display:block;margin-top:5px;color:#64748b;font-weight:400}.alumni-sms-form button{border:0;border-radius:8px;background:#08766f;color:#fff;font-weight:700;padding:12px 15px;cursor:pointer;white-space:nowrap}.alumni-campaign-history{margin-top:20px}.alumni-campaign-history h3{font-size:15px;color:#162b4d;margin:0 0 7px}.alumni-campaign-history article{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid #e8eef5}.alumni-campaign-history strong{color:#162b4d}.alumni-campaign-history p{margin:5px 0;color:#526277;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:680px}.alumni-campaign-history small{color:#64748b}.alumni-campaign-counts{margin-left:auto;font-size:12px;color:#526277;text-align:right;white-space:nowrap}.alumni-campaign-history a{background:#edf6f5;color:#08766f;text-decoration:none;border-radius:7px;padding:8px 10px;font-size:12px;font-weight:700}@media(max-width:760px){.alumni-sms-form{grid-template-columns:1fr}.alumni-sms-form button{width:100%}.alumni-campaign-history article{align-items:flex-start;flex-wrap:wrap}.alumni-campaign-counts{margin-left:0;text-align:left}.alumni-campaign-history p{white-space:normal}}.alumni-sms-form fieldset{border:1px solid #cfdbe7;border-radius:8px;padding:10px;margin:0;min-width:0}.alumni-sms-form legend{font-size:12px;font-weight:700;color:#475569;padding:0 4px}.alumni-year-all{display:block;color:#162b4d;font-size:13px;font-weight:700;margin-bottom:7px}.alumni-year-options{display:flex;flex-wrap:wrap;gap:6px}.alumni-year-options label{background:#edf6f5;border-radius:16px;color:#08766f;font-size:12px;padding:5px 8px;cursor:pointer}.alumni-year-options input{width:auto;margin:0 3px 0 0;vertical-align:middle}.alumni-sms-form fieldset small{display:block;margin-top:7px}
+/* ============================================================
+   ALUMNI HUB — polish pass (2026)
+   Fixes squeezed hero layout, elevates panels and tables.
+   ============================================================ */
+
+/* ---- hero: full-width text row, buttons wrap below as pills ---- */
+.alumni-page .alumni-hero{
+    flex-wrap:wrap;
+    align-items:flex-start;
+    gap:14px;
+    padding:38px 40px 30px;
+    background:
+        radial-gradient(520px 220px at 88% -10%, rgba(231,169,45,.20), transparent 60%),
+        linear-gradient(120deg,#14264a 0%,#0b4f52 55%,var(--alm-teal) 100%);
+    box-shadow:0 18px 40px rgba(11,79,82,.28);
+    position:relative;
+    overflow:hidden;
+}
+.alumni-page .alumni-hero>div:first-child{
+    flex:1 1 100%;
+    min-width:0;
+}
+.alumni-page .alumni-hero span{
+    display:inline-block;
+    background:rgba(231,169,45,.16);
+    border:1px solid rgba(231,169,45,.45);
+    color:#f3c65f;
+    padding:5px 12px;
+    border-radius:999px;
+    letter-spacing:.16em;
+}
+.alumni-page .alumni-hero h1{
+    font-size:38px;
+    letter-spacing:-.02em;
+    margin:12px 0 10px;
+    line-height:1.05;
+}
+.alumni-page .alumni-hero p{
+    max-width:720px;
+    font-size:15px;
+}
+.alumni-page .alumni-hero>a{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-top:10px;
+    border-radius:999px;
+    padding:11px 19px;
+    font-size:13.5px;
+    box-shadow:0 5px 14px rgba(6,25,40,.25);
+    transition:transform .15s ease,box-shadow .2s ease,background .2s ease;
+}
+.alumni-page .alumni-hero>a:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 22px rgba(6,25,40,.35);
+    background:#fdf6e3;
+}
+
+/* ---- stat cards: coloured accents + hover lift ---- */
+.alumni-page .alumni-stats{gap:18px;margin:26px 0}
+.alumni-page .alumni-stats article{
+    position:relative;
+    overflow:hidden;
+    padding:22px 22px 20px;
+    border-radius:18px;
+    transition:transform .18s ease,box-shadow .2s ease;
+}
+.alumni-page .alumni-stats article::before{
+    content:"";
+    position:absolute;
+    top:0;left:0;right:0;
+    height:4px;
+}
+.alumni-page .alumni-stats article:nth-child(1)::before{background:linear-gradient(90deg,#0e7490,#22d3ee)}
+.alumni-page .alumni-stats article:nth-child(2)::before{background:linear-gradient(90deg,#b45309,#fbbf24)}
+.alumni-page .alumni-stats article:nth-child(3)::before{background:linear-gradient(90deg,#be185d,#f472b6)}
+.alumni-page .alumni-stats article:nth-child(4)::before{background:linear-gradient(90deg,#08766f,#34d399)}
+.alumni-page .alumni-stats article:hover{
+    transform:translateY(-3px);
+    box-shadow:0 14px 30px rgba(20,42,70,.12);
+}
+.alumni-page .alumni-stats strong{font-size:31px;letter-spacing:-.02em}
+
+/* ---- panels ---- */
+.alumni-page .alumni-panel{
+    border-radius:18px;
+    box-shadow:0 8px 22px rgba(20,42,70,.06);
+    transition:box-shadow .2s ease;
+}
+.alumni-page .alumni-panel:hover{box-shadow:0 12px 28px rgba(20,42,70,.09)}
+.alumni-page .alumni-head>h2{
+    font-size:22px;
+    letter-spacing:-.01em;
+}
+.alumni-page .alumni-head>span{
+    letter-spacing:.16em;
+}
+
+/* ---- forms and inputs ---- */
+.alumni-page .alumni-form input,
+.alumni-page .alumni-form select,
+.alumni-page .alumni-form textarea,
+.alumni-page .alumni-mini-forms input,
+.alumni-page .alumni-mini-forms select,
+.alumni-page .alumni-mini-forms textarea,
+.alumni-page .alumni-search,
+.alumni-page .alumni-sms-form input,
+.alumni-page .alumni-sms-form textarea{
+    border-radius:10px;
+    transition:border-color .18s ease,box-shadow .18s ease;
+}
+.alumni-page .alumni-form input:focus,
+.alumni-page .alumni-form select:focus,
+.alumni-page .alumni-form textarea:focus,
+.alumni-page .alumni-mini-forms input:focus,
+.alumni-page .alumni-mini-forms select:focus,
+.alumni-page .alumni-mini-forms textarea:focus,
+.alumni-page .alumni-search:focus,
+.alumni-page .alumni-sms-form input:focus,
+.alumni-page .alumni-sms-form textarea:focus{
+    outline:none;
+    border-color:var(--alm-teal);
+    box-shadow:0 0 0 3px rgba(8,118,111,.15);
+}
+.alumni-page .alumni-form button,
+.alumni-page .alumni-mini-forms button,
+.alumni-page .alumni-sms-form button{
+    border-radius:10px;
+    background:linear-gradient(120deg,#0a5f59,#08766f);
+    box-shadow:0 6px 14px rgba(8,118,111,.28);
+    transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;
+}
+.alumni-page .alumni-form button:hover,
+.alumni-page .alumni-mini-forms button:hover,
+.alumni-page .alumni-sms-form button:hover{
+    transform:translateY(-1px);
+    filter:brightness(1.06);
+    box-shadow:0 10px 20px rgba(8,118,111,.36);
+}
+
+/* ---- directory table ---- */
+.alumni-page #alumniTable thead th{
+    background:#162b4d;
+    color:#fff;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    padding:12px 14px;
+    border:0;
+}
+.alumni-page #alumniTable tbody tr:nth-child(even){background:#f6fafb}
+.alumni-page #alumniTable tbody tr:hover{background:#edf6f5}
+.alumni-page #alumniTable td{padding:12px 14px;vertical-align:middle}
+.alumni-page .alumni-search{
+    padding:13px 16px;
+    border-radius:12px;
+    font-size:14px;
+}
+.alumni-page .alumni-approve{
+    border-radius:8px;
+    padding:8px 13px;
+    background:linear-gradient(120deg,#0a5f59,#08766f);
+    box-shadow:0 4px 10px rgba(8,118,111,.25);
+    transition:transform .15s ease,box-shadow .2s ease;
+}
+.alumni-page .alumni-approve:hover{transform:translateY(-1px);box-shadow:0 8px 16px rgba(8,118,111,.34)}
+.alumni-page .alumni-approve-all{
+    border-radius:10px;
+    background:linear-gradient(120deg,#162b4d,#24457c);
+    box-shadow:0 6px 14px rgba(22,43,77,.28);
+    transition:transform .15s ease,box-shadow .2s ease;
+}
+.alumni-page .alumni-approve-all:hover{transform:translateY(-1px)}
+
+/* ---- flash + sms panel ---- */
+.alumni-page .alumni-flash{
+    border-radius:12px;
+    border:1px solid #86e3c0;
+    background:linear-gradient(120deg,#e4fbef,#d7f7e9);
+}
+.alumni-page .alumni-sms-form{
+    border-radius:14px;
+    background:linear-gradient(180deg,#f4fafb,#eef6f7);
+}
+.alumni-page .alumni-campaign-history article{border-bottom-color:#e6eef5}
+.alumni-page .alumni-year-options label{
+    border:1px solid transparent;
+    transition:all .15s ease;
+}
+.alumni-page .alumni-year-options label:hover{border-color:#9fd4cf}
+
+/* ---- responsive ---- */
+@media(max-width:900px){
+    .alumni-page .alumni-hero{padding:28px 24px 22px}
+    .alumni-page .alumni-hero h1{font-size:29px}
+}
+@media(max-width:760px){
+    .alumni-page .alumni-stats{grid-template-columns:repeat(2,1fr)}
+    .alumni-page .alumni-hero>a{width:100%;box-sizing:border-box;justify-content:center}
+    .alumni-page .alumni-grid,
+    .alumni-page .alumni-grid--bottom{grid-template-columns:1fr}
+}

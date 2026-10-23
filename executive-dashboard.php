@@ -2,6 +2,12 @@
 ob_start(null, 1048576);
 session_start();
 include("check-login.php");
+if (($_SESSION['ACCESSLEVEL'] ?? '') !== 'administrator') {
+    http_response_code(403);
+    exit('Administrator access required.');
+}
+/* Remember this dashboard as the admin's Home target for other pages */
+$_SESSION['ADMIN_HOME_DASHBOARD'] = 'executive-dashboard.php';
 include("company.php");
 
 /* ============================================================
@@ -29,6 +35,17 @@ if(!function_exists('exd_when')){
         if($day === $today){ return date('g:i A', $ts); }
         if($day === strtotime('-1 day', $today)){ return 'Yesterday'; }
         return date('d M Y', $ts);
+    }
+}
+if(!function_exists('exd_day_label')){
+    function exd_day_label($value){
+        $ts = strtotime((string)$value);
+        if($ts === false){ return ''; }
+        $today = strtotime(date('Y-m-d'));
+        $day = strtotime(date('Y-m-d', $ts));
+        if($day === $today){ return 'Today'; }
+        if($day === strtotime('-1 day', $today)){ return 'Yesterday'; }
+        return date('l, d F Y', $ts);
     }
 }
 
@@ -60,10 +77,73 @@ if(function_exists('um_is_admin_manager') && function_exists('um_current_user_ca
     $_PendingDocumentReviews = (int)ald_pending_review_count($con);
 }
 
+/* ---------- System change notifications (same source as the classic admin panel) ---------- */
+if (empty($_SESSION['executive_csrf'])) {
+    $_SESSION['executive_csrf'] = bin2hex(random_bytes(32));
+}
+if(isset($_POST['mark_changes_read']) && $_AccessLevel === 'administrator'){
+    if (!is_string($_POST['csrf'] ?? null) || !hash_equals($_SESSION['executive_csrf'], $_POST['csrf'])) {
+        http_response_code(403);
+        exit('Your session could not be verified. Reload the dashboard and try again.');
+    }
+    mysqli_query($con, "UPDATE tblsystemchangelog SET status='read' WHERE status='unread'");
+    header("Location: executive-dashboard.php?tab=notifications");
+    exit();
+}
+$_ChangeNotifications = array();
+$_UnreadChangeCount = 0;
+if($_AccessLevel === 'administrator'){
+    // Viewing the dashboard must not delete audit history.
+    $_ChangeQ = @mysqli_query($con, "SELECT logid, actor_userid, actor_name, actor_type, action_type, target_userid, details, datetimeentry, status
+        FROM tblsystemchangelog
+        ORDER BY datetimeentry DESC LIMIT 8");
+    if($_ChangeQ){ while($r = mysqli_fetch_array($_ChangeQ, MYSQLI_ASSOC)){ $_ChangeNotifications[] = $r; } }
+    $_AllChangeNotifications = array();
+    $_AllChangeQ = @mysqli_query($con, "SELECT logid, actor_userid, actor_name, actor_type, action_type, target_userid, details, datetimeentry, status
+        FROM tblsystemchangelog
+        ORDER BY datetimeentry DESC LIMIT 60");
+    if($_AllChangeQ){ while($r = mysqli_fetch_array($_AllChangeQ, MYSQLI_ASSOC)){ $_AllChangeNotifications[] = $r; } }
+    $_UnreadQ = @mysqli_query($con, "SELECT COUNT(*) AS c FROM tblsystemchangelog
+        WHERE status='unread'");
+    if($_UnreadQ && $r = mysqli_fetch_array($_UnreadQ, MYSQLI_ASSOC)){ $_UnreadChangeCount = (int)$r['c']; }
+}
+/* Review-link mapping — identical to the classic dashboard notification table */
+if(!function_exists('exd_change_action')){
+    function exd_change_action($row){
+        $type = strtoupper(trim((string)$row['action_type']));
+        $target = trim((string)$row['target_userid']);
+        if($type === 'ONLINE_ADMISSION_SUBMITTED' && $target !== ''){
+            return array('online-admission-admin.php?edit_application='.urlencode($target).'#edit-application', 'Review Admission');
+        }
+        if($type === 'ONLINE_ADMISSION_HEADMASTER_APPROVED' && $target !== ''){
+            return array('online-admission-admin.php?edit_application='.urlencode($target).'#edit-application', 'Open Approved Admission');
+        }
+        if($type === 'ONLINE_ADMISSION_HELP_REQUEST'){
+            return array('online-admission-admin.php#help-requests', 'Open Help Requests');
+        }
+        if($type === 'PORTAL_HELP_REQUEST'){
+            return array('admin.php#portal-help-requests', 'Open Portal Help');
+        }
+        if($type === 'ALUMNI_REGISTRATION_SUBMITTED'){
+            return array('alumni-hub.php#pending-approvals', 'Review Alumni Request');
+        }
+        if($type === 'ALUMNI_DOCUMENT_REQUEST_SUBMITTED' && ctype_digit($target)){
+            return array('alumni-document-admin.php?id='.(int)$target.'#request-detail', 'Review Document Request');
+        }
+        if($type === 'ALUMNI_CONCERN_SUBMITTED'){
+            return array('alumni-concerns.php', 'Review Alumni Concern');
+        }
+        if($type === 'ALUMNI_DONATION_RECEIVED'){
+            return array('alumni-donation-report.php', 'View Donation Payment');
+        }
+        return null;
+    }
+}
+
 /* ---------- KPI numbers ---------- */
 $totalStudents = (int)exd_scalar($con, "SELECT COUNT(*) FROM tblsystemuser WHERE systemtype='Student' AND status='active'");
 $teachingStaff = (int)exd_scalar($con, "SELECT COUNT(*) FROM tblsystemuser WHERE systemtype IN ('Teacher','Headmaster','AssistantHeadAcademic') AND status='active'");
-$feesBilled    = exd_scalar($con, "SELECT COALESCE(SUM(cost),0) FROM tblbilling");
+$feesBilled    = exd_scalar($con, "SELECT COALESCE(SUM(cost),0) FROM tblbilling WHERE status='active'");
 $feesCollected = exd_scalar($con, "SELECT COALESCE(SUM(payment),0) FROM tblpayment WHERE status='active'");
 
 /* ---------- Attendance today ---------- */
@@ -71,7 +151,7 @@ $attPresent = 0; $attAbsent = 0; $attLate = 0; $attOther = 0; $attMarked = 0;
 $attResult = @mysqli_query($con, "SELECT LOWER(TRIM(e.attendancestatus)) AS st, COUNT(*) AS c
     FROM tblstudentattendanceentry e
     INNER JOIN tblstudentattendancesession s ON s.sessionid = e.sessionid
-    WHERE s.attendancedate = CURDATE()
+    WHERE s.attendancedate = CURDATE() AND s.status='active'
     GROUP BY LOWER(TRIM(e.attendancestatus))");
 if($attResult){
     while($row = mysqli_fetch_array($attResult, MYSQLI_ASSOC)){
@@ -110,7 +190,7 @@ foreach($months as $ym => $count){
 }
 
 /* ---------- Student population: gender x residence (same logic as classic dashboard) ---------- */
-$popLabels = array('Boys Day', 'Boys Boarding', 'Girls Day', 'Girls Boarding', 'No Residence Status');
+$popLabels = array('Boys Day', 'Boys Boarding', 'Girls Day', 'Girls Boarding', 'Other / Unspecified');
 $popValues = array(0, 0, 0, 0, 0);
 $exdResidenceSql = "CASE
     WHEN UPPER(TRIM(COALESCE(su.residencetype, ''))) IN ('DAY','D') THEN 'Day'
@@ -118,8 +198,8 @@ $exdResidenceSql = "CASE
     ELSE '' END";
 $popResult = @mysqli_query($con, "SELECT
     CASE
-        WHEN UPPER(su.gender) IN ('M','MALE','BOY','B') THEN 'Male'
-        WHEN UPPER(su.gender) IN ('F','FEMALE','GIRL','G') THEN 'Female'
+        WHEN UPPER(TRIM(su.gender)) IN ('M','MALE','BOY','BOYS','B') THEN 'Male'
+        WHEN UPPER(TRIM(su.gender)) IN ('F','FEMALE','GIRL','GIRLS','G') THEN 'Female'
         ELSE 'Other' END AS gnorm,
     " . $exdResidenceSql . " AS residence_group,
     COUNT(DISTINCT su.userid) AS cnt
@@ -143,9 +223,8 @@ $_ExdBatchSummary = dashboard_student_population_summary($con, array('require_ac
 $popNoStatus = (int)exd_scalar($con, "SELECT COUNT(DISTINCT su.userid)
     FROM tblsystemuser su
     INNER JOIN tblclass cl ON cl.userid=su.userid
-    WHERE su.systemtype='Student' AND su.status='active' AND cl.status='active'
-    AND " . $exdResidenceSql . " = ''");
-$popValues[4] = $popNoStatus;
+    WHERE su.systemtype='Student' AND su.status='active' AND cl.status='active'");
+$popValues[4] = max(0, $popNoStatus - array_sum($popValues));
 
 /* ---------- Subject performance: average vs pass rate (same engine + scope filters as classic dashboard) ---------- */
 $_PerfClassFilter = isset($_GET['perf_class']) ? trim((string)$_GET['perf_class']) : '';
@@ -171,10 +250,11 @@ if($_PerfTermFilter !== ''){ $perfScopeParts[] = 'Semester ' . $_PerfTermFilter;
 $perfHasFilter = count($perfScopeParts) > 0;
 $perfScopeLabel = $perfHasFilter ? implode(' | ', $perfScopeParts) : 'All classes, batches, academic years and semesters';
 
-$perfWhere = " WHERE mk.status='active' ";
+$perfYearSql = "COALESCE(NULLIF(TRIM(sa.academicyear),''), YEAR(sa.datetimeentry))";
+$perfWhere = " WHERE mk.status='active' AND mk.totalmark > 0 AND mk.mark IS NOT NULL ";
 if($perfClassSafe !== ''){ $perfWhere .= " AND sa.classid='".$perfClassSafe."' "; }
 if($perfBatchSafe !== ''){ $perfWhere .= " AND sa.batchid='".$perfBatchSafe."' "; }
-if($perfYearSafe  !== ''){ $perfWhere .= " AND YEAR(sa.datetimeentry)='".$perfYearSafe."' "; }
+if($perfYearSafe  !== ''){ $perfWhere .= " AND ".$perfYearSql."='".$perfYearSafe."' "; }
 if($perfTermSafe  !== ''){ $perfWhere .= " AND sa.termname='".$perfTermSafe."' "; }
 
 /* Filter option lists (same sources as classic dashboard) */
@@ -185,7 +265,7 @@ $perfBatchOptions = array();
 $bo = @mysqli_query($con, "SELECT batchid, batch FROM tblbatch ORDER BY datetimeentry DESC");
 if($bo){ while($r = mysqli_fetch_array($bo, MYSQLI_ASSOC)){ $perfBatchOptions[] = $r; } }
 $perfYearOptions = array();
-$yo = @mysqli_query($con, "SELECT DISTINCT YEAR(datetimeentry) AS y FROM tblsubjectassignment WHERE datetimeentry IS NOT NULL ORDER BY y DESC");
+$yo = @mysqli_query($con, "SELECT DISTINCT ".$perfYearSql." AS y FROM tblsubjectassignment sa WHERE ".$perfYearSql." IS NOT NULL ORDER BY y DESC");
 if($yo){ while($r = mysqli_fetch_array($yo, MYSQLI_ASSOC)){ $perfYearOptions[] = (string)$r['y']; } }
 $perfTermOptions = array();
 $to = @mysqli_query($con, "SELECT DISTINCT termname FROM tblsubjectassignment ORDER BY termname ASC");
@@ -193,8 +273,12 @@ if($to){ while($r = mysqli_fetch_array($to, MYSQLI_ASSOC)){ $perfTermOptions[] =
 
 $perfLabels = array(); $perfAvg = array(); $perfPass = array();
 $perfRowsCount = 0; $overallAvg = 0; $overallPass = 0; $bestSubject = ''; $bestSubjectScore = 0;
+$perfScoreCount = 0; $perfScoreSum = 0; $perfPassCount = 0;
 $perfResult = @mysqli_query($con, "SELECT
     sub.subject,
+    COUNT(*) AS score_count,
+    SUM((mk.mark / mk.totalmark) * 100) AS score_sum,
+    SUM(CASE WHEN (mk.mark / mk.totalmark) >= 0.5 THEN 1 ELSE 0 END) AS pass_count,
     ROUND(AVG(CASE WHEN mk.totalmark > 0 THEN (mk.mark / mk.totalmark) * 100 ELSE 0 END),2) AS avg_percent,
     ROUND(AVG(CASE WHEN mk.totalmark > 0 AND ((mk.mark / mk.totalmark) * 100) >= 50 THEN 100 ELSE 0 END),2) AS pass_rate
     FROM tblmark mk
@@ -203,22 +287,22 @@ $perfResult = @mysqli_query($con, "SELECT
     INNER JOIN tblsubject sub ON sc.subjectid = sub.subjectid
     " . $perfWhere . "
     GROUP BY sub.subjectid, sub.subject
-    ORDER BY avg_percent DESC, sub.subject ASC
-    LIMIT 12");
+    ORDER BY avg_percent DESC, sub.subject ASC");
 if($perfResult){
     while($row = mysqli_fetch_array($perfResult, MYSQLI_ASSOC)){
-        if($perfRowsCount >= 10){ break; }
+        $perfScoreCount += (int)$row['score_count'];
+        $perfScoreSum += (float)$row['score_sum'];
+        $perfPassCount += (int)$row['pass_count'];
+        if($perfRowsCount >= 10){ continue; }
         $perfLabels[] = (string)$row['subject'];
         $perfAvg[] = (float)$row['avg_percent'];
         $perfPass[] = (float)$row['pass_rate'];
-        $overallAvg += (float)$row['avg_percent'];
-        $overallPass += (float)$row['pass_rate'];
         $perfRowsCount++;
     }
 }
 if($perfRowsCount > 0){
-    $overallAvg = round($overallAvg / $perfRowsCount, 1);
-    $overallPass = round($overallPass / $perfRowsCount, 1);
+    $overallAvg = $perfScoreCount > 0 ? round($perfScoreSum / $perfScoreCount, 1) : 0;
+    $overallPass = $perfScoreCount > 0 ? round(100 * $perfPassCount / $perfScoreCount, 1) : 0;
     $bestSubject = (string)$perfLabels[0];
     $bestSubjectScore = (float)$perfAvg[0];
 }
@@ -237,7 +321,7 @@ $feed = array();
 $fp = mysqli_query($con, "SELECT p.payment, p.datetimepayment AS paymentdate, su.firstname, su.othernames, su.surname
     FROM tblpayment p LEFT JOIN tblbilling b ON b.billid = p.billid
     LEFT JOIN tblsystemuser su ON su.userid = b.userid
-    WHERE p.status='active' ORDER BY p.datetimepayment DESC, p.paymentid DESC LIMIT 3");
+    WHERE p.status='active' ORDER BY p.datetimepayment DESC, p.paymentid DESC LIMIT 5");
 if($fp){
     while($row = mysqli_fetch_array($fp, MYSQLI_ASSOC)){
         $who = trim($row['firstname'] . ' ' . $row['surname']);
@@ -247,11 +331,12 @@ if($fp){
             'title' => 'Fee payment received',
             'detail' => ($who !== '' ? $who : 'A student') . ' · ' . $_Currency . number_format((float)$row['payment'], 2),
             'when' => exd_when($row['paymentdate']),
+            'timestamp' => strtotime((string)$row['paymentdate']) ?: 0,
         );
     }
 }
 $fs = @mysqli_query($con, "SELECT firstname, othernames, surname, registereddatetime
-    FROM tblsystemuser WHERE systemtype='Student' ORDER BY registereddatetime DESC LIMIT 3");
+    FROM tblsystemuser WHERE systemtype='Student' ORDER BY registereddatetime DESC LIMIT 5");
 if($fs){
     while($row = mysqli_fetch_array($fs, MYSQLI_ASSOC)){
         $who = trim($row['firstname'] . ' ' . $row['surname']);
@@ -261,11 +346,12 @@ if($fs){
             'title' => 'New student admitted',
             'detail' => $who !== '' ? $who : 'Student record created',
             'when' => exd_when($row['registereddatetime']),
+            'timestamp' => strtotime((string)$row['registereddatetime']) ?: 0,
         );
     }
 }
 $fa = @mysqli_query($con, "SELECT attendancedate, classid FROM tblstudentattendancesession
-    WHERE status='active' ORDER BY attendancedate DESC, datetimeentry DESC LIMIT 2");
+    WHERE status='active' ORDER BY attendancedate DESC, datetimeentry DESC LIMIT 5");
 if($fa){
     while($row = mysqli_fetch_array($fa, MYSQLI_ASSOC)){
         $feed[] = array(
@@ -274,10 +360,11 @@ if($fa){
             'title' => 'Attendance marked',
             'detail' => 'Class ' . $row['classid'] . ' · ' . date('d M Y', strtotime($row['attendancedate'])),
             'when' => exd_when($row['attendancedate']),
+            'timestamp' => strtotime((string)$row['attendancedate']) ?: 0,
         );
     }
 }
-usort($feed, function($a, $b){ return strcmp($b['when'], $a['when']); });
+usort($feed, function($a, $b){ return $b['timestamp'] <=> $a['timestamp']; });
 $feed = array_slice($feed, 0, 5);
 if(count($feed) === 0){
     $feed[] = array('icon' => 'fa-info-circle', 'tint' => 'blue', 'title' => 'Welcome', 'detail' => 'School activity will appear here as events are recorded.', 'when' => '');
@@ -390,7 +477,11 @@ body.exdash-page{
 }
 .exdash-nav-details>summary::-webkit-details-marker{display:none}
 .exdash-nav-details>summary i{width:18px;text-align:center;font-size:.92rem;color:#7fa3cf;transition:color .15s ease}
-.exdash-nav-details>summary .exdash-nav-details-arrow{margin-left:auto;font-size:.7rem;opacity:.85;transition:transform .2s ease}
+.exdash-nav-details>summary .exdash-nav-details-arrow{margin-left:5px;font-size:.7rem;opacity:.85;transition:transform .2s ease}
+.exdash-nav-count{
+    margin-left:auto;font-size:.58rem;font-weight:800;background:rgba(255,255,255,.12);
+    color:#c6d8ec;padding:1px 8px;border-radius:999px;letter-spacing:.04em;
+}
 .exdash-nav-details>summary:hover{background:rgba(255,255,255,.07);color:#ffffff}
 .exdash-nav-details>summary:hover i{color:#93c5fd}
 .exdash-nav-details[open]>summary{color:#ffffff;background:rgba(255,255,255,.06)}
@@ -502,7 +593,7 @@ body.exdash-page{
     display:none;width:42px;height:42px;border-radius:12px;border:1px solid var(--ex-line);
     background:var(--ex-card);color:var(--ex-ink);font-size:1.02rem;cursor:pointer;place-items:center;flex:none;
 }
-.exdash-search{flex:1;max-width:460px;position:relative}
+.exdash-search{flex:1 1 320px;max-width:520px;position:relative}
 .exdash-search i{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:#93a5bd;font-size:.9rem}
 .exdash-search input{
     width:100%;box-sizing:border-box;padding:11px 16px 11px 40px;font-family:inherit;
@@ -558,7 +649,118 @@ body.exdash-page{
     box-shadow:0 24px 50px rgba(15,36,64,.18);display:none;overflow:hidden;
 }
 .exdash-bell-menu.is-open{display:block}
-.exdash-bell-menu header{padding:13px 18px;font-weight:800;font-size:.84rem;border-bottom:1px solid var(--ex-line)}
+.exdash-bell-menu header{
+    padding:13px 18px;font-weight:800;font-size:.84rem;border-bottom:1px solid var(--ex-line);
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.exdash-note-count{
+    font-size:.62rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);
+    color:#fff;padding:3px 9px;border-radius:999px;white-space:nowrap;
+}
+.exdash-note-list{max-height:380px;overflow-y:auto}
+.exdash-note-list::-webkit-scrollbar{width:5px}
+.exdash-note-list::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:99px}
+.exdash-note-item{
+    display:flex;gap:11px;padding:12px 18px;border-bottom:1px solid #f1f5f9;font-size:.82rem;
+    position:relative;transition:background .13s ease;
+}
+.exdash-note-item:hover{background:rgba(99,102,241,.05)}
+.exdash-note-item.is-unread{background:linear-gradient(90deg,rgba(99,102,241,.06),transparent 70%)}
+.exdash-note-item.is-unread:hover{background:linear-gradient(90deg,rgba(99,102,241,.10),transparent 70%)}
+.exdash-note-icon{
+    width:34px;height:34px;border-radius:11px;flex:none;display:grid;place-items:center;
+    background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:.8rem;
+    box-shadow:0 6px 14px rgba(99,102,241,.3);
+}
+.exdash-note-icon.is-read{background:#eef2f7;color:#94a3b8;box-shadow:none}
+.exdash-note-body{min-width:0;flex:1}
+.exdash-note-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.exdash-note-top strong{font-size:.82rem;color:#0f172a}
+.exdash-note-top time{color:var(--ex-muted);font-size:.66rem;white-space:nowrap;flex:none}
+.exdash-note-action{
+    display:inline-block;margin-top:3px;font-size:.66rem;font-weight:800;color:#6366f1;
+    text-transform:uppercase;letter-spacing:.05em;
+}
+.exdash-note-body p{margin:4px 0 0;color:var(--ex-muted);font-size:.75rem;line-height:1.45;word-wrap:break-word}
+.exdash-note-link{
+    display:inline-flex;align-items:center;gap:5px;margin-top:7px;font-size:.72rem;font-weight:800;
+    color:#4f46e5;text-decoration:none;border:1px solid rgba(99,102,241,.28);
+    background:rgba(99,102,241,.07);padding:3px 11px;border-radius:999px;
+    transition:background .12s ease,color .12s ease;
+}
+.exdash-note-link:hover{background:#6366f1;color:#fff;text-decoration:none}
+.exdash-note-dot{
+    position:absolute;top:14px;right:12px;width:8px;height:8px;border-radius:50%;flex:none;
+    background:linear-gradient(135deg,#6366f1,#8b5cf6);
+    box-shadow:0 0 0 3px rgba(99,102,241,.18);
+}
+.exdash-note-empty{padding:26px 18px;text-align:center;color:var(--ex-muted);font-size:.78rem;line-height:1.6}
+.exdash-note-empty i{display:block;font-size:1.3rem;margin-bottom:8px;color:#cbd5e1}
+.exdash-note-foot{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:10px 14px;border-top:1px solid var(--ex-line);
+}
+.exdash-note-mark button{
+    display:inline-flex;align-items:center;gap:6px;border:0;cursor:pointer;
+    background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;
+    font-family:inherit;font-size:.72rem;font-weight:800;padding:7px 13px;border-radius:9px;
+    box-shadow:0 6px 14px rgba(99,102,241,.3);transition:transform .13s ease,filter .13s ease;
+}
+.exdash-note-mark button:hover{transform:translateY(-1px);filter:brightness(1.06)}
+
+/* ---------- Notifications timeline panel ---------- */
+.exnote-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.exnote-stat{
+    display:inline-flex;align-items:center;gap:7px;font-size:.72rem;font-weight:800;color:#4f46e5;
+    background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #e0e7ff;
+    padding:7px 13px;border-radius:999px;
+}
+.exnote-stat-dot{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);box-shadow:0 0 0 3px rgba(99,102,241,.18)}
+.exnote-list{display:flex;flex-direction:column;gap:8px;padding-top:4px}
+.exnote-day{
+    display:flex;align-items:center;gap:12px;margin:14px 2px 4px;
+    font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;
+}
+.exnote-day::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,#e8edf5,transparent)}
+.exnote-item{
+    position:relative;display:flex;gap:14px;padding:15px 17px;border-radius:15px;
+    border:1px solid #eef2f7;background:#ffffff;
+    transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease;
+}
+.exnote-item:hover{border-color:#c7d2fe;transform:translateY(-1px);box-shadow:0 10px 24px rgba(99,102,241,.10)}
+.exnote-item.is-unread{
+    border-color:rgba(99,102,241,.35);
+    background:linear-gradient(90deg,rgba(99,102,241,.05),#ffffff 45%);
+    box-shadow:0 8px 20px rgba(99,102,241,.10);
+}
+.exnote-icon{
+    width:42px;height:42px;border-radius:13px;flex:none;display:grid;place-items:center;
+    color:#fff;font-size:.92rem;box-shadow:0 8px 16px rgba(15,23,42,.18);
+}
+.exnote-body{min-width:0;flex:1}
+.exnote-top{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.exnote-top strong{font-size:.88rem;color:#0f172a;font-weight:800}
+.exnote-role{
+    font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+    color:#6366f1;background:#eef2ff;padding:2px 8px;border-radius:999px;
+}
+.exnote-top time{margin-left:auto;color:var(--ex-muted);font-size:.68rem;white-space:nowrap}
+.exnote-action{
+    display:inline-block;margin-top:5px;font-size:.68rem;font-weight:800;color:#4f46e5;
+    text-transform:uppercase;letter-spacing:.05em;
+}
+.exnote-body p{margin:5px 0 0;color:var(--ex-muted);font-size:.79rem;line-height:1.5;word-wrap:break-word}
+.exnote-link{
+    display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:.74rem;font-weight:800;
+    color:#4f46e5;text-decoration:none;background:rgba(99,102,241,.07);
+    border:1px solid rgba(99,102,241,.28);padding:4px 12px;border-radius:999px;
+    transition:background .15s ease,color .15s ease,border-color .15s ease;
+}
+.exnote-link:hover{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none}
+.exnote-empty{padding:44px 18px;text-align:center;color:var(--ex-muted)}
+.exnote-empty i{display:block;font-size:2rem;margin-bottom:12px;color:#cbd5e1}
+.exnote-empty h3{margin:0 0 6px;font-size:.95rem;color:#334155}
+.exnote-empty p{margin:0;font-size:.78rem;line-height:1.6}
 .exdash-bell-item{display:flex;gap:11px;padding:11px 18px;font-size:.82rem;border-bottom:1px solid #f1f5f9}
 .exdash-bell-item:last-of-type{border-bottom:0}
 .exdash-bell-item i{margin-top:2px}
@@ -651,6 +853,12 @@ body.exdash-page{
 .exdash-tab i{font-size:.82rem}
 .exdash-tab:hover{color:var(--ex-ink)}
 .exdash-tab.active{background:var(--ex-grad-brand);color:#fff;box-shadow:0 6px 16px rgba(99,102,241,.35)}
+.exdash-tab-badge{
+    display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:2px;
+    border-radius:999px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff;
+    font-size:.6rem;font-weight:800;box-shadow:0 3px 8px rgba(217,119,6,.4);
+}
+.exdash-tab.active .exdash-tab-badge{background:rgba(255,255,255,.25);box-shadow:none}
 .exdash-pane[hidden]{display:none}
 
 /* KPI cards */
@@ -806,7 +1014,7 @@ body.exdash-page{
 }
 .exdash-table td{padding:11px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
 .exdash-table tbody tr{transition:background .12s ease}
-.exdash-table tbody tr:hover{background:rgba(59,130,246,.045)}
+.exdash-table tbody tr:hover{background:rgba(99,102,241,.05)}
 .exdash-student{display:flex;align-items:center;gap:10px;min-width:0}
 .exdash-student-avatar{
     width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;
@@ -851,30 +1059,49 @@ body.exdash-page{
 
 /* Search dropdown */
 .exdash-search-results{
-    position:absolute;top:calc(100% + 8px);left:0;right:0;z-index:60;
+    position:absolute;top:calc(100% + 8px);left:0;z-index:60;
+    width:max(100%,560px);max-width:calc(100vw - 24px);
     background:var(--ex-card);border:1px solid var(--ex-line);border-radius:16px;
-    box-shadow:0 24px 50px rgba(15,36,64,.18);max-height:min(430px,62vh);overflow:auto;
+    box-shadow:0 24px 50px rgba(15,36,64,.18);max-height:min(460px,64vh);overflow:auto;
 }
 .exdash-search-results[hidden]{display:none}
 .exdash-search-results .desktop-search-feedback{display:flex;gap:12px;align-items:flex-start;padding:16px;font-size:.84rem;color:var(--ex-muted)}
 .exdash-search-results .desktop-search-feedback i{font-size:1.05rem;color:var(--ex-blue);margin-top:2px}
 .exdash-search-results .desktop-search-feedback strong{display:block;color:var(--ex-ink);font-size:.86rem;margin-bottom:2px}
-.exdash-search-results .desktop-search-summary{padding:10px 16px;border-bottom:1px solid var(--ex-line);font-size:.8rem;color:var(--ex-muted)}
+.exdash-search-results .desktop-search-summary{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--ex-line);font-size:.8rem;color:var(--ex-muted)}
+.exdash-search-results .desktop-search-summary>div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.exdash-search-results .desktop-search-summary strong{color:var(--ex-ink);font-size:.84rem}
+.exdash-search-results .desktop-search-summary>span{flex:none;white-space:nowrap;font-size:.72rem}
 .exdash-search-results .desktop-search-group{padding:6px 0}
 .exdash-search-results .desktop-search-group-title{
     margin:0;padding:6px 16px;font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;
     color:var(--ex-muted);display:flex;align-items:center;gap:7px;font-weight:800;
 }
 .exdash-search-results .desktop-search-grid{display:flex;flex-direction:column}
-.exdash-search-results .desktop-search-card{padding:9px 16px;border-bottom:1px solid #f1f5f9}
+.exdash-search-results .desktop-search-card{
+    display:flex;align-items:center;gap:14px;
+    padding:10px 16px;border-bottom:1px solid #f1f5f9;transition:background .12s ease;
+}
+.exdash-search-results .desktop-search-card:hover{background:rgba(99,102,241,.05)}
 .exdash-search-results .desktop-search-card:last-child{border-bottom:0}
-.exdash-search-results .desktop-search-card__eyebrow{font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ex-muted);font-weight:700}
-.exdash-search-results .desktop-search-card__title{display:block;font-weight:700;font-size:.88rem;color:var(--ex-ink);text-decoration:none;margin:2px 0}
-.exdash-search-results .desktop-search-card__title:hover{color:var(--ex-blue)}
-.exdash-search-results .desktop-search-card__meta{font-size:.76rem;color:var(--ex-muted)}
-.exdash-search-results .desktop-search-card__actions{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:5px}
-.exdash-search-results .desktop-search-card__action{font-size:.74rem;color:var(--ex-blue);text-decoration:none;font-weight:600}
-.exdash-search-results .desktop-search-card__action:hover{text-decoration:underline}
+.exdash-search-results .desktop-search-card__main{flex:1;min-width:0}
+.exdash-search-results .desktop-search-card__eyebrow{font-size:.62rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ex-muted);font-weight:700}
+.exdash-search-results .desktop-search-card__title{display:block;font-weight:700;font-size:.9rem;color:var(--ex-ink);text-decoration:none;margin:1px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exdash-search-results .desktop-search-card__title:hover{color:#4f46e5}
+.exdash-search-results .desktop-search-card__meta{font-size:.76rem;color:var(--ex-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exdash-search-results .desktop-search-card__desc{font-size:.76rem;color:var(--ex-muted);margin-top:1px}
+.exdash-search-results .desktop-search-card__actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;flex:none;max-width:46%}
+.exdash-search-results .desktop-search-card__action{
+    font-size:.72rem;color:#4f46e5;text-decoration:none;font-weight:700;
+    border:1px solid rgba(99,102,241,.28);background:rgba(99,102,241,.07);
+    padding:3px 11px;border-radius:999px;transition:background .12s ease,color .12s ease;
+}
+.exdash-search-results .desktop-search-card__action:hover{background:#6366f1;color:#fff;text-decoration:none}
+@media (max-width:640px){
+    .exdash-search-results .desktop-search-card{align-items:flex-start;flex-direction:column;gap:8px}
+    .exdash-search-results .desktop-search-card__actions{justify-content:flex-start;max-width:none}
+    .exdash-search-results .desktop-search-summary>span{display:none}
+}
 
 /* Scrim + responsive */
 .exdash-scrim{
@@ -939,16 +1166,16 @@ body.exdash-lock{overflow:hidden}
             <span class="exdash-nav-label">Menu</span>
             <a href="executive-dashboard.php" class="is-active"><i class="fa fa-th-large"></i> Dashboard</a>
             <a href="continuing-students.php"><i class="fa fa-graduation-cap"></i> Students</a>
-            <a href="class-teacher-assignment.php"><i class="fa fa-id-badge"></i> Staff</a>
+            <a href="viewusers.php"><i class="fa fa-id-badge"></i> Staff</a>
             <a href="student-attendance.php"><i class="fa fa-check-square-o"></i> Attendance</a>
             <a href="payments.php"><i class="fa fa-money"></i> Fees</a>
             <a href="class-registry.php"><i class="fa fa-building-o"></i> Classes</a>
             <a href="lesson-timetable.php"><i class="fa fa-calendar"></i> Timetable</a>
+            <a href="admin.php"><i class="fa fa-cogs"></i> Classic Admin Panel</a>
             <button type="button" class="exdash-nav-btn exdash-nav-btn--violet" id="exdashNavDeck">
                 <i class="fa fa-th"></i> All Modules
                 <i class="fa fa-chevron-down exdash-nav-btn-arrow"></i>
             </button>
-            <div class="exdash-nav-hint">The classic dropdown menu, reborn</div>
             <span class="exdash-nav-label">Quick Tools</span>
             <a href="register-student.php"><i class="fa fa-user-plus"></i> Register Student</a>
             <a href="register-teacher.php"><i class="fa fa-user-plus"></i> Register Teacher</a>
@@ -956,7 +1183,7 @@ body.exdash-lock{overflow:hidden}
             <a href="viewstudents.php"><i class="fa fa-graduation-cap"></i> View Students</a>
             <a href="viewusers.php"><i class="fa fa-users"></i> View Teachers</a>
             <details class="exdash-nav-details">
-                <summary><i class="fa fa-briefcase"></i> All Admin Tools <i class="fa fa-chevron-down exdash-nav-details-arrow"></i></summary>
+                <summary><i class="fa fa-briefcase"></i> More Tools <span class="exdash-nav-count">16</span> <i class="fa fa-chevron-down exdash-nav-details-arrow"></i></summary>
                 <div class="exdash-nav-sub">
                     <span class="exdash-nav-sub-label">People &amp; Accounts</span>
                     <a href="user-management.php"><i class="fa fa-users"></i> User Management</a>
@@ -981,8 +1208,6 @@ body.exdash-lock{overflow:hidden}
                     <a href="teacher-billing-assignment.php"><i class="fa fa-users"></i> Teacher Billing Assignment</a>
                 </div>
             </details>
-            <span class="exdash-nav-label">Shortcut</span>
-            <a href="admin.php"><i class="fa fa-cogs"></i> Classic Admin Panel</a>
         </nav>
         <div class="exdash-sidebar-foot">
             <a href="change-password.php"><i class="fa fa-key"></i> Change Password</a>
@@ -1138,17 +1363,46 @@ body.exdash-lock{overflow:hidden}
                 <div style="position:relative">
                     <button class="exdash-bell" id="exdashBell" aria-label="Notifications">
                         <i class="fa fa-bell-o"></i>
-                        <span class="exdash-bell-badge"><?php echo count($feed); ?></span>
+                        <?php if($_UnreadChangeCount > 0){ ?><span class="exdash-bell-badge"><?php echo number_format($_UnreadChangeCount); ?></span><?php } ?>
                     </button>
                     <div class="exdash-bell-menu" id="exdashBellMenu">
-                        <header>Recent activity</header>
-                        <?php foreach($feed as $item){ ?>
-                        <div class="exdash-bell-item">
-                            <i class="fa <?php echo exd_e($item['icon']); ?>" style="color:var(--ex-<?php echo $item['tint'] === 'gold' ? 'gold' : ($item['tint'] === 'teal' ? 'teal' : 'blue'); ?>)"></i>
-                            <div><strong style="font-size:.82rem"><?php echo exd_e($item['title']); ?></strong><br><span style="color:var(--ex-muted)"><?php echo exd_e($item['detail']); ?></span></div>
+                        <header>
+                            <span>System Notifications</span>
+                            <?php if($_UnreadChangeCount > 0){ ?><span class="exdash-note-count"><?php echo number_format($_UnreadChangeCount); ?> unread</span><?php } ?>
+                        </header>
+                        <div class="exdash-note-list">
+                        <?php if(count($_ChangeNotifications) > 0){ foreach($_ChangeNotifications as $note){
+                            $noteUnread = strtolower(trim((string)$note['status'])) === 'unread';
+                            $noteAction = exd_change_action($note);
+                            $actorType = trim((string)$note['actor_type']);
+                            $noteIcon = $actorType === 'Student' ? 'fa-graduation-cap' : ($actorType === 'Teacher' ? 'fa-user' : ($actorType === 'Portal' ? 'fa-life-ring' : ($actorType === 'Alumni' ? 'fa-address-card' : 'fa-user-md')));
+                        ?>
+                        <div class="exdash-note-item<?php echo $noteUnread ? ' is-unread' : ''; ?>">
+                            <div class="exdash-note-icon<?php echo $noteUnread ? '' : ' is-read'; ?>"><i class="fa <?php echo $noteIcon; ?>"></i></div>
+                            <div class="exdash-note-body">
+                                <div class="exdash-note-top">
+                                    <strong><?php echo exd_e(trim((string)$note['actor_name']) !== '' ? $note['actor_name'] : $note['actor_userid']); ?></strong>
+                                    <time><?php echo exd_e(exd_when($note['datetimeentry'])); ?></time>
+                                </div>
+                                <span class="exdash-note-action"><?php echo exd_e(ucwords(strtolower(str_replace('_', ' ', (string)$note['action_type'])))); ?></span>
+                                <?php if(trim((string)$note['details']) !== ''){ ?><p><?php echo exd_e($note['details']); ?></p><?php } ?>
+                                <?php if($noteAction){ ?><a class="exdash-note-link" href="<?php echo exd_e($noteAction[0]); ?>"><i class="fa fa-arrow-right"></i> <?php echo exd_e($noteAction[1]); ?></a><?php } ?>
+                            </div>
+                            <?php if($noteUnread){ ?><span class="exdash-note-dot" title="Unread"></span><?php } ?>
                         </div>
+                        <?php }}else{ ?>
+                        <div class="exdash-note-empty"><i class="fa fa-bell-slash-o"></i> No notifications yet.<br>Teacher, student, portal and alumni events will appear here.</div>
                         <?php } ?>
-                        <a class="exdash-bell-all" href="admin.php#system-change-notifications"><i class="fa fa-bell"></i> View all system notifications</a>
+                        </div>
+                        <div class="exdash-note-foot">
+                            <?php if($_UnreadChangeCount > 0){ ?>
+                            <form method="post" action="executive-dashboard.php" class="exdash-note-mark">
+                                <input type="hidden" name="csrf" value="<?php echo exd_e($_SESSION['executive_csrf']); ?>">
+                                <button type="submit" name="mark_changes_read"><i class="fa fa-check"></i> Mark all as read</button>
+                            </form>
+                            <?php } ?>
+                            <a class="exdash-bell-all" href="executive-dashboard.php?tab=notifications"><i class="fa fa-bell"></i> View all</a>
+                        </div>
                     </div>
                 </div>
                 <div class="exdash-user" id="exdashUser">
@@ -1249,6 +1503,7 @@ body.exdash-lock{overflow:hidden}
             <nav class="exdash-tabs" role="tablist" aria-label="Dashboard sections">
                 <button type="button" class="exdash-tab active" data-tab="overview" role="tab" aria-selected="true"><i class="fa fa-dashboard"></i> Overview</button>
                 <button type="button" class="exdash-tab" data-tab="analytics" role="tab" aria-selected="false"><i class="fa fa-line-chart"></i> Analytics</button>
+                <button type="button" class="exdash-tab" data-tab="notifications" role="tab" aria-selected="false"><i class="fa fa-bell-o"></i> Notifications <?php if($_UnreadChangeCount > 0){ ?><span class="exdash-tab-badge"><?php echo number_format($_UnreadChangeCount); ?></span><?php } ?></button>
             </nav>
 
             <div class="exdash-pane" data-pane="overview">
@@ -1339,7 +1594,7 @@ body.exdash-lock{overflow:hidden}
                                     <td><?php echo exd_e($stu['userid']); ?></td>
                                     <td><?php echo $stu['registereddatetime'] ? exd_e(date('d M Y', strtotime($stu['registereddatetime']))) : '&mdash;'; ?></td>
                                     <td><span class="exdash-pill <?php echo $sStatusClass; ?>"><?php echo exd_e(ucfirst($sStatus !== '' ? $sStatus : 'active')); ?></span></td>
-                                    <td><button class="exdash-row-actions" title="Open student" onclick="window.location.href='display-student.php?studentid=<?php echo urlencode($stu['userid']); ?>'"><i class="fa fa-ellipsis-h"></i></button></td>
+                                    <td><a class="exdash-row-actions" title="Find student" aria-label="Find student" href="display-student.php?search-item=<?php echo rawurlencode($stu['userid']); ?>"><i class="fa fa-ellipsis-h"></i></a></td>
                                 </tr>
                             <?php }}else{ ?>
                                 <tr><td colspan="5"><div class="exdash-empty-note">No student records found.</div></td></tr>
@@ -1382,7 +1637,7 @@ body.exdash-lock{overflow:hidden}
                     <div class="exdash-panel-head">
                         <div>
                             <h2><span class="exdash-head-icon exdash-head-icon--violet"><i class="fa fa-users"></i></span> Student Population</h2>
-                            <small>By gender and residence status</small>
+                            <small>Active students with an active class, by gender and residence</small>
                         </div>
                     </div>
                     <div class="exdash-chart-box"><canvas id="exdashPopChart" aria-label="Student population chart" role="img"></canvas></div>
@@ -1436,10 +1691,68 @@ body.exdash-lock{overflow:hidden}
                 </div>
             </section>
             </div><!-- /analytics pane -->
+
+            <div class="exdash-pane" data-pane="notifications" hidden>
+            <!-- Full system notifications timeline -->
+            <section class="exdash-panel">
+                <div class="exdash-panel-head">
+                    <div>
+                        <h2><span class="exdash-head-icon exdash-head-icon--violet"><i class="fa fa-bell"></i></span> System Notifications</h2>
+                        <small>Teacher, student, portal, headmaster and alumni events &mdash; newest first</small>
+                    </div>
+                    <div class="exnote-tools">
+                        <?php if($_UnreadChangeCount > 0){ ?>
+                        <span class="exnote-stat"><span class="exnote-stat-dot"></span><?php echo number_format($_UnreadChangeCount); ?> unread</span>
+                        <form method="post" action="executive-dashboard.php?tab=notifications" class="exdash-note-mark">
+                            <input type="hidden" name="csrf" value="<?php echo exd_e($_SESSION['executive_csrf']); ?>">
+                            <button type="submit" name="mark_changes_read"><i class="fa fa-check"></i> Mark all as read</button>
+                        </form>
+                        <?php } ?>
+                    </div>
+                </div>
+                <div class="exnote-list">
+                    <?php if(count($_AllChangeNotifications) > 0){
+                        $_LastDayLabel = null;
+                        foreach($_AllChangeNotifications as $note){
+                            $actorType = trim((string)$note['actor_type']);
+                            /* Highlight only what the unread badge counts (same rule as the classic panel) */
+                            $noteUnread = strtolower(trim((string)$note['status'])) === 'unread'
+                                && (in_array($actorType, array('Teacher','Student','Portal','Headmaster'), true)
+                                    || ($actorType === 'Alumni' && in_array(strtoupper(trim((string)$note['action_type'])), array('ALUMNI_CONCERN_SUBMITTED','ALUMNI_DONATION_RECEIVED'), true)));
+                            $noteAction = exd_change_action($note);
+                            $actorType = trim((string)$note['actor_type']);
+                            $noteIcon = $actorType === 'Student' ? 'fa-graduation-cap' : ($actorType === 'Teacher' ? 'fa-user' : ($actorType === 'Portal' ? 'fa-life-ring' : ($actorType === 'Alumni' ? 'fa-address-card' : 'fa-user-md')));
+                            $noteTint = $actorType === 'Student' ? 'ex-grad-blue' : ($actorType === 'Teacher' ? 'ex-grad-teal' : ($actorType === 'Portal' ? 'ex-grad-gold' : 'ex-grad-violet'));
+                            $dayLabel = exd_day_label($note['datetimeentry']);
+                            if($dayLabel !== $_LastDayLabel){
+                                $_LastDayLabel = $dayLabel;
+                    ?>
+                    <div class="exnote-day"><span><?php echo exd_e($dayLabel); ?></span></div>
+                    <?php } ?>
+                    <article class="exnote-item<?php echo $noteUnread ? ' is-unread' : ''; ?>">
+                        <div class="exnote-icon" style="background:var(--<?php echo $noteTint; ?>)"><i class="fa <?php echo $noteIcon; ?>"></i></div>
+                        <div class="exnote-body">
+                            <div class="exnote-top">
+                                <strong><?php echo exd_e(trim((string)$note['actor_name']) !== '' ? $note['actor_name'] : $note['actor_userid']); ?></strong>
+                                <span class="exnote-role"><?php echo exd_e($actorType); ?></span>
+                                <time><?php echo exd_e(exd_when($note['datetimeentry'])); ?></time>
+                            </div>
+                            <span class="exnote-action"><?php echo exd_e(ucwords(strtolower(str_replace('_', ' ', (string)$note['action_type'])))); ?></span>
+                            <?php if(trim((string)$note['details']) !== ''){ ?><p><?php echo exd_e($note['details']); ?></p><?php } ?>
+                            <?php if($noteAction){ ?><a class="exnote-link" href="<?php echo exd_e($noteAction[0]); ?>"><i class="fa fa-arrow-right"></i> <?php echo exd_e($noteAction[1]); ?></a><?php } ?>
+                        </div>
+                        <?php if($noteUnread){ ?><span class="exdash-note-dot" style="top:18px" title="Unread"></span><?php } ?>
+                    </article>
+                    <?php }}else{ ?>
+                    <div class="exnote-empty"><i class="fa fa-bell-slash-o"></i><h3>All caught up</h3><p>Teacher, student, portal, headmaster and alumni events will appear here as they happen.</p></div>
+                    <?php } ?>
+                </div>
+            </section>
+            </div><!-- /notifications pane -->
         </main>
     </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="js/vendor/chart.umd.min.js?v=4.5.1"></script>
 <script>
 (function () {
     'use strict';
@@ -1448,10 +1761,11 @@ body.exdash-lock{overflow:hidden}
     var burger = document.getElementById('exdashBurger');
     var scrim = document.getElementById('exdashScrim');
     var sidebar = document.getElementById('exdashSidebar');
-    function closeNav(){ document.body.classList.remove('exdash-nav-open'); document.body.classList.remove('exdash-lock'); }
+    function closeNav(){ document.body.classList.remove('exdash-nav-open'); document.body.classList.toggle('exdash-lock', !!document.querySelector('#exdashDeck.is-open')); if(burger){ burger.setAttribute('aria-expanded','false'); } }
     if(burger){
         burger.addEventListener('click', function () {
             var open = document.body.classList.toggle('exdash-nav-open');
+            burger.setAttribute('aria-expanded', open ? 'true' : 'false');
             document.body.classList.toggle('exdash-lock', open && window.innerWidth < 1024);
         });
     }
@@ -1523,12 +1837,13 @@ body.exdash-lock{overflow:hidden}
     var search = document.getElementById('exdashSearch');
     var searchResults = document.getElementById('exdashSearchResults');
     var searchTimer = null, searchReq = 0;
-    function exdCloseSearch(){ if(searchResults){ searchResults.setAttribute('hidden',''); searchResults.innerHTML=''; } }
+    function exdCloseSearch(){ searchReq++; if(searchTimer){ clearTimeout(searchTimer); } if(searchResults){ searchResults.setAttribute('hidden',''); searchResults.innerHTML=''; } }
     function exdRunSearch(force){
         if(!search || !searchResults){ return; }
         var q = search.value.trim();
         if(!q){ exdCloseSearch(); return; }
         if(q.length < 2 && !force){
+            searchReq++;
             searchResults.innerHTML = "<div class='desktop-search-feedback'><i class='fa fa-search'></i><div><strong>Keep typing</strong><span>Use at least 2 characters to search students, staff, classes and tools.</span></div></div>";
             searchResults.removeAttribute('hidden');
             return;
@@ -1613,8 +1928,9 @@ body.exdash-lock{overflow:hidden}
         if(!exdeck){ return; }
         var open = [];
         try{ open = JSON.parse(localStorage.getItem(EXDECK_KEY) || '[]'); }catch(err){}
+        if(!Array.isArray(open)){ open = []; }
         exdeck.querySelectorAll('.exdeck-section').forEach(function(s){
-            if(open.indexOf(s.getAttribute('data-key')) !== -1){ s.setAttribute('open', ''); }
+            s.toggleAttribute('open', open.indexOf(s.getAttribute('data-key')) !== -1);
         });
     }
     function exdOpenDeck(){
@@ -1630,7 +1946,7 @@ body.exdash-lock{overflow:hidden}
         if(!exdeck){ return; }
         exdeck.classList.remove('is-open');
         if(exdeckScrim){ exdeckScrim.classList.remove('is-open'); }
-        document.body.classList.remove('exdash-lock');
+        document.body.classList.toggle('exdash-lock', document.body.classList.contains('exdash-nav-open') && window.innerWidth < 1024);
         exdSaveDeck();
     }
     if(exdeck){
@@ -1659,12 +1975,12 @@ body.exdash-lock{overflow:hidden}
         var anyMatch = false;
         exdeck.querySelectorAll('.exdeck-section').forEach(function(s){
             var visible = 0;
+            var summaryHit = q !== '' && s.querySelector('summary').textContent.toLowerCase().indexOf(q) !== -1;
             s.querySelectorAll('.exdeck-body a').forEach(function(a){
-                var hit = q === '' || a.textContent.toLowerCase().indexOf(q) !== -1;
+                var hit = q === '' || summaryHit || a.textContent.toLowerCase().indexOf(q) !== -1;
                 a.style.display = hit ? '' : 'none';
                 if(hit){ visible++; }
             });
-            var summaryHit = q !== '' && s.querySelector('summary').textContent.toLowerCase().indexOf(q) !== -1;
             var show = q === '' || visible > 0 || summaryHit;
             s.style.display = show ? '' : 'none';
             var c = s.querySelector('.exdeck-count');
@@ -1698,9 +2014,19 @@ body.exdash-lock{overflow:hidden}
         var analyticsTab = document.querySelector('.exdash-tab[data-tab="analytics"]');
         if(analyticsTab){ analyticsTab.click(); }
     }
+    /* Deep-link: ?tab=notifications opens the Notifications tab */
+    if(/[?&]tab=notifications/.test(location.search)){
+        var notesTab = document.querySelector('.exdash-tab[data-tab="notifications"]');
+        if(notesTab){ notesTab.click(); }
+    }
 
     /* ---------- Charts ---------- */
-    if(typeof Chart === 'undefined'){ return; }
+    if(typeof Chart === 'undefined'){
+        document.querySelectorAll('.exdash-chart-box').forEach(function(box){
+            box.textContent = 'Charts could not load. Refresh the page or contact the administrator.';
+        });
+        return;
+    }
     Chart.defaults.font.family = "'Plus Jakarta Sans','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif";
 
     var trendCanvas = document.getElementById('exdashTrendChart');
@@ -1790,7 +2116,7 @@ body.exdash-lock{overflow:hidden}
                     tooltip: {
                         callbacks: {
                             label: function(context){
-                                var total = <?php echo (int)$totalStudents; ?>;
+                                var total = <?php echo (int)array_sum($popValues); ?>;
                                 var pct = total > 0 ? ((context.parsed.x / total) * 100).toFixed(1) : 0;
                                 return context.parsed.x.toLocaleString() + ' students (' + pct + '%)';
                             }

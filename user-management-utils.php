@@ -887,11 +887,9 @@ function um_home_link_for_session(){
     if(!isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE'])){
         return 'index.php';
     }
-    if($_SESSION['ACCESSLEVEL'] === 'administrator' && $_SESSION['SYSTEMTYPE'] === 'super_user'){
-        return 'super.php';
-    }
-    if($_SESSION['ACCESSLEVEL'] === 'administrator' && $_SESSION['SYSTEMTYPE'] === 'normal_user'){
-        return 'executive-dashboard.php';
+    if($_SESSION['ACCESSLEVEL'] === 'administrator'){
+        include_once("admin-home-utils.php");
+        return admin_home_dashboard_url();
     }
     if($_SESSION['ACCESSLEVEL'] === 'user' && $_SESSION['SYSTEMTYPE'] === 'Teacher'){
         return 'teacher-page.php';

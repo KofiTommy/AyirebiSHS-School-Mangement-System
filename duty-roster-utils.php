@@ -1,4 +1,5 @@
 <?php
+include_once("admin-home-utils.php");
 include_once("house-master-utils.php");
 
 if(!function_exists('xschool_schema_cache_is_fresh')){
@@ -76,7 +77,7 @@ function duty_roster_is_assistant_head_administration(){
 if(!function_exists('duty_roster_landing_page')){
 function duty_roster_landing_page(){
     if(duty_roster_is_admin()){
-        return ($_SESSION['SYSTEMTYPE'] === "super_user") ? "super.php" : "admin.php";
+        return admin_home_dashboard_url();
     }
     if(duty_roster_is_headmaster()){
         return "headmaster-page.php";

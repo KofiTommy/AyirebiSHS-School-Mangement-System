@@ -2,6 +2,7 @@
 session_start();
 include("dbstring.php");
 include("check-login.php");
+require_once __DIR__.'/student-list-pagination.php';
 
 if (!isset($_SESSION['ACCESSLEVEL']) || ($_SESSION['ACCESSLEVEL'] != "administrator" && !(function_exists('um_is_academic_lead_user') && um_is_academic_lead_user()))) {
     header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php"));
@@ -48,8 +49,8 @@ function continuing_students_format_datetime($value) {
     return date("d M Y, g:i a", $timestamp);
 }
 
-$selectedBatchId = isset($_GET["batchid"]) ? trim((string)$_GET["batchid"]) : "";
-$selectedClassId = isset($_GET["classid"]) ? trim((string)$_GET["classid"]) : "";
+$selectedBatchId = student_list_input('batchid');
+$selectedClassId = student_list_input('classid');
 $selectedBatchIdSafe = mysqli_real_escape_string($con, $selectedBatchId);
 $selectedClassIdSafe = mysqli_real_escape_string($con, $selectedClassId);
 
@@ -96,7 +97,18 @@ if ($selectedBatchId !== "") {
 if ($selectedClassId !== "") {
     $sql .= " AND class_entryid='".$selectedClassIdSafe."'";
 }
-$sql .= " ORDER BY class_name ASC, firstname ASC, othernames ASC, surname ASC, userid ASC";
+$sql .= student_list_search_sql($con, array('firstname', 'othernames', 'surname', 'userid', 'class_name', 'batch', 'gender', 'residencetype'));
+$summarySql = str_replace('SELECT *', "SELECT COUNT(*) AS total,
+    COUNT(DISTINCT NULLIF(TRIM(class_name), '')) AS classes,
+    SUM(LOWER(TRIM(gender))='male') AS males,
+    SUM(LOWER(TRIM(gender))='female') AS females,
+    SUM(LOWER(TRIM(gender)) NOT IN ('male','female','')) AS other_gender,
+    SUM(LOWER(TRIM(residencetype)) IN ('boarding','boarder','resident')) AS boarding,
+    SUM(LOWER(TRIM(residencetype)) IN ('day','day student','non resident','non-resident')) AS day_students,
+    MAX(datetimeentry) AS latest", $sql);
+$summary = mysqli_fetch_assoc(mysqli_query($con, $summarySql));
+$paging = student_list_page((int)$summary['total']);
+$sql .= " ORDER BY class_name ASC, firstname ASC, othernames ASC, surname ASC, userid ASC, batchid ASC, datetimeentry ASC LIMIT ".$paging['size']." OFFSET ".$paging['offset'];
 
 $studentRows = array();
 $classCoverage = array();
@@ -140,8 +152,14 @@ if ($studentQuery) {
     }
 }
 
-$totalStudents = count($studentRows);
-$classCount = count($classCoverage);
+$totalStudents = $paging['total'];
+$classCount = (int)$summary['classes'];
+$maleCount = (int)$summary['males'];
+$femaleCount = (int)$summary['females'];
+$otherGenderCount = (int)$summary['other_gender'];
+$boardingCount = (int)$summary['boarding'];
+$dayCount = (int)$summary['day_students'];
+$latestRecordedAt = $summary['latest'];
 $latestRecordedLabel = continuing_students_format_datetime($latestRecordedAt);
 $resultSummaryText = $selectedBatchId !== "" || $selectedClassId !== ""
     ? "Filtered continuing student records for the selected scope."
@@ -151,7 +169,7 @@ $resultSummaryText = $selectedBatchId !== "" || $selectedClassId !== ""
 <html>
 <head>
 <?php include("links.php"); ?>
-<link rel="stylesheet" type="text/css" href="css/continuing-students.css">
+<link rel="stylesheet" type="text/css" href="css/continuing-students.css?v=20261024">
 <script type="text/javascript" src="scripts/continuing-students.js" defer></script>
 </head>
 <body class="continuing-students-page">
@@ -235,6 +253,7 @@ $resultSummaryText = $selectedBatchId !== "" || $selectedClassId !== ""
                 </select>
             </label>
 
+            <?php student_list_controls(); ?>
             <div class="continuing-filter-actions">
                 <button type="submit" class="continuing-btn continuing-btn--primary"><i class="fa fa-search"></i> Apply Filter</button>
                 <a href="continuing-students.php" class="continuing-btn continuing-btn--secondary"><i class="fa fa-times"></i> Clear</a>
@@ -250,7 +269,7 @@ $resultSummaryText = $selectedBatchId !== "" || $selectedClassId !== ""
             </div>
 
             <div class="continuing-search-block">
-                <label for="continuing-search">Quick Search</label>
+                <label for="continuing-search">Search this page only</label>
                 <div class="continuing-search-field">
                     <i class="fa fa-search"></i>
                     <input
@@ -269,9 +288,10 @@ $resultSummaryText = $selectedBatchId !== "" || $selectedClassId !== ""
             <span class="continuing-filter-pill"><i class="fa fa-clock-o"></i> Latest record: <?php echo continuing_students_esc($latestRecordedLabel); ?></span>
         </div>
 
+        <?php student_list_navigation($paging, 'continuing-students.php', array('batchid' => $selectedBatchId, 'classid' => $selectedClassId)); ?>
         <?php if ($totalStudents > 0) { ?>
         <div class="continuing-results-meta">
-            <p><strong id="continuing-visible-count"><?php echo (int)$totalStudents; ?></strong> of <?php echo (int)$totalStudents; ?> students visible</p>
+            <p><strong id="continuing-visible-count"><?php echo count($studentRows); ?></strong> students on this page</p>
             <p>Use the action button to open any student's transcript.</p>
         </div>
 
@@ -301,7 +321,7 @@ $resultSummaryText = $selectedBatchId !== "" || $selectedClassId !== ""
                         $searchIndex = continuing_students_lower($studentName." ".$studentId." ".$className." ".$batchName." ".$gender." ".$residence);
                     ?>
                     <tr class="continuing-row" data-search="<?php echo continuing_students_esc($searchIndex); ?>">
-                        <td data-label="#"><?php echo (int)($index + 1); ?></td>
+                        <td data-label="#"><?php echo (int)($paging['offset'] + $index + 1); ?></td>
                         <td data-label="Student">
                             <div class="continuing-student-cell">
                                 <strong><?php echo continuing_students_esc($studentName); ?></strong>
@@ -332,6 +352,7 @@ $resultSummaryText = $selectedBatchId !== "" || $selectedClassId !== ""
             </table>
         </div>
 
+        <?php student_list_navigation($paging, 'continuing-students.php', array('batchid' => $selectedBatchId, 'classid' => $selectedClassId)); ?>
         <div id="continuing-search-empty" class="continuing-empty-state continuing-empty-state--search" hidden>
             <i class="fa fa-search"></i>
             <h3>No students match this search.</h3>

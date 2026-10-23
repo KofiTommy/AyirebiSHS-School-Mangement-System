@@ -1,4 +1,5 @@
 <?php
+include_once("admin-home-utils.php");
 if(!function_exists('xschool_schema_cache_is_fresh')){
 function xschool_schema_cache_is_fresh($key, $ttlSeconds = 900){
     if(!isset($GLOBALS['_xschool_schema_memory_cache']) || !is_array($GLOBALS['_xschool_schema_memory_cache'])){
@@ -146,7 +147,7 @@ function house_master_is_student(){
 if(!function_exists('house_master_landing_page')){
 function house_master_landing_page(){
     if(house_master_is_admin()){
-        return ($_SESSION['SYSTEMTYPE'] === "super_user") ? "super.php" : "admin.php";
+        return admin_home_dashboard_url();
     }
     if(house_master_is_teacher()){
         return "teacher-page.php";

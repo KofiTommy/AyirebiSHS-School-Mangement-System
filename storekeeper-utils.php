@@ -1,4 +1,5 @@
 <?php
+include_once("admin-home-utils.php");
 include_once("user-management-utils.php");
 $storekeeperDashboardStudentUtilsPath = __DIR__ . DIRECTORY_SEPARATOR . "dashboard-student-utils.php";
 if (is_file($storekeeperDashboardStudentUtilsPath)) {
@@ -177,7 +178,7 @@ if (!function_exists('storekeeper_landing_page')) {
 function storekeeper_landing_page()
 {
     if (storekeeper_is_admin()) {
-        return ($_SESSION['SYSTEMTYPE'] === "super_user") ? "super.php" : "admin.php";
+        return admin_home_dashboard_url();
     }
     if (isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE'])) {
         if ($_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "User") {

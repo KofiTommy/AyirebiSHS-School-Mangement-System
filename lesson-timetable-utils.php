@@ -1,4 +1,5 @@
 <?php
+include_once("admin-home-utils.php");
 if(!function_exists('xschool_schema_cache_is_fresh')){
 function xschool_schema_cache_is_fresh($key, $ttlSeconds = 900){
     static $memoryCache = array();
@@ -81,7 +82,7 @@ function lesson_timetable_is_assistant_head_academics(){
 if(!function_exists('lesson_timetable_landing_page')){
 function lesson_timetable_landing_page(){
     if(lesson_timetable_is_admin()){
-        return ($_SESSION['SYSTEMTYPE'] === "super_user") ? "super.php" : "admin.php";
+        return admin_home_dashboard_url();
     }
     if(lesson_timetable_is_teacher()){
         return "teacher-page.php";

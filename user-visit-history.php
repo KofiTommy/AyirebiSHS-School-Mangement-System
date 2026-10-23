@@ -1,6 +1,7 @@
 <?php
 session_start();
 include("check-login.php");
+include_once("admin-home-utils.php");
 
 if(!function_exists('um_is_admin_manager') || !um_is_admin_manager()){
     header("location:".(function_exists('um_home_link_for_session') ? um_home_link_for_session() : "index.php"));
@@ -378,7 +379,7 @@ $_OnlineTotal = count($_OnlineRows);
             <h1>User Visit History</h1>
             <p>Review logged-in users who have opened the app recently, including their latest page and visit count.</p>
         </div>
-        <a class="visit-btn" href="admin.php"><i class="fa fa-home"></i> Admin Dashboard</a>
+        <a class="visit-btn" href="<?php echo admin_home_dashboard_url(); ?>"><i class="fa fa-home"></i> Admin Dashboard</a>
     </section>
 
     <section class="visit-stats">

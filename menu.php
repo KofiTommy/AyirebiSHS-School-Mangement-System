@@ -1,5 +1,6 @@
 <?php
 include("check-login.php");
+include_once("admin-home-utils.php");
 include_once("student-chat-utils.php");
 $_ShowHouseMasterLinks = false;
 $_ShowSeniorHouseLinks = false;
@@ -56,11 +57,8 @@ if(isset($_SESSION['ACCESSLEVEL'], $_SESSION['SYSTEMTYPE'])){
     elseif($_SESSION['ACCESSLEVEL'] === "user" && $_SESSION['SYSTEMTYPE'] === "Bursar"){
         $_HomeLink = "bursar-dashboard.php";
     }
-    elseif($_SESSION['ACCESSLEVEL'] === "administrator" && $_SESSION['SYSTEMTYPE'] === "normal_user"){
-        $_HomeLink = "executive-dashboard.php";
-    }
-    elseif($_SESSION['ACCESSLEVEL'] === "administrator" && $_SESSION['SYSTEMTYPE'] === "super_user"){
-        $_HomeLink = "super.php";
+    elseif($_SESSION['ACCESSLEVEL'] === "administrator"){
+        $_HomeLink = admin_home_dashboard_url();
     }
 }
 $_ShowLiveUsersIndicator = false;

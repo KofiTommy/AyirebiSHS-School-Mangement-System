@@ -1,4 +1,5 @@
 <?php
+include_once("admin-home-utils.php");
 include_once(__DIR__.DIRECTORY_SEPARATOR.'audit_notifications.php');
 include_once("class-teacher-utils.php");
 include_once("user-management-utils.php");
@@ -63,7 +64,7 @@ function student_attendance_is_assistant_head_administration(){
 if(!function_exists('student_attendance_landing_page')){
 function student_attendance_landing_page(){
     if(student_attendance_is_admin()){
-        return ($_SESSION['SYSTEMTYPE'] === "super_user") ? "super.php" : "admin.php";
+        return admin_home_dashboard_url();
     }
     if(student_attendance_is_headmaster()){
         return "headmaster-page.php";

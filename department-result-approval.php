@@ -1,6 +1,7 @@
 <?php
 session_start();
 include('check-login.php');
+include_once("admin-home-utils.php");
 include('dbstring.php');
 include_once('user-management-utils.php');
 include_once('department-result-workflow-utils.php');
@@ -112,7 +113,7 @@ foreach($rows as $row){
 $role = $isAdmin ? 'Administrator' : ($isAcademic ? 'Assistant Head Academics' : ($isHod ? 'Head of Department' : 'Teacher'));
 $homePage = 'teacher-page.php';
 if($isAdmin){
-    $homePage = (isset($_SESSION['SYSTEMTYPE']) && $_SESSION['SYSTEMTYPE'] === 'super_user') ? 'super.php' : 'admin.php';
+    $homePage = admin_home_dashboard_url();
 }elseif($isAcademic){
     $homePage = 'assistant-head-academics-page.php';
 }

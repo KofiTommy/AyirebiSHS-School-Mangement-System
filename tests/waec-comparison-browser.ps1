@@ -56,6 +56,58 @@ try {
     foreach($viewport in @(@{name='desktop'; width=1440; height=1000}, @{name='phone'; width=390; height=844})) {
         $null = Invoke-Cdp 'Emulation.setDeviceMetricsOverride' @{width=$viewport.width; height=$viewport.height; deviceScaleFactor=1; mobile=$false}
         $null = Invoke-Cdp 'Runtime.evaluate' @{expression='scrollTo(0,0)'}
+        $executive = Invoke-Cdp 'Runtime.evaluate' @{expression='!!document.querySelector("[data-executive-fixture]")'; returnByValue=$true}
+        if ($executive.result.value) {
+            $dashboardTest = @'
+(async()=>{
+ const must=(ok,label)=>{if(!ok)throw new Error(label)};
+ must(!window.fixtureErrors.length,'Script errors: '+window.fixtureErrors.join(';'));
+ for(const key of ['analytics','notifications','overview']){
+   document.querySelector('[data-tab="'+key+'"]').click();
+   must(!document.querySelector('[data-pane="'+key+'"]').hidden,'Tab '+key);
+ }
+ document.getElementById('exdashUserBtn').click();
+ must(document.getElementById('exdashUser').classList.contains('is-open'),'User menu');
+ for(const theme of ['dark','light','ocean','emerald','royal','classic']){
+   document.querySelector('[data-admin-theme-value="'+theme+'"]').click();
+   must(document.documentElement.getAttribute('data-admin-theme')===theme,'Theme '+theme);
+ }
+ document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+ document.getElementById('exdashNavDeck').click();
+ must(document.getElementById('exdashDeck').classList.contains('is-open'),'Deck open');
+ const filter=document.getElementById('exdashDeckSearch');
+ filter.value='zzzz-no-tool';filter.dispatchEvent(new Event('input',{bubbles:true}));
+ must(document.getElementById('exdashDeckEmpty').classList.contains('is-visible'),'Deck empty state');
+ filter.value='WAEC';filter.dispatchEvent(new Event('input',{bubbles:true}));
+ must(!document.getElementById('exdashDeckEmpty').classList.contains('is-visible'),'Deck match');
+ document.getElementById('exdashDeckSearchClear').click();
+ document.getElementById('exdashDeckClose').click();
+ must(!document.getElementById('exdashDeck').classList.contains('is-open'),'Deck close');
+ const pending=[];
+ window.XMLHttpRequest=function(){this.open=function(){};this.send=function(){pending.push(this)}};
+ const input=document.getElementById('exdashSearch'),results=document.getElementById('exdashSearchResults');
+ input.value='Test';input.dispatchEvent(new Event('input',{bubbles:true}));
+ await new Promise(r=>setTimeout(r,280));must(pending.length===1,'Search request');
+ input.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+ Object.assign(pending[0],{readyState:4,status:200,responseText:'stale result'});pending[0].onreadystatechange();
+ must(results.hidden,'Stale search reopens dismissed results');
+ input.value='';
+ if(innerWidth<1024){
+   document.getElementById('exdashBurger').click();
+   must(document.body.classList.contains('exdash-nav-open'),'Mobile navigation');
+   document.getElementById('exdashScrim').click();
+   must(!document.body.classList.contains('exdash-nav-open'),'Mobile navigation close');
+ }
+ must(typeof Chart==='function','Chart library unavailable');
+ must(['exdashTrendChart','exdashAttChart','exdashPopChart','exdashPerfChart'].every(id=>Chart.getChart(document.getElementById(id))),'Chart initialization');
+ must(!window.fixtureErrors.length,'Runtime errors');
+ return true;
+})()
+'@
+            $result = Invoke-Cdp 'Runtime.evaluate' @{expression=$dashboardTest; returnByValue=$true; awaitPromise=$true}
+            if (!$result.result.value) { throw 'Executive dashboard component tests failed.' }
+            Write-Output "$($viewport.name): dashboard tabs, menus, themes, tool filter, search race, navigation and charts passed."
+        }
         $compareButton = Invoke-Cdp 'Runtime.evaluate' @{expression='(()=>{const a=document.querySelector(".waec-compare-link"); if(!a)return null; const r=a.getBoundingClientRect(); return {href:a.getAttribute("href"),fits:r.left>=0&&r.right<=innerWidth&&a.scrollWidth<=a.clientWidth+1,touch:r.height>=44,copy:!!a.querySelector(".waec-compare-copy strong"),color:getComputedStyle(a).color};})()'; returnByValue=$true}
         if ($null -ne $compareButton.result.value) {
             $button = $compareButton.result.value

@@ -1,4 +1,5 @@
 <?php
+include_once("admin-home-utils.php");
 if(!function_exists('menuboard_section_start')){
 function menuboard_section_start($title, $icon = 'fa-folder-open', $open = false, $persistState = true){
     $sectionKey = strtolower(trim((string)$title));
@@ -438,7 +439,7 @@ else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="s
 else if($_SESSION['ACCESSLEVEL']=="administrator" && $_SESSION['SYSTEMTYPE']=="normal_user"){
  ?>
 <div class="menuboard-quick-links">
-<a class="menuboard-home-link" href="executive-dashboard.php"><i class="fa fa-home"></i> Home</a>
+<a class="menuboard-home-link" href="<?php echo admin_home_dashboard_url(); ?>"><i class="fa fa-home"></i> Home</a>
 </div>
 
 <?php menuboard_section_start('School Setup', 'fa-cogs'); ?>

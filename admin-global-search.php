@@ -476,9 +476,11 @@ if(!empty($studentRows)){
             $meta .= " | ".implode(" | ", $classBits);
         }
         echo "<article class='desktop-search-card'>";
+        echo "<div class='desktop-search-card__main'>";
         echo "<div class='desktop-search-card__eyebrow'><i class='fa fa-user-circle-o'></i> Student</div>";
         echo "<a class='desktop-search-card__title' href='register_edit.php?edit_user=".urlencode((string)$row['userid'])."'>".ags_esc($fullName !== '' ? $fullName : (string)$row['userid'])."</a>";
         echo "<div class='desktop-search-card__meta'>".ags_esc($meta)."</div>";
+        echo "</div>";
         echo "<div class='desktop-search-card__actions'>";
         echo "<a class='desktop-search-card__action' href='register_edit.php?edit_user=".urlencode((string)$row['userid'])."'><i class='fa fa-edit'></i> Profile</a>";
         echo "<a class='desktop-search-card__action' href='student-history.php?userid=".urlencode((string)$row['userid'])."'><i class='fa fa-history'></i> Transcript</a>";
@@ -499,9 +501,11 @@ if(!empty($staffRows)){
         $role = function_exists('um_role_label_from_user') ? um_role_label_from_user($row) : trim((string)$row['systemtype']);
         $meta = trim((string)$row['userid'])." | ".trim((string)$role);
         echo "<article class='desktop-search-card'>";
+        echo "<div class='desktop-search-card__main'>";
         echo "<div class='desktop-search-card__eyebrow'><i class='fa fa-id-badge'></i> ".ags_esc($role)."</div>";
         echo "<a class='desktop-search-card__title' href='register_edit.php?edit_user=".urlencode((string)$row['userid'])."'>".ags_esc($fullName !== '' ? $fullName : (string)$row['userid'])."</a>";
         echo "<div class='desktop-search-card__meta'>".ags_esc($meta)."</div>";
+        echo "</div>";
         echo "<div class='desktop-search-card__actions'>";
         echo "<a class='desktop-search-card__action' href='register_edit.php?edit_user=".urlencode((string)$row['userid'])."'><i class='fa fa-edit'></i> Profile</a>";
         echo "</div>";
@@ -517,9 +521,11 @@ if(!empty($classRows)){
     echo "<div class='desktop-search-grid'>";
     foreach($classRows as $row){
         echo "<article class='desktop-search-card'>";
+        echo "<div class='desktop-search-card__main'>";
         echo "<div class='desktop-search-card__eyebrow'><i class='fa fa-building'></i> Class</div>";
         echo "<a class='desktop-search-card__title' href='view-class-registry.php'>".ags_esc((string)$row['class_name'])."</a>";
         echo "<div class='desktop-search-card__meta'>Active students: ".number_format((int)$row['active_students'])."</div>";
+        echo "</div>";
         echo "<div class='desktop-search-card__actions'>";
         echo "<a class='desktop-search-card__action' href='class-registry.php'><i class='fa fa-folder-open'></i> Registry</a>";
         echo "<a class='desktop-search-card__action' href='group-term-registry.php'><i class='fa fa-calendar'></i> Semester</a>";
@@ -536,9 +542,11 @@ if(!empty($batchRows)){
     echo "<div class='desktop-search-grid'>";
     foreach($batchRows as $row){
         echo "<article class='desktop-search-card'>";
+        echo "<div class='desktop-search-card__main'>";
         echo "<div class='desktop-search-card__eyebrow'><i class='fa fa-calendar'></i> Batch</div>";
         echo "<a class='desktop-search-card__title' href='view-class-registry.php'>".ags_esc((string)$row['batch'])."</a>";
         echo "<div class='desktop-search-card__meta'>Batch ID: ".ags_esc((string)$row['batchid'])."</div>";
+        echo "</div>";
         echo "<div class='desktop-search-card__actions'>";
         echo "<a class='desktop-search-card__action' href='view-class-registry.php'><i class='fa fa-list-alt'></i> View Registry</a>";
         echo "<a class='desktop-search-card__action' href='group-term-registry.php'><i class='fa fa-users'></i> Group Registry</a>";
@@ -555,9 +563,11 @@ if(!empty($toolRows)){
     echo "<div class='desktop-search-grid'>";
     foreach($toolRows as $tool){
         echo "<article class='desktop-search-card'>";
+        echo "<div class='desktop-search-card__main'>";
         echo "<div class='desktop-search-card__eyebrow'><i class='fa ".ags_esc((string)$tool['icon'])."'></i> Tool</div>";
         echo "<a class='desktop-search-card__title' href='".ags_esc((string)$tool['href'])."'>".ags_esc((string)$tool['label'])."</a>";
         echo "<div class='desktop-search-card__desc'>".ags_esc((string)$tool['description'])."</div>";
+        echo "</div>";
         echo "<div class='desktop-search-card__actions'>";
         echo "<a class='desktop-search-card__action' href='".ags_esc((string)$tool['href'])."'><i class='fa ".ags_esc((string)$tool['icon'])."'></i> Open</a>";
         echo "</div>";

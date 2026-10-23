@@ -16,12 +16,12 @@ body.continuing-students-page .main-platform {
     position: relative;
     overflow: hidden;
     padding: 28px;
-    border-radius: 30px;
+    border-radius: 26px;
     background:
-        radial-gradient(circle at top right, rgba(231, 181, 78, 0.2), transparent 32%),
-        linear-gradient(145deg, rgba(8, 29, 54, 0.96), rgba(14, 89, 96, 0.9));
-    color: #edf6f8;
-    box-shadow: 0 26px 48px rgba(12, 33, 56, 0.16);
+        radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 34%),
+        linear-gradient(120deg, #4f46e5 0%, #6366f1 55%, #8b5cf6 100%);
+    color: #ffffff;
+    box-shadow: 0 26px 48px rgba(99, 102, 241, 0.28);
 }
 
 .continuing-hero::before,
@@ -45,7 +45,7 @@ body.continuing-students-page .main-platform {
     bottom: -90px;
     width: 220px;
     height: 220px;
-    background: radial-gradient(circle, rgba(255, 209, 102, 0.14), transparent 72%);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 72%);
 }
 
 .continuing-hero > * {
@@ -60,8 +60,9 @@ body.continuing-students-page .main-platform {
     min-height: 34px;
     padding: 0 14px;
     border-radius: 999px;
-    background: rgba(255, 237, 197, 0.15);
-    color: #ffe7b5;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.04em;
@@ -70,15 +71,17 @@ body.continuing-students-page .main-platform {
 .continuing-hero h1 {
     margin: 16px 0 10px;
     max-width: 13ch;
-    font-size: clamp(2rem, 4vw, 3.2rem);
-    line-height: 1.02;
-    color: #fff9ef;
+    font-size: clamp(1.9rem, 3.6vw, 2.8rem);
+    line-height: 1.06;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #ffffff;
 }
 
 .continuing-hero p {
     margin: 0;
     max-width: 66ch;
-    color: rgba(237, 246, 248, 0.84);
+    color: rgba(255, 255, 255, 0.82);
     line-height: 1.72;
 }
 
@@ -96,10 +99,11 @@ body.continuing-students-page .main-platform {
     min-height: 38px;
     padding: 0 14px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    color: #eff8fa;
-    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    color: #ffffff;
+    font-size: 0.88rem;
+    font-weight: 600;
 }
 
 .continuing-hero__actions {
@@ -114,15 +118,16 @@ body.continuing-students-page .main-platform {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 48px;
+    min-height: 46px;
     padding: 0 18px;
-    border: 0;
-    border-radius: 15px;
+    border: 1px solid transparent;
+    border-radius: 999px;
     text-decoration: none;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     font-weight: 700;
+    font-family: inherit;
     cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
 
 .continuing-btn:hover {
@@ -130,26 +135,37 @@ body.continuing-students-page .main-platform {
 }
 
 .continuing-btn--primary {
-    background: linear-gradient(135deg, #0f7f7c, #0d5d73);
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
     color: #fff;
-    box-shadow: 0 12px 24px rgba(13, 93, 115, 0.18);
+    box-shadow: 0 12px 26px rgba(99, 102, 241, 0.32);
 }
 
 .continuing-btn--secondary {
-    background: #f8fbfd;
-    border: 1px solid #d7e3ed;
-    color: #15324a;
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.26);
+    color: #4f46e5;
+}
+
+.continuing-btn--secondary:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #ffffff;
 }
 
 .continuing-btn--ghost {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    color: #f7fbfd;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: #ffffff;
+}
+
+.continuing-btn--ghost:hover {
+    background: rgba(255, 255, 255, 0.22);
 }
 
 .continuing-btn--light {
-    background: #fff4d3;
-    color: #523b00;
+    background: #ffffff;
+    color: #4f46e5;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.18);
 }
 
 .continuing-stats {
@@ -161,36 +177,40 @@ body.continuing-students-page .main-platform {
 
 .continuing-stat {
     padding: 18px;
-    border-radius: 22px;
+    border-radius: 20px;
     background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.16);
     backdrop-filter: blur(8px);
 }
 
 .continuing-stat span {
     display: block;
-    color: rgba(237, 246, 248, 0.78);
-    font-size: 0.8rem;
-    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.76rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 700;
 }
 
 .continuing-stat strong {
     display: block;
-    margin-top: 10px;
+    margin-top: 8px;
     color: #fff;
-    font-size: 1.9rem;
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
 }
 
 .continuing-stat small {
     display: block;
-    margin-top: 8px;
-    color: rgba(237, 246, 248, 0.72);
+    margin-top: 6px;
+    color: rgba(255, 255, 255, 0.7);
     line-height: 1.55;
 }
 
 .continuing-panel {
     padding: 22px;
-    border-radius: 26px;
+    border-radius: 24px;
     background: rgba(255, 255, 255, 0.95);
     border: 1px solid rgba(213, 224, 234, 0.94);
     box-shadow: 0 18px 36px rgba(17, 34, 58, 0.07);
@@ -206,14 +226,17 @@ body.continuing-students-page .main-platform {
 
 .continuing-panel__head h2 {
     margin: 0;
-    color: #14314b;
-    font-size: 1.2rem;
+    color: #0f172a;
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
 }
 
 .continuing-panel__head p {
     margin: 8px 0 0;
-    color: #5d7387;
+    color: #64748b;
     line-height: 1.65;
+    font-size: 0.92rem;
 }
 
 .continuing-panel__tag {
@@ -223,9 +246,10 @@ body.continuing-students-page .main-platform {
     min-height: 36px;
     padding: 0 14px;
     border-radius: 999px;
-    background: #f1f8fb;
-    color: #0f6076;
-    font-size: 0.84rem;
+    background: #eef2ff;
+    border: 1px solid #e0e7ff;
+    color: #4f46e5;
+    font-size: 0.82rem;
     font-weight: 700;
     white-space: nowrap;
 }
@@ -240,8 +264,8 @@ body.continuing-students-page .main-platform {
 .continuing-filter-grid label,
 .continuing-search-block label {
     display: block;
-    color: #183550;
-    font-size: 0.9rem;
+    color: #334155;
+    font-size: 0.88rem;
     font-weight: 700;
 }
 
@@ -253,20 +277,23 @@ body.continuing-students-page .main-platform {
 .continuing-filter-grid select,
 .continuing-search-field input {
     width: 100%;
-    min-height: 50px;
-    padding: 0 15px;
-    border-radius: 15px;
-    border: 1px solid #d3dee8;
-    background: #fbfdff;
-    color: #143149;
-    font-size: 0.95rem;
+    min-height: 48px;
+    padding: 0 16px;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 0.94rem;
+    font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .continuing-filter-grid select:focus,
 .continuing-search-field input:focus {
     outline: none;
-    border-color: #0f7f7c;
-    box-shadow: 0 0 0 3px rgba(15, 127, 124, 0.11);
+    border-color: #6366f1;
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
 }
 
 .continuing-filter-actions {
@@ -294,11 +321,12 @@ body.continuing-students-page .main-platform {
     left: 16px;
     top: 50%;
     transform: translateY(-50%);
-    color: #6f8394;
+    color: #94a3b8;
 }
 
 .continuing-search-field input {
     padding-left: 46px;
+    border-radius: 999px;
 }
 
 .continuing-search-field input:disabled {
@@ -318,13 +346,14 @@ body.continuing-students-page .main-platform {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-height: 36px;
+    min-height: 34px;
     padding: 0 14px;
     border-radius: 999px;
-    background: #f6f9fb;
-    border: 1px solid #dde7ef;
-    color: #2d465a;
-    font-size: 0.86rem;
+    background: #f5f6fb;
+    border: 1px solid #e5e7f5;
+    color: #4338ca;
+    font-size: 0.84rem;
+    font-weight: 600;
 }
 
 .continuing-results-meta {
@@ -333,8 +362,8 @@ body.continuing-students-page .main-platform {
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 14px;
-    color: #577085;
-    font-size: 0.92rem;
+    color: #64748b;
+    font-size: 0.9rem;
 }
 
 .continuing-results-meta p {
@@ -342,14 +371,14 @@ body.continuing-students-page .main-platform {
 }
 
 .continuing-results-meta strong {
-    color: #12324b;
+    color: #0f172a;
 }
 
 .continuing-table-wrap {
     width: 100%;
     overflow-x: auto;
-    border: 1px solid #dfe7ee;
-    border-radius: 20px;
+    border: 1px solid #e9edf5;
+    border-radius: 18px;
     background: #fff;
 }
 
@@ -360,22 +389,25 @@ body.continuing-students-page .main-platform {
 }
 
 .continuing-table thead th {
-    padding: 15px 14px;
-    background: #f3f8fb;
-    border-bottom: 1px solid #dbe5ee;
-    color: #163149;
-    font-size: 0.84rem;
+    padding: 13px 14px;
+    background: linear-gradient(135deg, #eef2ff, #faf5ff);
+    border-bottom: 1px solid #eef2f7;
+    color: #475569;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
     text-align: left;
     white-space: nowrap;
 }
 
 .continuing-table tbody td {
-    padding: 15px 14px;
-    border-bottom: 1px solid #ecf1f6;
+    padding: 13px 14px;
+    border-bottom: 1px solid #eef2f7;
     color: #284257;
-    font-size: 0.94rem;
+    font-size: 0.92rem;
     line-height: 1.55;
-    vertical-align: top;
+    vertical-align: middle;
 }
 
 .continuing-table tbody tr:last-child td {
@@ -383,11 +415,11 @@ body.continuing-students-page .main-platform {
 }
 
 .continuing-table tbody tr {
-    transition: background 0.18s ease, transform 0.18s ease;
+    transition: background 0.12s ease;
 }
 
 .continuing-table tbody tr:hover {
-    background: #fbfdff;
+    background: rgba(99, 102, 241, 0.045);
 }
 
 .continuing-table th:first-child,
@@ -402,27 +434,30 @@ body.continuing-students-page .main-platform {
 
 .continuing-student-cell {
     display: grid;
-    gap: 4px;
+    gap: 3px;
 }
 
 .continuing-student-cell strong {
-    color: #14314b;
-    font-size: 0.98rem;
+    color: #0f172a;
+    font-size: 0.95rem;
+    font-weight: 700;
 }
 
 .continuing-student-cell small {
-    color: #6b8192;
+    color: #94a3b8;
+    font-weight: 600;
 }
 
 .continuing-table-pill {
     display: inline-flex;
     align-items: center;
-    min-height: 32px;
+    min-height: 28px;
     padding: 0 12px;
     border-radius: 999px;
-    background: #eef6fb;
-    color: #14536b;
-    font-size: 0.85rem;
+    background: #eef2ff;
+    border: 1px solid #e0e7ff;
+    color: #4f46e5;
+    font-size: 0.8rem;
     font-weight: 700;
 }
 
@@ -431,16 +466,23 @@ body.continuing-students-page .main-platform {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 40px;
-    padding: 0 12px;
-    border-radius: 12px;
-    background: #f0fbfa;
-    border: 1px solid #cfe9e6;
-    color: #0f6b68;
-    font-size: 0.86rem;
+    min-height: 32px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.26);
+    color: #4f46e5;
+    font-size: 0.8rem;
     font-weight: 700;
     text-decoration: none;
     text-align: center;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.continuing-link-btn:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #ffffff;
 }
 
 .continuing-link-btn--disabled {
@@ -453,9 +495,9 @@ body.continuing-students-page .main-platform {
 .continuing-empty-state {
     padding: 32px 24px;
     border-radius: 22px;
-    border: 1px dashed #d7e1ea;
-    background: #f8fbfd;
-    color: #5f7688;
+    border: 1px dashed #c7d2fe;
+    background: #f8f8fd;
+    color: #64748b;
     text-align: center;
 }
 
@@ -466,15 +508,15 @@ body.continuing-students-page .main-platform {
     width: 64px;
     height: 64px;
     border-radius: 50%;
-    background: #ebf3f8;
-    color: #0f6176;
+    background: #eef2ff;
+    color: #6366f1;
     font-size: 1.4rem;
 }
 
 .continuing-empty-state h3 {
     margin: 16px 0 8px;
-    color: #17324a;
-    font-size: 1.2rem;
+    color: #0f172a;
+    font-size: 1.15rem;
 }
 
 .continuing-empty-state p {
@@ -508,7 +550,7 @@ body.continuing-students-page .main-platform {
     .continuing-hero,
     .continuing-panel {
         padding: 20px;
-        border-radius: 24px;
+        border-radius: 22px;
     }
 
     .continuing-panel__head,
@@ -526,7 +568,7 @@ body.continuing-students-page .main-platform {
 @media (max-width: 640px) {
     .continuing-hero h1 {
         max-width: none;
-        font-size: 2rem;
+        font-size: 1.8rem;
     }
 
     .continuing-stats,
@@ -579,10 +621,10 @@ body.continuing-students-page .main-platform {
         content: attr(data-label);
         display: block;
         margin-bottom: 5px;
-        color: #6b8192;
-        font-size: 0.74rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
+        color: #94a3b8;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.09em;
         text-transform: uppercase;
     }
 
@@ -594,8 +636,9 @@ body.continuing-students-page .main-platform {
         min-height: 30px;
         padding: 0 10px;
         border-radius: 999px;
-        background: #eef6fb;
-        color: #14536b;
+        background: #eef2ff;
+        border: 1px solid #e0e7ff;
+        color: #4f46e5;
         font-weight: 700;
     }
 

@@ -1,8 +1,8 @@
 body.student-directory-page {
     background:
-        radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 24%),
-        radial-gradient(circle at top right, rgba(59, 130, 246, 0.11), transparent 22%),
-        #f8fbff;
+        radial-gradient(circle at top left, rgba(99, 102, 241, 0.10), transparent 26%),
+        radial-gradient(circle at top right, rgba(139, 92, 246, 0.10), transparent 24%),
+        #f5f6fb;
 }
 
 .student-directory-shell {
@@ -15,9 +15,9 @@ body.student-directory-page {
 }
 
 .student-directory-message > div {
-    border-radius: 18px;
+    border-radius: 16px;
     padding: 14px 18px;
-    border: 1px solid #dbeafe;
+    border: 1px solid #e0e7ff;
     background: #ffffff;
     color: #0f172a;
     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
@@ -34,23 +34,32 @@ body.student-directory-page {
 }
 
 .student-directory-hero {
-    border-radius: 30px;
-    padding: 26px 28px;
+    border-radius: 26px;
+    padding: 30px 30px;
     display: grid;
     grid-template-columns: minmax(0, 1.25fr) auto;
     gap: 20px;
     align-items: center;
     margin-bottom: 18px;
+    background:
+        radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.18), transparent 40%),
+        linear-gradient(120deg, #4f46e5 0%, #6366f1 55%, #8b5cf6 100%);
+    border-color: rgba(99, 102, 241, 0.4);
+    box-shadow: 0 24px 60px rgba(99, 102, 241, 0.28);
 }
 
 .student-directory-eyebrow {
     display: inline-block;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: #0f766e;
+    letter-spacing: 0.16em;
+    color: #6366f1;
     margin-bottom: 10px;
+}
+
+.student-directory-hero .student-directory-eyebrow {
+    color: rgba(255, 255, 255, 0.78);
 }
 
 .student-directory-hero h1,
@@ -58,19 +67,22 @@ body.student-directory-page {
 .student-directory-empty h3 {
     margin: 0;
     color: #0f172a;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .student-directory-hero h1 {
-    font-size: clamp(2rem, 4vw, 3rem);
-    line-height: 1.05;
+    font-size: clamp(1.9rem, 3.6vw, 2.7rem);
+    line-height: 1.08;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #ffffff;
 }
 
 .student-directory-hero p {
     margin: 10px 0 0;
     max-width: 700px;
-    color: #475569;
-    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.98rem;
     line-height: 1.7;
 }
 
@@ -78,20 +90,21 @@ body.student-directory-page {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
-    gap: 12px;
+    gap: 10px;
 }
 
 .student-directory-hero-chip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-height: 44px;
+    min-height: 42px;
     padding: 0 16px;
     border-radius: 999px;
-    border: 1px solid #bfdbfe;
-    background: #ffffff;
-    color: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
     font-weight: 700;
+    font-size: 0.86rem;
 }
 
 .student-directory-stats {
@@ -102,14 +115,36 @@ body.student-directory-page {
 }
 
 .student-directory-stat {
-    border-radius: 24px;
+    border-radius: 20px;
     padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.student-directory-stat::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: linear-gradient(180deg, #6366f1, #8b5cf6);
+}
+
+.student-directory-stat:nth-child(2)::before {
+    background: linear-gradient(180deg, #34d399, #059669);
+}
+
+.student-directory-stat:nth-child(3)::before {
+    background: linear-gradient(180deg, #f87171, #dc2626);
+}
+
+.student-directory-stat:nth-child(4)::before {
+    background: linear-gradient(180deg, #fbbf24, #d97706);
 }
 
 .student-directory-stat span {
     display: block;
     color: #64748b;
-    font-size: 0.84rem;
+    font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 700;
@@ -117,15 +152,16 @@ body.student-directory-page {
 
 .student-directory-stat strong {
     display: block;
-    margin-top: 10px;
+    margin-top: 8px;
     color: #0f172a;
-    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
     font-weight: 800;
+    letter-spacing: -0.02em;
 }
 
 .student-directory-panel,
 .student-directory-empty {
-    border-radius: 30px;
+    border-radius: 26px;
     padding: 24px;
     margin-bottom: 18px;
 }
@@ -139,13 +175,16 @@ body.student-directory-page {
 }
 
 .student-directory-panel__top h2 {
-    font-size: 1.7rem;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
 }
 
 .student-directory-scope {
     margin: 8px 0 0;
-    color: #475569;
+    color: #64748b;
     font-weight: 600;
+    font-size: 0.88rem;
 }
 
 .student-directory-filter-form {
@@ -163,27 +202,29 @@ body.student-directory-page {
 .student-directory-field span {
     color: #334155;
     font-weight: 700;
-    font-size: 0.92rem;
+    font-size: 0.86rem;
 }
 
 .student-directory-field select,
 .student-directory-search input {
     width: 100%;
-    min-height: 52px;
-    border-radius: 16px;
-    border: 1px solid #cbd5e1;
+    min-height: 50px;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
     background: #f8fafc;
     padding: 0 16px;
     color: #0f172a;
-    font-size: 0.98rem;
+    font-size: 0.94rem;
+    font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .student-directory-field select:focus,
 .student-directory-search input:focus {
     outline: none;
-    border-color: #38bdf8;
+    border-color: #6366f1;
     background: #ffffff;
-    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.14);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
 }
 
 .student-directory-filter-actions,
@@ -205,23 +246,25 @@ body.student-directory-page {
     gap: 8px;
     text-decoration: none;
     cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
-    min-height: 46px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    min-height: 44px;
     padding: 0 18px;
     font-weight: 700;
+    font-size: 0.88rem;
+    font-family: inherit;
 }
 
 .student-directory-primary-btn {
-    background: linear-gradient(135deg, #0f172a, #1d4ed8);
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
     color: #ffffff;
-    box-shadow: 0 16px 35px rgba(29, 78, 216, 0.24);
+    box-shadow: 0 14px 30px rgba(99, 102, 241, 0.32);
 }
 
 .student-directory-secondary-btn,
 .student-directory-action {
-    background: #ffffff;
-    border-color: #bfdbfe;
-    color: #0f172a;
+    background: rgba(99, 102, 241, 0.06);
+    border-color: rgba(99, 102, 241, 0.26);
+    color: #4f46e5;
 }
 
 .student-directory-primary-btn:hover,
@@ -230,14 +273,14 @@ body.student-directory-page {
     transform: translateY(-1px);
 }
 
-.student-directory-action--view {
-    border-color: #bfdbfe;
-    color: #1d4ed8;
+.student-directory-primary-btn:hover {
+    filter: brightness(1.06);
 }
 
-.student-directory-action--edit {
-    border-color: #bbf7d0;
-    color: #15803d;
+.student-directory-secondary-btn:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #ffffff;
 }
 
 .student-directory-toolbar {
@@ -258,18 +301,24 @@ body.student-directory-page {
     top: 50%;
     left: 16px;
     transform: translateY(-50%);
-    color: #64748b;
+    color: #94a3b8;
 }
 
 .student-directory-search input {
     padding-left: 46px;
+    border-radius: 999px;
 }
 
 .student-directory-results {
     justify-self: end;
-    color: #475569;
+    color: #4f46e5;
+    background: #eef2ff;
+    border: 1px solid #e0e7ff;
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
+    padding: 7px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
 }
 
 .student-directory-print-head {
@@ -277,8 +326,8 @@ body.student-directory-page {
 }
 
 .student-directory-table-wrap {
-    border: 1px solid #e2e8f0;
-    border-radius: 24px;
+    border: 1px solid #e9edf5;
+    border-radius: 20px;
     overflow-x: auto;
     overflow-y: hidden;
     background: #ffffff;
@@ -290,29 +339,30 @@ body.student-directory-page {
 }
 
 .student-directory-table caption {
-    padding: 14px 16px;
-    background: #f8fbff;
-    color: #334155;
+    padding: 13px 16px;
+    background: linear-gradient(135deg, #eef2ff, #faf5ff);
+    color: #475569;
     font-weight: 700;
+    font-size: 0.84rem;
     text-align: left;
 }
 
 .student-directory-table thead {
-    background: linear-gradient(135deg, #eff6ff, #f8fafc);
+    background: linear-gradient(135deg, #eef2ff, #faf5ff);
 }
 
 .student-directory-table th,
 .student-directory-table td {
-    padding: 16px 14px;
-    border-bottom: 1px solid #e2e8f0;
-    vertical-align: top;
+    padding: 13px 14px;
+    border-bottom: 1px solid #eef2f7;
+    vertical-align: middle;
 }
 
 .student-directory-table th {
-    color: #334155;
-    font-size: 0.84rem;
+    color: #475569;
+    font-size: 0.72rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.09em;
     font-weight: 800;
     text-align: left;
     white-space: nowrap;
@@ -320,37 +370,48 @@ body.student-directory-page {
 
 .student-directory-table td {
     color: #0f172a;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+}
+
+.student-directory-table tbody tr {
+    transition: background 0.12s ease;
 }
 
 .student-directory-table tbody tr:hover {
-    background: #f8fbff;
+    background: rgba(99, 102, 241, 0.045);
+}
+
+.student-directory-table tbody tr:last-child td {
+    border-bottom: none;
 }
 
 .student-directory-name {
     display: grid;
-    gap: 6px;
+    gap: 3px;
 }
 
 .student-directory-name strong {
-    font-size: 1rem;
+    font-size: 0.95rem;
+    font-weight: 700;
     color: #0f172a;
 }
 
 .student-directory-name span {
-    color: #64748b;
-    font-size: 0.84rem;
+    color: #94a3b8;
+    font-size: 0.78rem;
+    font-weight: 600;
 }
 
 .student-directory-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 34px;
+    min-height: 26px;
     padding: 0 12px;
     border-radius: 999px;
-    font-size: 0.83rem;
+    font-size: 0.76rem;
     font-weight: 800;
+    letter-spacing: 0.02em;
 }
 
 .student-directory-badge--active {
@@ -378,20 +439,38 @@ body.student-directory-page {
     min-width: 0;
     flex-direction: column;
     align-items: stretch;
-    gap: 4px;
+    gap: 5px;
 }
 
 .student-directory-action {
     width: 100%;
-    min-height: 30px;
-    padding: 0 8px;
+    min-height: 28px;
+    padding: 0 10px;
     font-size: 0.74rem;
     white-space: nowrap;
     flex: 0 0 auto;
 }
 
 .student-directory-action i {
-    font-size: 0.78rem;
+    font-size: 0.76rem;
+}
+
+.student-directory-action:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #ffffff;
+}
+
+.student-directory-action--edit {
+    background: rgba(16, 185, 129, 0.07);
+    border-color: rgba(16, 185, 129, 0.28);
+    color: #047857;
+}
+
+.student-directory-action--edit:hover {
+    background: #10b981;
+    border-color: #10b981;
+    color: #ffffff;
 }
 
 .student-directory-empty {
@@ -401,7 +480,7 @@ body.student-directory-page {
 
 .student-directory-empty i {
     font-size: 1.8rem;
-    color: #94a3b8;
+    color: #c7d2fe;
     margin-bottom: 10px;
 }
 
@@ -423,12 +502,12 @@ body.student-directory-page {
     z-index: 99;
     border: none;
     outline: none;
-    background: #0f172a;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
     color: #ffffff;
     cursor: pointer;
     padding: 12px 16px;
     border-radius: 999px;
-    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+    box-shadow: 0 16px 32px rgba(99, 102, 241, 0.35);
 }
 
 @media (max-width: 1080px) {
@@ -454,7 +533,7 @@ body.student-directory-page {
     .student-directory-hero,
     .student-directory-panel,
     .student-directory-empty {
-        border-radius: 24px;
+        border-radius: 22px;
         padding: 20px;
     }
 
@@ -485,7 +564,7 @@ body.student-directory-page {
     }
 
     .student-directory-table caption {
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid #eef2f7;
     }
 
     .student-directory-table tbody {
@@ -495,8 +574,8 @@ body.student-directory-page {
     }
 
     .student-directory-table tr {
-        border: 1px solid #e2e8f0;
-        border-radius: 20px;
+        border: 1px solid #e9edf5;
+        border-radius: 18px;
         overflow: hidden;
         box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
     }
@@ -514,11 +593,11 @@ body.student-directory-page {
         content: attr(data-label);
         display: block;
         margin-bottom: 6px;
-        color: #64748b;
-        font-size: 0.78rem;
+        color: #94a3b8;
+        font-size: 0.72rem;
         font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.09em;
     }
 
     .student-directory-actions-col,
@@ -530,6 +609,7 @@ body.student-directory-page {
     .student-directory-actions {
         min-width: 0;
         flex-wrap: wrap;
+        flex-direction: row;
     }
 
     .student-directory-action {
@@ -543,7 +623,7 @@ body.student-directory-page {
     }
 
     .student-directory-hero h1 {
-        font-size: 2rem;
+        font-size: 1.8rem;
     }
 
     .student-directory-hero__meta,
@@ -560,8 +640,7 @@ body.student-directory-page {
 
     .student-directory-hero-chip,
     .student-directory-primary-btn,
-    .student-directory-secondary-btn,
-    .student-directory-action {
+    .student-directory-secondary-btn {
         width: 100%;
     }
 

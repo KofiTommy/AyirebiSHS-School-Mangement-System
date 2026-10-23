@@ -1,4 +1,5 @@
 <?php
+include_once("admin-home-utils.php");
 if(!function_exists('xschool_schema_cache_is_fresh')){
 function xschool_schema_cache_is_fresh($key, $ttlSeconds = 900){
     static $memoryCache = array();
@@ -62,7 +63,7 @@ function teacher_billing_is_teacher(){
 if(!function_exists('teacher_billing_landing_page')){
 function teacher_billing_landing_page(){
     if(teacher_billing_is_admin()){
-        return ($_SESSION['SYSTEMTYPE'] === 'super_user') ? 'super.php' : 'admin.php';
+        return admin_home_dashboard_url();
     }
     if(teacher_billing_is_teacher()){
         return 'teacher-page.php';

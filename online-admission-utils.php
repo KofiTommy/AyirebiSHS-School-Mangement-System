@@ -1,4 +1,5 @@
 <?php
+include_once("admin-home-utils.php");
 include_once(__DIR__.DIRECTORY_SEPARATOR."house-master-utils.php");
 if(!function_exists('xschool_schema_cache_is_fresh')){
 function xschool_schema_cache_is_fresh($key, $ttlSeconds = 900){
@@ -60,7 +61,7 @@ function online_admission_is_headmaster(){
 if(!function_exists('online_admission_landing_page')){
 function online_admission_landing_page(){
     if(online_admission_is_admin()){
-        return ($_SESSION['SYSTEMTYPE'] === "super_user") ? "super.php" : "admin.php";
+        return admin_home_dashboard_url();
     }
     if(online_admission_is_headmaster()){
         return "headmaster-page.php";

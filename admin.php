@@ -1,6 +1,10 @@
 <?php
 ob_start(null, 1048576);
 session_start();
+/* Remember this dashboard as the admin's Home target for other pages */
+if(($_SESSION['ACCESSLEVEL'] ?? '') === 'administrator'){
+    $_SESSION['ADMIN_HOME_DASHBOARD'] = 'admin.php';
+}
 include_once("dashboard-student-utils.php");
 include_once("storekeeper-utils.php");
 include_once("portal-help-utils.php");
@@ -3023,6 +3027,24 @@ html[data-admin-theme="dark"] .system-change-pill-unread {
         .classic-banner{margin:10px 10px 0}
         .classic-banner-btn{width:100%;justify-content:center}
     }
+    .dash-title-flex{display:flex;align-items:center;justify-content:space-between;gap:14px;text-align:left}
+    .dash-title-flex>span{font-size:inherit}
+    .dash-switch-btn{
+        display:inline-flex;align-items:center;gap:8px;
+        padding:9px 20px;border-radius:999px;text-decoration:none;
+        background:linear-gradient(105deg,#2563eb 0%,#4f46e5 100%);
+        color:#ffffff;font:700 .84rem 'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+        box-shadow:0 6px 16px rgba(37,99,235,.30);
+        transition:transform .15s ease,box-shadow .15s ease;
+        white-space:nowrap;
+    }
+    .dash-switch-btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(37,99,235,.42)}
+    .dash-switch-btn i{font-size:.78rem}
+    .dash-switch-btn--inbar{background:#ffffff;color:#173f60;box-shadow:0 4px 14px rgba(2,12,27,.35)}
+    .dash-switch-btn--inbar:hover{box-shadow:0 9px 20px rgba(2,12,27,.45)}
+    @media(max-width:700px){
+        .dash-title-flex{flex-wrap:wrap;justify-content:center;text-align:center;row-gap:10px}
+    }
     </style>
     <div class="classic-banner" id="classicPanelBanner" role="note">
         <i class="fa fa-info-circle"></i>
@@ -3048,7 +3070,7 @@ html[data-admin-theme="dark"] .system-change-pill-unread {
     </script>
 
     <div class="main-platform" align="center">
-        <h2>Administrator Dashboard</h2>
+        <h2 class="dash-title-flex"><span>Administrator Dashboard</span><a class="dash-switch-btn dash-switch-btn--inbar" href="executive-dashboard.php" title="Open the new executive dashboard"><i class="fa fa-rocket"></i> Switch to New Dashboard</a></h2>
         <table border="0" width="100%" class="admin-layout">
             <tr>
                 <td width="25%" valign="top" class="admin-sidebar-col">

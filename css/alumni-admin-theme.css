@@ -1,0 +1,749 @@
+/* ============================================================
+   ALUMNI ADMIN THEME — shared polish for the alumni management
+   pages (document desk, chat moderation, memories).
+   Scoped by body class; load AFTER each page's base styles.
+   Palette matches the polished Alumni Hub (navy #14264a,
+   teal #08766f, gold #e7a92d).
+   ============================================================ */
+
+/* ============================= DOCUMENT DESK (.ald-admin) ============================= */
+.ald-admin header{
+    background:
+        radial-gradient(520px 220px at 88% -10%, rgba(231,169,45,.20), transparent 60%),
+        linear-gradient(120deg,#14264a 0%,#0b4f52 55%,#08766f 100%);
+    color:#fff;
+    border-radius:20px;
+    padding:34px 36px 28px;
+    box-shadow:0 18px 40px rgba(11,79,82,.28);
+    margin-bottom:20px;
+}
+.ald-admin header .eyebrow{
+    display:inline-block;
+    background:rgba(231,169,45,.16);
+    border:1px solid rgba(231,169,45,.45);
+    color:#f3c65f;
+    padding:5px 12px;
+    border-radius:999px;
+    letter-spacing:.16em;
+    font-size:11px;
+}
+.ald-admin header h1{
+    font-size:30px;
+    letter-spacing:-.02em;
+    margin:12px 0 10px;
+    line-height:1.15;
+    color:#fff;
+}
+.ald-admin header p{color:rgba(255,255,255,.88);max-width:720px;line-height:1.55}
+.ald-admin .steps{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.ald-admin .steps span{
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.22);
+    color:#fff;
+    border-radius:999px;
+    padding:6px 13px;
+    font-size:12px;
+    font-weight:700;
+}
+.ald-admin nav{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 18px}
+.ald-admin nav a{
+    display:inline-flex;align-items:center;gap:6px;
+    background:#fff;color:#14264a;
+    border:1px solid #dfe7f0;
+    border-radius:999px;
+    padding:9px 16px;
+    font-weight:700;font-size:13px;text-decoration:none;
+    box-shadow:0 4px 10px rgba(20,42,70,.08);
+    transition:transform .15s ease,box-shadow .2s ease;
+}
+.ald-admin nav a:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(20,42,70,.14)}
+
+.ald-admin .card{
+    border-radius:16px;
+    border:1px solid #e2eaf2;
+    box-shadow:0 8px 22px rgba(20,42,70,.06);
+    padding:24px;
+    transition:box-shadow .2s ease;
+}
+.ald-admin .card:hover{box-shadow:0 12px 28px rgba(20,42,70,.09)}
+.ald-admin .card h2{margin-top:0;color:#14264a;letter-spacing:-.01em}
+.ald-admin .card h3{color:#14264a}
+
+.ald-admin button,
+.ald-admin .actions button{
+    border:0;border-radius:10px;
+    background:linear-gradient(120deg,#0a5f59,#08766f);
+    color:#fff;font-weight:700;
+    padding:11px 16px;cursor:pointer;
+    box-shadow:0 6px 14px rgba(8,118,111,.28);
+    transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;
+}
+.ald-admin button:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 10px 20px rgba(8,118,111,.36)}
+.ald-admin button.secondary,
+.ald-admin .secondary{
+    background:#fff;color:#0a5f59;
+    border:1px solid #bfe0dc;
+    box-shadow:0 4px 10px rgba(20,42,70,.08);
+}
+.ald-admin button.secondary:hover{border-color:#08766f}
+
+.ald-admin input,
+.ald-admin select,
+.ald-admin textarea{
+    border-radius:10px !important;
+    border:1px solid #cfdbe7 !important;
+    transition:border-color .18s ease,box-shadow .18s ease;
+}
+.ald-admin input:focus,
+.ald-admin select:focus,
+.ald-admin textarea:focus{
+    outline:none;
+    border-color:#08766f !important;
+    box-shadow:0 0 0 3px rgba(8,118,111,.15);
+}
+
+.ald-admin .badge{
+    display:inline-block;
+    background:#edf6f5;color:#08766f;
+    border-radius:999px;
+    padding:4px 11px;
+    font-size:12px;font-weight:700;
+}
+.ald-admin .notice{
+    border-radius:12px;
+    border:1px solid #9fd8cf;
+    background:linear-gradient(120deg,#e9faf4,#ddf7ee);
+    color:#0b5a43;
+    padding:13px 16px;
+}
+.ald-admin .notice.error{
+    border-color:#f3c1b8;
+    background:linear-gradient(120deg,#fdeeea,#fce4de);
+    color:#8f2a1c;
+}
+
+.ald-admin table thead th{
+    background:#162b4d;
+    color:#fff;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    padding:12px 14px;
+    border:0;
+}
+.ald-admin table tbody tr:nth-child(even){background:#f6fafb}
+.ald-admin table tbody tr:hover{background:#edf6f5}
+.ald-admin table td{padding:12px 14px;vertical-align:middle}
+.ald-admin .table-wrap{border-radius:12px;overflow:hidden;border:1px solid #e2eaf2}
+
+.ald-admin .pagination a{
+    display:inline-flex;align-items:center;
+    background:#edf6f5;color:#08766f;
+    border-radius:9px;padding:9px 14px;
+    font-weight:700;text-decoration:none;
+    transition:all .15s ease;
+}
+.ald-admin .pagination a:hover{background:#d9efe9}
+.ald-admin dl dt{color:#0a5f59;font-weight:800}
+.ald-admin details summary{cursor:pointer;color:#14264a;font-weight:700}
+.ald-admin .grid{gap:18px}
+
+/* ============================= CHAT MODERATION (.almod-page) ============================= */
+.almod-page{
+    background:#f4f7fb;
+}
+.almod-page .wrap{max-width:1080px}
+.almod-page .top{
+    background:
+        radial-gradient(520px 220px at 88% -10%, rgba(231,169,45,.20), transparent 60%),
+        linear-gradient(120deg,#14264a 0%,#0b4f52 55%,#08766f 100%);
+    color:#fff;
+    border-radius:20px;
+    padding:32px 34px 26px;
+    box-shadow:0 18px 40px rgba(11,79,82,.28);
+    align-items:center;
+}
+.almod-page .top h1{
+    font-size:30px;
+    letter-spacing:-.02em;
+    margin:0 0 8px;
+    color:#fff;
+}
+.almod-page .top p{color:rgba(255,255,255,.88);margin:0;max-width:640px;line-height:1.55}
+.almod-page .top>a{
+    background:#fff;
+    color:#14264a;
+    border-radius:999px;
+    padding:11px 19px;
+    font-weight:800;font-size:13px;
+    box-shadow:0 5px 14px rgba(6,25,40,.25);
+    transition:transform .15s ease,box-shadow .2s ease;
+}
+.almod-page .top>a:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(6,25,40,.35)}
+.almod-page .card{
+    border-radius:18px;
+    border:1px solid #e2eaf2;
+    box-shadow:0 8px 22px rgba(20,42,70,.06);
+    padding:10px 24px;
+}
+.almod-page .msg{
+    padding:18px 4px;
+    border-bottom:1px solid #e8eef5;
+    transition:background .15s ease;
+}
+.almod-page .msg:hover{background:#fafcfd}
+.almod-page .msg b{color:#14264a}
+.almod-page .msg p{color:#3c4f63;line-height:1.6}
+.almod-page .meta{color:#7b8ca0}
+.almod-page .msg.hidden{opacity:.6;background:#f6f8fb;border-radius:10px;padding-left:10px;padding-right:10px}
+.almod-page button{
+    border:0;border-radius:9px;
+    font-weight:700;padding:9px 14px;cursor:pointer;
+    transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;
+}
+.almod-page button.hide{
+    background:linear-gradient(120deg,#9c2b1d,#b42318);
+    color:#fff;
+    box-shadow:0 5px 12px rgba(180,35,24,.30);
+}
+.almod-page button.show{
+    background:linear-gradient(120deg,#0a5f59,#08766f);
+    color:#fff;
+    box-shadow:0 5px 12px rgba(8,118,111,.30);
+}
+.almod-page button:hover{transform:translateY(-1px);filter:brightness(1.06)}
+.almod-page .notice{
+    border-radius:12px;
+    border:1px solid #9fd8cf;
+    background:linear-gradient(120deg,#e9faf4,#ddf7ee);
+    color:#0b5a43;
+    padding:13px 16px;
+    margin-top:16px;
+}
+
+/* ============================= MEMORIES (.almem-page) ============================= */
+.almem-page{
+    background:#f4f7fb;
+}
+.almem-page .wrap{max-width:1080px}
+.almem-page .top{
+    background:
+        radial-gradient(520px 220px at 88% -10%, rgba(231,169,45,.20), transparent 60%),
+        linear-gradient(120deg,#14264a 0%,#0b4f52 55%,#08766f 100%);
+    color:#fff;
+    border-radius:20px;
+    padding:32px 34px 26px;
+    box-shadow:0 18px 40px rgba(11,79,82,.28);
+    align-items:center;
+}
+.almem-page .top h1{
+    font-size:30px;
+    letter-spacing:-.02em;
+    margin:0 0 8px;
+    color:#fff;
+}
+.almem-page .top p{color:rgba(255,255,255,.88);margin:0;max-width:640px;line-height:1.55}
+.almem-page .top .back{
+    background:#fff;
+    color:#14264a;
+    border:0;
+    border-radius:999px;
+    padding:11px 19px;
+    font-weight:800;font-size:13px;
+    box-shadow:0 5px 14px rgba(6,25,40,.25);
+    transition:transform .15s ease,box-shadow .2s ease;
+    display:inline-flex;align-items:center;gap:6px;
+}
+.almem-page .top .back:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(6,25,40,.35)}
+.almem-page .card{
+    border-radius:18px;
+    border:1px solid #e2eaf2;
+    box-shadow:0 8px 22px rgba(20,42,70,.06);
+    padding:24px;
+}
+.almem-page .card h2{margin-top:0;color:#14264a;letter-spacing:-.01em}
+.almem-page label{color:#475569}
+.almem-page input{
+    border-radius:10px;
+    border:1px solid #cfdbe7;
+    transition:border-color .18s ease,box-shadow .18s ease;
+}
+.almem-page input:focus{
+    outline:none;
+    border-color:#08766f;
+    box-shadow:0 0 0 3px rgba(8,118,111,.15);
+}
+.almem-page button,
+.almem-page .back{
+    border:0;border-radius:10px;
+    background:linear-gradient(120deg,#0a5f59,#08766f);
+    color:#fff;font-weight:700;
+    padding:11px 16px;cursor:pointer;
+    box-shadow:0 6px 14px rgba(8,118,111,.28);
+    transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;
+}
+.almem-page button:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 10px 20px rgba(8,118,111,.36)}
+.almem-page .grid{gap:16px}
+.almem-page .memory{
+    border:1px solid #e2eaf2;
+    border-radius:14px;
+    overflow:hidden;
+    background:#fff;
+    box-shadow:0 6px 16px rgba(20,42,70,.06);
+    transition:transform .18s ease,box-shadow .2s ease;
+}
+.almem-page .memory:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(20,42,70,.13)}
+.almem-page .memory img{height:170px}
+.almem-page .memory p{color:#3c4f63}
+.almem-page .remove{
+    background:linear-gradient(120deg,#9c2b1d,#b42318);
+    box-shadow:0 4px 10px rgba(180,35,24,.28);
+    font-size:12px;
+}
+.almem-page .remove:hover{box-shadow:0 8px 16px rgba(180,35,24,.36)}
+
+/* ============================= CONCERNS (.alconc-page) ============================= */
+.alconc-page{
+    background:#f4f7fb;
+}
+.alconc-page .hero{
+    background:
+        radial-gradient(520px 220px at 88% -10%, rgba(231,169,45,.20), transparent 60%),
+        linear-gradient(120deg,#14264a 0%,#0b4f52 55%,#08766f 100%);
+    color:#fff;
+    border-radius:20px;
+    padding:34px 36px 28px;
+    box-shadow:0 18px 40px rgba(11,79,82,.28);
+}
+.alconc-page .hero small{
+    display:inline-block;
+    background:rgba(231,169,45,.16);
+    border:1px solid rgba(231,169,45,.45);
+    color:#f3c65f;
+    padding:5px 12px;
+    border-radius:999px;
+    letter-spacing:.16em;
+    font-size:11px;
+    font-weight:700;
+}
+.alconc-page .hero h1{
+    font-family:inherit;
+    font-size:30px;
+    letter-spacing:-.02em;
+    margin:12px 0 10px;
+    color:#fff;
+}
+.alconc-page .hero p{color:rgba(255,255,255,.88);max-width:720px;line-height:1.55}
+.alconc-page .hero .back{
+    display:inline-flex;
+    align-items:center;
+    margin-top:18px;
+    background:#fff;
+    color:#14264a;
+    border-radius:999px;
+    padding:11px 19px;
+    font-weight:800;font-size:13px;
+    box-shadow:0 5px 14px rgba(6,25,40,.25);
+    transition:transform .15s ease,box-shadow .2s ease;
+}
+.alconc-page .hero .back:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(6,25,40,.35)}
+.alconc-page .flash{
+    border-radius:12px;
+    border:1px solid #9fd8cf;
+    background:linear-gradient(120deg,#e9faf4,#ddf7ee);
+    color:#0b5a43;
+    padding:13px 16px;
+    margin-top:16px;
+}
+.alconc-page .item{
+    border-radius:18px;
+    border:1px solid #e2eaf2;
+    box-shadow:0 8px 22px rgba(20,42,70,.06);
+    padding:24px 26px;
+    transition:box-shadow .2s ease;
+}
+.alconc-page .item:hover{box-shadow:0 12px 28px rgba(20,42,70,.10)}
+.alconc-page .item h2{
+    font-family:inherit;
+    color:#14264a;
+    letter-spacing:-.01em;
+}
+.alconc-page .meta{color:#7b8ca0}
+.alconc-page .meta b{color:#14264a}
+.alconc-page .message{
+    border:1px solid #e2eaf2;
+    border-left:4px solid #08766f;
+    background:#f6fafb;
+    border-radius:12px;
+    padding:16px 18px;
+    color:#3c4f63;
+    line-height:1.6;
+}
+.alconc-page select,
+.alconc-page textarea{
+    border-radius:10px !important;
+    border:1px solid #cfdbe7 !important;
+    transition:border-color .18s ease,box-shadow .18s ease;
+}
+.alconc-page select:focus,
+.alconc-page textarea:focus{
+    outline:none;
+    border-color:#08766f !important;
+    box-shadow:0 0 0 3px rgba(8,118,111,.15);
+}
+.alconc-page form button{
+    border:0;
+    border-radius:10px;
+    background:linear-gradient(120deg,#0a5f59,#08766f);
+    color:#fff;
+    font-weight:700;
+    padding:11px 18px;
+    cursor:pointer;
+    box-shadow:0 6px 14px rgba(8,118,111,.28);
+    transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;
+}
+.alconc-page form button:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 10px 20px rgba(8,118,111,.36)}
+
+/* ============================= DONATIONS (.aldon-page) ============================= */
+.aldon-page{
+    background:#f4f7fb;
+}
+.aldon-page .hero{
+    background:
+        radial-gradient(520px 220px at 88% -10%, rgba(231,169,45,.20), transparent 60%),
+        linear-gradient(120deg,#14264a 0%,#0b4f52 55%,#08766f 100%);
+    color:#fff;
+    border-radius:20px;
+    padding:34px 36px 28px;
+    box-shadow:0 18px 40px rgba(11,79,82,.28);
+}
+.aldon-page .hero small{
+    display:inline-block;
+    background:rgba(231,169,45,.16);
+    border:1px solid rgba(231,169,45,.45);
+    color:#f3c65f;
+    padding:5px 12px;
+    border-radius:999px;
+    letter-spacing:.16em;
+    font-size:11px;
+    font-weight:700;
+}
+.aldon-page .hero h1{
+    font-family:inherit;
+    font-size:30px;
+    letter-spacing:-.02em;
+    margin:12px 0 10px;
+    color:#fff;
+}
+.aldon-page .hero p{color:rgba(255,255,255,.88);max-width:720px;line-height:1.55}
+.aldon-page .hero .back{
+    display:inline-flex;
+    align-items:center;
+    margin-top:18px;
+    background:#fff;
+    color:#14264a;
+    border-radius:999px;
+    padding:11px 19px;
+    font-weight:800;font-size:13px;
+    box-shadow:0 5px 14px rgba(6,25,40,.25);
+    transition:transform .15s ease,box-shadow .2s ease;
+}
+.aldon-page .hero .back:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(6,25,40,.35)}
+.aldon-page .stat{
+    border-radius:18px;
+    border:1px solid #e2eaf2;
+    box-shadow:0 8px 22px rgba(20,42,70,.06);
+    padding:24px 26px;
+    position:relative;
+    overflow:hidden;
+}
+.aldon-page .stat::after{
+    content:'';
+    position:absolute;
+    right:-40px;top:-40px;
+    width:150px;height:150px;
+    border-radius:50%;
+    background:radial-gradient(circle,rgba(231,169,45,.16),transparent 70%);
+}
+.aldon-page .stat span{
+    color:#7b8ca0;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    font-size:11px;
+    font-weight:700;
+}
+.aldon-page .stat strong{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    color:#0b4f52;
+    font-size:34px;
+    letter-spacing:-.02em;
+}
+.aldon-page .stat strong::before{
+    content:'\f0d6';
+    font-family:FontAwesome;
+    font-size:24px;
+    color:#e7a92d;
+}
+.aldon-page .stat small{color:#7b8ca0;font-weight:600}
+.aldon-page .panel{
+    border-radius:18px;
+    border:1px solid #e2eaf2;
+    box-shadow:0 8px 22px rgba(20,42,70,.06);
+    padding:6px 0 0;
+}
+.aldon-page .panel table{border-collapse:collapse;width:100%}
+.aldon-page .panel thead th{
+    background:#162b4d;
+    color:#fff;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    padding:13px 16px;
+    border:0;
+}
+.aldon-page .panel tbody tr:nth-child(even){background:#f6fafb}
+.aldon-page .panel tbody tr:hover{background:#edf6f5}
+.aldon-page .panel tbody td{
+    padding:12px 16px;
+    border-bottom:1px solid #e8eef5;
+    color:#3c4f63;
+}
+.aldon-page .panel tbody td.success{background:#e7f6ef;color:#0b7a4b;font-weight:700}
+.aldon-page .panel tbody td.failed{background:#fdeeea;color:#b42318;font-weight:700}
+
+/* ============================= PUBLIC DONATE (.aldonate-page) ============================= */
+.aldonate-page{
+    background:linear-gradient(145deg,#edf4f8,#f8fafc 55%,#eef7f5);
+}
+.aldonate-page .hero{
+    background:
+        radial-gradient(520px 220px at 88% -10%, rgba(231,169,45,.20), transparent 60%),
+        linear-gradient(120deg,#14264a 0%,#0b4f52 55%,#08766f 100%);
+    box-shadow:0 18px 40px rgba(11,79,82,.28);
+    padding:34px 36px;
+}
+.aldonate-page .hero small{
+    display:inline-block;
+    background:rgba(231,169,45,.16);
+    border:1px solid rgba(231,169,45,.45);
+    color:#f3c65f;
+    padding:5px 12px;
+    border-radius:999px;
+    letter-spacing:.16em;
+    font-size:11px;
+    font-weight:700;
+}
+.aldonate-page .hero h1{
+    font-family:inherit;
+    font-size:32px;
+    letter-spacing:-.02em;
+    margin:12px 0 10px;
+    color:#fff;
+}
+.aldonate-page .hero p{color:rgba(255,255,255,.88)}
+.aldonate-page .card{
+    border-radius:18px;
+    border:1px solid #e2eaf2;
+    box-shadow:0 8px 22px rgba(20,42,70,.06);
+}
+.aldonate-page h2{font-family:inherit;color:#14264a;letter-spacing:-.01em}
+.aldonate-page .form input,
+.aldonate-page .form select{
+    border-radius:10px !important;
+    border:1px solid #cfdbe7 !important;
+    transition:border-color .18s ease,box-shadow .18s ease;
+}
+.aldonate-page .form input:focus,
+.aldonate-page .form select:focus{
+    outline:none;
+    border-color:#08766f !important;
+    box-shadow:0 0 0 3px rgba(8,118,111,.15);
+}
+.aldonate-page button,
+.aldonate-page a{
+    border:0;
+    border-radius:10px;
+    background:linear-gradient(120deg,#0a5f59,#08766f);
+    box-shadow:0 6px 14px rgba(8,118,111,.28);
+    transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;
+}
+.aldonate-page button:hover,
+.aldonate-page a:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 10px 20px rgba(8,118,111,.36)}
+.aldonate-page .back{
+    background:#fff;
+    color:#14264a;
+    border:1px solid #dfe7f0;
+    border-radius:999px;
+    box-shadow:0 4px 10px rgba(20,42,70,.08);
+}
+.aldonate-page .back:hover{border-color:#08766f;box-shadow:0 8px 18px rgba(20,42,70,.14)}
+.aldonate-page .flash{border-radius:12px}
+.aldonate-page .flash.error{border:1px solid #f3c1b8;background:linear-gradient(120deg,#fdeeea,#fce4de);color:#8f2a1c}
+.aldonate-page .flash.success{border:1px solid #9fd8cf;background:linear-gradient(120deg,#e9faf4,#ddf7ee);color:#0b5a43}
+.aldonate-page table thead th{
+    background:#162b4d;
+    color:#fff;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    font-size:12px;
+    border:0;
+    padding:13px 14px;
+}
+.aldonate-page table tbody tr:nth-child(even){background:#f6fafb}
+.aldonate-page table tbody tr:hover{background:#edf6f5}
+
+/* ============================= PUBLIC PROFILE (.alpro-page) ============================= */
+.alpro-page{
+    background:linear-gradient(145deg,#edf4f8,#f8fafc 55%,#eef7f5);
+}
+.alpro-page .wrap{max-width:760px}
+.alpro-page .actions{margin-bottom:22px}
+.alpro-page .actions a{
+    display:inline-flex;
+    align-items:center;
+    border:0;
+    border-radius:999px;
+    padding:11px 19px;
+    font-weight:800;
+    font-size:13px;
+    transition:transform .15s ease,box-shadow .2s ease;
+}
+.alpro-page .actions a:hover{transform:translateY(-2px)}
+.alpro-page .actions .dashboard-back{
+    background:#fff;
+    color:#14264a;
+    border:1px solid #dfe7f0;
+    box-shadow:0 4px 10px rgba(20,42,70,.08);
+}
+.alpro-page .actions .dashboard-back:hover{border-color:#08766f}
+.alpro-page .actions a:not(.dashboard-back){
+    background:linear-gradient(120deg,#0a5f59,#08766f);
+    color:#fff;
+    box-shadow:0 5px 14px rgba(8,118,111,.30);
+}
+.alpro-page .card{
+    border-radius:20px;
+    border:1px solid #e2eaf2;
+    box-shadow:0 12px 30px rgba(20,42,70,.08);
+    padding:32px 34px;
+}
+.alpro-page .card h1{
+    font-family:inherit;
+    font-size:28px;
+    letter-spacing:-.02em;
+    color:#14264a;
+    margin:0 0 6px;
+}
+.alpro-page .card>p{color:#64748b;margin-top:0}
+.alpro-page label{color:#475569}
+.alpro-page input:not([type]),
+.alpro-page input[type="email"],
+.alpro-page input[type="text"]{
+    border-radius:10px !important;
+    border:1px solid #cfdbe7 !important;
+    transition:border-color .18s ease,box-shadow .18s ease;
+}
+.alpro-page input:not([type]):focus,
+.alpro-page input[type="email"]:focus,
+.alpro-page input[type="text"]:focus{
+    outline:none;
+    border-color:#08766f !important;
+    box-shadow:0 0 0 3px rgba(8,118,111,.15);
+}
+.alpro-page button{
+    border:0;
+    border-radius:10px;
+    background:linear-gradient(120deg,#0a5f59,#08766f);
+    box-shadow:0 6px 14px rgba(8,118,111,.28);
+    transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;
+}
+.alpro-page button:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 10px 20px rgba(8,118,111,.36)}
+.alpro-page .msg{
+    border-radius:12px;
+    border:1px solid #9fd8cf;
+    background:linear-gradient(120deg,#e9faf4,#ddf7ee);
+    color:#0b5a43;
+}
+
+/* ============================= CLAIM PROFILE (.alclaim-page) ============================= */
+.alclaim-page{
+    background:linear-gradient(145deg,#edf4f8,#f8fafc 55%,#eef7f5);
+    min-height:100vh;
+}
+.alclaim-page .card{
+    max-width:480px;
+    margin:60px auto;
+    padding:0;
+    overflow:hidden;
+    border-radius:20px;
+    border:1px solid #e2eaf2;
+    box-shadow:0 18px 45px rgba(20,42,70,.12);
+}
+.alclaim-page .card>p:first-child{
+    margin:0;
+    padding:20px 28px;
+    background:
+        radial-gradient(400px 180px at 90% -20%, rgba(231,169,45,.25), transparent 60%),
+        linear-gradient(120deg,#14264a 0%,#0b4f52 55%,#08766f 100%);
+}
+.alclaim-page .card>p:first-child a{
+    display:inline-flex;
+    align-items:center;
+    background:#fff;
+    color:#14264a;
+    border-radius:999px;
+    padding:9px 17px;
+    font-weight:800;
+    font-size:13px;
+    box-shadow:0 4px 12px rgba(6,25,40,.25);
+    transition:transform .15s ease,box-shadow .2s ease;
+}
+.alclaim-page .card>p:first-child a:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(6,25,40,.35)}
+.alclaim-page .card h1{
+    margin:24px 28px 6px;
+    color:#14264a;
+    font-size:26px;
+    letter-spacing:-.02em;
+}
+.alclaim-page .card>p:not(:first-child){
+    margin:0 28px 14px;
+    color:#64748b;
+    line-height:1.55;
+}
+.alclaim-page .card .msg{
+    margin:0 28px 14px;
+    border-radius:12px;
+    border:1px solid #9fd8cf;
+    background:linear-gradient(120deg,#e9faf4,#ddf7ee);
+    color:#0b5a43;
+}
+.alclaim-page .card form{
+    margin:0 28px;
+    padding-bottom:26px;
+}
+.alclaim-page label{color:#475569;font-weight:700;font-size:13px}
+.alclaim-page input{
+    border-radius:10px !important;
+    border:1px solid #cfdbe7 !important;
+    transition:border-color .18s ease,box-shadow .18s ease;
+}
+.alclaim-page input:focus{
+    outline:none;
+    border-color:#08766f !important;
+    box-shadow:0 0 0 3px rgba(8,118,111,.15);
+}
+.alclaim-page button{
+    width:100%;
+    border:0;
+    border-radius:10px;
+    background:linear-gradient(120deg,#0a5f59,#08766f);
+    color:#fff;
+    font-weight:700;
+    padding:12px 16px;
+    cursor:pointer;
+    box-shadow:0 6px 14px rgba(8,118,111,.28);
+    transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;
+}
+.alclaim-page button:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 10px 20px rgba(8,118,111,.36)}

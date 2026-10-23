@@ -4,6 +4,7 @@ $_SESSION['Message']="";
 
 include_once("check-login.php");
 include_once("user-management-utils.php");
+require_once __DIR__.'/student-list-pagination.php';
 
 if(!function_exists('student_directory_is_read_only_viewer')){
 function student_directory_is_read_only_viewer(){
@@ -786,9 +787,10 @@ function student_directory_full_name($row){
 }
 }
 
-$_SelectedClassentryID = isset($_POST["class_entryid"]) ? trim((string)$_POST["class_entryid"]) : "";
-$_SelectedBatchID = isset($_POST["batchid"]) ? trim((string)$_POST["batchid"]) : "";
-$_ShowStudents = isset($_POST["showstudent"]);
+$_SelectedClassentryID = student_list_input('class_entryid');
+$_SelectedBatchID = student_list_input('batchid');
+$_ShowStudents = isset($_POST["showstudent"]) || isset($_GET['showstudent']);
+$_Paging = student_list_page(0);
 $_FlashMessage = isset($_SESSION['Message']) ? $_SESSION['Message'] : "";
 
 $_ClassOptions = array();
@@ -850,8 +852,14 @@ if($_ShowStudents && $_SelectedClassentryID !== "" && $_SelectedBatchID !== ""){
 		$_BatchName = $row_ba["batch"];
 	}
 
-	$_SQL_EXECUTE2 = mysqli_query($con, "SELECT * FROM tblsystemuser su INNER JOIN tblclass cl 
-ON su.userid=cl.userid WHERE cl.class_entryid='".mysqli_real_escape_string($con, $_SelectedClassentryID)."' AND cl.batchid='".mysqli_real_escape_string($con, $_SelectedBatchID)."' AND su.systemtype='Student' $_BranchStudentFilter ORDER BY su.firstname ASC");
+	$_StudentFrom = " FROM tblsystemuser su INNER JOIN tblclass cl ON su.userid=cl.userid WHERE cl.class_entryid='".mysqli_real_escape_string($con, $_SelectedClassentryID)."' AND cl.batchid='".mysqli_real_escape_string($con, $_SelectedBatchID)."' AND su.systemtype='Student' $_BranchStudentFilter";
+	$_StudentFrom .= student_list_search_sql($con, array('su.firstname', 'su.surname', 'su.othernames', 'su.userid', 'su.BECEIndexNumber', 'su.mobile', 'su.username', 'su.residencetype', "CASE WHEN LOWER(TRIM(cl.status))='active' THEN 'Active' ELSE 'Blocked' END"));
+	$_Summary = mysqli_fetch_assoc(mysqli_query($con, "SELECT COUNT(*) AS total,
+        SUM(LOWER(TRIM(cl.status))='active') AS active_students,
+        SUM(UPPER(TRIM(su.residencetype)) IN ('BOARDING','BOARDER','B')) AS boarding,
+        SUM(UPPER(TRIM(su.residencetype)) IN ('DAY','D')) AS day_students".$_StudentFrom));
+	$_Paging = student_list_page((int)$_Summary['total']);
+	$_SQL_EXECUTE2 = mysqli_query($con, "SELECT su.*, cl.status AS status".$_StudentFrom." ORDER BY su.firstname ASC, su.surname ASC, su.othernames ASC, su.userid ASC, cl.classid ASC LIMIT ".$_Paging['size']." OFFSET ".$_Paging['offset']);
 
 	if($_SQL_EXECUTE2){
 		while($row=mysqli_fetch_array($_SQL_EXECUTE2, MYSQLI_ASSOC)){
@@ -893,6 +901,11 @@ ON su.userid=cl.userid WHERE cl.class_entryid='".mysqli_real_escape_string($con,
 			$_StudentRows[] = $row;
 		}
 	}
+	$_StudentTotal = $_Paging['total'];
+	$_ActiveStudentTotal = (int)$_Summary['active_students'];
+	$_BlockedStudentTotal = $_StudentTotal - $_ActiveStudentTotal;
+	$_BoardingStudentTotal = (int)$_Summary['boarding'];
+	$_DayStudentTotal = (int)$_Summary['day_students'];
 }
 ?>
 
@@ -901,7 +914,7 @@ ON su.userid=cl.userid WHERE cl.class_entryid='".mysqli_real_escape_string($con,
 <?php
 include("links.php");
 ?>
-<link rel="stylesheet" href="css/viewstudents.css?v=20260514">
+<link rel="stylesheet" href="css/viewstudents.css?v=20261024">
 </head>
 <body class="student-directory-page">
 <div class="header">
@@ -937,7 +950,7 @@ include("menu.php");
 				<h2>Class Student Register</h2>
 			</div>
 		</div>
-		<form method="post" action="viewstudents.php" class="student-directory-filter-form">
+		<form method="get" action="viewstudents.php" class="student-directory-filter-form">
 			<label class="student-directory-field">
 				<span>Class</span>
 				<select id="class_entryid" name="class_entryid" required>
@@ -958,6 +971,7 @@ include("menu.php");
 				</select>
 			</label>
 
+			<?php student_list_controls(); ?>
 			<div class="student-directory-filter-actions">
 				<button class="student-directory-primary-btn" name="showstudent" type="submit"><i class="fa fa-search"></i> Load Students</button>
 			</div>
@@ -1011,14 +1025,15 @@ include("menu.php");
 			</div>
 		</div>
 
+		<?php student_list_navigation($_Paging, 'viewstudents.php', array('class_entryid' => $_SelectedClassentryID, 'batchid' => $_SelectedBatchID, 'showstudent' => '1')); ?>
 		<?php if($_StudentTotal > 0){ ?>
 		<div class="student-directory-toolbar">
 			<label class="student-directory-search">
 				<i class="fa fa-search"></i>
-				<input type="text" id="studentDirectorySearch" placeholder="Search by student name, index number, username, mobile, residence, or status">
+				<input type="text" id="studentDirectorySearch" aria-label="Search this page only" placeholder="Search this page only (use filters above to search all students)">
 			</label>
 			<div class="student-directory-results" id="studentDirectoryResultCount">
-				<?php echo number_format($_StudentTotal); ?> student(s) shown
+				<?php echo count($_StudentRows); ?> student(s) on this page
 			</div>
 		</div>
 
@@ -1048,7 +1063,7 @@ include("menu.php");
 				<tbody>
 					<?php foreach($_StudentRows as $index => $row){ ?>
 					<tr class="student-directory-row" data-search="<?php echo student_directory_safe($row["_search_index"]); ?>">
-						<td data-label="#"><?php echo number_format($index + 1); ?>.</td>
+						<td data-label="#"><?php echo number_format($_Paging['offset'] + $index + 1); ?>.</td>
 						<td data-label="Student">
 							<div class="student-directory-name">
 								<strong><?php echo student_directory_safe($row["_fullname"]); ?></strong>
@@ -1091,7 +1106,7 @@ include("menu.php");
 		<div class="student-directory-empty">
 			<i class="fa fa-users"></i>
 			<h3>No students found</h3>
-			<p>No student record matched the selected class and batch.</p>
+			<p>No student record matched the selected class, batch and search. Adjust the filters above and try again.</p>
 		</div>
 		<?php } ?>
 	</section>

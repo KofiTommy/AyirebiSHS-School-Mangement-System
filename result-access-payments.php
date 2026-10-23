@@ -1,10 +1,11 @@
 <?php
 session_start(); include('check-login.php'); include('dbstring.php'); include_once('result-access-utils.php');
+include_once("admin-home-utils.php");
 if(!isset($_SESSION['ACCESSLEVEL']) || $_SESSION['ACCESSLEVEL']!=='administrator'){ http_response_code(403); exit('Administrator access required.'); }
 result_access_ensure_tables($con);
 function rap_esc($value){ return htmlspecialchars((string)$value,ENT_QUOTES,'UTF-8'); }
 function rap_money($value){ return 'GHS '.number_format((float)$value,2); }
-$homePage=(isset($_SESSION['SYSTEMTYPE']) && $_SESSION['SYSTEMTYPE']==='super_user')?'super.php':'admin.php';
+$homePage=admin_home_dashboard_url();
 require_once __DIR__.'/result-access-payment-list-utils.php';
 $filters=rap_payment_filters($_GET);
 $search=$filters['search']; $status=$filters['status']; $batch=$filters['batchid'];

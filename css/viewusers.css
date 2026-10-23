@@ -1,8 +1,8 @@
 body.teacher-directory-page {
     background:
-        radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 24%),
-        radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 22%),
-        #f8fbff;
+        radial-gradient(circle at top left, rgba(99, 102, 241, 0.10), transparent 26%),
+        radial-gradient(circle at top right, rgba(139, 92, 246, 0.10), transparent 24%),
+        #f5f6fb;
 }
 
 .teacher-directory-shell {
@@ -15,9 +15,9 @@ body.teacher-directory-page {
 }
 
 .teacher-directory-flash {
-    border-radius: 18px;
+    border-radius: 16px;
     padding: 14px 18px;
-    border: 1px solid #dbeafe;
+    border: 1px solid #e0e7ff;
     background: #ffffff;
     color: #0f172a;
     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
@@ -51,23 +51,32 @@ body.teacher-directory-page {
 }
 
 .teacher-directory-hero {
-    border-radius: 30px;
-    padding: 26px 28px;
+    border-radius: 26px;
+    padding: 30px 30px;
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) auto;
     gap: 20px;
     align-items: center;
     margin-bottom: 18px;
+    background:
+        radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.18), transparent 40%),
+        linear-gradient(120deg, #4f46e5 0%, #6366f1 55%, #8b5cf6 100%);
+    border-color: rgba(99, 102, 241, 0.4);
+    box-shadow: 0 24px 60px rgba(99, 102, 241, 0.28);
 }
 
 .teacher-directory-eyebrow {
     display: inline-block;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: #0f766e;
+    letter-spacing: 0.16em;
+    color: #6366f1;
     margin-bottom: 10px;
+}
+
+.teacher-directory-hero .teacher-directory-eyebrow {
+    color: rgba(255, 255, 255, 0.78);
 }
 
 .teacher-directory-hero h1,
@@ -75,19 +84,22 @@ body.teacher-directory-page {
 .teacher-directory-empty h3 {
     margin: 0;
     color: #0f172a;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .teacher-directory-hero h1 {
-    font-size: clamp(2rem, 4vw, 3rem);
-    line-height: 1.05;
+    font-size: clamp(1.9rem, 3.6vw, 2.7rem);
+    line-height: 1.08;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #ffffff;
 }
 
 .teacher-directory-hero p {
     margin: 10px 0 0;
     max-width: 680px;
-    color: #475569;
-    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.98rem;
     line-height: 1.7;
 }
 
@@ -110,7 +122,8 @@ body.teacher-directory-page {
     gap: 8px;
     text-decoration: none;
     cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    font-family: inherit;
 }
 
 .teacher-directory-link,
@@ -118,18 +131,20 @@ body.teacher-directory-page {
     padding: 12px 18px;
     font-weight: 700;
     min-height: 46px;
+    font-size: 0.9rem;
 }
 
 .teacher-directory-link {
     background: #ffffff;
-    border-color: #bfdbfe;
-    color: #0f172a;
+    border-color: rgba(255, 255, 255, 0.7);
+    color: #4f46e5;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.18);
 }
 
 .teacher-directory-print-btn {
-    background: linear-gradient(135deg, #0f172a, #1d4ed8);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.45);
     color: #ffffff;
-    box-shadow: 0 16px 35px rgba(29, 78, 216, 0.24);
 }
 
 .teacher-directory-link:hover,
@@ -137,6 +152,10 @@ body.teacher-directory-page {
 .teacher-directory-filter:hover,
 .teacher-directory-action:hover {
     transform: translateY(-1px);
+}
+
+.teacher-directory-print-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
 }
 
 .teacher-directory-stats {
@@ -147,14 +166,36 @@ body.teacher-directory-page {
 }
 
 .teacher-directory-stat {
-    border-radius: 24px;
+    border-radius: 20px;
     padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.teacher-directory-stat::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: linear-gradient(180deg, #6366f1, #8b5cf6);
+}
+
+.teacher-directory-stat:nth-child(2)::before {
+    background: linear-gradient(180deg, #34d399, #059669);
+}
+
+.teacher-directory-stat:nth-child(3)::before {
+    background: linear-gradient(180deg, #f87171, #dc2626);
+}
+
+.teacher-directory-stat:nth-child(4)::before {
+    background: linear-gradient(180deg, #fbbf24, #d97706);
 }
 
 .teacher-directory-stat span {
     display: block;
     color: #64748b;
-    font-size: 0.84rem;
+    font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 700;
@@ -162,14 +203,15 @@ body.teacher-directory-page {
 
 .teacher-directory-stat strong {
     display: block;
-    margin-top: 10px;
+    margin-top: 8px;
     color: #0f172a;
-    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
     font-weight: 800;
+    letter-spacing: -0.02em;
 }
 
 .teacher-directory-panel {
-    border-radius: 30px;
+    border-radius: 26px;
     padding: 24px;
 }
 
@@ -182,12 +224,14 @@ body.teacher-directory-page {
 }
 
 .teacher-directory-panel__top h2 {
-    font-size: 1.7rem;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
 }
 
 .teacher-directory-print-note {
     color: #64748b;
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     line-height: 1.6;
     text-align: right;
 }
@@ -210,53 +254,62 @@ body.teacher-directory-page {
     top: 50%;
     left: 16px;
     transform: translateY(-50%);
-    color: #64748b;
+    color: #94a3b8;
 }
 
 .teacher-directory-search input {
     width: 100%;
-    min-height: 52px;
-    border-radius: 16px;
-    border: 1px solid #cbd5e1;
+    min-height: 50px;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
     background: #f8fafc;
-    padding: 0 16px 0 46px;
+    padding: 0 18px 0 46px;
     color: #0f172a;
-    font-size: 0.98rem;
+    font-size: 0.94rem;
+    font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .teacher-directory-search input:focus {
     outline: none;
-    border-color: #38bdf8;
+    border-color: #6366f1;
     background: #ffffff;
-    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.14);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
 }
 
 .teacher-directory-filters {
     display: inline-flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
 }
 
 .teacher-directory-filter {
-    min-height: 42px;
+    min-height: 40px;
     padding: 0 16px;
     background: #f8fafc;
-    border-color: #cbd5e1;
+    border-color: #e2e8f0;
     color: #334155;
     font-weight: 700;
+    font-size: 0.84rem;
 }
 
 .teacher-directory-filter.is-active {
-    background: #dbeafe;
-    border-color: #93c5fd;
-    color: #1d4ed8;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-color: transparent;
+    color: #ffffff;
+    box-shadow: 0 8px 18px rgba(99, 102, 241, 0.32);
 }
 
 .teacher-directory-results {
     justify-self: end;
-    color: #475569;
+    color: #4f46e5;
+    background: #eef2ff;
+    border: 1px solid #e0e7ff;
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
+    padding: 7px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
 }
 
 .teacher-directory-print-head {
@@ -264,8 +317,8 @@ body.teacher-directory-page {
 }
 
 .teacher-directory-table-wrap {
-    border: 1px solid #e2e8f0;
-    border-radius: 24px;
+    border: 1px solid #e9edf5;
+    border-radius: 20px;
     overflow: hidden;
     background: #ffffff;
 }
@@ -276,21 +329,21 @@ body.teacher-directory-page {
 }
 
 .teacher-directory-table thead {
-    background: linear-gradient(135deg, #eff6ff, #f8fafc);
+    background: linear-gradient(135deg, #eef2ff, #faf5ff);
 }
 
 .teacher-directory-table th,
 .teacher-directory-table td {
-    padding: 16px 14px;
-    border-bottom: 1px solid #e2e8f0;
-    vertical-align: top;
+    padding: 14px;
+    border-bottom: 1px solid #eef2f7;
+    vertical-align: middle;
 }
 
 .teacher-directory-table th {
-    color: #334155;
-    font-size: 0.84rem;
+    color: #475569;
+    font-size: 0.72rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.09em;
     font-weight: 800;
     text-align: left;
     white-space: nowrap;
@@ -298,37 +351,48 @@ body.teacher-directory-page {
 
 .teacher-directory-table td {
     color: #0f172a;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+}
+
+.teacher-directory-table tbody tr {
+    transition: background 0.12s ease;
 }
 
 .teacher-directory-table tbody tr:hover {
-    background: #f8fbff;
+    background: rgba(99, 102, 241, 0.045);
+}
+
+.teacher-directory-table tbody tr:last-child td {
+    border-bottom: none;
 }
 
 .teacher-directory-name {
     display: grid;
-    gap: 6px;
+    gap: 3px;
 }
 
 .teacher-directory-name strong {
-    font-size: 1rem;
+    font-size: 0.95rem;
+    font-weight: 700;
     color: #0f172a;
 }
 
 .teacher-directory-name span {
-    color: #64748b;
-    font-size: 0.84rem;
+    color: #94a3b8;
+    font-size: 0.78rem;
+    font-weight: 600;
 }
 
 .teacher-directory-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 34px;
+    min-height: 26px;
     padding: 0 12px;
     border-radius: 999px;
-    font-size: 0.83rem;
+    font-size: 0.76rem;
     font-weight: 800;
+    letter-spacing: 0.02em;
 }
 
 .teacher-directory-badge--active {
@@ -342,32 +406,41 @@ body.teacher-directory-page {
 }
 
 .teacher-directory-actions-col {
-    width: 160px;
+    width: 170px;
 }
 
 .teacher-directory-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
 }
 
 .teacher-directory-action {
-    min-height: 38px;
+    min-height: 30px;
     padding: 0 12px;
-    border-color: #dbeafe;
-    background: #ffffff;
-    color: #0f172a;
+    font-size: 0.76rem;
     font-weight: 700;
+    background: rgba(99, 102, 241, 0.06);
+    border-color: rgba(99, 102, 241, 0.26);
+    color: #4f46e5;
 }
 
-.teacher-directory-action--view {
-    border-color: #bfdbfe;
-    color: #1d4ed8;
+.teacher-directory-action:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #ffffff;
 }
 
 .teacher-directory-action--edit {
-    border-color: #bbf7d0;
-    color: #15803d;
+    background: rgba(16, 185, 129, 0.07);
+    border-color: rgba(16, 185, 129, 0.28);
+    color: #047857;
+}
+
+.teacher-directory-action--edit:hover {
+    background: #10b981;
+    border-color: #10b981;
+    color: #ffffff;
 }
 
 .teacher-directory-empty {
@@ -378,7 +451,7 @@ body.teacher-directory-page {
 
 .teacher-directory-empty i {
     font-size: 1.8rem;
-    color: #94a3b8;
+    color: #c7d2fe;
     margin-bottom: 10px;
 }
 
@@ -409,7 +482,7 @@ body.teacher-directory-page {
 
     .teacher-directory-hero,
     .teacher-directory-panel {
-        border-radius: 24px;
+        border-radius: 22px;
         padding: 20px;
     }
 
@@ -448,8 +521,8 @@ body.teacher-directory-page {
     }
 
     .teacher-directory-table tr {
-        border: 1px solid #e2e8f0;
-        border-radius: 20px;
+        border: 1px solid #e9edf5;
+        border-radius: 18px;
         overflow: hidden;
         box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
     }
@@ -467,11 +540,11 @@ body.teacher-directory-page {
         content: attr(data-label);
         display: block;
         margin-bottom: 6px;
-        color: #64748b;
-        font-size: 0.78rem;
+        color: #94a3b8;
+        font-size: 0.72rem;
         font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.09em;
     }
 
     .teacher-directory-actions-col {
@@ -493,7 +566,7 @@ body.teacher-directory-page {
     }
 
     .teacher-directory-hero h1 {
-        font-size: 2rem;
+        font-size: 1.8rem;
     }
 
     .teacher-directory-hero__actions,
@@ -503,10 +576,12 @@ body.teacher-directory-page {
     }
 
     .teacher-directory-link,
-    .teacher-directory-print-btn,
-    .teacher-directory-filter,
-    .teacher-directory-action {
+    .teacher-directory-print-btn {
         width: 100%;
+    }
+
+    .teacher-directory-filter {
+        flex: 1 1 auto;
     }
 
     .teacher-directory-panel {
